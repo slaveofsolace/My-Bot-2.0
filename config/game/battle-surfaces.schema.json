@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/my-bot-2.0/game/battle-surfaces.schema.json",
+  "title": "Current battle surfaces",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version","as_of","surfaces"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "as_of": {"type":"string","format":"date"},
+    "surfaces": {"type":"array","minItems":1,"items":{"type":"object","required":["id","label","source_id","engine_route","parent_surface","minimum_town_hall","schedule","attack_budget","trophy_effect","fixture_ids","recognition_status","execution_status","legacy_fallback_allowed"],"properties":{"id":{"type":"string"},"label":{"type":"string"},"source_id":{"type":"string"},"engine_route":{"type":["string","null"]},"parent_surface":{"type":["string","null"]},"minimum_town_hall":{"type":["integer","null"]},"schedule":{"type":"string"},"attack_budget":{"type":"object","required":["kind","value","unit"]},"trophy_effect":{"type":"string"},"fixture_ids":{"type":"array","minItems":1,"items":{"type":"string"}},"recognition_status":{"enum":["fixture-required","verified"]},"execution_status":{"enum":["blocked","not-implemented","verified"]},"legacy_fallback_allowed":{"type":"boolean"}}}}
+  }
+}

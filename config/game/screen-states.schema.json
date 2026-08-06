@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/my-bot-2.0/game/screen-states.schema.json",
+  "title": "Current screen-state registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version","as_of","states"],
+  "properties": {
+    "schema_version": {"const":1},
+    "as_of": {"type":"string","format":"date"},
+    "states": {"type":"array","minItems":1,"items":{"type":"object","required":["id","category","source_id","capability_ids","fixture_ids","blocking","recognition_status","handler_status","safe_default_action","retry_limit"],"properties":{"id":{"type":"string"},"category":{"type":"string"},"source_id":{"type":"string"},"capability_ids":{"type":"array","minItems":1,"items":{"type":"string"}},"fixture_ids":{"type":"array","minItems":1,"items":{"type":"string"}},"blocking":{"type":"boolean"},"recognition_status":{"enum":["fixture-required","verified"]},"handler_status":{"enum":["not-implemented","implemented","verified"]},"safe_default_action":{"enum":["observe","ignore","stop-route","close-known","return-home"]},"retry_limit":{"type":"integer","minimum":0,"maximum":10},"appears_after_seconds":{"type":"integer","minimum":0},"speed_multiplier":{"type":"integer","minimum":1}}}}
+  }
+}

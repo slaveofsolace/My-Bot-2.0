@@ -7,7 +7,7 @@
     "status": "legacy-baseline"
   },
   "status_definitions": {
-    "catalogued": "The game change and affected subsystems are documented, but recognition and execution are not implemented.",
+    "catalogued": "The official change and affected subsystems are documented, but recognition and execution are not implemented.",
     "adapter-added": "Source integration is present and statically verified; controlled Windows runtime testing remains required.",
     "engine-added": "A reusable engine contract is implemented and statically verified; runtime evidence remains required before support promotion.",
     "fixture-required": "Recognition cannot be claimed until dated, approved screenshots are available.",
@@ -21,14 +21,22 @@
     {"id":"orchestration.battle-route","introduced":"2026-08-06","status":"engine-added","implementation":"COCBot/functions/Run/BattleRoute.au3","schema":"config/battle-route.schema.json","default_readiness":"closed","runtime_evidence":"required"},
     {"id":"orchestration.run-session","introduced":"2026-08-06","status":"engine-added","implementation":"COCBot/functions/Run/RunSession.au3","schema":"config/run-session.schema.json","tests":"tests/autoit/RunContractsTest.au3","runtime_evidence":"required"},
     {"id":"orchestration.run-event","introduced":"2026-08-06","status":"engine-added","implementation":"COCBot/functions/Run/RunEvent.au3","schema":"config/run-event.schema.json","tests":"tests/autoit/RunContractsTest.au3","runtime_evidence":"required"},
+    {"id":"model.current-game","introduced":"2026-08-06","status":"engine-added","implementation":"COCBot/functions/Game/GameCatalog.au3","schema":"config/game/current-client.schema.json","runtime_evidence":"required"},
+    {"id":"model.screen-state-registry","introduced":"2026-08-06","status":"engine-added","implementation":"COCBot/functions/Game/ScreenStateRegistry.au3","schema":"config/game/screen-states.schema.json","runtime_evidence":"required"},
+    {"id":"army.recipes","official_change_date":"2025-03-24","status":"catalogued","affected_areas":["army-preparation","timers","quick-train","donations","navigation"],"fixture_status":"required","runtime_evidence":"required"},
+    {"id":"army.cookbook","official_change_date":"2025-06-16","status":"catalogued","affected_areas":["army-tabs","recipe-selection","navigation","profiles"],"fixture_status":"required","runtime_evidence":"required"},
+    {"id":"defense.crafted","official_change_date":"2025-06-16","status":"catalogued","affected_areas":["defense-catalog","crafting-station","attack-analysis","profiles"],"fixture_status":"required","runtime_evidence":"required"},
     {"id":"battle.regular-ranked-split","official_change_date":"2025-10-06","status":"catalogued","affected_areas":["navigation","search","attack-routing","profiles","statistics","stop-conditions"],"fixture_status":"required","runtime_evidence":"required"},
+    {"id":"battle.revenge","official_change_date":"2025-10-06","status":"catalogued","affected_areas":["defense-log","shadow-base","route-selection","resource-recovery"],"fixture_status":"required","runtime_evidence":"required"},
     {"id":"village.town-hall-18","official_change_date":"2025-11-17","status":"catalogued","affected_areas":["town-hall-detection","levels","costs","walls","weak-base-filters","upgrade-routing"],"fixture_status":"required","runtime_evidence":"required"},
     {"id":"village.guardians","official_change_date":"2025-11-17","status":"catalogued","affected_areas":["defense-catalog","profile-report","upgrade-routing","battle-analysis"],"fixture_status":"required","runtime_evidence":"required"},
-    {"id":"heroes.dragon-duke","official_change_date":"2026-02-01","status":"catalogued","affected_areas":["hero-catalog","hero-hall","blacksmith","deployment","donation-exclusions"],"fixture_status":"required","runtime_evidence":"required"},
-    {"id":"heroes.six-slot-layout","official_change_date":"2026-02-01","status":"catalogued","affected_areas":["arrays","gui-controls","profile-storage","attack-bar","reports"],"fixture_status":"required","runtime_evidence":"required"},
+    {"id":"heroes.dragon-duke","official_change_date":"2026-02-23","status":"catalogued","affected_areas":["hero-catalog","hero-hall","blacksmith","deployment","donation-exclusions"],"fixture_status":"required","runtime_evidence":"required"},
+    {"id":"heroes.six-slot-layout","official_change_date":"2026-02-23","status":"catalogued","affected_areas":["arrays","gui-controls","profile-storage","attack-bar","reports"],"fixture_status":"required","runtime_evidence":"required"},
+    {"id":"battle.legend-tiers","official_change_date":"2026-04-27","status":"catalogued","affected_areas":["tier-recognition","attack-budgets","schedules","ranking","stop-conditions"],"fixture_status":"required","runtime_evidence":"required"},
     {"id":"builder-base.additional-builder","official_change_date":"2026-05-26","status":"catalogued","affected_areas":["builder-count","suggested-upgrades","bob-control","reports"],"fixture_status":"required","runtime_evidence":"required"},
     {"id":"heroes.hero-journey","official_change_date":"2026-06-15","status":"catalogued","affected_areas":["interruptions","hero-navigation","rewards","safe-click-regions"],"fixture_status":"required","runtime_evidence":"required"},
     {"id":"chat.global-chat","official_change_date":"2026-06-15","status":"catalogued","affected_areas":["chat-state","donation-navigation","safe-click-regions","interruptions"],"fixture_status":"required","runtime_evidence":"required"},
-    {"id":"battle.fast-forward","official_change_date":"2026-06-15","status":"catalogued","affected_areas":["battle-state","end-battle","timing","statistics"],"fixture_status":"required","runtime_evidence":"required"}
+    {"id":"battle.fast-forward","official_change_date":"2026-06-15","status":"catalogued","affected_areas":["battle-state","end-battle","timing","statistics"],"fixture_status":"required","runtime_evidence":"required"},
+    {"id":"shop.chain-offers","official_change_date":"2026-06-15","status":"catalogued","affected_areas":["shop-navigation","interruptions","safe-click-regions"],"fixture_status":"required","runtime_evidence":"required"}
   ]
 }
