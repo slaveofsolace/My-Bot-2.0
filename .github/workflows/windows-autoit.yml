@@ -1,0 +1,70 @@
+name: Windows AutoIt validation
+
+on:
+  push:
+    branches:
+      - "integration/**"
+      - "compat/**"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+
+jobs:
+  autoit:
+    name: AutoIt ${{ matrix.autoit }}
+    runs-on: windows-2022
+    timeout-minutes: 25
+
+    strategy:
+      fail-fast: false
+      matrix:
+        autoit:
+          - "3.3.16.1"
+          - "3.3.18.0"
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Download signed AutoIt portable package
+        id: autoit
+        shell: pwsh
+        env:
+          AUTOIT_VERSION: ${{ matrix.autoit }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $url = "https://www.autoitscript.com/autoit3/files/archive/autoit/autoit-v$env:AUTOIT_VERSION.zip"
+          $archive = Join-Path $env:RUNNER_TEMP "autoit-$env:AUTOIT_VERSION.zip"
+          $destination = Join-Path $env:RUNNER_TEMP "autoit-$env:AUTOIT_VERSION"
+          Invoke-WebRequest -Uri $url -OutFile $archive
+          Expand-Archive -Path $archive -DestinationPath $destination -Force
+          $autoItExe = Get-ChildItem -Path $destination -Recurse -File -Filter "AutoIt3.exe" | Select-Object -First 1
+          if (-not $autoItExe) { throw "AutoIt3.exe was not present in the downloaded package" }
+          $signature = Get-AuthenticodeSignature -FilePath $autoItExe.FullName
+          if ($signature.Status -ne "Valid") { throw "Downloaded AutoIt signature status: $($signature.Status)" }
+          "root=$destination" >> $env:GITHUB_OUTPUT
+
+      - name: Run syntax and contract validation
+        shell: pwsh
+        run: |
+          ./tools/Test-AutoIt.ps1 `
+            -AutoItRoot "${{ steps.autoit.outputs.root }}" `
+            -Version "${{ matrix.autoit }}" `
+            -ReportPath "autoit-validation-${{ matrix.autoit }}.json"
+
+      - name: Upload AutoIt evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: autoit-${{ matrix.autoit }}-${{ github.run_id }}
+          path: |
+            autoit-validation-${{ matrix.autoit }}.json
+            artifacts/autoit-${{ matrix.autoit }}/
+          if-no-files-found: warn
+          retention-days: 14
