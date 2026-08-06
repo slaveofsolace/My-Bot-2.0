@@ -90,3 +90,5 @@ Func _DllStructLoadData(ByRef $Struct, $Element, ByRef $value)
 	EndIf
 EndFunc   ;==>_DllStructLoadData
 
+; Current client adapters and run orchestration
+#include "CurrentClientCompat.au3"

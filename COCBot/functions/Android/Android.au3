@@ -778,6 +778,11 @@ Func FindPreferredAdbPath()
 			$sAdbPath = GetMEmuAdbPath()
 		Case "Nox"
 			$sAdbPath = GetNoxAdbPath()
+		; Current client emulator ADB paths
+		Case "LDPlayer9"
+			$sAdbPath = GetLDPlayer9AdbPath()
+		Case "MuMu"
+			$sAdbPath = GetMumuAdbPath()
 	EndSwitch
 
 	; Using From MyBotRun

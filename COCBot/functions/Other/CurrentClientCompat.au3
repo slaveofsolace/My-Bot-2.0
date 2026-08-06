@@ -105,8 +105,8 @@ Func ReferenceCurrentClientCompat()
 	MumuBotStartEvent()
 	MumuBotStopEvent()
 
-	Local $oPlan = RunPlanCreateDefault()
-	RunPlanValidate($oPlan)
+	Local $oPlan = RunPlanCreateDefault(), $sPlanError
+	RunPlanValidate($oPlan, $sPlanError)
 	RunPlanShouldStop($oPlan, 0, 0, 0, False)
 	Local $oQueue = AccountQueueCreate()
 	AccountQueueAdd($oQueue, "profile", "Profile")

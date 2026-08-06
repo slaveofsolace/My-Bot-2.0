@@ -24,8 +24,7 @@ Func RunPlanCreateDefault($sMode = "home", $sStrategy = "auto")
 	Return $oPlan
 EndFunc   ;==>RunPlanCreateDefault
 
-Func RunPlanValidate(ByRef $oPlan, ByRef $sError = Default)
-	If $sError = Default Then Local $sError = ""
+Func RunPlanValidate(ByRef $oPlan, ByRef $sError)
 	If Not IsObj($oPlan) Then
 		$sError = "Run plan is not an object"
 		Return SetError(1, 0, False)

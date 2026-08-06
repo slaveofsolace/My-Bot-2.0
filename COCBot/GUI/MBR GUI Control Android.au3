@@ -176,6 +176,19 @@ Func getAllEmulators()
 	Local $MEmuEmulator = GetMEmuPath()
 	If FileExists($MEmuEmulator) Then $sEmulatorString &= "MEmu|"
 
+	; Current client emulator adapters
+	Local $sLDPlayer9Version = RegRead($g_sHKLM & "\SOFTWARE" & $g_sWow6432Node & "\Microsoft\Windows\CurrentVersion\Uninstall\LDPlayer9\", "DisplayVersion")
+	Local $iLDPlayer9RegError = @error
+	If $iLDPlayer9RegError = 0 And GetVersionNormalized($sLDPlayer9Version) >= GetVersionNormalized("9.0") Then $sEmulatorString &= "LDPlayer9|"
+
+	Local $sMumuVersion = RegRead($g_sHKLM & "\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\MuMuPlayerGlobal\", "DisplayVersion")
+	Local $iMumuRegError = @error
+	If $iMumuRegError <> 0 Then
+		$sMumuVersion = RegRead($g_sHKLM & "\SOFTWARE" & $g_sWow6432Node & "\Microsoft\Windows\CurrentVersion\Uninstall\MuMuPlayerGlobal\", "DisplayVersion")
+		$iMumuRegError = @error
+	EndIf
+	If $iMumuRegError = 0 And GetVersionNormalized($sMumuVersion) >= GetVersionNormalized("5.0") Then $sEmulatorString &= "MuMu|"
+
 	Local $sResult = StringRight($sEmulatorString, 1)
 	If $sResult == "|" Then $sEmulatorString = StringTrimRight($sEmulatorString, 1)
 
@@ -187,6 +200,9 @@ Func getAllEmulators()
 			If StringInStr($aEmulator[$i], "BlueStacks5") Then $emuVer = $__BlueStacks5_Version
 			If StringInStr($aEmulator[$i], "Memu") Then $emuVer = $__MEmu_Version
 			If StringInStr($aEmulator[$i], "nox") Then $emuVer = $__Nox_Version
+			; Current client emulator versions
+			If StringInStr($aEmulator[$i], "LDPlayer9") Then $emuVer = $sLDPlayer9Version
+			If StringInStr($aEmulator[$i], "MuMu") Then $emuVer = $sMumuVersion
 			SetLog("  - " & $aEmulator[$i] & " version: " & $emuVer, $COLOR_SUCCESS)
 		Next
 	Else
@@ -220,6 +236,14 @@ Func getAllEmulatorsInstances()
 			$sEmulatorPath = GetNoxPath() & "\BignoxVMS"
 		Case "MEmu"
 			$sEmulatorPath = GetMEmuPath() & "\MemuHyperv VMs"
+		; Current client emulator instance roots
+		Case "LDPlayer9"
+			Local $sLDPlayerPath = RegRead($g_sHKLM & "\SOFTWARE\XuanZhi\LDPlayer9\", "InstallDir")
+			$sEmulatorPath = $sLDPlayerPath & "vms\"
+		Case "MuMu"
+			Local $sMumuUninstall = RegRead($g_sHKLM & "\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\MuMuPlayerGlobal\", "UninstallString")
+			If @error Then $sMumuUninstall = RegRead($g_sHKLM & "\SOFTWARE" & $g_sWow6432Node & "\Microsoft\Windows\CurrentVersion\Uninstall\MuMuPlayerGlobal\", "UninstallString")
+			$sEmulatorPath = StringReplace(StringReplace($sMumuUninstall, "uninstall.exe", "vms"), Chr(34), "")
 		Case Else
 			GUICtrlSetData($g_hCmbAndroidInstance, "Android", "Android")
 			Return
