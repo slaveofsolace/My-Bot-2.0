@@ -1,0 +1,418 @@
+{
+  "schema_version": 1,
+  "surface": "run-planner",
+  "title": "Run Planner",
+  "description": "Build an explicit, reviewable session plan before starting the automation engine.",
+  "sections": [
+    {
+      "id": "destination",
+      "title": "Destination",
+      "description": "Choose the game surface and strategy. Options stay disabled until their recognition and execution gates pass.",
+      "order": 10,
+      "settings": [
+        {
+          "id": "run.mode",
+          "type": "select",
+          "label": "Battle destination",
+          "summary": "Select where the session is allowed to enter battles.",
+          "description": "Regular, Ranked, Legend, and Builder Base are separate routes with different entry screens, limits, and stop behavior. The engine never silently substitutes one route for another.",
+          "default": "regular",
+          "required": true,
+          "engine_binding": "RunPlan.mode",
+          "options": [
+            {
+              "value": "regular",
+              "label": "Regular battles",
+              "summary": "Standard Home Village multiplayer search.",
+              "description": "Uses the regular multiplayer route and the configured farming filters. This route is kept separate from Ranked and Legend battles.",
+              "availability": "gated",
+              "capability_ids": ["battle.regular-ranked-split"],
+              "prerequisites": ["Current regular-entry fixture", "Controlled route smoke test"],
+              "disabled_reason": "Current-client entry recognition and runtime evidence are not complete.",
+              "recommended": true,
+              "warning": ""
+            },
+            {
+              "value": "ranked",
+              "label": "Ranked battles",
+              "summary": "Use the dedicated Ranked battle route.",
+              "description": "Consumes Ranked attacks and must display the available-attack count before start. It cannot fall back to regular multiplayer search.",
+              "availability": "gated",
+              "capability_ids": ["battle.regular-ranked-split"],
+              "prerequisites": ["Ranked-entry fixture", "Attack-limit recognition", "Explicit limited-attack confirmation"],
+              "disabled_reason": "Ranked navigation and attack-limit recognition are still awaiting fixtures and controlled validation.",
+              "recommended": false,
+              "warning": "This mode consumes a limited battle allocation."
+            },
+            {
+              "value": "legend",
+              "label": "Legend League",
+              "summary": "Use the current tiered Legend League route.",
+              "description": "Reads the current Legend tier, remaining attacks, and schedule state before allowing a session to start.",
+              "availability": "gated",
+              "capability_ids": ["battle.regular-ranked-split"],
+              "prerequisites": ["Legend tier fixture", "Remaining-attack fixture", "Controlled Legend route test"],
+              "disabled_reason": "Tier and remaining-attack recognition are not yet verified.",
+              "recommended": false,
+              "warning": "This mode consumes a limited battle allocation."
+            },
+            {
+              "value": "builder",
+              "label": "Builder Base",
+              "summary": "Run Builder Base attacks and post-battle collection.",
+              "description": "Uses the Builder Base route, Builder Base army state, builder count, reward cart, and its own stop conditions.",
+              "availability": "gated",
+              "capability_ids": ["builder-base.additional-builder"],
+              "prerequisites": ["Current Builder Base fixture set", "Builder-count validation", "Post-battle cart validation"],
+              "disabled_reason": "Current Builder Base builder and post-battle states require fixture validation.",
+              "recommended": false,
+              "warning": ""
+            }
+          ]
+        },
+        {
+          "id": "run.strategy",
+          "type": "select",
+          "label": "Attack strategy",
+          "summary": "Choose the deployment policy used after a route is verified.",
+          "description": "Strategies are engine capabilities, not visual presets. A strategy remains unavailable when required troops, deployment-bar recognition, or route-specific evidence is missing.",
+          "default": "legacy.csv",
+          "required": true,
+          "engine_binding": "RunPlan.strategy",
+          "options": [
+            {
+              "value": "legacy.csv",
+              "label": "Scripted CSV",
+              "summary": "Use an existing reviewed CSV deployment script.",
+              "description": "Runs the selected legacy CSV script through the existing parser and red-area deployment engine. The profile must reference a valid script.",
+              "availability": "available",
+              "capability_ids": [],
+              "prerequisites": ["Valid CSV script", "Compatible troop bar"],
+              "disabled_reason": "",
+              "recommended": true,
+              "warning": ""
+            },
+            {
+              "value": "legacy.standard",
+              "label": "Standard deployment",
+              "summary": "Use the built-in standard deployment controls.",
+              "description": "Uses the existing standard attack settings and drop order. Current-client troop-bar recognition must pass before live use.",
+              "availability": "gated",
+              "capability_ids": [],
+              "prerequisites": ["Current attack-bar fixture", "Selected army is recognized"],
+              "disabled_reason": "Current attack-bar recognition has not been revalidated.",
+              "recommended": false,
+              "warning": ""
+            },
+            {
+              "value": "legacy.smart-farm",
+              "label": "Smart Farm",
+              "summary": "Use the existing collector-aware farming algorithm.",
+              "description": "Targets recognized external collectors and follows configured resource filters. It requires current collector and red-area fixtures.",
+              "availability": "gated",
+              "capability_ids": ["village.town-hall-18"],
+              "prerequisites": ["Current collector fixtures", "Current red-area fixture"],
+              "disabled_reason": "Town Hall 18-era collector and boundary fixtures are incomplete.",
+              "recommended": false,
+              "warning": ""
+            },
+            {
+              "value": "builder.baby-dragon",
+              "label": "Builder Base: Baby Dragons",
+              "summary": "Deploy a Builder Base Baby Dragon army.",
+              "description": "Uses a dedicated Builder Base route and must verify the current army bar, Hero slot, surrender or end-battle flow, and reward-cart return state.",
+              "availability": "planned",
+              "capability_ids": ["builder-base.additional-builder"],
+              "prerequisites": ["Builder Base army fixture", "Battle-end fixtures", "Reward-cart fixture"],
+              "disabled_reason": "The clean-room Builder Base strategy adapter is not implemented yet.",
+              "recommended": false,
+              "warning": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "environment",
+      "title": "Environment",
+      "description": "Select a supported local Android environment and instance.",
+      "order": 20,
+      "settings": [
+        {
+          "id": "runtime.emulator",
+          "type": "select",
+          "label": "Android environment",
+          "summary": "Choose which installed emulator adapter the engine controls.",
+          "description": "Auto-detect lists only installations found on this computer. Explicit selection is recommended for multi-instance testing and reproducible diagnostics.",
+          "default": "auto",
+          "required": true,
+          "engine_binding": "Android.emulator",
+          "options": [
+            {
+              "value": "auto",
+              "label": "Auto-detect",
+              "summary": "Select the first compatible installed environment.",
+              "description": "Discovers supported installations and preserves the configured instance when it remains valid.",
+              "availability": "available",
+              "capability_ids": [],
+              "prerequisites": ["At least one compatible installation"],
+              "disabled_reason": "",
+              "recommended": true,
+              "warning": ""
+            },
+            {
+              "value": "bluestacks5",
+              "label": "BlueStacks 5",
+              "summary": "Use the existing BlueStacks 5 adapter.",
+              "description": "Uses the inherited BlueStacks 5 integration, including background capture and the configured Android instance.",
+              "availability": "gated",
+              "capability_ids": [],
+              "prerequisites": ["Supported BlueStacks 5 build", "Controlled smoke test"],
+              "disabled_reason": "The inherited adapter has not completed the current-client emulator matrix.",
+              "recommended": false,
+              "warning": ""
+            },
+            {
+              "value": "memu",
+              "label": "MEmu",
+              "summary": "Use the existing MEmu adapter.",
+              "description": "Uses the inherited MEmu integration and its configured instance and ADB endpoint.",
+              "availability": "gated",
+              "capability_ids": [],
+              "prerequisites": ["Supported MEmu build", "Controlled smoke test"],
+              "disabled_reason": "The inherited adapter has not completed the current-client emulator matrix.",
+              "recommended": false,
+              "warning": ""
+            },
+            {
+              "value": "nox",
+              "label": "Nox",
+              "summary": "Use the existing Nox adapter.",
+              "description": "Uses the inherited Nox integration and its configured instance and ADB endpoint.",
+              "availability": "gated",
+              "capability_ids": [],
+              "prerequisites": ["Supported Nox build", "Controlled smoke test"],
+              "disabled_reason": "The inherited adapter has not completed the current-client emulator matrix.",
+              "recommended": false,
+              "warning": ""
+            },
+            {
+              "value": "ldplayer9",
+              "label": "LDPlayer 9",
+              "summary": "Use the new LDPlayer 9 adapter.",
+              "description": "Discovers LDPlayer 9, resolves standard multi-instance ADB ports, configures the required resolution and DPI, and exposes background-mode hooks.",
+              "availability": "gated",
+              "capability_ids": ["emulator.ldplayer9"],
+              "prerequisites": ["LDPlayer 9 installation", "Instance-specific Windows smoke test"],
+              "disabled_reason": "Static integration passes; controlled instance and background-capture evidence is still required.",
+              "recommended": false,
+              "warning": ""
+            },
+            {
+              "value": "mumu",
+              "label": "MuMu Player 12",
+              "summary": "Use the new MuMu Player adapter.",
+              "description": "Discovers MuMu Player, reads the instance ADB endpoint from configuration, configures the required resolution and DPI, and selects the renderer-aware background mode.",
+              "availability": "gated",
+              "capability_ids": ["emulator.mumu"],
+              "prerequisites": ["MuMu Player 12 installation", "Instance-specific Windows smoke test"],
+              "disabled_reason": "Static integration passes; controlled instance and background-capture evidence is still required.",
+              "recommended": false,
+              "warning": ""
+            }
+          ]
+        },
+        {
+          "id": "runtime.instance",
+          "type": "instance-select",
+          "label": "Instance",
+          "summary": "Choose the exact Android instance controlled by this run.",
+          "description": "The list is populated from the selected emulator. The saved value is an instance identifier, not a display title or account credential.",
+          "default": "",
+          "required": true,
+          "engine_binding": "Android.instance",
+          "empty_state": "No compatible instances were discovered.",
+          "validation": {"max_length": 128}
+        }
+      ]
+    },
+    {
+      "id": "limits",
+      "title": "Stop conditions",
+      "description": "A run stops when the first enabled condition is met.",
+      "order": 30,
+      "settings": [
+        {
+          "id": "run.duration_minutes",
+          "type": "integer",
+          "label": "Duration",
+          "summary": "Stop after this many elapsed minutes.",
+          "description": "Use 0 to disable the duration limit. Elapsed time is measured by the run session and excludes time after the stopping state begins.",
+          "default": 0,
+          "required": true,
+          "engine_binding": "RunPlan.duration_minutes",
+          "unit": "minutes",
+          "validation": {"minimum": 0, "maximum": 10080, "step": 1}
+        },
+        {
+          "id": "run.max_battles",
+          "type": "integer",
+          "label": "Battle limit",
+          "summary": "Stop after this many completed battle attempts.",
+          "description": "Use 0 to disable the battle-count limit. Failed attempts count because they consume route time and may consume limited attacks.",
+          "default": 0,
+          "required": true,
+          "engine_binding": "RunPlan.max_battles",
+          "unit": "battles",
+          "validation": {"minimum": 0, "maximum": 100000, "step": 1}
+        },
+        {
+          "id": "run.stop_on_star_bonus",
+          "type": "boolean",
+          "label": "Stop when Star Bonus is complete",
+          "summary": "End the session after the selected route's Star Bonus is complete.",
+          "description": "The route must expose a verified Star Bonus state. This option does not infer completion from a fixed battle count.",
+          "default": false,
+          "required": true,
+          "engine_binding": "RunPlan.stop_on_star_bonus"
+        },
+        {
+          "id": "run.max_failures",
+          "type": "integer",
+          "label": "Failure limit",
+          "summary": "Stop after repeated failed battle or navigation attempts.",
+          "description": "Prevents an unattended session from looping through an unrecognized or changed game state. Use 0 only during supervised diagnostics.",
+          "default": 3,
+          "required": true,
+          "engine_binding": "RunPlan.max_failures",
+          "unit": "failures",
+          "validation": {"minimum": 0, "maximum": 1000, "step": 1}
+        }
+      ]
+    },
+    {
+      "id": "resources",
+      "title": "Resource targets",
+      "description": "Optional cumulative loot targets for the current run session.",
+      "order": 40,
+      "settings": [
+        {
+          "id": "target.gold",
+          "type": "integer",
+          "label": "Gold target",
+          "summary": "Stop when cumulative Gold reaches this value.",
+          "description": "Use 0 to disable. The target uses loot recorded during this run, not the current storage balance.",
+          "default": 0,
+          "required": true,
+          "engine_binding": "RunPlan.target_gold",
+          "unit": "gold",
+          "validation": {"minimum": 0, "maximum": 2000000000, "step": 1000}
+        },
+        {
+          "id": "target.elixir",
+          "type": "integer",
+          "label": "Elixir target",
+          "summary": "Stop when cumulative Elixir reaches this value.",
+          "description": "Use 0 to disable. The target uses loot recorded during this run, not the current storage balance.",
+          "default": 0,
+          "required": true,
+          "engine_binding": "RunPlan.target_elixir",
+          "unit": "elixir",
+          "validation": {"minimum": 0, "maximum": 2000000000, "step": 1000}
+        },
+        {
+          "id": "target.dark_elixir",
+          "type": "integer",
+          "label": "Dark Elixir target",
+          "summary": "Stop when cumulative Dark Elixir reaches this value.",
+          "description": "Use 0 to disable. Builder Base routes ignore this target because that resource is not part of the route.",
+          "default": 0,
+          "required": true,
+          "engine_binding": "RunPlan.target_dark_elixir",
+          "unit": "dark-elixir",
+          "validation": {"minimum": 0, "maximum": 2000000000, "step": 100}
+        }
+      ]
+    },
+    {
+      "id": "maintenance",
+      "title": "Accounts and upgrades",
+      "description": "Choose which local profiles participate and whether resources may be spent on upgrades.",
+      "order": 50,
+      "settings": [
+        {
+          "id": "upgrade.policy",
+          "type": "select",
+          "label": "Upgrade policy",
+          "summary": "Control whether the session may initiate upgrades.",
+          "description": "Upgrade actions remain subject to free-builder, resource, exclusion, and current-screen checks. The default never spends resources.",
+          "default": "disabled",
+          "required": true,
+          "engine_binding": "RunPlan.upgrade_policy",
+          "options": [
+            {
+              "value": "disabled",
+              "label": "Do not upgrade",
+              "summary": "Never initiate an upgrade during this run.",
+              "description": "Resource collection and battle execution remain active, but no wall, building, Hero, pet, equipment, or laboratory upgrade is started.",
+              "availability": "available",
+              "capability_ids": [],
+              "prerequisites": [],
+              "disabled_reason": "",
+              "recommended": true,
+              "warning": ""
+            },
+            {
+              "value": "walls",
+              "label": "Walls only",
+              "summary": "Permit verified wall upgrades when configured conditions pass.",
+              "description": "Uses the selected wall level, resource preference, builder reservation, and storage thresholds. Current wall recognition must pass.",
+              "availability": "gated",
+              "capability_ids": ["village.town-hall-18"],
+              "prerequisites": ["Current wall-level fixtures", "Free builder", "Configured spending thresholds"],
+              "disabled_reason": "Town Hall 18 wall recognition and costs are not yet verified.",
+              "recommended": false,
+              "warning": "This option spends in-game resources."
+            },
+            {
+              "value": "suggested",
+              "label": "Suggested upgrades",
+              "summary": "Use the verified suggested-upgrade list.",
+              "description": "Reads the current suggested-upgrade surface and applies configured exclusions before selecting an item.",
+              "availability": "gated",
+              "capability_ids": ["builder-base.additional-builder"],
+              "prerequisites": ["Current suggested-upgrade fixture", "Cost and resource-icon recognition"],
+              "disabled_reason": "The current suggested-upgrade surface has not completed fixture validation.",
+              "recommended": false,
+              "warning": "This option spends in-game resources."
+            },
+            {
+              "value": "all",
+              "label": "Configured automatic upgrades",
+              "summary": "Permit every explicitly enabled upgrade category.",
+              "description": "Combines the profile's building, wall, Hero, pet, equipment, and laboratory rules. It never bypasses exclusions or spending thresholds.",
+              "availability": "planned",
+              "capability_ids": ["village.town-hall-18", "heroes.six-slot-layout"],
+              "prerequisites": ["All current upgrade catalogs", "Current costs", "Six-Hero configuration migration"],
+              "disabled_reason": "The full current-client upgrade catalog is not implemented.",
+              "recommended": false,
+              "warning": "This option may spend substantial in-game resources."
+            }
+          ]
+        },
+        {
+          "id": "account.queue",
+          "type": "profile-queue",
+          "label": "Account queue",
+          "summary": "Order the local profiles used during this run.",
+          "description": "Queue entries contain profile identifiers, labels, enabled state, and order only. Authentication material is never stored in the run plan.",
+          "default": "",
+          "required": false,
+          "engine_binding": "RunPlan.account_queue_id",
+          "empty_state": "No account queue selected; the active profile will be used.",
+          "validation": {"max_items": 500}
+        }
+      ]
+    }
+  ]
+}

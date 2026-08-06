@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   verify:
-    name: Verify adapters and orchestration
+    name: Verify adapters, evidence, and orchestration
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -31,10 +31,21 @@ jobs:
           python-version: "3.13"
 
       - name: Check integration tooling syntax
-        run: python -m py_compile tools/apply_current_client_compat.py tools/verify_current_client_compat.py
+        run: >-
+          python -m py_compile
+          tools/apply_current_client_compat.py
+          tools/verify_current_client_compat.py
+          tools/validate_current_client_fixtures.py
+          tools/validate_ui_metadata.py
 
       - name: Apply patch in disposable checkout
         run: python tools/apply_current_client_compat.py --json current-client-patch.json
+
+      - name: Validate fixture inventory
+        run: python tools/validate_current_client_fixtures.py --json fixture-validation.json
+
+      - name: Validate run-planner metadata
+        run: python tools/validate_ui_metadata.py --json ui-metadata-validation.json
 
       - name: Verify current-client integration
         run: python tools/verify_current_client_compat.py --json current-client-verification.json
@@ -49,6 +60,8 @@ jobs:
           name: current-client-compat-${{ github.run_id }}
           path: |
             current-client-patch.json
+            fixture-validation.json
+            ui-metadata-validation.json
             current-client-verification.json
             repository-audit.json
           if-no-files-found: warn
