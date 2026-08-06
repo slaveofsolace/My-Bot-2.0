@@ -1,0 +1,57 @@
+name: Apply current game model
+
+on:
+  push:
+    branches:
+      - "integration/current-game-model-1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: "apply-current-game-model-${{ github.ref }}"
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Validate source catalogs
+        run: python tools/validate_game_catalog.py --json /tmp/game-catalog-validation.json
+
+      - name: Generate AutoIt catalog
+        run: python tools/generate_game_catalog_autoit.py
+
+      - name: Verify generated integration
+        run: python tools/verify_current_game_model.py --json /tmp/current-game-verification.json
+
+      - name: Run repository audit
+        run: python tools/repo_audit.py --json /tmp/repository-audit.json
+
+      - name: Commit deterministic generated source
+        shell: bash
+        run: |
+          if git diff --quiet -- "COCBot/functions/Game/GameCatalog.generated.au3"; then
+            echo "Generated current-game catalog is already current."
+            exit 0
+          fi
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- "COCBot/functions/Game/GameCatalog.generated.au3"
+          git commit -m "generated: update current game AutoIt catalog"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
