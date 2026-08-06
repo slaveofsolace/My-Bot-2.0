@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/my-bot-2.0/run-session.schema.json",
+  "title": "My Bot run session snapshot",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "session_id",
+    "state",
+    "account_profile_id",
+    "battle_count",
+    "success_count",
+    "failure_count",
+    "gold",
+    "elixir",
+    "dark_elixir",
+    "stop_reason",
+    "last_error"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "session_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "state": {"enum": ["ready", "running", "stopping", "completed", "failed"]},
+    "account_profile_id": {"type": "string", "maxLength": 64},
+    "battle_count": {"type": "integer", "minimum": 0},
+    "success_count": {"type": "integer", "minimum": 0},
+    "failure_count": {"type": "integer", "minimum": 0},
+    "gold": {"type": "integer", "minimum": 0},
+    "elixir": {"type": "integer", "minimum": 0},
+    "dark_elixir": {"type": "integer", "minimum": 0},
+    "stop_reason": {"type": "string", "maxLength": 128},
+    "last_error": {"type": "string", "maxLength": 1024}
+  }
+}

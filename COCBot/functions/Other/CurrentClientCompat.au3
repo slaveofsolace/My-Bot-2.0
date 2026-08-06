@@ -9,6 +9,8 @@
 #include "..\Android\AndroidMumu.au3"
 #include "..\Run\RunPlan.au3"
 #include "..\Run\AccountQueue.au3"
+#include "..\Run\BattleRoute.au3"
+#include "..\Run\RunSession.au3"
 
 Global $__LDPlayer9_Idx = -1
 Global $__Mumu_Idx = -1
@@ -112,6 +114,18 @@ Func ReferenceCurrentClientCompat()
 	AccountQueueAdd($oQueue, "profile", "Profile")
 	Local $sProfile, $sName
 	AccountQueueNext($oQueue, $sProfile, $sName)
+
+	Local $oRoute = BattleRouteFromRunPlan($oPlan, $sPlanError), $sRouteReason
+	BattleRouteSetReadiness($oRoute, False, False, "fixture required")
+	BattleRouteCanStart($oRoute, $sRouteReason)
+	Local $oSession = RunSessionCreate($oPlan, "reference")
+	RunSessionSetAccount($oSession, "profile")
+	RunSessionStart($oSession)
+	RunSessionRecordBattle($oSession, True, 0, 0, 0)
+	RunSessionEvaluateStop($oSession, 0, False)
+	RunSessionRequestStop($oSession, "reference")
+	RunSessionComplete($oSession)
+	RunSessionSnapshot($oSession)
 EndFunc   ;==>ReferenceCurrentClientCompat
 
 RegisterCurrentClientCompat()

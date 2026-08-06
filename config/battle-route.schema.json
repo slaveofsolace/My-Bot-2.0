@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/my-bot-2.0/battle-route.schema.json",
+  "title": "My Bot battle route",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "mode",
+    "surface",
+    "entry_fixture",
+    "limited_attacks",
+    "legacy_fallback",
+    "recognition_ready",
+    "execution_ready",
+    "readiness_reason"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "mode": {"enum": ["regular", "ranked", "legend", "builder"]},
+    "surface": {"enum": ["multiplayer", "ranked", "legend", "builder-base"]},
+    "entry_fixture": {"type": "string", "minLength": 1, "maxLength": 128},
+    "limited_attacks": {"type": "boolean"},
+    "legacy_fallback": {"type": "boolean"},
+    "recognition_ready": {"type": "boolean"},
+    "execution_ready": {"type": "boolean"},
+    "readiness_reason": {"type": "string", "maxLength": 512}
+  }
+}
