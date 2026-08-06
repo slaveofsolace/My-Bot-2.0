@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-08-06",
+  "sources": [
+    {
+      "id": "mybotrun-v8",
+      "repository": "MyBotRun/MyBot",
+      "ref": "develop",
+      "commit": "8ad6e5a552347acc2fcb8048d30262e2735a0c33",
+      "role": "Runnable v8.2.0 source baseline",
+      "license": "GPL-3.0",
+      "importPolicy": "Baseline source. Preserve copyright, license, and attribution notices."
+    },
+    {
+      "id": "xbebenk-mod",
+      "repository": "xbebenk/MBR_xbebenkMod",
+      "ref": "main",
+      "commit": "8a470e9115635ee9efb17a73b91c830e4cd353ad",
+      "role": "Current compatibility and emulator reference",
+      "license": "GPL-3.0",
+      "importPolicy": "Port reviewed changes selectively. Do not overlay the older v7.9.9 core onto v8.2.0."
+    },
+    {
+      "id": "clash-autoloot",
+      "repository": "clashautoloot/Clash-AutoLoot",
+      "ref": "main",
+      "commit": "f6081c57a934eab3f90e9c38b12c2eac2d1c549e",
+      "role": "Public product-behavior reference",
+      "license": "No source license found",
+      "importPolicy": "Clean-room requirements only. Do not copy, unpack, decompile, or reproduce protected implementation details from compiled releases."
+    },
+    {
+      "id": "canmurat-lineage-check",
+      "repository": "muratcandegirmenci78-lab/canmurat",
+      "ref": "master",
+      "commit": "0c14b43681b69af5881ab5c8670b95c44be81e8d",
+      "role": "Lineage comparison",
+      "license": "GPL-3.0 lineage",
+      "importPolicy": "No unique current delta identified. Retain only as a comparison reference."
+    }
+  ]
+}
