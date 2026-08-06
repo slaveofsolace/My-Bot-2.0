@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/my-bot-2.0/run-event.schema.json",
+  "title": "My Bot run event",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "sequence",
+    "type",
+    "severity",
+    "session_id",
+    "timestamp_ms",
+    "message",
+    "account_profile_id",
+    "route",
+    "battle_index",
+    "gold",
+    "elixir",
+    "dark_elixir",
+    "failure_count"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "sequence": {"type": "integer", "minimum": 0},
+    "type": {
+      "enum": [
+        "session.ready",
+        "session.started",
+        "session.stopping",
+        "session.completed",
+        "session.failed",
+        "route.blocked",
+        "route.ready",
+        "account.changed",
+        "battle.started",
+        "battle.completed",
+        "battle.failed",
+        "loot.updated",
+        "warning",
+        "error"
+      ]
+    },
+    "severity": {"enum": ["debug", "info", "warning", "error"]},
+    "session_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "timestamp_ms": {"type": "integer", "minimum": 0},
+    "message": {"type": "string", "maxLength": 2048},
+    "account_profile_id": {"type": "string", "maxLength": 64},
+    "route": {"enum": ["", "regular", "ranked", "legend", "builder"]},
+    "battle_index": {"type": "integer", "minimum": 0},
+    "gold": {"type": "integer", "minimum": 0},
+    "elixir": {"type": "integer", "minimum": 0},
+    "dark_elixir": {"type": "integer", "minimum": 0},
+    "failure_count": {"type": "integer", "minimum": 0}
+  }
+}

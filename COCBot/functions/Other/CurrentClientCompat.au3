@@ -11,6 +11,7 @@
 #include "..\Run\AccountQueue.au3"
 #include "..\Run\BattleRoute.au3"
 #include "..\Run\RunSession.au3"
+#include "..\Run\RunEvent.au3"
 
 Global $__LDPlayer9_Idx = -1
 Global $__Mumu_Idx = -1
@@ -18,7 +19,6 @@ Global $__Mumu_Idx = -1
 Func _RegisterLDPlayer9Adapter()
 	Local $iExisting = _ArraySearch($g_avAndroidAppConfig, "LDPlayer9", 0, 0, 0, 0, 1, 0)
 	If $iExisting >= 0 Then Return $iExisting
-
 	Local $iRow = UBound($g_avAndroidAppConfig, 1)
 	ReDim $g_avAndroidAppConfig[$iRow + 1][16]
 	$g_avAndroidAppConfig[$iRow][0] = "LDPlayer9"
@@ -43,7 +43,6 @@ EndFunc   ;==>_RegisterLDPlayer9Adapter
 Func _RegisterMumuAdapter()
 	Local $iExisting = _ArraySearch($g_avAndroidAppConfig, "MuMu", 0, 0, 0, 0, 1, 0)
 	If $iExisting >= 0 Then Return $iExisting
-
 	Local $iRow = UBound($g_avAndroidAppConfig, 1)
 	ReDim $g_avAndroidAppConfig[$iRow + 1][16]
 	$g_avAndroidAppConfig[$iRow][0] = "MuMu"
@@ -71,10 +70,8 @@ Func RegisterCurrentClientCompat()
 	SetDebugLog("Current client adapters registered: LDPlayer9=" & $__LDPlayer9_Idx & ", MuMu=" & $__Mumu_Idx)
 EndFunc   ;==>RegisterCurrentClientCompat
 
-; Keep dynamically dispatched functions available in compiled builds.
 Func ReferenceCurrentClientCompat()
 	If True Then Return
-
 	GetLDPlayer9ProgramParameter()
 	OpenLDPlayer9()
 	InitLDPlayer9()
@@ -90,7 +87,6 @@ Func ReferenceCurrentClientCompat()
 	ZoomOutLDPlayer9()
 	LDPlayer9BotStartEvent()
 	LDPlayer9BotStopEvent()
-
 	GetMumuProgramParameter()
 	OpenMumu()
 	InitMumu()
@@ -106,7 +102,6 @@ Func ReferenceCurrentClientCompat()
 	ZoomOutMumu()
 	MumuBotStartEvent()
 	MumuBotStopEvent()
-
 	Local $oPlan = RunPlanCreateDefault(), $sPlanError
 	RunPlanValidate($oPlan, $sPlanError)
 	RunPlanShouldStop($oPlan, 0, 0, 0, False)
@@ -114,7 +109,6 @@ Func ReferenceCurrentClientCompat()
 	AccountQueueAdd($oQueue, "profile", "Profile")
 	Local $sProfile, $sName
 	AccountQueueNext($oQueue, $sProfile, $sName)
-
 	Local $oRoute = BattleRouteFromRunPlan($oPlan, $sPlanError), $sRouteReason
 	BattleRouteSetReadiness($oRoute, False, False, "fixture required")
 	BattleRouteCanStart($oRoute, $sRouteReason)
@@ -126,6 +120,8 @@ Func ReferenceCurrentClientCompat()
 	RunSessionRequestStop($oSession, "reference")
 	RunSessionComplete($oSession)
 	RunSessionSnapshot($oSession)
+	Local $oEvent = RunEventCreate("session.completed", 1, 0, "reference", "info", "Reference event")
+	RunEventToJson($oEvent)
 EndFunc   ;==>ReferenceCurrentClientCompat
 
 RegisterCurrentClientCompat()

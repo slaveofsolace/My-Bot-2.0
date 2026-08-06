@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify current-client adapter and orchestration integration."""
+"""Verify current-client adapter, orchestration, diagnostics, and evidence integration."""
 
 from __future__ import annotations
 
@@ -19,6 +19,7 @@ AUTOIT_CONTRACT_FILES = [
     "COCBot/functions/Run/AccountQueue.au3",
     "COCBot/functions/Run/BattleRoute.au3",
     "COCBot/functions/Run/RunSession.au3",
+    "COCBot/functions/Run/RunEvent.au3",
 ]
 
 REQUIRED_FILES = AUTOIT_CONTRACT_FILES + [
@@ -27,9 +28,18 @@ REQUIRED_FILES = AUTOIT_CONTRACT_FILES + [
     "config/account-queue.schema.json",
     "config/battle-route.schema.json",
     "config/run-session.schema.json",
+    "config/run-event.schema.json",
+    "config/runtime-evidence.schema.json",
+    "config/ui/settings.schema.json",
+    "config/ui/run-planner.settings.json",
     "tests/autoit/RunContractsTest.au3",
     "tests/fixtures/current-client/manifest.json",
+    "tests/evidence/runtime/README.md",
     "tools/Test-AutoIt.ps1",
+    "tools/validate_current_client_fixtures.py",
+    "tools/validate_ui_metadata.py",
+    "tools/validate_runtime_evidence.py",
+    "tools/evaluate_support_readiness.py",
     ".github/workflows/windows-autoit.yml",
 ]
 
@@ -68,7 +78,7 @@ def main() -> int:
     require(api.count('#include "CurrentClientCompat.au3"') == 1, "compatibility entry point is included exactly once", findings)
 
     compatibility = text("COCBot/functions/Other/CurrentClientCompat.au3")
-    for include_name in ("BattleRoute.au3", "RunSession.au3"):
+    for include_name in ("BattleRoute.au3", "RunSession.au3", "RunEvent.au3"):
         require(include_name in compatibility, f"compatibility entry point includes {include_name}", findings)
 
     gui = text("COCBot/GUI/MBR GUI Control Android.au3")
@@ -94,9 +104,15 @@ def main() -> int:
     route = text("COCBot/functions/Run/BattleRoute.au3")
     require('Case "ranked"' in route and 'Case "legend"' in route, "ranked and legend routes remain distinct", findings)
     require('"recognition_ready", False' in route and '"execution_ready", False' in route, "battle routes default to closed readiness gates", findings)
+
     session = text("COCBot/functions/Run/RunSession.au3")
     require('Case "ready", "running", "stopping", "completed", "failed"' in session, "run-session states are explicitly bounded", findings)
     require("RunPlanShouldStop" in session, "run session delegates stop decisions to the run plan", findings)
+
+    event = text("COCBot/functions/Run/RunEvent.au3")
+    require("RunEventAppendJsonLine" in event and "RunEventToJson" in event, "run events support JSONL diagnostics", findings)
+    lowered_event = event.lower()
+    require("password" not in lowered_event and "token" not in lowered_event and "supercell_id" not in lowered_event, "run-event contract excludes sensitive fields", findings)
 
     for autoit_path in AUTOIT_CONTRACT_FILES:
         verify_autoit_balance(autoit_path, findings)
@@ -111,43 +127,58 @@ def main() -> int:
         "orchestration.account-queue",
         "orchestration.battle-route",
         "orchestration.run-session",
+        "orchestration.run-event",
         "battle.regular-ranked-split",
         "village.town-hall-18",
         "heroes.six-slot-layout",
     }:
         require(capability_id in capability_ids, f"capability catalog contains {capability_id}", findings)
 
+    require(all(item.get("runtime_evidence") == "required" for item in capabilities["capabilities"]), "every documented capability requires runtime evidence", findings)
+
     run_schema = json.loads(text("config/run-plan.schema.json"))
     required_run_fields = set(run_schema["required"])
     require(
         {
-            "schema_version",
-            "mode",
-            "strategy",
-            "duration_minutes",
-            "max_battles",
-            "stop_on_star_bonus",
-            "max_failures",
-            "upgrade_policy",
+            "schema_version", "mode", "strategy", "duration_minutes", "max_battles",
+            "stop_on_star_bonus", "max_failures", "upgrade_policy",
         }.issubset(required_run_fields),
         "run-plan schema covers the engine contract",
         findings,
     )
+
     account_schema = json.loads(text("config/account-queue.schema.json"))
-    serialized = json.dumps(account_schema).lower()
-    require("password" not in serialized and "token" not in serialized, "account schema excludes credentials and tokens", findings)
+    serialized_account = json.dumps(account_schema).lower()
+    require("password" not in serialized_account and "token" not in serialized_account, "account schema excludes credentials and tokens", findings)
 
     route_schema = json.loads(text("config/battle-route.schema.json"))
     require(set(route_schema["properties"]["mode"]["enum"]) == {"regular", "ranked", "legend", "builder"}, "battle-route schema keeps all battle surfaces distinct", findings)
+
     session_schema = json.loads(text("config/run-session.schema.json"))
     require(set(session_schema["properties"]["state"]["enum"]) == {"ready", "running", "stopping", "completed", "failed"}, "run-session schema matches the state machine", findings)
+
+    event_schema = json.loads(text("config/run-event.schema.json"))
+    require("battle.completed" in event_schema["properties"]["type"]["enum"], "run-event schema includes completed battle events", findings)
+    serialized_event = json.dumps(event_schema).lower()
+    require("password" not in serialized_event and "token" not in serialized_event and "email" not in serialized_event, "run-event schema excludes sensitive fields", findings)
+
+    evidence_schema = json.loads(text("config/runtime-evidence.schema.json"))
+    require(evidence_schema["properties"]["redacted"].get("const") is True, "runtime evidence requires redaction", findings)
+    require(evidence_schema["properties"]["commit_sha"]["pattern"] == "^[0-9a-f]{40}$", "runtime evidence is pinned to an exact commit", findings)
 
     fixture_manifest = json.loads(text("tests/fixtures/current-client/manifest.json"))
     require(len(fixture_manifest["required_fixtures"]) >= 10, "current-client fixture inventory is populated", findings)
 
+    ui_metadata = json.loads(text("config/ui/run-planner.settings.json"))
+    require(ui_metadata.get("surface") == "run-planner", "run-planner metadata identifies its surface", findings)
+
     windows_workflow = text(".github/workflows/windows-autoit.yml")
     require('"3.3.16.1"' in windows_workflow and '"3.3.18.0"' in windows_workflow, "Windows CI covers baseline and current AutoIt releases", findings)
     require("Get-AuthenticodeSignature" in windows_workflow, "Windows CI verifies the AutoIt executable signature", findings)
+
+    current_workflow = text(".github/workflows/current-client-compat.yml")
+    for report_name in ("fixture-validation.json", "ui-metadata-validation.json", "runtime-evidence-validation.json", "support-readiness.json"):
+        require(report_name in current_workflow, f"current-client CI retains {report_name}", findings)
 
     payload = {"schema_version": 1, "checks": len(findings), "findings": findings}
     rendered = json.dumps(payload, indent=2, sort_keys=True) + "\n"

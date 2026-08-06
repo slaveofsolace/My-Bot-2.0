@@ -4,6 +4,7 @@
 #include "..\..\COCBot\functions\Run\AccountQueue.au3"
 #include "..\..\COCBot\functions\Run\BattleRoute.au3"
 #include "..\..\COCBot\functions\Run\RunSession.au3"
+#include "..\..\COCBot\functions\Run\RunEvent.au3"
 
 Global $g_iAssertions = 0
 
@@ -57,6 +58,18 @@ AssertTrue($sProfile = "profile-a", "first profile order is stable")
 AssertTrue(AccountQueueNext($oQueue, $sProfile, $sName), "disabled queue item is skipped")
 AssertTrue($sProfile = "profile-c", "third profile follows the disabled item")
 AssertTrue(Not AccountQueueNext($oQueue, $sProfile, $sName), "non-cycling queue ends")
+
+Local $oEvent = RunEventCreate("battle.completed", 7, 2000, "contract-test", "info", "Battle complete", "profile-a", "ranked", 2, 700, 300, 0, 0)
+AssertTrue(IsObj($oEvent), "run event is created")
+Local $sEventJson = RunEventToJson($oEvent)
+AssertTrue(StringInStr($sEventJson, Chr(34) & "type" & Chr(34) & ":" & Chr(34) & "battle.completed" & Chr(34)) > 0, "run event serializes its type")
+AssertTrue(StringInStr($sEventJson, Chr(34) & "gold" & Chr(34) & ":700") > 0, "run event serializes numeric loot")
+Local $sEventPath = @TempDir & "\mybot-run-contract-event.jsonl"
+FileDelete($sEventPath)
+AssertTrue(RunEventAppendJsonLine($sEventPath, $oEvent), "run event is appended to JSONL")
+AssertTrue(FileExists($sEventPath), "JSONL event file is created")
+AssertTrue(StringInStr(FileRead($sEventPath), "Battle complete") > 0, "JSONL event can be read back")
+FileDelete($sEventPath)
 
 ConsoleWrite("Run contract tests passed: " & $g_iAssertions & " assertions" & @CRLF)
 Exit 0

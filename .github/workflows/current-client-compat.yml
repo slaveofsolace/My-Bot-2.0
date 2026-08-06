@@ -37,6 +37,8 @@ jobs:
           tools/verify_current_client_compat.py
           tools/validate_current_client_fixtures.py
           tools/validate_ui_metadata.py
+          tools/validate_runtime_evidence.py
+          tools/evaluate_support_readiness.py
 
       - name: Apply patch in disposable checkout
         run: python tools/apply_current_client_compat.py --json current-client-patch.json
@@ -46,6 +48,12 @@ jobs:
 
       - name: Validate run-planner metadata
         run: python tools/validate_ui_metadata.py --json ui-metadata-validation.json
+
+      - name: Validate runtime evidence registry
+        run: python tools/validate_runtime_evidence.py --json runtime-evidence-validation.json
+
+      - name: Evaluate support readiness
+        run: python tools/evaluate_support_readiness.py --json support-readiness.json
 
       - name: Verify current-client integration
         run: python tools/verify_current_client_compat.py --json current-client-verification.json
@@ -62,6 +70,8 @@ jobs:
             current-client-patch.json
             fixture-validation.json
             ui-metadata-validation.json
+            runtime-evidence-validation.json
+            support-readiness.json
             current-client-verification.json
             repository-audit.json
           if-no-files-found: warn
