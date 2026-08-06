@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/my-bot-2.0/account-queue.schema.json",
+  "title": "My Bot account queue",
+  "description": "Ordered profile references for authorized test sessions. Authentication material is outside this schema.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "cycle", "accounts"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "cycle": {"type": "boolean", "default": false},
+    "accounts": {
+      "type": "array",
+      "maxItems": 500,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["profile_id", "display_name", "enabled"],
+        "properties": {
+          "profile_id": {"type": "string", "minLength": 1, "maxLength": 64},
+          "display_name": {"type": "string", "minLength": 1, "maxLength": 128},
+          "enabled": {"type": "boolean", "default": true}
+        }
+      }
+    }
+  }
+}

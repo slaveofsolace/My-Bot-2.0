@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "as_of": "2026-08-06",
+  "core_baseline": {
+    "project_version": "v8.2.0",
+    "game_support_claim": "Clash of Clans April 2025 client family",
+    "status": "legacy-baseline"
+  },
+  "status_definitions": {
+    "catalogued": "The game change and affected subsystems are documented, but recognition and execution are not implemented.",
+    "adapter-added": "Source integration is present and statically verified; controlled Windows runtime testing remains required.",
+    "engine-added": "A reusable engine contract is implemented and statically verified; legacy-loop integration remains staged.",
+    "fixture-required": "Recognition cannot be claimed until dated, approved screenshots are available.",
+    "supported": "Automated fixtures and controlled runtime evidence both pass."
+  },
+  "capabilities": [
+    {
+      "id": "emulator.ldplayer9",
+      "introduced": "2026-08-06",
+      "status": "adapter-added",
+      "implementation": "COCBot/functions/Android/AndroidLDPlayer9.au3",
+      "verification": ["static-dispatch", "adb-port-formula", "resolution-contract"],
+      "runtime_evidence": "required"
+    },
+    {
+      "id": "emulator.mumu",
+      "introduced": "2026-08-06",
+      "status": "adapter-added",
+      "implementation": "COCBot/functions/Android/AndroidMumu.au3",
+      "verification": ["static-dispatch", "instance-config-adb", "resolution-contract"],
+      "runtime_evidence": "required"
+    },
+    {
+      "id": "orchestration.run-plan",
+      "introduced": "2026-08-06",
+      "status": "engine-added",
+      "implementation": "COCBot/functions/Run/RunPlan.au3",
+      "schema": "config/run-plan.schema.json"
+    },
+    {
+      "id": "orchestration.account-queue",
+      "introduced": "2026-08-06",
+      "status": "engine-added",
+      "implementation": "COCBot/functions/Run/AccountQueue.au3",
+      "schema": "config/account-queue.schema.json",
+      "stores_credentials": false
+    },
+    {
+      "id": "battle.regular-ranked-split",
+      "official_change_date": "2025-10-06",
+      "status": "catalogued",
+      "affected_areas": ["navigation", "search", "attack-routing", "profiles", "statistics", "stop-conditions"],
+      "fixture_status": "required"
+    },
+    {
+      "id": "village.town-hall-18",
+      "official_change_date": "2025-11-17",
+      "status": "catalogued",
+      "affected_areas": ["town-hall-detection", "levels", "costs", "walls", "weak-base-filters", "upgrade-routing"],
+      "fixture_status": "required"
+    },
+    {
+      "id": "village.guardians",
+      "official_change_date": "2025-11-17",
+      "status": "catalogued",
+      "affected_areas": ["defense-catalog", "profile-report", "upgrade-routing", "battle-analysis"],
+      "fixture_status": "required"
+    },
+    {
+      "id": "heroes.dragon-duke",
+      "official_change_date": "2026-02-01",
+      "status": "catalogued",
+      "affected_areas": ["hero-catalog", "hero-hall", "blacksmith", "deployment", "donation-exclusions"],
+      "fixture_status": "required"
+    },
+    {
+      "id": "heroes.six-slot-layout",
+      "official_change_date": "2026-02-01",
+      "status": "catalogued",
+      "affected_areas": ["arrays", "gui-controls", "profile-storage", "attack-bar", "reports"],
+      "fixture_status": "required"
+    },
+    {
+      "id": "builder-base.additional-builder",
+      "official_change_date": "2026-05-26",
+      "status": "catalogued",
+      "affected_areas": ["builder-count", "suggested-upgrades", "bob-control", "reports"],
+      "fixture_status": "required"
+    },
+    {
+      "id": "heroes.hero-journey",
+      "official_change_date": "2026-06-15",
+      "status": "catalogued",
+      "affected_areas": ["interruptions", "hero-navigation", "rewards", "safe-click-regions"],
+      "fixture_status": "required"
+    },
+    {
+      "id": "chat.global-chat",
+      "official_change_date": "2026-06-15",
+      "status": "catalogued",
+      "affected_areas": ["chat-state", "donation-navigation", "safe-click-regions", "interruptions"],
+      "fixture_status": "required"
+    },
+    {
+      "id": "battle.fast-forward",
+      "official_change_date": "2026-06-15",
+      "status": "catalogued",
+      "affected_areas": ["battle-state", "end-battle", "timing", "statistics"],
+      "fixture_status": "required"
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/my-bot-2.0/run-plan.schema.json",
+  "title": "My Bot run plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "mode",
+    "strategy",
+    "duration_minutes",
+    "max_battles",
+    "stop_on_star_bonus",
+    "max_failures",
+    "target_gold",
+    "target_elixir",
+    "target_dark_elixir",
+    "upgrade_policy",
+    "account_queue_id"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "mode": {"enum": ["home", "builder", "regular", "ranked", "legend"]},
+    "strategy": {"type": "string", "minLength": 1, "maxLength": 64},
+    "duration_minutes": {"type": "integer", "minimum": 0, "maximum": 10080},
+    "max_battles": {"type": "integer", "minimum": 0, "maximum": 100000},
+    "stop_on_star_bonus": {"type": "boolean"},
+    "max_failures": {"type": "integer", "minimum": 0, "maximum": 1000},
+    "target_gold": {"type": "integer", "minimum": 0},
+    "target_elixir": {"type": "integer", "minimum": 0},
+    "target_dark_elixir": {"type": "integer", "minimum": 0},
+    "upgrade_policy": {"enum": ["disabled", "walls", "suggested", "all"]},
+    "account_queue_id": {"type": "string", "maxLength": 64}
+  }
+}

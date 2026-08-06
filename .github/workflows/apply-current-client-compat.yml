@@ -1,0 +1,59 @@
+name: Apply current-client compatibility
+
+on:
+  push:
+    branches:
+      - integration/current-client-compat-1
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: "apply-current-client-compat-${{ github.ref }}"
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Apply reviewed integration patch
+        run: python tools/apply_current_client_compat.py --json /tmp/current-client-patch.json
+
+      - name: Verify patched source
+        run: python tools/verify_current_client_compat.py --json /tmp/current-client-verification.json
+
+      - name: Run repository audit
+        run: python tools/repo_audit.py --json /tmp/repository-audit.json
+
+      - name: Commit deterministic source edits
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "Compatibility patch was already applied."
+            exit 0
+          fi
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- \
+            "COCBot/functions/Other/Api.au3" \
+            "COCBot/functions/Other/CurrentClientCompat.au3" \
+            "COCBot/functions/Run/RunPlan.au3" \
+            "COCBot/GUI/MBR GUI Control Android.au3" \
+            "COCBot/functions/Android/Android.au3"
+          git commit -m "compat: wire current emulator and run-plan adapters"
+          git push origin "HEAD:${GITHUB_REF_NAME}"

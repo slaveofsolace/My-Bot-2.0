@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "as_of": "2026-08-06",
+  "capture_contract": {
+    "width": 860,
+    "height": 732,
+    "format": "png",
+    "redaction": "Remove player names, clan names, chat text, account identifiers, and purchase information before committing."
+  },
+  "required_fixtures": [
+    {"id": "home.th18.default", "status": "missing", "purpose": "Town Hall 18 and main-village baseline"},
+    {"id": "home.th18.guardian", "status": "missing", "purpose": "Guardian and defensive-system recognition"},
+    {"id": "battle.regular.entry", "status": "missing", "purpose": "Regular battle route"},
+    {"id": "battle.ranked.entry", "status": "missing", "purpose": "Ranked battle route"},
+    {"id": "battle.legend.tier", "status": "missing", "purpose": "Tiered Legend route and limit display"},
+    {"id": "heroes.hall.six", "status": "missing", "purpose": "Six-Hero Hero Hall layout"},
+    {"id": "heroes.dragon-duke", "status": "missing", "purpose": "Dragon Duke catalog and status"},
+    {"id": "heroes.journey.interruption", "status": "missing", "purpose": "Hero Journey overlay and reward states"},
+    {"id": "chat.global.closed", "status": "missing", "purpose": "Global Chat closed-state safe region"},
+    {"id": "chat.global.open", "status": "missing", "purpose": "Global Chat open-state routing"},
+    {"id": "battle.fast-forward", "status": "missing", "purpose": "Fast-forward control and battle-state timing"},
+    {"id": "builder.home.extra-builder", "status": "missing", "purpose": "Current Builder Base builder count"},
+    {"id": "builder.upgrades.list", "status": "missing", "purpose": "Current suggested-upgrade list"},
+    {"id": "emulator.ldplayer9.window", "status": "missing", "purpose": "LDPlayer 9 window and control discovery"},
+    {"id": "emulator.mumu.window", "status": "missing", "purpose": "MuMu window and control discovery"}
+  ]
+}
