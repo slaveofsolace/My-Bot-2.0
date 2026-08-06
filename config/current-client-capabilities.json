@@ -19,7 +19,7 @@
       "introduced": "2026-08-06",
       "status": "adapter-added",
       "implementation": "COCBot/functions/Android/AndroidLDPlayer9.au3",
-      "verification": ["static-dispatch", "adb-port-formula", "resolution-contract"],
+      "verification": ["static-dispatch", "adb-port-formula", "resolution-contract", "windows-au3check"],
       "runtime_evidence": "required"
     },
     {
@@ -27,7 +27,7 @@
       "introduced": "2026-08-06",
       "status": "adapter-added",
       "implementation": "COCBot/functions/Android/AndroidMumu.au3",
-      "verification": ["static-dispatch", "instance-config-adb", "resolution-contract"],
+      "verification": ["static-dispatch", "instance-config-adb", "resolution-contract", "windows-au3check"],
       "runtime_evidence": "required"
     },
     {
@@ -44,6 +44,22 @@
       "implementation": "COCBot/functions/Run/AccountQueue.au3",
       "schema": "config/account-queue.schema.json",
       "stores_credentials": false
+    },
+    {
+      "id": "orchestration.battle-route",
+      "introduced": "2026-08-06",
+      "status": "engine-added",
+      "implementation": "COCBot/functions/Run/BattleRoute.au3",
+      "schema": "config/battle-route.schema.json",
+      "default_readiness": "closed"
+    },
+    {
+      "id": "orchestration.run-session",
+      "introduced": "2026-08-06",
+      "status": "engine-added",
+      "implementation": "COCBot/functions/Run/RunSession.au3",
+      "schema": "config/run-session.schema.json",
+      "tests": "tests/autoit/RunContractsTest.au3"
     },
     {
       "id": "battle.regular-ranked-split",
