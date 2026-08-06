@@ -1,0 +1,188 @@
+{
+  "schema_version": 1,
+  "as_of": "2026-08-06",
+  "verified_through": "2026-07-09",
+  "authority": "Official Supercell Clash of Clans release notes",
+  "max_town_hall": 18,
+  "home_village_hero_count": 6,
+  "max_active_hero_slots": 4,
+  "sources": [
+    {
+      "id": "town-hall-13-2019-12-09",
+      "published_date": "2019-12-09",
+      "title": "December Update - Patch Notes",
+      "url": "https://supercell.com/en/games/clashofclans/blog/news/december-update-patch-notes/"
+    },
+    {
+      "id": "town-hall-17-2024-11-25",
+      "published_date": "2024-11-25",
+      "title": "The Town Hall 17 Update Is Here",
+      "url": "https://supercell.com/en/games/clashofclans/blog/game-updates/the-town-hall-17-update-is-here-2/"
+    },
+    {
+      "id": "clash-anytime-2025-03-24",
+      "published_date": "2025-03-24",
+      "title": "Welcome to Clash Anytime Update",
+      "url": "https://supercell.com/en/games/clashofclans/blog/release-notes/welcome-to-clash-anytime-update/"
+    },
+    {
+      "id": "lets-get-crafty-2025-06-16",
+      "published_date": "2025-06-16",
+      "title": "Welcome to Let's Get Crafty Update",
+      "url": "https://supercell.com/en/games/clashofclans/blog/release-notes/welcome-to-lets-get-crafty-update/"
+    },
+    {
+      "id": "ranked-2025-10-06",
+      "published_date": "2025-10-06",
+      "title": "Get Ready for Ranked",
+      "url": "https://supercell.com/en/games/clashofclans/blog/release-notes/get-ready-for-ranked-update/"
+    },
+    {
+      "id": "town-hall-18-2025-11-17",
+      "published_date": "2025-11-17",
+      "title": "Town Hall 18 Crash Lands",
+      "url": "https://supercell.com/en/games/clashofclans/blog/release-notes/town-hall-18-crash-lands-update/"
+    },
+    {
+      "id": "february-2026-02-23",
+      "published_date": "2026-02-23",
+      "title": "The February Update Has Escaped",
+      "url": "https://supercell.com/en/games/clashofclans/blog/release-notes/the-february-update-has-escaped/"
+    },
+    {
+      "id": "sound-of-clash-2026-04-27",
+      "published_date": "2026-04-27",
+      "title": "The Sound of Clash Update Is Here",
+      "url": "https://supercell.com/en/games/clashofclans/blog/release-notes/the-sound-of-clash-update-is-here/"
+    },
+    {
+      "id": "may-update-2026-05-26",
+      "published_date": "2026-05-26",
+      "title": "May Update",
+      "url": "https://supercell.com/en/games/clashofclans/blog/release-notes/may-update/"
+    },
+    {
+      "id": "anime-fury-2026-06-15",
+      "published_date": "2026-06-15",
+      "title": "The Anime Fury Update Is Here",
+      "url": "https://supercell.com/en/games/clashofclans/blog/release-notes/the-anime-fury-update-is-here/"
+    },
+    {
+      "id": "july-balance-2026-07-09",
+      "published_date": "2026-07-09",
+      "title": "July Balance Update",
+      "url": "https://supercell.com/en/games/clashofclans/blog/news/july-balance-update/"
+    }
+  ],
+  "updates": [
+    {
+      "id": "clash-anytime",
+      "effective_date": "2025-03-24",
+      "source_id": "clash-anytime-2025-03-24",
+      "facts": [
+        "Troops, Spells, and Siege Machines no longer use training time.",
+        "Heroes no longer require healing time.",
+        "Army Recipes replaced the former training workflow."
+      ],
+      "affected_catalogs": ["screen-states", "battle-surfaces"]
+    },
+    {
+      "id": "cookbook-and-crafted-defenses",
+      "effective_date": "2025-06-16",
+      "source_id": "lets-get-crafty-2025-06-16",
+      "facts": [
+        "The Cookbook became a third Army Recipes tab.",
+        "Crafted Defenses became a temporary Town Hall 17 defense system.",
+        "Only one Crafted Defense can be active at a time."
+      ],
+      "affected_catalogs": ["screen-states"]
+    },
+    {
+      "id": "regular-and-ranked-split",
+      "effective_date": "2025-10-06",
+      "source_id": "ranked-2025-10-06",
+      "facts": [
+        "Regular Battles are available from Town Hall 2, endless, and do not risk Trophies.",
+        "Ranked Battles are available from Town Hall 7, use weekly tournaments, and have limited attacks.",
+        "Revenge returned as a 12-hour regular-battle Shadow Base route."
+      ],
+      "affected_catalogs": ["battle-surfaces", "screen-states"]
+    },
+    {
+      "id": "town-hall-18-and-guardians",
+      "effective_date": "2025-11-17",
+      "source_id": "town-hall-18-2025-11-17",
+      "facts": [
+        "Town Hall 18 became the maximum Town Hall level.",
+        "Guardians became a separate Town Hall defense system.",
+        "One Guardian can be active at a time and Guardian upgrades do not require a Builder."
+      ],
+      "affected_catalogs": ["screen-states", "heroes"]
+    },
+    {
+      "id": "dragon-duke-and-six-hero-ui",
+      "effective_date": "2026-02-23",
+      "availability_date": "2026-03-01",
+      "source_id": "february-2026-02-23",
+      "facts": [
+        "Dragon Duke became the sixth Home Village Hero.",
+        "Dragon Duke is available from Town Hall 15 and begins at level 1.",
+        "Hero Hall, Blacksmith, and Profile screens were changed to display six Heroes."
+      ],
+      "affected_catalogs": ["heroes", "screen-states"]
+    },
+    {
+      "id": "tiered-legend-league",
+      "effective_date": "2026-04-27",
+      "source_id": "sound-of-clash-2026-04-27",
+      "facts": [
+        "Legend League is divided into Legend III, Legend II, and Legend I.",
+        "Legend III provides 24 attacks per week and Legend II provides 30 attacks per week.",
+        "Legend I uses a four-week tournament and eight attacks per League Day."
+      ],
+      "affected_catalogs": ["battle-surfaces", "screen-states"]
+    },
+    {
+      "id": "builder-base-extra-builder-and-earlier-king",
+      "effective_date": "2026-05-26",
+      "source_id": "may-update-2026-05-26",
+      "facts": [
+        "An additional Builder is available in Builder Base from Builder Hall 2 after all Home Village Builders are unlocked.",
+        "Barbarian King now unlocks at Town Hall 4."
+      ],
+      "affected_catalogs": ["heroes", "screen-states"]
+    },
+    {
+      "id": "hero-journey-global-chat-and-fast-forward",
+      "effective_date": "2026-06-15",
+      "source_id": "anime-fury-2026-06-15",
+      "facts": [
+        "Hero Journey is available in Hero Hall from Town Hall 7.",
+        "Global Chat returned with Groups, Communities, and Town Square surfaces.",
+        "A 4x Fast Forward control can appear after 120 seconds in supported live battles."
+      ],
+      "affected_catalogs": ["screen-states", "battle-surfaces", "heroes"]
+    },
+    {
+      "id": "july-balance",
+      "effective_date": "2026-07-09",
+      "source_id": "july-balance-2026-07-09",
+      "facts": [
+        "Dragon Duke trap damage reduction was reduced again.",
+        "The Logger Guardian rolling range was reduced by two tiles.",
+        "Rocket Backpack and Flame Blower behavior was temporarily reverted pending a full update."
+      ],
+      "affected_catalogs": ["heroes", "screen-states"]
+    }
+  ],
+  "excluded_unverified_claims": [
+    {
+      "name": "Clash of Cards",
+      "reason": "No official Supercell release note or news article was located during the August 6, 2026 audit."
+    },
+    {
+      "name": "Chief's Chronicles",
+      "reason": "No official Supercell release note or news article was located during the August 6, 2026 audit."
+    }
+  ]
+}

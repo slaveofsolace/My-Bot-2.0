@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "as_of": "2026-08-06",
+  "home_village_hero_count": 6,
+  "max_active_slots": 4,
+  "active_slot_source_id": "town-hall-17-2024-11-25",
+  "heroes": [
+    {
+      "id": "barbarian-king",
+      "label": "Barbarian King",
+      "unlock_town_hall": 4,
+      "unlock_source_id": "may-update-2026-05-26",
+      "source_confidence": "official-explicit",
+      "movement": "ground",
+      "active_slot_eligible": true,
+      "catalog_status": "current",
+      "fixture_ids": ["heroes.hall.six"]
+    },
+    {
+      "id": "archer-queen",
+      "label": "Archer Queen",
+      "unlock_town_hall": 8,
+      "unlock_source_id": "town-hall-17-2024-11-25",
+      "source_confidence": "official-explicit",
+      "movement": "ground",
+      "active_slot_eligible": true,
+      "catalog_status": "current",
+      "fixture_ids": ["heroes.hall.six"]
+    },
+    {
+      "id": "minion-prince",
+      "label": "Minion Prince",
+      "unlock_town_hall": 9,
+      "unlock_source_id": "town-hall-17-2024-11-25",
+      "source_confidence": "official-explicit",
+      "movement": "air",
+      "active_slot_eligible": true,
+      "catalog_status": "current",
+      "fixture_ids": ["heroes.hall.six"]
+    },
+    {
+      "id": "grand-warden",
+      "label": "Grand Warden",
+      "unlock_town_hall": 11,
+      "unlock_source_id": "town-hall-13-2019-12-09",
+      "source_confidence": "official-historical-context",
+      "movement": "mode-dependent",
+      "active_slot_eligible": true,
+      "catalog_status": "current",
+      "fixture_ids": ["heroes.hall.six"],
+      "source_note": "The cited Town Hall 13 notes identify Royal Champion as the first new Hero since Town Hall 11; the TH11 unlock is retained as a stable historical rule."
+    },
+    {
+      "id": "royal-champion",
+      "label": "Royal Champion",
+      "unlock_town_hall": 13,
+      "unlock_source_id": "town-hall-13-2019-12-09",
+      "source_confidence": "official-explicit",
+      "movement": "ground",
+      "active_slot_eligible": true,
+      "catalog_status": "current",
+      "fixture_ids": ["heroes.hall.six"]
+    },
+    {
+      "id": "dragon-duke",
+      "label": "Dragon Duke",
+      "unlock_town_hall": 15,
+      "unlock_source_id": "february-2026-02-23",
+      "source_confidence": "official-explicit",
+      "movement": "air",
+      "active_slot_eligible": true,
+      "catalog_status": "current",
+      "fixture_ids": ["heroes.dragon-duke", "heroes.hall.six"],
+      "availability_date": "2026-03-01"
+    }
+  ]
+}
