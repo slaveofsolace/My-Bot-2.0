@@ -10,6 +10,7 @@
 #include "BattleQuota.au3"
 #include "HeroLoadout.au3"
 #include "RunSession.au3"
+#include "RunEvent.au3"
 #include "RunVerification.au3"
 
 Func _RunIntentRouteForPlanMode($sMode)

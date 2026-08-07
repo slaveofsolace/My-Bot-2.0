@@ -110,7 +110,8 @@ AssertTrue(StringStripWS($oSession.Item("verification_reason"), $STR_STRIPALL) <
 AssertTrue(RunSessionStart($oSession), "session starts")
 AssertTrue(RunIntentRecordBattle($oIntent, $oSession, True, $sError, 500, 250, 10), "battle is recorded through the intent: " & $sError)
 AssertTrue($oSession.Item("battle_count") = 1, "session counts the battle")
-AssertTrue(BattleQuotaRemaining($oIntent.Item("quota")) = 4, "recording a battle consumes quota")
+Local $oIntentQuota = $oIntent.Item("quota")
+AssertTrue(BattleQuotaRemaining($oIntentQuota) = 4, "recording a battle consumes quota")
 
 Local $oSnapshot = RunSessionSnapshot($oSession)
 AssertTrue($oSnapshot.Item("verification_state") = $RUN_VERIFICATION_DIAGNOSTIC, "snapshot carries the unverified state")
