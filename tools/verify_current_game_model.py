@@ -26,7 +26,7 @@ REQUIRED_FILES = [
     "tests/autoit/GameCatalogTest.au3",
     "tools/generate_game_catalog_autoit.py",
     "tools/validate_game_catalog.py",
-    "docs/implementation/current-game-model-1.md",
+    "docs/development/ENGINEERING_NOTES.md",
 ]
 
 

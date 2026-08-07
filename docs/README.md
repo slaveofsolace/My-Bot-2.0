@@ -16,18 +16,14 @@ gets moved once there is enough test coverage to prove a move was behaviour-neut
 - [Repository plan](architecture/REPOSITORY_PLAN.md) — target structure and the phased sequence for getting there.
 - [Merge playbook](development/MERGE_PLAYBOOK.md) — how upstream fixes and clean-room features enter this repository.
 - [UI handoff](ui/UI_HANDOFF.md) — requirements for the separate design-system work.
+- [Engineering notes](development/ENGINEERING_NOTES.md) — why particular decisions were made, and which ports were deliberately not taken.
 - [Install guide](INSTALL.md) — setup detail beyond the README's quick path.
-
-## Implementation notes
-
-- [Emulator adapters and orchestration](implementation/current-client-compat-1.md)
-- [Sourced game catalogs and the generated registry](implementation/current-game-model-1.md)
+- [Upstream changelog](CHANGELOG.md) — release notes inherited from MyBot.run.
 
 ## Branches
 
-Development happens on `claude/coc-bot-merge-ui-kobgds` and lands on `master`. The four
-`integration/*` branches and the `foundation/v8.2.0-source` pin were stacked review branches; they
-have been merged and removed. `master` now carries the complete runnable source.
+`master` carries the complete runnable source and is where work lands. Branch from it, keep each
+branch to one kind of change, and open a pull request.
 
 ## Checks
 
@@ -37,8 +33,10 @@ runs the whole set on every push and pull request; `.github/workflows/windows-au
 
 The AutoIt linter (`tools/lint_autoit.py`) exists because `Au3Check` is Windows-only. It catches
 unbalanced blocks, `ByRef` parameters with defaults, required parameters following optional ones,
-duplicate function definitions, and includes or project calls that do not resolve — the class of
-mistake that would otherwise sit undetected until a Windows job ran.
+duplicate function definitions, undeclared globals, includes that do not resolve, `ByRef`
+parameters bound to expressions, and functions a build calls but does not include. It resolves each
+entry point's include graph the way AutoIt does, which is how it catches a module that compiles
+fine in one build and not another.
 
 ## Working rules
 

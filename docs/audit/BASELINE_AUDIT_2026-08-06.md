@@ -4,7 +4,7 @@
 **Target repository:** `slaveofsolace/My-Bot-2.0`  
 **Foundation:** MyBot v8.2.0 source from official `develop` commit `8ad6e5a552347acc2fcb8048d30262e2735a0c33`
 
-## Executive finding
+## The short version
 
 The repository now has a source-complete v8.2.0 foundation, but the inherited automation remains tied to the April 2025 game client family. Official Supercell changes through July 9, 2026 affect army preparation, battle routing, Town Hall and Hero catalogs, Legend limits, Builder Base builders, chat, interruptions, live-battle timing, upgrade logic, OCR, image templates, and fixed coordinates.
 

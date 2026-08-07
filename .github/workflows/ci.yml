@@ -5,7 +5,7 @@ on:
     branches:
       - master
       - main
-      - "claude/**"
+      - "fix/**"
       - "feature/**"
       - "compat/**"
       - "ui/**"
