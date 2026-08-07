@@ -95,6 +95,46 @@ banner for as long as an unverified surface is selected.
 The attack-quota gate is deliberately not relaxed by diagnostic mode. Having no attacks left is a
 fact about the game rather than a missing capture, and attacking anyway is just a bug.
 
+## The plan file is one-way
+
+The web planner and the AutoIt tab both describe a run, and something had to decide what happens when
+they disagree. The answer is that `config/run-plan.local.json` is the source of truth and the traffic
+runs one direction: the tab reads it, and nothing on the AutoIt side writes it.
+
+Two-way sync was the obvious alternative and it is the wrong shape here. Whichever surface wrote last
+would win, and the surface that writes last is usually the one nobody is looking at — a browser tab
+left open since the morning, or a bot window that has been idle. One-way means a stale view can only
+ever be wrong about itself.
+
+The cost is that the tab is a viewer for anything the browser sets. That is the intended trade: the
+tab keeps working as the in-window fallback, and the web UI is where the plan actually gets built.
+
+`RunPlanFile.au3` reads the file because AutoIt has no JSON parser in its standard library and one
+flat object does not justify a UDF dependency. It handles strings, numbers, booleans, null, and lists
+of those. Nested objects are refused rather than flattened — a plan file that grew a nested shape is a
+contract change, and failing loudly beats guessing at it.
+
+`tools/check_plan_bridge.py` is what stops the two halves drifting. The AutoIt side cannot run off
+Windows, so the agreement is checked statically instead: the shapes the writer emits, the setting ids
+it uses, the types the tab has branches for, and the bounds the engine enforces against the ones the
+controls offer.
+
+## Pacing is a reliability control
+
+`RunPacing.au3` holds the gaps between actions, the settle wait before reading a screen, the retry
+count, and the rest schedule. Every one of them exists because an emulator redraws slower than the bot
+taps, and reading a frame that is still moving is where wrong decisions come from.
+
+It is deliberately not a disguise layer. There is no tap-position scatter, no randomised timing
+envelope, and no scheduling built around what a watcher would infer — those exist to defeat
+enforcement, which is a different goal with a different failure mode, and this project does not carry
+it. `tools/validate_ui_metadata.py` enforces that in the wording too: a control description that
+reframes a timing as looking human, avoiding detection, or being undetectable fails validation, since
+a control's description is what a user ends up believing about it.
+
+The clock is a parameter rather than something the module reads, which keeps the whole thing decidable
+from its arguments and lets the contract tests check the arithmetic without waiting for real time.
+
 ## What still has to happen
 
 Before any surface moves to `supported`:

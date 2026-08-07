@@ -1,0 +1,180 @@
+#!/usr/bin/env python3
+"""Check that what the web planner writes is what the AutoIt side can read.
+
+Two programs meet at config/run-plan.local.json: tools/planner_ui.py writes it, and
+COCBot/functions/Run/RunPlanFile.au3 reads it. Nothing else forces them to agree, and the AutoIt half
+cannot be executed off Windows, so this checks the agreement statically:
+
+  * the plan the server writes only uses shapes the AutoIt parser accepts
+  * every key in it names a setting the AutoIt tab has a control for
+  * every setting type in the metadata has a branch in the code that applies it
+  * the pacing bounds the engine enforces are the ones the controls offer
+
+Standard library only. Runs anywhere, including CI.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "tools"))
+
+METADATA = ROOT / "config/ui/run-planner.settings.json"
+PARSER = ROOT / "COCBot/functions/Run/RunPlanFile.au3"
+APPLIER = ROOT / "COCBot/GUI/MBR GUI Control Run Planner.au3"
+PACING = ROOT / "COCBot/functions/Run/RunPacing.au3"
+
+# The value shapes RunPlanFileParse produces. Anything else in a written plan would reach the AutoIt side
+# as a parse failure, which costs the whole file rather than one setting.
+SCALARS = (str, int, float, bool)
+
+# Bounds in RunPacing.au3, paired with the planner setting each one guards.
+PACING_BOUNDS = {
+    "RUN_PACING_MAX_ACTION_DELAY_MS": "pacing.action_delay_ms",
+    "RUN_PACING_MAX_SETTLE_MS": "pacing.settle_ms",
+    "RUN_PACING_MAX_RETRY_ATTEMPTS": "pacing.retry_attempts",
+    "RUN_PACING_MAX_BREAK_EVERY_MINUTES": "pacing.break_every_minutes",
+    "RUN_PACING_MAX_BREAK_MINUTES": "pacing.break_minutes",
+}
+
+
+def load(path: Path):
+    return json.loads(path.read_text(encoding="utf-8-sig"))
+
+
+def autoit_constants(source: str) -> dict[str, int]:
+    """Global Const $NAME = 123, as a lookup."""
+    found = {}
+    for name, value in re.findall(r"^\s*Global\s+Const\s+\$(\w+)\s*=\s*(-?\d+)\s*$", source, re.MULTILINE):
+        found[name] = int(value)
+    return found
+
+
+def applied_types(source: str) -> set[str]:
+    """The setting types _RunPlannerApplySetting has an explicit branch for."""
+    body = source.split("Func _RunPlannerApplySetting", 1)
+    if len(body) < 2:
+        return set()
+    body = body[1].split("EndFunc", 1)[0]
+    types: set[str] = set()
+    for line in body.splitlines():
+        match = re.match(r'^\s*Case\s+(.+)$', line)
+        if not match or match.group(1).strip().lower() == "else":
+            continue
+        types.update(item.strip().strip('"').lower() for item in match.group(1).split(","))
+    return types
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--json", dest="json_path", type=Path)
+    args = parser.parse_args()
+
+    errors: list[str] = []
+    warnings: list[str] = []
+
+    metadata = load(METADATA)
+    settings = {s["id"]: s for section in metadata["sections"] for s in section["settings"]}
+
+    # ---------------------------------------------------------------------------------------------
+    # The plan the server writes, checked against what the AutoIt parser accepts.
+    # ---------------------------------------------------------------------------------------------
+    import planner_ui  # noqa: E402  - the writer itself, so this checks the real thing
+
+    plan = planner_ui.default_plan()
+    for key, value in sorted(plan.items()):
+        if key not in settings:
+            errors.append(f"plan key {key} is not a planner setting, so no control could receive it")
+        if isinstance(value, dict):
+            errors.append(f"{key}: the AutoIt parser refuses nested objects")
+        elif isinstance(value, list):
+            for item in value:
+                if not isinstance(item, SCALARS):
+                    errors.append(f"{key}: list items must be scalars, found {type(item).__name__}")
+        elif not isinstance(value, SCALARS) and value is not None:
+            errors.append(f"{key}: {type(value).__name__} is not a shape the AutoIt parser reads")
+
+    # A submitted plan goes through the same validator, so check the post-validation shape too: that is
+    # what actually reaches disk.
+    written, _ = planner_ui.validate_plan({"run.max_battles": "9", "run.diagnostic_mode": "false"})
+    if set(written) != set(settings):
+        errors.append("a validated plan does not cover exactly the declared settings")
+    if written.get("run.diagnostic_mode") is not False:
+        errors.append("the writer would put a true diagnostic flag on disk for the string 'false'")
+
+    serialized = json.dumps(written)
+    reparsed = json.loads(serialized)
+    if reparsed != written:
+        errors.append("a written plan does not survive its own JSON round trip")
+
+    # ---------------------------------------------------------------------------------------------
+    # Every setting type the metadata uses needs somewhere to land in the tab.
+    # ---------------------------------------------------------------------------------------------
+    applier_source = APPLIER.read_text(encoding="utf-8-sig")
+    branches = applied_types(applier_source)
+    if not branches:
+        errors.append("could not find _RunPlannerApplySetting; the bridge check is not seeing the real code")
+    # instance-select and profile-queue are plain text boxes and share the fallback branch, which is
+    # deliberate: they carry free text either way.
+    fallback = {"instance-select", "profile-queue"}
+    for setting_id, setting in sorted(settings.items()):
+        kind = setting["type"]
+        if kind not in branches and kind not in fallback:
+            errors.append(f"{setting_id}: type {kind!r} has no branch in _RunPlannerApplySetting")
+
+    if "Case Else" not in applier_source.split("Func _RunPlannerApplySetting", 1)[-1].split("EndFunc", 1)[0]:
+        errors.append("_RunPlannerApplySetting has no fallback branch for free-text settings")
+
+    # ---------------------------------------------------------------------------------------------
+    # The engine must accept exactly what the controls can produce.
+    # ---------------------------------------------------------------------------------------------
+    constants = autoit_constants(PACING.read_text(encoding="utf-8-sig"))
+    for constant, setting_id in sorted(PACING_BOUNDS.items()):
+        setting = settings.get(setting_id)
+        if setting is None:
+            errors.append(f"{setting_id} is missing from the planner metadata")
+            continue
+        declared = constants.get(constant)
+        if declared is None:
+            errors.append(f"{constant} is not declared in RunPacing.au3")
+            continue
+        offered = setting["validation"]["maximum"]
+        if declared != offered:
+            errors.append(
+                f"{setting_id}: the control offers up to {offered} but the engine accepts up to {declared}"
+            )
+
+    # The parser and the tab have to agree on how a list is delimited, since one writes it and the other splits it.
+    parser_source = PARSER.read_text(encoding="utf-8-sig")
+    if 'RUN_PLAN_FILE_LIST_SEPARATOR = "|"' not in parser_source:
+        errors.append("the plan file list separator is no longer a pipe; the Hero list would not split")
+    if "$RUN_PLAN_FILE_LIST_SEPARATOR" not in applier_source:
+        errors.append("the tab splits Hero lists on something other than the parser's separator")
+
+    # The plan file must stay out of version control: it is machine-local and can name an emulator instance.
+    ignore = (ROOT / ".gitignore").read_text(encoding="utf-8-sig") if (ROOT / ".gitignore").exists() else ""
+    if "run-plan.local.json" not in ignore:
+        errors.append(".gitignore does not exclude config/run-plan.local.json")
+
+    report = {
+        "schema_version": 1,
+        "settings": len(settings),
+        "plan_keys": len(plan),
+        "applied_types": sorted(branches),
+        "errors": errors,
+        "warnings": warnings,
+    }
+    rendered = json.dumps(report, indent=2, sort_keys=True) + "\n"
+    print(rendered, end="")
+    if args.json_path:
+        args.json_path.write_text(rendered, encoding="utf-8")
+    return 1 if errors else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

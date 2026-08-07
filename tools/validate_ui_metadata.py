@@ -18,7 +18,21 @@ ID_PATTERN = re.compile(r"^[a-z][a-z0-9]*(?:[.\-_][a-z0-9]+)*$")
 BINDING_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9]*(?:\.[A-Za-z_][A-Za-z0-9_]*)+$")
 ALLOWED_TYPES = {"select", "multi-select", "instance-select", "integer", "boolean", "profile-queue"}
 ALLOWED_AVAILABILITY = {"available", "gated", "planned", "unsupported"}
-PROHIBITED_CLAIMS = {"undetectable", "ban-proof", "ban proof", "bypass detection", "evade detection", "humanlike"}
+# The planner describes timings in terms of what they are for - letting a screen finish drawing, not
+# driving the emulator faster than it answers. Wording that reframes them as disguise gets caught here,
+# because a control's description is what a user believes about it.
+#
+# These are patterns rather than fixed phrases: a literal list only catches the exact wording someone
+# happened to try, and "looks human" would slip past an entry for "look human".
+PROHIBITED_CLAIMS = {
+    "undetectable": r"undetect\w*",
+    "ban-proof": r"\bban[\s-]?proof\b|\banti[\s-]?ban\b|\bunbannable\b",
+    "defeating detection": r"\b(bypass|evad\w+|avoid\w*|escap\w+|beat|defeat|dodg\w+|fool\w*|trick\w*|circumvent\w*)\b[^.]{0,30}?\b(detect\w+|anti[\s-]?cheat|ban|bans|flagg?\w*)\b",
+    "human-like": r"human[\s-]?like",
+    "passing as a person": r"\b(look|appear|seem|pass|behav\w+|act|read)\w*\b[^.]{0,20}?\b(human|like a (real )?(person|player))\b",
+    "mimicking a person": r"\bmimic\w*\b[^.]{0,20}?\b(human|person|player)\b",
+    "stealth": r"\bstealth\w*\b",
+}
 
 
 def load(path: Path) -> Any:
@@ -37,9 +51,10 @@ def main() -> int:
     capability_ids = {item["id"] for item in capabilities.get("capabilities", [])}
 
     serialized = json.dumps(settings, ensure_ascii=False).lower()
-    for phrase in PROHIBITED_CLAIMS:
-        if phrase in serialized:
-            errors.append(f"prohibited product claim appears in UI metadata: {phrase}")
+    for label, pattern in sorted(PROHIBITED_CLAIMS.items()):
+        found = re.search(pattern, serialized)
+        if found:
+            errors.append(f"prohibited product claim appears in UI metadata ({label}): {found.group(0)!r}")
 
     if settings.get("schema_version") != 1:
         errors.append("settings schema_version must be 1")

@@ -69,6 +69,11 @@ jobs:
       - name: Check Run Planner UI server contract
         run: python tools/planner_ui.py --selftest
 
+      # The web UI writes the plan file and AutoIt reads it. Only this keeps the two halves agreeing,
+      # since the AutoIt half cannot be executed here.
+      - name: Check the web-to-AutoIt plan bridge
+        run: python tools/check_plan_bridge.py --json plan-bridge-check.json
+
       - name: Check fixture capture harness
         run: python tools/capture_fixture.py selftest
 
@@ -95,6 +100,7 @@ jobs:
             current-game-verification.json
             current-client-verification.json
             ui-metadata-validation.json
+            plan-bridge-check.json
             fixture-validation.json
             runtime-evidence-validation.json
             support-readiness.json

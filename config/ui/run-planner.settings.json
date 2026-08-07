@@ -449,226 +449,6 @@
       ]
     },
     {
-      "id": "limits",
-      "tab_label": "Limits",
-      "order": 30,
-      "title": "Stop conditions",
-      "description": "Decides when the run ends. Any condition that is set can stop the run; leaving a value at zero turns that condition off.",
-      "settings": [
-        {
-          "id": "run.duration_minutes",
-          "type": "integer",
-          "label": "Run for",
-          "summary": "Stop after this many minutes. Zero means no time limit.",
-          "description": "Measured from the moment the run starts, not from when the first battle begins, so time spent waiting for troops counts against it.",
-          "default": 0,
-          "required": false,
-          "engine_binding": "RunPlan.duration_minutes",
-          "unit": "minutes",
-          "validation": {
-            "minimum": 0,
-            "maximum": 1440,
-            "step": 1
-          }
-        },
-        {
-          "id": "run.max_battles",
-          "type": "integer",
-          "label": "Battle limit",
-          "summary": "Stop after this many battles. Zero means no limit.",
-          "description": "Counts every battle the run starts, won or lost. On a surface with a limited attack budget the remaining count still applies on top of this.",
-          "default": 0,
-          "required": false,
-          "engine_binding": "RunPlan.max_battles",
-          "unit": "battles",
-          "validation": {
-            "minimum": 0,
-            "maximum": 500,
-            "step": 1
-          }
-        },
-        {
-          "id": "run.stop_on_star_bonus",
-          "type": "boolean",
-          "label": "Stop at Star Bonus",
-          "summary": "Stop once the Star Bonus is earned.",
-          "description": "Ends the run as soon as the Star Bonus is complete, which is the usual stopping point for a daily farming session.",
-          "default": false,
-          "required": false,
-          "engine_binding": "RunPlan.stop_on_star_bonus"
-        },
-        {
-          "id": "run.max_failures",
-          "type": "integer",
-          "label": "Failure limit",
-          "summary": "Stop after this many consecutive problems.",
-          "description": "A failure is a battle that could not be completed, not a battle that was lost. Keep this low while testing an unverified surface so a broken run stops quickly.",
-          "default": 3,
-          "required": true,
-          "engine_binding": "RunPlan.max_failures",
-          "unit": "failures",
-          "validation": {
-            "minimum": 0,
-            "maximum": 100,
-            "step": 1
-          }
-        }
-      ]
-    },
-    {
-      "id": "resources",
-      "tab_label": "Loot",
-      "order": 40,
-      "title": "Resource targets",
-      "description": "Stops the run once a resource total has been collected. Each target is counted across the run, and zero turns the target off.",
-      "settings": [
-        {
-          "id": "target.gold",
-          "type": "integer",
-          "label": "Gold",
-          "summary": "Stop once this much Gold has been collected.",
-          "description": "Counts Gold taken during the run, not the Gold currently in your storages.",
-          "default": 0,
-          "required": false,
-          "engine_binding": "RunPlan.target_gold",
-          "unit": "gold",
-          "validation": {
-            "minimum": 0,
-            "maximum": 2000000000,
-            "step": 1000
-          }
-        },
-        {
-          "id": "target.elixir",
-          "type": "integer",
-          "label": "Elixir",
-          "summary": "Stop once this much Elixir has been collected.",
-          "description": "Counts Elixir taken during the run, not the Elixir currently in your storages.",
-          "default": 0,
-          "required": false,
-          "engine_binding": "RunPlan.target_elixir",
-          "unit": "elixir",
-          "validation": {
-            "minimum": 0,
-            "maximum": 2000000000,
-            "step": 1000
-          }
-        },
-        {
-          "id": "target.dark_elixir",
-          "type": "integer",
-          "label": "Dark Elixir",
-          "summary": "Stop once this much Dark Elixir has been collected.",
-          "description": "Counts Dark Elixir taken during the run. Dark Elixir loot is much smaller than Gold or Elixir, so this target wants a correspondingly smaller number.",
-          "default": 0,
-          "required": false,
-          "engine_binding": "RunPlan.target_dark_elixir",
-          "unit": "dark elixir",
-          "validation": {
-            "minimum": 0,
-            "maximum": 2000000000,
-            "step": 100
-          }
-        }
-      ]
-    },
-    {
-      "id": "maintenance",
-      "tab_label": "Upkeep",
-      "order": 50,
-      "title": "Between battles",
-      "description": "What the run does with the resources it collects, and which accounts it rotates through.",
-      "settings": [
-        {
-          "id": "upgrade.policy",
-          "type": "select",
-          "label": "Upgrades",
-          "summary": "What the bot spends resources on between battles.",
-          "description": "Upgrade handling reads menus and costs from the client. Anything beyond walls needs current recognition of the upgrade screens, which has not been re-confirmed.",
-          "default": "disabled",
-          "required": true,
-          "engine_binding": "RunPlan.upgrade_policy",
-          "options": [
-            {
-              "value": "disabled",
-              "label": "Nothing",
-              "summary": "Collect resources and leave them alone.",
-              "description": "The run does not spend anything. This is the right setting while you are confirming that a surface works at all.",
-              "availability": "available",
-              "disabled_reason": "",
-              "capability_ids": [],
-              "prerequisites": [],
-              "recommended": true,
-              "warning": ""
-            },
-            {
-              "value": "walls",
-              "label": "Walls only",
-              "summary": "Spend surplus on wall upgrades.",
-              "description": "Puts spare resources into walls, which is the least risky upgrade because it does not occupy a Builder.",
-              "availability": "gated",
-              "disabled_reason": "Wall levels have not been re-confirmed for the current client.",
-              "capability_ids": [
-                "village.town-hall-18"
-              ],
-              "prerequisites": [
-                "Current wall recognition"
-              ],
-              "recommended": false,
-              "warning": ""
-            },
-            {
-              "value": "suggested",
-              "label": "Suggested upgrades",
-              "summary": "Follow the in-game suggested upgrade list.",
-              "description": "Uses the game's own suggestions, which requires reading the upgrade menu as it currently appears.",
-              "availability": "gated",
-              "disabled_reason": "Upgrade menu recognition has not been captured.",
-              "capability_ids": [
-                "builder-base.additional-builder"
-              ],
-              "prerequisites": [
-                "Upgrade menu recognition"
-              ],
-              "recommended": false,
-              "warning": ""
-            },
-            {
-              "value": "all",
-              "label": "Everything",
-              "summary": "Walls, buildings, laboratory, and Heroes.",
-              "description": "The full upgrade routine across every category. It depends on the six-Hero layout and the Town Hall 18 building set.",
-              "availability": "planned",
-              "disabled_reason": "Not implemented against the current upgrade and Hero screens.",
-              "capability_ids": [
-                "village.town-hall-18",
-                "heroes.six-slot-layout"
-              ],
-              "prerequisites": [
-                "Current upgrade and Hero recognition"
-              ],
-              "recommended": false,
-              "warning": ""
-            }
-          ]
-        },
-        {
-          "id": "account.queue",
-          "type": "profile-queue",
-          "label": "Account queue",
-          "summary": "Local bot profiles to rotate through, in order.",
-          "description": "References bot profiles stored on this machine. No credentials, tokens, or Supercell ID details are kept here; the queue only records which local profile to switch to next.",
-          "default": "",
-          "required": false,
-          "engine_binding": "AccountQueue.profile_ids",
-          "empty_state": "No profiles queued. Stays on this profile.",
-          "validation": {
-            "max_items": 32
-          }
-        }
-      ]
-    },
-    {
       "id": "army",
       "tab_label": "Army",
       "order": 22,
@@ -908,6 +688,219 @@
       ]
     },
     {
+      "id": "pacing",
+      "tab_label": "Pacing",
+      "order": 28,
+      "title": "Pacing",
+      "description": "How hard the run drives the emulator. Every value here trades throughput for fewer misread screens, and the defaults are the point where that trade stops paying.",
+      "settings": [
+        {
+          "id": "pacing.action_delay_ms",
+          "type": "integer",
+          "label": "Gap between actions",
+          "summary": "Shortest wait between two taps. Zero drives the emulator as fast as it answers.",
+          "description": "The bot can issue taps faster than an emulator redraws, and an action sent into a screen that has not finished changing lands on whatever was underneath it. This sets a floor on the gap between one action and the next. The wait is only taken when the previous action finished more recently than this, so a slow step costs nothing extra.",
+          "default": 120,
+          "required": false,
+          "engine_binding": "RunPacing.action_delay_ms",
+          "unit": "milliseconds",
+          "validation": {
+            "minimum": 0,
+            "maximum": 5000,
+            "step": 10
+          }
+        },
+        {
+          "id": "pacing.settle_ms",
+          "type": "integer",
+          "label": "Screen settle wait",
+          "summary": "How long to let a screen finish changing before reading it.",
+          "description": "Applies after anything that starts an animation: opening a menu, dismissing a dialog, returning from a battle. Reading pixels while the frame is still moving is the largest single source of misidentified screens, and waiting here costs far less than acting on a wrong one.",
+          "default": 400,
+          "required": false,
+          "engine_binding": "RunPacing.settle_ms",
+          "unit": "milliseconds",
+          "validation": {
+            "minimum": 0,
+            "maximum": 10000,
+            "step": 50
+          }
+        },
+        {
+          "id": "pacing.retry_attempts",
+          "type": "integer",
+          "label": "Retries per action",
+          "summary": "How many times to repeat an action whose result never appeared.",
+          "description": "A tap that produced no visible change is usually a dropped input rather than a wrong coordinate, and repeating it is cheaper than abandoning the step. Each retry waits the settle time again before looking. Zero gives up on the first miss and lets the run's failure limit deal with it.",
+          "default": 2,
+          "required": false,
+          "engine_binding": "RunPacing.retry_attempts",
+          "unit": "attempts",
+          "validation": {
+            "minimum": 0,
+            "maximum": 10,
+            "step": 1
+          }
+        },
+        {
+          "id": "pacing.break_every_minutes",
+          "type": "integer",
+          "label": "Rest after",
+          "summary": "Pause the run once it has been going this long. Zero never pauses.",
+          "description": "Hours of unbroken emulator load is where thermal throttling and memory growth start showing up as misread screens. This schedules a pause so the machine gets a gap. The run resumes by itself afterwards; nothing is closed and no progress is lost.",
+          "default": 0,
+          "required": false,
+          "engine_binding": "RunPacing.break_every_minutes",
+          "unit": "minutes",
+          "validation": {
+            "minimum": 0,
+            "maximum": 1440,
+            "step": 5
+          }
+        },
+        {
+          "id": "pacing.break_minutes",
+          "type": "integer",
+          "label": "Rest for",
+          "summary": "How long each scheduled pause lasts. Ignored when rests are off.",
+          "description": "The run stops issuing actions for this long and then picks up where it left off. Time spent resting still counts against the run duration limit, so a long rest on a short run can end it before the next battle.",
+          "default": 5,
+          "required": false,
+          "engine_binding": "RunPacing.break_minutes",
+          "unit": "minutes",
+          "validation": {
+            "minimum": 1,
+            "maximum": 240,
+            "step": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "limits",
+      "tab_label": "Limits",
+      "order": 30,
+      "title": "Stop conditions",
+      "description": "Decides when the run ends. Any condition that is set can stop the run; leaving a value at zero turns that condition off.",
+      "settings": [
+        {
+          "id": "run.duration_minutes",
+          "type": "integer",
+          "label": "Run for",
+          "summary": "Stop after this many minutes. Zero means no time limit.",
+          "description": "Measured from the moment the run starts, not from when the first battle begins, so time spent waiting for troops counts against it.",
+          "default": 0,
+          "required": false,
+          "engine_binding": "RunPlan.duration_minutes",
+          "unit": "minutes",
+          "validation": {
+            "minimum": 0,
+            "maximum": 1440,
+            "step": 1
+          }
+        },
+        {
+          "id": "run.max_battles",
+          "type": "integer",
+          "label": "Battle limit",
+          "summary": "Stop after this many battles. Zero means no limit.",
+          "description": "Counts every battle the run starts, won or lost. On a surface with a limited attack budget the remaining count still applies on top of this.",
+          "default": 0,
+          "required": false,
+          "engine_binding": "RunPlan.max_battles",
+          "unit": "battles",
+          "validation": {
+            "minimum": 0,
+            "maximum": 500,
+            "step": 1
+          }
+        },
+        {
+          "id": "run.stop_on_star_bonus",
+          "type": "boolean",
+          "label": "Stop at Star Bonus",
+          "summary": "Stop once the Star Bonus is earned.",
+          "description": "Ends the run as soon as the Star Bonus is complete, which is the usual stopping point for a daily farming session.",
+          "default": false,
+          "required": false,
+          "engine_binding": "RunPlan.stop_on_star_bonus"
+        },
+        {
+          "id": "run.max_failures",
+          "type": "integer",
+          "label": "Failure limit",
+          "summary": "Stop after this many consecutive problems.",
+          "description": "A failure is a battle that could not be completed, not a battle that was lost. Keep this low while testing an unverified surface so a broken run stops quickly.",
+          "default": 3,
+          "required": true,
+          "engine_binding": "RunPlan.max_failures",
+          "unit": "failures",
+          "validation": {
+            "minimum": 0,
+            "maximum": 100,
+            "step": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "resources",
+      "tab_label": "Loot",
+      "order": 40,
+      "title": "Resource targets",
+      "description": "Stops the run once a resource total has been collected. Each target is counted across the run, and zero turns the target off.",
+      "settings": [
+        {
+          "id": "target.gold",
+          "type": "integer",
+          "label": "Gold",
+          "summary": "Stop once this much Gold has been collected.",
+          "description": "Counts Gold taken during the run, not the Gold currently in your storages.",
+          "default": 0,
+          "required": false,
+          "engine_binding": "RunPlan.target_gold",
+          "unit": "gold",
+          "validation": {
+            "minimum": 0,
+            "maximum": 2000000000,
+            "step": 1000
+          }
+        },
+        {
+          "id": "target.elixir",
+          "type": "integer",
+          "label": "Elixir",
+          "summary": "Stop once this much Elixir has been collected.",
+          "description": "Counts Elixir taken during the run, not the Elixir currently in your storages.",
+          "default": 0,
+          "required": false,
+          "engine_binding": "RunPlan.target_elixir",
+          "unit": "elixir",
+          "validation": {
+            "minimum": 0,
+            "maximum": 2000000000,
+            "step": 1000
+          }
+        },
+        {
+          "id": "target.dark_elixir",
+          "type": "integer",
+          "label": "Dark Elixir",
+          "summary": "Stop once this much Dark Elixir has been collected.",
+          "description": "Counts Dark Elixir taken during the run. Dark Elixir loot is much smaller than Gold or Elixir, so this target wants a correspondingly smaller number.",
+          "default": 0,
+          "required": false,
+          "engine_binding": "RunPlan.target_dark_elixir",
+          "unit": "dark elixir",
+          "validation": {
+            "minimum": 0,
+            "maximum": 2000000000,
+            "step": 100
+          }
+        }
+      ]
+    },
+    {
       "id": "donate",
       "tab_label": "Donate",
       "order": 44,
@@ -1106,6 +1099,102 @@
           "default": true,
           "required": false,
           "engine_binding": "RunPlan.events_collect_resources"
+        }
+      ]
+    },
+    {
+      "id": "maintenance",
+      "tab_label": "Upkeep",
+      "order": 50,
+      "title": "Between battles",
+      "description": "What the run does with the resources it collects, and which accounts it rotates through.",
+      "settings": [
+        {
+          "id": "upgrade.policy",
+          "type": "select",
+          "label": "Upgrades",
+          "summary": "What the bot spends resources on between battles.",
+          "description": "Upgrade handling reads menus and costs from the client. Anything beyond walls needs current recognition of the upgrade screens, which has not been re-confirmed.",
+          "default": "disabled",
+          "required": true,
+          "engine_binding": "RunPlan.upgrade_policy",
+          "options": [
+            {
+              "value": "disabled",
+              "label": "Nothing",
+              "summary": "Collect resources and leave them alone.",
+              "description": "The run does not spend anything. This is the right setting while you are confirming that a surface works at all.",
+              "availability": "available",
+              "disabled_reason": "",
+              "capability_ids": [],
+              "prerequisites": [],
+              "recommended": true,
+              "warning": ""
+            },
+            {
+              "value": "walls",
+              "label": "Walls only",
+              "summary": "Spend surplus on wall upgrades.",
+              "description": "Puts spare resources into walls, which is the least risky upgrade because it does not occupy a Builder.",
+              "availability": "gated",
+              "disabled_reason": "Wall levels have not been re-confirmed for the current client.",
+              "capability_ids": [
+                "village.town-hall-18"
+              ],
+              "prerequisites": [
+                "Current wall recognition"
+              ],
+              "recommended": false,
+              "warning": ""
+            },
+            {
+              "value": "suggested",
+              "label": "Suggested upgrades",
+              "summary": "Follow the in-game suggested upgrade list.",
+              "description": "Uses the game's own suggestions, which requires reading the upgrade menu as it currently appears.",
+              "availability": "gated",
+              "disabled_reason": "Upgrade menu recognition has not been captured.",
+              "capability_ids": [
+                "builder-base.additional-builder"
+              ],
+              "prerequisites": [
+                "Upgrade menu recognition"
+              ],
+              "recommended": false,
+              "warning": ""
+            },
+            {
+              "value": "all",
+              "label": "Everything",
+              "summary": "Walls, buildings, laboratory, and Heroes.",
+              "description": "The full upgrade routine across every category. It depends on the six-Hero layout and the Town Hall 18 building set.",
+              "availability": "planned",
+              "disabled_reason": "Not implemented against the current upgrade and Hero screens.",
+              "capability_ids": [
+                "village.town-hall-18",
+                "heroes.six-slot-layout"
+              ],
+              "prerequisites": [
+                "Current upgrade and Hero recognition"
+              ],
+              "recommended": false,
+              "warning": ""
+            }
+          ]
+        },
+        {
+          "id": "account.queue",
+          "type": "profile-queue",
+          "label": "Account queue",
+          "summary": "Local bot profiles to rotate through, in order.",
+          "description": "References bot profiles stored on this machine. No credentials, tokens, or Supercell ID details are kept here; the queue only records which local profile to switch to next.",
+          "default": "",
+          "required": false,
+          "engine_binding": "AccountQueue.profile_ids",
+          "empty_state": "No profiles queued. Stays on this profile.",
+          "validation": {
+            "max_items": 32
+          }
         }
       ]
     },

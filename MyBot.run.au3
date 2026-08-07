@@ -157,6 +157,10 @@ Func InitializeBot()
 	; Show main GUI
 	ShowMainGUI()
 
+	; The web planner writes config\run-plan.local.json. Read it once here so the Run Planner tab already agrees with it
+	; before anyone opens the tab; after this it is re-read whenever the file changes.
+	RunPlannerSyncPlanFile(True)
+
 	If $g_iBotLaunchOption_Dock Then
 		If AndroidEmbed(True) And $g_iBotLaunchOption_Dock = 2 And $g_bCustomTitleBarActive Then
 			BotShrinkExpandToggle()

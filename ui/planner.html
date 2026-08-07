@@ -44,7 +44,15 @@
   .row > label { padding-top: 6px; font-size: 13.5px; }
   .row > label .req { color: var(--accent); margin-left: 3px; }
   .row > label .note { display: block; color: var(--ink-faint); font-size: 12px; margin-top: 2px; }
-  .field { min-width: 0; }
+  /* The control and its unit share a line; the availability pill and its reason take their own.
+     Without this a long unit like "milliseconds" wraps under the field and a short one does not,
+     which reads as two different layouts for the same kind of row. */
+  .field { min-width: 0; display: flex; flex-wrap: wrap; align-items: center; }
+  .field > select, .field > input[type=text], .field > input[type=number] { flex: 1 1 200px; }
+  .field > .unit { flex: 0 0 auto; }
+  /* The pill has to sit on its own line without being stretched to it, so it travels in a wrapper
+     that takes the full width while the pill inside keeps hugging its text. */
+  .field > .availability, .field > .why { flex-basis: 100%; margin-top: 6px; }
   select, input[type=text], input[type=number] {
     width: 100%; max-width: 420px; padding: 7px 9px; border-radius: 6px;
     border: 1px solid var(--line); background: var(--panel-2); color: var(--ink); font: inherit;
@@ -189,7 +197,7 @@ function renderRow(setting) {
 
 // Availability shown as a pill plus the specific blocking reason, so "greyed out" is never mysterious.
 function paintAvailability(setting, control, field) {
-  field.querySelectorAll('.pill,.why').forEach(n => n.remove());
+  field.querySelectorAll('.availability,.why').forEach(n => n.remove());
   const opt = optionOf(setting, PLAN[setting.id]);
   if (!opt) return;
 
@@ -197,7 +205,10 @@ function paintAvailability(setting, control, field) {
   pill.className = 'pill ' + opt.availability;
   pill.textContent = { available: 'verified', gated: 'unverified',
                        planned: 'not implemented', unsupported: 'unsupported' }[opt.availability] || opt.availability;
-  field.append(document.createTextNode(' '), pill);
+  const line = document.createElement('div');
+  line.className = 'availability';
+  line.append(pill);
+  field.append(line);
 
   if (opt.disabled_reason) {
     const why = document.createElement('div'); why.className = 'why';

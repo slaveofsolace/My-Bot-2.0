@@ -12,6 +12,7 @@
 #include "RunSession.au3"
 #include "RunEvent.au3"
 #include "RunVerification.au3"
+#include "RunPacing.au3"
 
 Func _RunIntentRouteForPlanMode($sMode)
 	Switch StringLower(StringStripWS(String($sMode), $STR_STRIPALL))
@@ -56,8 +57,15 @@ Func RunIntentCreate(ByRef $oPlan, $sSurfaceId, ByRef $oLoadout, ByRef $sError)
 		Return SetError(6, 0, 0)
 	EndIf
 
+	; Every intent carries pacing, defaulted rather than optional, so nothing downstream has to check whether it is there.
+	Local $oPacing = RunPacingCreateDefault()
+	If Not IsObj($oPacing) Then
+		$sError = "Unable to create run pacing for " & $sSurfaceId
+		Return SetError(7, 0, 0)
+	EndIf
+
 	Local $oIntent = ObjCreate("Scripting.Dictionary")
-	If Not IsObj($oIntent) Then Return SetError(7, 0, 0)
+	If Not IsObj($oIntent) Then Return SetError(8, 0, 0)
 	$oIntent.CompareMode = 1
 	$oIntent.Add("schema_version", 1)
 	$oIntent.Add("surface_id", $g_aCurrentGameBattleSurfaces[$iSurface][$eGameBattleId])
@@ -66,9 +74,18 @@ Func RunIntentCreate(ByRef $oPlan, $sSurfaceId, ByRef $oLoadout, ByRef $sError)
 	$oIntent.Add("route", $oRoute)
 	$oIntent.Add("quota", $oQuota)
 	$oIntent.Add("loadout", $oLoadout)
+	$oIntent.Add("pacing", $oPacing)
 	$oIntent.Add("profile_id", "")
 	Return $oIntent
 EndFunc   ;==>RunIntentCreate
+
+Func RunIntentSetPacing(ByRef $oIntent, $iActionDelayMs, $iSettleMs, $iRetryAttempts, $iBreakEveryMinutes, $iBreakMinutes, ByRef $sError)
+	$sError = ""
+	If Not RunIntentValidate($oIntent, $sError) Then Return SetError(1, 0, False)
+	Local $oPacing = $oIntent.Item("pacing")
+	If Not RunPacingSet($oPacing, $iActionDelayMs, $iSettleMs, $iRetryAttempts, $iBreakEveryMinutes, $iBreakMinutes, $sError) Then Return SetError(2, 0, False)
+	Return True
+EndFunc   ;==>RunIntentSetPacing
 
 Func RunIntentValidate(ByRef $oIntent, ByRef $sError)
 	$sError = ""
@@ -77,7 +94,7 @@ Func RunIntentValidate(ByRef $oIntent, ByRef $sError)
 		Return SetError(1, 0, False)
 	EndIf
 
-	Local $aRequired = ["schema_version", "surface_id", "surface_label", "plan", "route", "quota", "loadout", "profile_id"]
+	Local $aRequired = ["schema_version", "surface_id", "surface_label", "plan", "route", "quota", "loadout", "pacing", "profile_id"]
 	For $i = 0 To UBound($aRequired) - 1
 		If Not $oIntent.Exists($aRequired[$i]) Then
 			$sError = "Missing run intent field: " & $aRequired[$i]
@@ -104,6 +121,11 @@ Func RunIntentValidate(ByRef $oIntent, ByRef $sError)
 	If Not HeroLoadoutValidate($oLoadout, $sError) Then
 		$sError = "Invalid Hero loadout: " & $sError
 		Return SetError(6, 0, False)
+	EndIf
+	Local $oPacing = $oIntent.Item("pacing")
+	If Not RunPacingValidate($oPacing, $sError) Then
+		$sError = "Invalid run pacing: " & $sError
+		Return SetError(9, 0, False)
 	EndIf
 
 	If StringLower($oQuota.Item("surface_id")) <> StringLower($oIntent.Item("surface_id")) Then
@@ -211,7 +233,8 @@ Func RunIntentDescribe(ByRef $oIntent)
 	If Not RunIntentValidate($oIntent, $sError) Then Return SetError(1, 0, $sError)
 	Local $oQuota = $oIntent.Item("quota")
 	Local $oLoadout = $oIntent.Item("loadout")
-	Local $sDescription = $oIntent.Item("surface_label") & " / " & HeroLoadoutDescribe($oLoadout) & " / " & BattleQuotaDescribe($oQuota)
+	Local $oPacing = $oIntent.Item("pacing")
+	Local $sDescription = $oIntent.Item("surface_label") & " / " & HeroLoadoutDescribe($oLoadout) & " / " & BattleQuotaDescribe($oQuota) & " / " & RunPacingDescribe($oPacing)
 	If RunIntentVerificationState($oIntent) = $RUN_VERIFICATION_DIAGNOSTIC Then $sDescription &= " / " & RunVerificationLabel($RUN_VERIFICATION_DIAGNOSTIC)
 	Return $sDescription
 EndFunc   ;==>RunIntentDescribe

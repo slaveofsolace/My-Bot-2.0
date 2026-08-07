@@ -7,9 +7,14 @@
 #include-once
 #include "MBR GUI Design Run Planner.au3"
 #include "..\functions\Run\RunIntent.au3"
+#include "..\functions\Run\RunPlanFile.au3"
 
 Global $g_oRunPlannerIntent = 0
 Global $g_sRunPlannerHeroIds = ""
+
+; Change token of the plan file as of the last time it was read into the controls. Empty means never read, or no file.
+Global $g_sRunPlannerPlanFileStamp = ""
+Global $g_sRunPlannerPlanFileNote = ""
 
 Func RunPlannerSettingIndex($sSettingId)
 	For $i = 0 To UBound($g_aRunPlannerSettings, 1) - 1
@@ -60,6 +65,197 @@ Func RunPlannerReadText($sSettingId)
 	If $g_ahRunPlannerControls[$iSetting] = 0 Then Return ""
 	Return StringStripWS(GUICtrlRead($g_ahRunPlannerControls[$iSetting]), $STR_STRIPLEADING + $STR_STRIPTRAILING)
 EndFunc   ;==>RunPlannerReadText
+
+; ===============================================================================================================================
+; The web planner writes config\run-plan.local.json; this reads it back into the tab.
+;
+; The file is the single source of truth and the traffic is one way: the tab mirrors the file, and nothing here writes to it.
+; That is what makes the two views safe to have open at once - the browser cannot be quietly overwritten by a stale tab.
+; ===============================================================================================================================
+
+; A hand-edited file can hold anything. Booleans arrive as real booleans from the parser, but the words are accepted too so a
+; file someone typed themselves behaves the way it reads.
+Func _RunPlannerBooleanFromValue($vValue, ByRef $bValid)
+	$bValid = True
+	If IsBool($vValue) Then Return $vValue
+	If IsNumber($vValue) Then Return ($vValue <> 0)
+	Switch StringLower(StringStripWS(String($vValue), $STR_STRIPALL))
+		Case "true", "1", "yes", "on"
+			Return True
+		Case "false", "0", "no", "off", ""
+			Return False
+	EndSwitch
+	$bValid = False
+	Return False
+EndFunc   ;==>_RunPlannerBooleanFromValue
+
+; Puts one value from the plan file into the control that owns it.
+;
+; True means the control now holds a usable value; False means it was left alone because the file's value could not be
+; represented, which costs that one setting rather than the whole plan. $sError is set either way when there is something to
+; say, so True with a message means the value was accepted after being adjusted.
+Func _RunPlannerApplySetting($iSetting, $vValue, ByRef $sError)
+	$sError = ""
+	Local $sId = $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingId]
+	Local $hControl = $g_ahRunPlannerControls[$iSetting]
+	If $hControl = 0 Then
+		$sError = $sId & " has no control"
+		Return SetError(1, 0, False)
+	EndIf
+
+	Switch StringLower($g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingType])
+		Case "select"
+			Local $sValue = String($vValue)
+			If RunPlannerOptionIndex($sId, $sValue) < 0 Then
+				$sError = $sId & ": " & $sValue & " is not one of the offered options"
+				Return SetError(2, 0, False)
+			EndIf
+			; Same clear-and-repopulate the Reset button uses: it is the one way to move a combo's selection that also keeps
+			; the decorated availability labels correct.
+			GUICtrlSetData($hControl, "")
+			GUICtrlSetData($hControl, _RunPlannerOptionLabelList($sId), _RunPlannerDefaultLabel($sId, $sValue))
+			_RunPlannerTintForAvailability($hControl, $sId, $sValue)
+
+		Case "multi-select"
+			; Heroes are held in a loadout rather than the control, so the list goes through the engine and an impossible
+			; selection is refused here rather than surfacing at Apply.
+			Local $sIds = StringStripWS(String($vValue), $STR_STRIPLEADING + $STR_STRIPTRAILING)
+			Local $oLoadout = HeroLoadoutCreate($CURRENT_GAME_MAX_TOWN_HALL)
+			If Not IsObj($oLoadout) Then
+				$sError = $sId & ": unable to create a Hero loadout"
+				Return SetError(3, 0, False)
+			EndIf
+			If $sIds <> "" Then
+				Local $aIds = StringSplit($sIds, $RUN_PLAN_FILE_LIST_SEPARATOR, $STR_NOCOUNT)
+				For $i = 0 To UBound($aIds) - 1
+					Local $sHero = StringStripWS($aIds[$i], $STR_STRIPALL)
+					If $sHero = "" Then ContinueLoop
+					If Not HeroLoadoutAdd($oLoadout, $sHero, $sError) Then
+						$sError = $sId & ": " & $sError
+						Return SetError(4, 0, False)
+					EndIf
+				Next
+			EndIf
+			$g_sRunPlannerHeroIds = $oLoadout.Item("hero_ids")
+			RunPlannerRefreshHeroSelection()
+
+		Case "integer"
+			If Not StringRegExp(StringStripWS(String($vValue), $STR_STRIPALL), "^-?[0-9]+$") Then
+				$sError = $sId & ": " & String($vValue) & " is not a whole number"
+				Return SetError(5, 0, False)
+			EndIf
+			Local $iValue = Int($vValue)
+			Local $iMinimum = Int($g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingMinimum])
+			Local $iMaximum = Int($g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingMaximum])
+			; Out of range is clamped rather than refused: the control cannot hold the original either way, and a run that
+			; keeps going at the nearest legal value beats one that silently ignored the setting.
+			If $iValue < $iMinimum Then
+				$sError = $sId & ": " & $iValue & " is below " & $iMinimum & ", used " & $iMinimum
+				$iValue = $iMinimum
+			ElseIf $iValue > $iMaximum Then
+				$sError = $sId & ": " & $iValue & " is above " & $iMaximum & ", used " & $iMaximum
+				$iValue = $iMaximum
+			EndIf
+			GUICtrlSetData($hControl, $iValue)
+
+		Case "boolean"
+			Local $bValid = False
+			Local $bValue = _RunPlannerBooleanFromValue($vValue, $bValid)
+			If Not $bValid Then
+				$sError = $sId & ": " & String($vValue) & " is not a yes or no"
+				Return SetError(6, 0, False)
+			EndIf
+			GUICtrlSetState($hControl, ($bValue ? $GUI_CHECKED : $GUI_UNCHECKED))
+
+		Case Else
+			GUICtrlSetData($hControl, String($vValue))
+	EndSwitch
+
+	Return True
+EndFunc   ;==>_RunPlannerApplySetting
+
+; Reads the plan file into the tab. Returns the number of settings applied, and leaves a one-line summary in
+; $g_sRunPlannerPlanFileNote for whoever wants to show it.
+Func RunPlannerApplyPlanFile($sPath, ByRef $sError)
+	$sError = ""
+	$g_sRunPlannerPlanFileNote = ""
+
+	Local $oValues = RunPlanFileLoad($sPath, $sError)
+	Local $iLoadStatus = @error ; captured before anything else can clear it
+	If Not IsObj($oValues) Then
+		; No file at all is the ordinary state, not a fault: nobody has opened the web planner on this machine.
+		If $iLoadStatus = 2 Then
+			$sError = ""
+			Return SetError(1, 0, 0)
+		EndIf
+		Return SetError(2, 0, 0)
+	EndIf
+
+	Local $iApplied = 0, $iAdjusted = 0, $iRefused = 0, $iUnknown = 0
+	Local $sFirstProblem = ""
+	Local $aKeys = $oValues.Keys()
+
+	For $i = 0 To UBound($aKeys) - 1
+		Local $sKey = $aKeys[$i]
+		Local $iSetting = RunPlannerSettingIndex($sKey)
+		If $iSetting < 0 Then
+			; A setting this build does not have. Older or newer plan files are readable either way, which is the point of
+			; keying on setting ids rather than positions.
+			$iUnknown += 1
+			ContinueLoop
+		EndIf
+
+		Local $sSettingError = ""
+		Local $bApplied = _RunPlannerApplySetting($iSetting, $oValues.Item($sKey), $sSettingError)
+		If $bApplied Then
+			$iApplied += 1
+			If $sSettingError <> "" Then $iAdjusted += 1
+		Else
+			$iRefused += 1
+		EndIf
+		If $sSettingError <> "" And $sFirstProblem = "" Then $sFirstProblem = $sSettingError
+	Next
+
+	; The controls moved without anyone clicking them, so the derived panes have to be told.
+	UpdateRunPlannerBanner()
+	UpdateRunPlannerDetail("run.surface")
+
+	$g_sRunPlannerPlanFileNote = "Loaded " & $iApplied & " setting" & (($iApplied = 1) ? "" : "s") & " from the run plan file"
+	If $iAdjusted > 0 Then $g_sRunPlannerPlanFileNote &= ", " & $iAdjusted & " brought into range"
+	If $iUnknown > 0 Then $g_sRunPlannerPlanFileNote &= ", ignored " & $iUnknown & " this build does not have"
+	If $iRefused > 0 Then $g_sRunPlannerPlanFileNote &= ", refused " & $iRefused
+	$sError = $sFirstProblem
+
+	Return SetError(0, $iRefused, $iApplied)
+EndFunc   ;==>RunPlannerApplyPlanFile
+
+; Called wherever the tab is about to be believed. Cheap when nothing changed: it compares a timestamp and a size before it
+; opens anything.
+Func RunPlannerSyncPlanFile($bForce = False)
+	; The mini GUI does not build the planner tab, so there are no controls to write into.
+	If $g_iGuiMode <> 1 Then Return 0
+
+	Local $sPath = RunPlanFileDefaultPath()
+	Local $sStamp = RunPlanFileStamp($sPath)
+	If Not $bForce And $sStamp = $g_sRunPlannerPlanFileStamp Then Return 0
+	$g_sRunPlannerPlanFileStamp = $sStamp
+
+	Local $sError = ""
+	Local $iApplied = RunPlannerApplyPlanFile($sPath, $sError)
+	Local $iStatus = @error
+
+	If $iStatus = 1 Then Return 0 ; there is no plan file on this machine
+	If $iStatus <> 0 Then
+		SetLog("Run Planner: run plan file was not read - " & $sError, $COLOR_ERROR)
+		If $g_hRunPlannerStatus <> 0 Then GUICtrlSetData($g_hRunPlannerStatus, "Run plan file could not be read")
+		Return 0
+	EndIf
+
+	SetLog("Run Planner: " & $g_sRunPlannerPlanFileNote, ($sError = "") ? $COLOR_SUCCESS : $COLOR_ACTION)
+	If $sError <> "" Then SetLog("Run Planner: " & $sError, $COLOR_ACTION)
+	If $g_hRunPlannerStatus <> 0 Then GUICtrlSetData($g_hRunPlannerStatus, $g_sRunPlannerPlanFileNote)
+	Return $iApplied
+EndFunc   ;==>RunPlannerSyncPlanFile
 
 ; The engine stores a plan mode; the planner stores an exact surface. This is the only place that maps between them.
 Func RunPlannerPlanModeForSurface($sSurfaceId)
@@ -130,15 +326,20 @@ Func RunPlannerBuildIntent(ByRef $sError)
 	Local $oIntent = RunIntentCreate($oPlan, $sSurface, $oLoadout, $sError)
 	If Not IsObj($oIntent) Then Return SetError(7, 0, 0)
 
+	If Not RunIntentSetPacing($oIntent, RunPlannerReadInteger("pacing.action_delay_ms"), RunPlannerReadInteger("pacing.settle_ms"), RunPlannerReadInteger("pacing.retry_attempts"), RunPlannerReadInteger("pacing.break_every_minutes"), RunPlannerReadInteger("pacing.break_minutes"), $sError) Then
+		$sError = "Pacing is out of range: " & $sError
+		Return SetError(8, 0, 0)
+	EndIf
+
 	; Diagnostic mode is the operator's choice, and the note is stored with the run so a later reader knows
 	; the result was observed rather than demonstrated.
 	If RunPlannerReadBoolean("run.diagnostic_mode") Then
 		Local $sNote = RunPlannerReadText("run.diagnostic_note")
 		If $sNote = "" Then
 			$sError = "Add a diagnostic note naming who is watching this run"
-			Return SetError(8, 0, 0)
+			Return SetError(9, 0, 0)
 		EndIf
-		If Not RunIntentEnableDiagnostic($oIntent, $sNote, $sError) Then Return SetError(9, 0, 0)
+		If Not RunIntentEnableDiagnostic($oIntent, $sNote, $sError) Then Return SetError(10, 0, 0)
 	EndIf
 
 	Return $oIntent
@@ -254,6 +455,10 @@ Func btnRunPlannerHeroRemove()
 EndFunc   ;==>btnRunPlannerHeroRemove
 
 Func btnRunPlannerApply()
+	; The file has the last word, so a change made in the browser a moment ago is honoured rather than overwritten by
+	; whatever the tab happened to be showing.
+	RunPlannerSyncPlanFile()
+
 	Local $sError = ""
 	Local $oIntent = RunPlannerBuildIntent($sError)
 	If Not IsObj($oIntent) Then
@@ -332,6 +537,7 @@ EndFunc   ;==>chkRunPlannerDiagnostic
 
 Func tabRunPlanner()
 	If $g_iGuiMode <> 1 Then Return
+	RunPlannerSyncPlanFile()
 	UpdateRunPlannerBanner()
 	RunPlannerRefreshHeroSelection()
 EndFunc   ;==>tabRunPlanner
