@@ -31,6 +31,22 @@ FIRST_PARTY = (
     "tests/autoit",
 )
 
+# Compiled entry points. Each has its own include graph, and a function or global defined in the repository
+# but absent from a given graph is an error for that build even though it resolves fine for another.
+ENTRY_POINTS = (
+    "MyBot.run.au3",
+    "MyBot.run.MiniGui.au3",
+    "MyBot.run.Watchdog.au3",
+)
+
+# Small standalone scripts that define local stubs of AutoIt standard UDFs (they do not include the standard
+# library). Their definitions must not make a standard-library name look repository-defined.
+STUB_SCRIPTS = {
+    "MyBot.run.Wmi.au3",
+    "MyBot.run.Watchdog.au3",
+    "MyBot.run.MiniGui.au3",
+}
+
 STRING_RE = re.compile(r'"[^"]*"' + r"|'[^']*'")
 FUNC_DEF_RE = re.compile(r"^\s*Func\s+([A-Za-z_]\w*)\s*\((.*)$", re.IGNORECASE)
 INCLUDE_RE = re.compile(r'^\s*#include\s+"([^"]+)"', re.IGNORECASE)
@@ -212,6 +228,111 @@ def resolve_include(source: Path, target: str) -> Path:
     return (source.parent / target.replace("\\", "/")).resolve()
 
 
+def _case_index() -> dict[str, Path]:
+    """Casefolded path index. AutoIt include resolution is case-insensitive; a Linux filesystem is not."""
+    return {p.resolve().as_posix().casefold(): p.resolve() for p in ROOT.rglob("*.au3")}
+
+
+_CASE_INDEX: dict[str, Path] | None = None
+
+
+def _resolve_case_insensitive(candidate: Path) -> Path | None:
+    global _CASE_INDEX
+    if _CASE_INDEX is None:
+        _CASE_INDEX = _case_index()
+    return _CASE_INDEX.get(candidate.resolve().as_posix().casefold())
+
+
+def include_graph(entry: Path) -> list[Path]:
+    """Files reachable from an entry point, in load order, mirroring how AutoIt resolves #include."""
+    seen: set[Path] = set()
+    order: list[Path] = []
+
+    def walk(path: Path) -> None:
+        path = path.resolve()
+        if path in seen or not path.exists():
+            return
+        seen.add(path)
+        order.append(path)
+        in_block_comment = False
+        for line in path.read_text(encoding="utf-8-sig", errors="replace").splitlines():
+            # An include inside a #cs/#ce region is commented out and must not join the graph.
+            directive = line.strip().lower()
+            if directive.startswith("#cs") or directive.startswith("#comments-start"):
+                in_block_comment = True
+                continue
+            if directive.startswith("#ce") or directive.startswith("#comments-end"):
+                in_block_comment = False
+                continue
+            if in_block_comment:
+                continue
+            match = INCLUDE_RE.match(line)
+            if not match:
+                continue
+            target = match.group(1).replace("\\", "/")
+            for candidate in (path.parent / target, ROOT / target, ROOT / "COCBot" / target):
+                resolved = _resolve_case_insensitive(candidate)
+                if resolved is not None:
+                    walk(resolved)
+                    break
+
+    walk(entry)
+    return order
+
+
+def check_entry_points(errors: list[str]) -> dict[str, int]:
+    """Every project symbol a build uses must be defined somewhere in that build's own include graph."""
+    repo_definitions: dict[str, set[str]] = {}
+    repo_declarations: dict[str, set[str]] = {}
+    file_calls: dict[str, set[str]] = {}
+    file_globals: dict[str, dict[str, int]] = {}
+
+    for path in sorted(ROOT.rglob("*.au3")):
+        definitions, calls, declared, used = check_file(path, [])
+        key = path.resolve().as_posix()
+        repo_definitions[key] = definitions
+        repo_declarations[key] = declared
+        file_calls[key] = calls
+        file_globals[key] = used
+
+    known_functions = {
+        name.casefold()
+        for key, names in repo_definitions.items()
+        if Path(key).name not in STUB_SCRIPTS
+        for name in names
+    }
+    known_globals = {name for names in repo_declarations.values() for name in names}
+
+    sizes: dict[str, int] = {}
+    for entry_name in ENTRY_POINTS:
+        entry = ROOT / entry_name
+        if not entry.exists():
+            errors.append(f"entry point is missing: {entry_name}")
+            continue
+        graph = include_graph(entry)
+        sizes[entry_name] = len(graph)
+        keys = [p.resolve().as_posix() for p in graph]
+        in_graph_functions = {n.casefold() for k in keys for n in repo_definitions.get(k, set())}
+        in_graph_globals = {n for k in keys for n in repo_declarations.get(k, set())}
+
+        for key in keys:
+            relative = Path(key).relative_to(ROOT.resolve()).as_posix()
+            for call in sorted(file_calls.get(key, set())):
+                folded = call.casefold()
+                # Only names this repository defines somewhere are checked; anything else is an AutoIt built-in.
+                if folded in known_functions and folded not in in_graph_functions:
+                    errors.append(
+                        f"{relative}: {call}() is not reachable from {entry_name}; "
+                        f"it is defined in the repository but not in that build's include graph"
+                    )
+            for name in sorted(file_globals.get(key, {})):
+                if name.casefold() in {g.casefold() for g in known_globals} and name.casefold() not in {g.casefold() for g in in_graph_globals}:
+                    errors.append(
+                        f"{relative}: ${name} is not declared in {entry_name}'s include graph"
+                    )
+    return sizes
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--json", dest="json_path", type=Path)
@@ -290,8 +411,11 @@ def main() -> int:
             if call not in all_definitions:
                 errors.append(f"{relative}: call to undefined project function: {call}")
 
+    entry_sizes = check_entry_points(errors)
+
     report = {
         "schema_version": 1,
+        "entry_points": entry_sizes,
         "files": len(targets),
         "definitions": len(all_definitions),
         "errors": sorted(set(errors)),
