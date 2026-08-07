@@ -75,31 +75,41 @@ function Invoke-Au3Check {
     }
 }
 
+$testScripts = @(
+    "tests\autoit\RunContractsTest.au3",
+    "tests\autoit\GameCatalogTest.au3",
+    "tests\autoit\RunEngineTest.au3"
+)
+
 Push-Location $repositoryRoot
 try {
-    foreach ($entryPoint in @(
+    $entryPoints = @(
         "MyBot.run.au3",
         "MyBot.run.MiniGui.au3",
-        "MyBot.run.Watchdog.au3",
-        "tests\autoit\RunContractsTest.au3"
-    )) {
+        "MyBot.run.Watchdog.au3"
+    ) + $testScripts
+
+    foreach ($entryPoint in $entryPoints) {
         Invoke-Au3Check -RelativePath $entryPoint
     }
 
-    $testScript = (Resolve-Path (Join-Path $repositoryRoot "tests\autoit\RunContractsTest.au3")).Path
-    $runtimeOutput = & $autoItExe.FullName "/ErrorStdOut" $testScript 2>&1
-    $runtimeExitCode = $LASTEXITCODE
-    $runtimeLog = Join-Path $logsDirectory "RunContractsTest.runtime.log"
-    @($runtimeOutput) | Set-Content -Path $runtimeLog -Encoding UTF8
-    $results.Add([pscustomobject]@{
-        kind = "runtime"
-        path = "tests\autoit\RunContractsTest.au3"
-        exit_code = $runtimeExitCode
-        log = $runtimeLog.Substring($repositoryRoot.Length + 1)
-    })
-    if ($runtimeExitCode -ne 0) {
-        Write-Host ($runtimeOutput -join [Environment]::NewLine)
-        throw "AutoIt run contract tests failed with exit code $runtimeExitCode"
+    foreach ($relativeTest in $testScripts) {
+        $testScript = (Resolve-Path (Join-Path $repositoryRoot $relativeTest)).Path
+        $testName = [System.IO.Path]::GetFileNameWithoutExtension($relativeTest)
+        $runtimeOutput = & $autoItExe.FullName "/ErrorStdOut" $testScript 2>&1
+        $runtimeExitCode = $LASTEXITCODE
+        $runtimeLog = Join-Path $logsDirectory "$testName.runtime.log"
+        @($runtimeOutput) | Set-Content -Path $runtimeLog -Encoding UTF8
+        $results.Add([pscustomobject]@{
+            kind = "runtime"
+            path = $relativeTest
+            exit_code = $runtimeExitCode
+            log = $runtimeLog.Substring($repositoryRoot.Length + 1)
+        })
+        if ($runtimeExitCode -ne 0) {
+            Write-Host ($runtimeOutput -join [Environment]::NewLine)
+            throw "AutoIt test $relativeTest failed with exit code $runtimeExitCode"
+        }
     }
 }
 finally {

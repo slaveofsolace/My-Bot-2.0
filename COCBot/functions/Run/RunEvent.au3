@@ -5,8 +5,9 @@
 ; ===============================================================================================================================
 #include-once
 #include <FileConstants.au3>
+#include "RunVerification.au3"
 
-Func RunEventCreate($sType, $iSequence, $iTimestampMs, $sSessionId, $sSeverity = "info", $sMessage = "", $sProfileId = "", $sRoute = "", $iBattleIndex = 0, $iGold = 0, $iElixir = 0, $iDarkElixir = 0, $iFailureCount = 0)
+Func RunEventCreate($sType, $iSequence, $iTimestampMs, $sSessionId, $sSeverity = "info", $sMessage = "", $sProfileId = "", $sRoute = "", $iBattleIndex = 0, $iGold = 0, $iElixir = 0, $iDarkElixir = 0, $iFailureCount = 0, $sVerificationState = $RUN_VERIFICATION_VERIFIED, $sSurfaceId = "")
 	Local $oEvent = ObjCreate("Scripting.Dictionary")
 	If Not IsObj($oEvent) Then Return SetError(1, 0, 0)
 	$oEvent.CompareMode = 1
@@ -24,6 +25,8 @@ Func RunEventCreate($sType, $iSequence, $iTimestampMs, $sSessionId, $sSeverity =
 	$oEvent.Add("elixir", Int($iElixir))
 	$oEvent.Add("dark_elixir", Int($iDarkElixir))
 	$oEvent.Add("failure_count", Int($iFailureCount))
+	$oEvent.Add("verification_state", StringLower(StringStripWS(String($sVerificationState), $STR_STRIPALL)))
+	$oEvent.Add("surface_id", StringLower(StringStripWS(String($sSurfaceId), $STR_STRIPALL)))
 	Local $sError
 	If Not RunEventValidate($oEvent, $sError) Then Return SetError(2, 0, 0)
 	Return $oEvent
@@ -35,7 +38,7 @@ Func RunEventValidate(ByRef $oEvent, ByRef $sError)
 		$sError = "Run event is not an object"
 		Return SetError(1, 0, False)
 	EndIf
-	Local $aRequired = ["schema_version", "sequence", "type", "severity", "session_id", "timestamp_ms", "message", "account_profile_id", "route", "battle_index", "gold", "elixir", "dark_elixir", "failure_count"]
+	Local $aRequired = ["schema_version", "sequence", "type", "severity", "session_id", "timestamp_ms", "message", "account_profile_id", "route", "battle_index", "gold", "elixir", "dark_elixir", "failure_count", "verification_state", "surface_id"]
 	For $i = 0 To UBound($aRequired) - 1
 		If Not $oEvent.Exists($aRequired[$i]) Then
 			$sError = "Missing run event field: " & $aRequired[$i]
@@ -43,7 +46,7 @@ Func RunEventValidate(ByRef $oEvent, ByRef $sError)
 		EndIf
 	Next
 	Switch $oEvent.Item("type")
-		Case "session.ready", "session.started", "session.stopping", "session.completed", "session.failed", "route.blocked", "route.ready", "account.changed", "battle.started", "battle.completed", "battle.failed", "loot.updated", "warning", "error"
+		Case "session.ready", "session.started", "session.stopping", "session.completed", "session.failed", "route.blocked", "route.ready", "route.diagnostic", "account.changed", "battle.started", "battle.completed", "battle.failed", "loot.updated", "quota.observed", "quota.exhausted", "warning", "error"
 		Case Else
 			$sError = "Unsupported run event type: " & $oEvent.Item("type")
 			Return SetError(3, 0, False)
@@ -60,6 +63,10 @@ Func RunEventValidate(ByRef $oEvent, ByRef $sError)
 			$sError = "Unsupported run event route: " & $oEvent.Item("route")
 			Return SetError(5, 0, False)
 	EndSwitch
+	If Not RunVerificationIsState($oEvent.Item("verification_state")) Then
+		$sError = "Unsupported run event verification state: " & $oEvent.Item("verification_state")
+		Return SetError(8, 0, False)
+	EndIf
 	If $oEvent.Item("session_id") = "" Then
 		$sError = "Session identifier cannot be empty"
 		Return SetError(6, 0, False)
@@ -101,7 +108,9 @@ Func RunEventToJson(ByRef $oEvent)
 	$sJson &= _RunEventJsonString("gold") & ":" & Int($oEvent.Item("gold")) & ","
 	$sJson &= _RunEventJsonString("elixir") & ":" & Int($oEvent.Item("elixir")) & ","
 	$sJson &= _RunEventJsonString("dark_elixir") & ":" & Int($oEvent.Item("dark_elixir")) & ","
-	$sJson &= _RunEventJsonString("failure_count") & ":" & Int($oEvent.Item("failure_count"))
+	$sJson &= _RunEventJsonString("failure_count") & ":" & Int($oEvent.Item("failure_count")) & ","
+	$sJson &= _RunEventJsonString("verification_state") & ":" & _RunEventJsonString($oEvent.Item("verification_state")) & ","
+	$sJson &= _RunEventJsonString("surface_id") & ":" & _RunEventJsonString($oEvent.Item("surface_id"))
 	$sJson &= "}"
 	Return $sJson
 EndFunc   ;==>RunEventToJson
