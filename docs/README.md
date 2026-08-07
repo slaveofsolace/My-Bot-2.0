@@ -11,6 +11,7 @@ gets moved once there is enough test coverage to prove a move was behaviour-neut
 
 ## Start here
 
+- [Continuation handoff — August 7, 2026](development/CONTINUATION_HANDOFF_2026-08-07.md) — current commit, completed merge work, architecture, validation evidence, known issues, and prioritized next steps for the next implementation session.
 - [Baseline audit](audit/BASELINE_AUDIT_2026-08-06.md) — repository state, source evaluation, risks, and the implementation order that followed from them.
 - [Game compatibility matrix](compatibility/GAME_UPDATE_MATRIX.md) — the Clash of Clans changes that affect navigation, OCR, templates, data tables, and state handling.
 - [Repository plan](architecture/REPOSITORY_PLAN.md) — target structure and the phased sequence for getting there.
@@ -24,8 +25,9 @@ gets moved once there is enough test coverage to prove a move was behaviour-neut
 
 ## Branches
 
-`master` carries the complete runnable source and is where work lands. Branch from it, keep each
-branch to one kind of change, and open a pull request.
+`master` is the current source of truth and is where completed work lands. The stale
+`claude/coc-bot-merge-ui-kobgds` branch is intentionally left alone; cleaning it up is not a
+prerequisite for current-client data, fixtures, UI integration, or runtime work.
 
 ## Checks
 
