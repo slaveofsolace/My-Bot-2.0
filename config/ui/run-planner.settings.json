@@ -669,6 +669,526 @@
       ]
     },
     {
+      "id": "army",
+      "tab_label": "Army",
+      "order": 22,
+      "title": "Army",
+      "description": "How the army gets built between battles. Training no longer has wait times, so this is about what to build rather than how long to wait for it.",
+      "settings": [
+        {
+          "id": "army.source",
+          "type": "select",
+          "label": "Army source",
+          "summary": "Where the troop composition comes from.",
+          "description": "Army Recipes replaced the old training queue, so a saved recipe is now the natural unit of army setup rather than a per-troop count.",
+          "default": "recipe",
+          "required": true,
+          "engine_binding": "RunPlan.army_source",
+          "options": [
+            {
+              "value": "recipe",
+              "label": "Saved Army Recipe",
+              "summary": "Use one of the recipes saved in game.",
+              "description": "Picks a saved Army Recipe and trains it. This is how the current client expects armies to be set up, and it survives balance changes better than a fixed list.",
+              "availability": "gated",
+              "disabled_reason": "Army Recipe screen recognition has not been captured.",
+              "capability_ids": [
+                "army.recipes"
+              ],
+              "prerequisites": [
+                "At least one saved recipe"
+              ],
+              "recommended": true,
+              "warning": ""
+            },
+            {
+              "value": "cookbook",
+              "label": "Cookbook entry",
+              "summary": "Use an entry from the Cookbook tab.",
+              "description": "The Cookbook holds shared and suggested armies. Selecting from it needs the third army tab to be recognised.",
+              "availability": "gated",
+              "disabled_reason": "Cookbook tab recognition has not been captured.",
+              "capability_ids": [
+                "army.cookbook"
+              ],
+              "prerequisites": [
+                "Cookbook tab available"
+              ],
+              "recommended": false,
+              "warning": ""
+            },
+            {
+              "value": "legacy-list",
+              "label": "Fixed troop list",
+              "summary": "The inherited per-troop composition.",
+              "description": "Trains a fixed list of troops the way the older bot did. Kept because it does not depend on recipe recognition, but it ignores anything the game has changed since.",
+              "availability": "gated",
+              "disabled_reason": "Training screen recognition has not been re-confirmed.",
+              "capability_ids": [],
+              "prerequisites": [
+                "Troop training screen recognition"
+              ],
+              "recommended": false,
+              "warning": ""
+            }
+          ]
+        },
+        {
+          "id": "army.recipe_name",
+          "type": "instance-select",
+          "label": "Recipe name",
+          "summary": "Which saved recipe to train.",
+          "description": "The exact recipe name as it appears in game. Left blank, the run uses whichever recipe is already selected rather than switching.",
+          "default": "",
+          "required": false,
+          "engine_binding": "RunPlan.army_recipe_name",
+          "validation": {
+            "max_length": 64
+          }
+        },
+        {
+          "id": "army.wait_for_full",
+          "type": "boolean",
+          "label": "Wait for a full army",
+          "summary": "Do not attack with a partly trained army.",
+          "description": "Holds the run until the army is complete. Worth leaving on: attacking short-handed wastes the attack more often than the wait costs.",
+          "default": true,
+          "required": false,
+          "engine_binding": "RunPlan.army_wait_for_full"
+        },
+        {
+          "id": "army.train_spells",
+          "type": "boolean",
+          "label": "Train spells",
+          "summary": "Brew spells as well as troops.",
+          "description": "Includes the spell portion of the army. Turn off to save Elixir on cheap farming runs.",
+          "default": true,
+          "required": false,
+          "engine_binding": "RunPlan.army_train_spells"
+        },
+        {
+          "id": "army.train_sieges",
+          "type": "boolean",
+          "label": "Build sieges",
+          "summary": "Build a siege machine each run.",
+          "description": "Builds the siege machine the recipe calls for. Only useful where a Clan Castle troop matters.",
+          "default": false,
+          "required": false,
+          "engine_binding": "RunPlan.army_train_sieges"
+        }
+      ]
+    },
+    {
+      "id": "search",
+      "tab_label": "Search",
+      "order": 26,
+      "title": "Base search",
+      "description": "What counts as a base worth attacking. Every filter that is set has to pass before the run commits to an attack; a zero means the filter is off.",
+      "settings": [
+        {
+          "id": "search.min_gold",
+          "type": "integer",
+          "label": "Minimum Gold",
+          "summary": "Skip bases offering less Gold than this.",
+          "description": "Reads available loot before committing. Set to zero to attack regardless of Gold on offer.",
+          "default": 0,
+          "required": false,
+          "engine_binding": "RunPlan.search_min_gold",
+          "unit": "gold",
+          "validation": {
+            "minimum": 0,
+            "maximum": 2000000,
+            "step": 10000
+          }
+        },
+        {
+          "id": "search.min_elixir",
+          "type": "integer",
+          "label": "Minimum Elixir",
+          "summary": "Skip bases offering less Elixir than this.",
+          "description": "Same idea as the Gold filter, applied to Elixir. Zero turns it off.",
+          "default": 0,
+          "required": false,
+          "engine_binding": "RunPlan.search_min_elixir",
+          "unit": "elixir",
+          "validation": {
+            "minimum": 0,
+            "maximum": 2000000,
+            "step": 10000
+          }
+        },
+        {
+          "id": "search.min_dark",
+          "type": "integer",
+          "label": "Min Dark Elixir",
+          "summary": "Skip bases offering less Dark Elixir than this.",
+          "description": "Dark Elixir loot is an order of magnitude smaller than Gold or Elixir, so this wants a correspondingly smaller number.",
+          "default": 0,
+          "required": false,
+          "engine_binding": "RunPlan.search_min_dark",
+          "unit": "dark elixir",
+          "validation": {
+            "minimum": 0,
+            "maximum": 50000,
+            "step": 100
+          }
+        },
+        {
+          "id": "search.max_seconds",
+          "type": "integer",
+          "label": "Give up after",
+          "summary": "Stop searching once this long has passed.",
+          "description": "A long search costs a Gold search fee each skip. This caps how long the run will hunt before taking what it can find. Zero means no cap.",
+          "default": 0,
+          "required": false,
+          "engine_binding": "RunPlan.search_max_seconds",
+          "unit": "seconds",
+          "validation": {
+            "minimum": 0,
+            "maximum": 3600,
+            "step": 15
+          }
+        },
+        {
+          "id": "search.town_hall_filter",
+          "type": "select",
+          "label": "Town Hall filter",
+          "summary": "Which defender Town Hall levels to accept.",
+          "description": "Filtering by defender Town Hall needs the bot to read the Town Hall on the search screen, which changed with Town Hall 18.",
+          "default": "any",
+          "required": true,
+          "engine_binding": "RunPlan.search_town_hall_filter",
+          "options": [
+            {
+              "value": "any",
+              "label": "Any Town Hall",
+              "summary": "Accept whatever matchmaking offers.",
+              "description": "No filtering. The safest setting while search-screen recognition is unconfirmed, because it does not depend on reading the defender's Town Hall at all.",
+              "availability": "available",
+              "disabled_reason": "",
+              "capability_ids": [],
+              "prerequisites": [],
+              "recommended": true,
+              "warning": ""
+            },
+            {
+              "value": "lower-only",
+              "label": "Lower than mine",
+              "summary": "Only bases below your Town Hall level.",
+              "description": "Prefers weaker defenders. Requires reading the defender Town Hall reliably.",
+              "availability": "gated",
+              "disabled_reason": "Town Hall recognition on the search screen has not been captured.",
+              "capability_ids": [
+                "village.town-hall-18"
+              ],
+              "prerequisites": [
+                "Search screen Town Hall recognition"
+              ],
+              "recommended": false,
+              "warning": ""
+            },
+            {
+              "value": "same-or-lower",
+              "label": "Same or lower",
+              "summary": "Bases at or below your Town Hall level.",
+              "description": "A looser version of the above, trading some safety for a shorter search.",
+              "availability": "gated",
+              "disabled_reason": "Town Hall recognition on the search screen has not been captured.",
+              "capability_ids": [
+                "village.town-hall-18"
+              ],
+              "prerequisites": [
+                "Search screen Town Hall recognition"
+              ],
+              "recommended": false,
+              "warning": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "donate",
+      "tab_label": "Donate",
+      "order": 44,
+      "title": "Donating",
+      "description": "Answering clan mate requests between battles. Donation happens through clan chat, whose navigation changed when Global Chat arrived.",
+      "settings": [
+        {
+          "id": "donate.mode",
+          "type": "select",
+          "label": "Donate",
+          "summary": "Whether and how to answer requests.",
+          "description": "Donating earns Clan XP and keeps a clan happy, but it costs training resources and time between attacks.",
+          "default": "off",
+          "required": true,
+          "engine_binding": "RunPlan.donate_mode",
+          "options": [
+            {
+              "value": "off",
+              "label": "Do not donate",
+              "summary": "Ignore requests entirely.",
+              "description": "Skips the clan chat step completely, which is also the fastest option between battles and the one least dependent on chat recognition.",
+              "availability": "available",
+              "disabled_reason": "",
+              "capability_ids": [],
+              "prerequisites": [],
+              "recommended": true,
+              "warning": ""
+            },
+            {
+              "value": "matching",
+              "label": "Only matching requests",
+              "summary": "Donate when the request text matches.",
+              "description": "Reads the request and donates only what was asked for. Depends on reading clan chat, which moved when Global Chat was added.",
+              "availability": "gated",
+              "disabled_reason": "Clan chat recognition has not been captured since Global Chat.",
+              "capability_ids": [
+                "chat.global-chat"
+              ],
+              "prerequisites": [
+                "Clan chat recognition"
+              ],
+              "recommended": false,
+              "warning": ""
+            },
+            {
+              "value": "anything",
+              "label": "Donate anything",
+              "summary": "Fill any request with whatever is available.",
+              "description": "Donates without matching the request. Fast, and reliably annoys clan mates who asked for something specific.",
+              "availability": "gated",
+              "disabled_reason": "Clan chat recognition has not been captured since Global Chat.",
+              "capability_ids": [
+                "chat.global-chat"
+              ],
+              "prerequisites": [
+                "Clan chat recognition"
+              ],
+              "recommended": false,
+              "warning": "Expect complaints if your clan cares what it receives."
+            }
+          ]
+        },
+        {
+          "id": "donate.keep_army",
+          "type": "boolean",
+          "label": "Protect attack army",
+          "summary": "Protect troops the run needs to attack with.",
+          "description": "Refuses any donation that would leave the army short. Worth keeping on, since donating the army away and then attacking with what is left wastes the attack.",
+          "default": true,
+          "required": false,
+          "engine_binding": "RunPlan.donate_keep_army"
+        },
+        {
+          "id": "donate.max_per_run",
+          "type": "integer",
+          "label": "Donation limit",
+          "summary": "Stop donating after this many per run. Zero means no limit.",
+          "description": "Caps how much time and Elixir a single run puts into donating.",
+          "default": 0,
+          "required": false,
+          "engine_binding": "RunPlan.donate_max_per_run",
+          "unit": "donations",
+          "validation": {
+            "minimum": 0,
+            "maximum": 500,
+            "step": 5
+          }
+        },
+        {
+          "id": "donate.request_when_short",
+          "type": "boolean",
+          "label": "Request when empty",
+          "summary": "Ask the clan for Clan Castle troops.",
+          "description": "Posts a request when the Clan Castle is empty, so a defending or attacking castle troop is available.",
+          "default": false,
+          "required": false,
+          "engine_binding": "RunPlan.donate_request_when_short"
+        }
+      ]
+    },
+    {
+      "id": "events",
+      "tab_label": "Events",
+      "order": 46,
+      "title": "Events and lab",
+      "description": "The recurring things worth doing between attacks: Clan Games challenges and keeping the laboratory busy.",
+      "settings": [
+        {
+          "id": "events.clan_games",
+          "type": "boolean",
+          "label": "Play Clan Games",
+          "summary": "Pick up and complete Clan Games challenges.",
+          "description": "Clan Games run on a schedule and reward magic items. Automating them means reading the challenge list and tracking points, neither of which has been re-confirmed.",
+          "default": false,
+          "required": false,
+          "engine_binding": "RunPlan.events_clan_games"
+        },
+        {
+          "id": "events.clan_games_point_cap",
+          "type": "integer",
+          "label": "Stop at points",
+          "summary": "Stop once this many Clan Games points are earned.",
+          "description": "Clan Games caps individual scoring, and going past the cap earns nothing. Set this to your clan's agreed limit. Zero means play until the event ends.",
+          "default": 0,
+          "required": false,
+          "engine_binding": "RunPlan.events_clan_games_point_cap",
+          "unit": "points",
+          "validation": {
+            "minimum": 0,
+            "maximum": 10000,
+            "step": 100
+          }
+        },
+        {
+          "id": "events.laboratory",
+          "type": "select",
+          "label": "Laboratory",
+          "summary": "What to research when the lab is free.",
+          "description": "Keeping the laboratory busy is most of long-term progress. Choosing what it researches means reading upgrade costs and levels off the lab screen.",
+          "default": "off",
+          "required": true,
+          "engine_binding": "RunPlan.events_laboratory",
+          "options": [
+            {
+              "value": "off",
+              "label": "Leave it alone",
+              "summary": "Do not start research.",
+              "description": "The run ignores the laboratory. Right setting while lab recognition is unconfirmed.",
+              "availability": "available",
+              "disabled_reason": "",
+              "capability_ids": [],
+              "prerequisites": [],
+              "recommended": true,
+              "warning": ""
+            },
+            {
+              "value": "cheapest",
+              "label": "Cheapest available",
+              "summary": "Always start the cheapest research.",
+              "description": "Keeps the lab permanently busy at the lowest cost. Needs the lab screen read accurately, including the Town Hall 18 additions.",
+              "availability": "gated",
+              "disabled_reason": "Laboratory recognition has not been captured for the current client.",
+              "capability_ids": [
+                "village.town-hall-18"
+              ],
+              "prerequisites": [
+                "Laboratory screen recognition"
+              ],
+              "recommended": false,
+              "warning": ""
+            },
+            {
+              "value": "priority-list",
+              "label": "Follow a priority list",
+              "summary": "Work down a configured order.",
+              "description": "Researches in the order you specify, skipping anything unaffordable. Needs both lab recognition and a stored priority list.",
+              "availability": "planned",
+              "disabled_reason": "Priority lists are not implemented yet.",
+              "capability_ids": [
+                "village.town-hall-18"
+              ],
+              "prerequisites": [
+                "Laboratory screen recognition"
+              ],
+              "recommended": false,
+              "warning": ""
+            }
+          ]
+        },
+        {
+          "id": "events.collect_resources",
+          "type": "boolean",
+          "label": "Collect collectors",
+          "summary": "Empty mines and collectors each pass.",
+          "description": "Tapping collectors is low risk and adds up. It is skipped automatically when storages are already full, so it costs nothing to leave on.",
+          "default": true,
+          "required": false,
+          "engine_binding": "RunPlan.events_collect_resources"
+        }
+      ]
+    },
+    {
+      "id": "notify",
+      "tab_label": "Notify",
+      "order": 55,
+      "title": "Notifications",
+      "description": "Getting told when something happens, so a run does not need watching. These are bot features rather than game ones, so they do not depend on client recognition.",
+      "settings": [
+        {
+          "id": "notify.on_stop",
+          "type": "boolean",
+          "label": "On run stop",
+          "summary": "Send a message whenever a run ends.",
+          "description": "Fires on every stop, including a clean finish, so a silent bot means it is still going.",
+          "default": false,
+          "required": false,
+          "engine_binding": "RunPlan.notify_on_stop"
+        },
+        {
+          "id": "notify.on_error",
+          "type": "boolean",
+          "label": "On errors",
+          "summary": "Send a message when the run hits a problem.",
+          "description": "Worth turning on before any diagnostic run, since an unverified surface is exactly the case where you want to hear about a failure quickly.",
+          "default": true,
+          "required": false,
+          "engine_binding": "RunPlan.notify_on_error"
+        },
+        {
+          "id": "notify.channel",
+          "type": "select",
+          "label": "Send to",
+          "summary": "Where notifications go.",
+          "description": "Uses the credentials already stored in the bot's own settings. Nothing is stored in the run plan.",
+          "default": "log-only",
+          "required": true,
+          "engine_binding": "RunPlan.notify_channel",
+          "options": [
+            {
+              "value": "log-only",
+              "label": "Bot log only",
+              "summary": "Write to the log and nowhere else.",
+              "description": "No external service involved. The message lands in the log window and the JSONL event stream, which is enough when you are at the machine.",
+              "availability": "available",
+              "disabled_reason": "",
+              "capability_ids": [],
+              "prerequisites": [],
+              "recommended": true,
+              "warning": ""
+            },
+            {
+              "value": "telegram",
+              "label": "Telegram",
+              "summary": "Send through the inherited Telegram integration.",
+              "description": "Uses the Telegram bot token configured in the bot's own settings. Carried over from upstream and not re-tested against the current Telegram API.",
+              "availability": "gated",
+              "disabled_reason": "Inherited integration, not re-tested.",
+              "capability_ids": [],
+              "prerequisites": [
+                "Telegram token configured in bot settings"
+              ],
+              "recommended": false,
+              "warning": ""
+            },
+            {
+              "value": "windows-toast",
+              "label": "Windows notification",
+              "summary": "Raise a desktop notification.",
+              "description": "A local desktop notification. Only useful if you are at the machine, in which case the log usually tells you more.",
+              "availability": "planned",
+              "disabled_reason": "Not implemented.",
+              "capability_ids": [],
+              "prerequisites": [],
+              "recommended": false,
+              "warning": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "diagnostics",
       "tab_label": "Debug",
       "order": 60,

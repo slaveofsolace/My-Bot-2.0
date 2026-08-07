@@ -227,10 +227,17 @@ def main() -> int:
     if select_values.get("upgrade.policy") != {"disabled", "walls", "suggested", "all"}:
         errors.append("upgrade.policy options do not match the run-plan contract")
 
-    # Rough Win32 tab metrics: about 7px a character plus 12px of padding per tab.
+    # Rough Win32 tab metrics: about 7px a character plus 12px of padding per tab. The strip is
+    # multiline and the design reserves two caption rows, so the budget is two rows of 430px.
+    # Anything beyond that would silently push the tab body down and clip the last row of controls.
     strip_width = sum(len(label) * 7 + 12 for label in tab_labels)
-    if strip_width > 430:
-        errors.append(f"tab captions need {strip_width}px but the strip is 430px; shorten them")
+    if strip_width > 860:
+        errors.append(
+            f"tab captions need {strip_width}px but two caption rows hold 860px; shorten them or drop a section"
+        )
+    for label in tab_labels:
+        if len(label) * 7 + 12 > 430:
+            errors.append(f"tab caption too wide for one row: {label!r}")
 
     ordered = [section.get("order") for section in sections if isinstance(section.get("order"), int)]
     if ordered != sorted(ordered):

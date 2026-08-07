@@ -26,8 +26,13 @@ GUI_MAIN_HEIGHT = 692
 CHILD_W = GUI_MAIN_WIDTH - 20      # $g_iSizeWGrpTab1
 CHILD_H = GUI_MAIN_HEIGHT - 255    # $g_iSizeHGrpTab1
 
-TAB_HEIGHT = 140
-TAB_HEADER = 26
+TAB_HEIGHT = 188
+# These mirror the AutoIt source exactly. check_design_constants() asserts the source still uses
+# them, and layout() draws with them, so the guard and the renderer cannot drift apart.
+POST_TAB_ADVANCE = 194
+DETAIL_HEIGHT = 76
+POST_DETAIL_ADVANCE = 82
+TAB_HEADER = 52   # two caption rows: the strip is multiline
 
 
 class Box:
@@ -54,11 +59,13 @@ def check_design_constants(errors):
     expected = [
         (r"Local \$iLeft = 8", "iLeft = 8"),
         (r"Local \$iWidth = \$g_iSizeWGrpTab1 - 22", "iWidth = child width - 22"),
-        (r"GUICtrlCreateTab\(\$iLeft, \$y, \$iWidth, 140\)", "tab height 140"),
-        (r"Local \$iRowY = \$y \+ 26", "row origin = tab top + 26"),
+        (r"GUICtrlCreateTab\(\$iLeft, \$y, \$iWidth, 188, \$TCS_MULTILINE\)", "tab height 188, multiline"),
+        (r"Local \$iRowY = \$y \+ 52", "row origin = tab top + 52"),
         (r"Local \$iCtrlX = \$iLeft \+ 150", "control column at iLeft + 150"),
         (r"Local \$iCtrlW = \$iWidth - 166", "control width = iWidth - 166"),
-        (r"\$y \+= 146", "post-tab advance 146"),
+        (rf"\$y \+= {POST_TAB_ADVANCE}", f"post-tab advance {POST_TAB_ADVANCE}"),
+        (rf"\$iWidth, {DETAIL_HEIGHT}, BitOR\(\$ES_READONLY", f"detail height {DETAIL_HEIGHT}"),
+        (rf"\$y \+= {POST_DETAIL_ADVANCE}", f"post-detail advance {POST_DETAIL_ADVANCE}"),
     ]
     for pattern, label in expected:
         if not re.search(pattern, source):
@@ -135,11 +142,12 @@ def layout():
                     row += 8
                 row += 26
 
-    y += 146
+    y += POST_TAB_ADVANCE
     boxes.append(Box("label", left, y, width, 16, "About the selected option"))
     y += 18
-    boxes.append(Box("edit", left, y, width, 124, "Select a control to see what it does and what it still needs."))
-    y += 130
+    boxes.append(Box("edit", left, y, width, DETAIL_HEIGHT,
+                     "Select a control to see what it does and what it still needs."))
+    y += POST_DETAIL_ADVANCE
     boxes.append(Box("button", left, y, 90, 24, "Apply plan"))
     boxes.append(Box("button", left + 96, y, 70, 24, "Reset"))
     boxes.append(Box("status", left + 174, y + 5, width - 174, 18, "(status)"))
@@ -252,12 +260,17 @@ def render_html(boxes, tab_top, pages) -> str:
             out.append(
                 f'<div style="position:absolute;left:{b.x}px;top:{b.y}px;width:{b.w}px;height:{b.h}px;'
                 f'{style}{pad}">{html.escape(b.text)}</div>')
-        # Tab strip
-        x = 9
+        # Tab strip. TCS_MULTILINE wraps captions onto a second row rather than clipping them, so the
+        # preview wraps too: a strip drawn on one row would hide exactly the overflow worth seeing.
+        x, row = 9, 0
+        strip_right = 9 + CHILD_W - 22
         for name in pages:
-            sel = "background:#fff;font-weight:bold;" if name == page else "background:#e2e0de;"
             w = 8 + len(name) * 6
-            out.append(f'<div style="position:absolute;left:{x}px;top:{tab_top + 1}px;width:{w}px;height:22px;'
+            if x + w > strip_right:
+                x, row = 9, row + 1
+            sel = "background:#fff;font-weight:bold;" if name == page else "background:#e2e0de;"
+            top = tab_top + 1 + row * 25
+            out.append(f'<div style="position:absolute;left:{x}px;top:{top}px;width:{w}px;height:22px;'
                        f'font:10px Arial;text-align:center;padding-top:5px;box-sizing:border-box;'
                        f'border:1px solid #9a9a9a;{sel}">{html.escape(name)}</div>')
             x += w + 1

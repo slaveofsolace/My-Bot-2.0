@@ -514,6 +514,422 @@ def main() -> int:
                 ],
             },
             {
+                "id": "army",
+                "tab_label": "Army",
+                "order": 22,
+                "title": "Army",
+                "description": (
+                    "How the army gets built between battles. Training no longer has wait times, so this is about "
+                    "what to build rather than how long to wait for it."
+                ),
+                "settings": [
+                    {
+                        "id": "army.source",
+                        "type": "select",
+                        "label": "Army source",
+                        "summary": "Where the troop composition comes from.",
+                        "description": (
+                            "Army Recipes replaced the old training queue, so a saved recipe is now the natural unit "
+                            "of army setup rather than a per-troop count."
+                        ),
+                        "default": "recipe",
+                        "required": True,
+                        "engine_binding": "RunPlan.army_source",
+                        "options": [
+                            option("recipe", "Saved Army Recipe",
+                                   "Use one of the recipes saved in game.",
+                                   "Picks a saved Army Recipe and trains it. This is how the current client expects "
+                                   "armies to be set up, and it survives balance changes better than a fixed list.",
+                                   "gated", ["army.recipes"], ["At least one saved recipe"],
+                                   recommended=True,
+                                   disabled_reason="Army Recipe screen recognition has not been captured."),
+                            option("cookbook", "Cookbook entry",
+                                   "Use an entry from the Cookbook tab.",
+                                   "The Cookbook holds shared and suggested armies. Selecting from it needs the third "
+                                   "army tab to be recognised.",
+                                   "gated", ["army.cookbook"], ["Cookbook tab available"],
+                                   disabled_reason="Cookbook tab recognition has not been captured."),
+                            option("legacy-list", "Fixed troop list",
+                                   "The inherited per-troop composition.",
+                                   "Trains a fixed list of troops the way the older bot did. Kept because it does not "
+                                   "depend on recipe recognition, but it ignores anything the game has changed since.",
+                                   "gated", [], ["Troop training screen recognition"],
+                                   disabled_reason="Training screen recognition has not been re-confirmed."),
+                        ],
+                    },
+                    {
+                        "id": "army.recipe_name",
+                        "type": "instance-select",
+                        "label": "Recipe name",
+                        "summary": "Which saved recipe to train.",
+                        "description": (
+                            "The exact recipe name as it appears in game. Left blank, the run uses whichever recipe "
+                            "is already selected rather than switching."
+                        ),
+                        "default": "",
+                        "required": False,
+                        "engine_binding": "RunPlan.army_recipe_name",
+                        "validation": {"max_length": 64},
+                    },
+                    {
+                        "id": "army.wait_for_full",
+                        "type": "boolean",
+                        "label": "Wait for a full army",
+                        "summary": "Do not attack with a partly trained army.",
+                        "description": (
+                            "Holds the run until the army is complete. Worth leaving on: attacking short-handed "
+                            "wastes the attack more often than the wait costs."
+                        ),
+                        "default": True,
+                        "required": False,
+                        "engine_binding": "RunPlan.army_wait_for_full",
+                    },
+                    {
+                        "id": "army.train_spells",
+                        "type": "boolean",
+                        "label": "Train spells",
+                        "summary": "Brew spells as well as troops.",
+                        "description": "Includes the spell portion of the army. Turn off to save Elixir on cheap farming runs.",
+                        "default": True,
+                        "required": False,
+                        "engine_binding": "RunPlan.army_train_spells",
+                    },
+                    {
+                        "id": "army.train_sieges",
+                        "type": "boolean",
+                        "label": "Build sieges",
+                        "summary": "Build a siege machine each run.",
+                        "description": "Builds the siege machine the recipe calls for. Only useful where a Clan Castle troop matters.",
+                        "default": False,
+                        "required": False,
+                        "engine_binding": "RunPlan.army_train_sieges",
+                    },
+                ],
+            },
+            {
+                "id": "search",
+                "tab_label": "Search",
+                "order": 26,
+                "title": "Base search",
+                "description": (
+                    "What counts as a base worth attacking. Every filter that is set has to pass before the run "
+                    "commits to an attack; a zero means the filter is off."
+                ),
+                "settings": [
+                    {
+                        "id": "search.min_gold",
+                        "type": "integer",
+                        "label": "Minimum Gold",
+                        "summary": "Skip bases offering less Gold than this.",
+                        "description": "Reads available loot before committing. Set to zero to attack regardless of Gold on offer.",
+                        "default": 0,
+                        "required": False,
+                        "engine_binding": "RunPlan.search_min_gold",
+                        "unit": "gold",
+                        "validation": {"minimum": 0, "maximum": 2000000, "step": 10000},
+                    },
+                    {
+                        "id": "search.min_elixir",
+                        "type": "integer",
+                        "label": "Minimum Elixir",
+                        "summary": "Skip bases offering less Elixir than this.",
+                        "description": "Same idea as the Gold filter, applied to Elixir. Zero turns it off.",
+                        "default": 0,
+                        "required": False,
+                        "engine_binding": "RunPlan.search_min_elixir",
+                        "unit": "elixir",
+                        "validation": {"minimum": 0, "maximum": 2000000, "step": 10000},
+                    },
+                    {
+                        "id": "search.min_dark",
+                        "type": "integer",
+                        "label": "Min Dark Elixir",
+                        "summary": "Skip bases offering less Dark Elixir than this.",
+                        "description": (
+                            "Dark Elixir loot is an order of magnitude smaller than Gold or Elixir, so this wants a "
+                            "correspondingly smaller number."
+                        ),
+                        "default": 0,
+                        "required": False,
+                        "engine_binding": "RunPlan.search_min_dark",
+                        "unit": "dark elixir",
+                        "validation": {"minimum": 0, "maximum": 50000, "step": 100},
+                    },
+                    {
+                        "id": "search.max_seconds",
+                        "type": "integer",
+                        "label": "Give up after",
+                        "summary": "Stop searching once this long has passed.",
+                        "description": (
+                            "A long search costs a Gold search fee each skip. This caps how long the run will hunt "
+                            "before taking what it can find. Zero means no cap."
+                        ),
+                        "default": 0,
+                        "required": False,
+                        "engine_binding": "RunPlan.search_max_seconds",
+                        "unit": "seconds",
+                        "validation": {"minimum": 0, "maximum": 3600, "step": 15},
+                    },
+                    {
+                        "id": "search.town_hall_filter",
+                        "type": "select",
+                        "label": "Town Hall filter",
+                        "summary": "Which defender Town Hall levels to accept.",
+                        "description": (
+                            "Filtering by defender Town Hall needs the bot to read the Town Hall on the search screen, "
+                            "which changed with Town Hall 18."
+                        ),
+                        "default": "any",
+                        "required": True,
+                        "engine_binding": "RunPlan.search_town_hall_filter",
+                        "options": [
+                            option("any", "Any Town Hall",
+                                   "Accept whatever matchmaking offers.",
+                                   "No filtering. The safest setting while search-screen recognition is unconfirmed, "
+                                   "because it does not depend on reading the defender's Town Hall at all.",
+                                   "available", [], [], recommended=True),
+                            option("lower-only", "Lower than mine",
+                                   "Only bases below your Town Hall level.",
+                                   "Prefers weaker defenders. Requires reading the defender Town Hall reliably.",
+                                   "gated", ["village.town-hall-18"], ["Search screen Town Hall recognition"],
+                                   disabled_reason="Town Hall recognition on the search screen has not been captured."),
+                            option("same-or-lower", "Same or lower",
+                                   "Bases at or below your Town Hall level.",
+                                   "A looser version of the above, trading some safety for a shorter search.",
+                                   "gated", ["village.town-hall-18"], ["Search screen Town Hall recognition"],
+                                   disabled_reason="Town Hall recognition on the search screen has not been captured."),
+                        ],
+                    },
+                ],
+            },
+            {
+                "id": "donate",
+                "tab_label": "Donate",
+                "order": 44,
+                "title": "Donating",
+                "description": (
+                    "Answering clan mate requests between battles. Donation happens through clan chat, whose "
+                    "navigation changed when Global Chat arrived."
+                ),
+                "settings": [
+                    {
+                        "id": "donate.mode",
+                        "type": "select",
+                        "label": "Donate",
+                        "summary": "Whether and how to answer requests.",
+                        "description": (
+                            "Donating earns Clan XP and keeps a clan happy, but it costs training resources and time "
+                            "between attacks."
+                        ),
+                        "default": "off",
+                        "required": True,
+                        "engine_binding": "RunPlan.donate_mode",
+                        "options": [
+                            option("off", "Do not donate",
+                                   "Ignore requests entirely.",
+                                   "Skips the clan chat step completely, which is also the fastest option between "
+                                   "battles and the one least dependent on chat recognition.",
+                                   "available", [], [], recommended=True),
+                            option("matching", "Only matching requests",
+                                   "Donate when the request text matches.",
+                                   "Reads the request and donates only what was asked for. Depends on reading clan "
+                                   "chat, which moved when Global Chat was added.",
+                                   "gated", ["chat.global-chat"], ["Clan chat recognition"],
+                                   disabled_reason="Clan chat recognition has not been captured since Global Chat."),
+                            option("anything", "Donate anything",
+                                   "Fill any request with whatever is available.",
+                                   "Donates without matching the request. Fast, and reliably annoys clan mates who "
+                                   "asked for something specific.",
+                                   "gated", ["chat.global-chat"], ["Clan chat recognition"],
+                                   disabled_reason="Clan chat recognition has not been captured since Global Chat.",
+                                   warning="Expect complaints if your clan cares what it receives."),
+                        ],
+                    },
+                    {
+                        "id": "donate.keep_army",
+                        "type": "boolean",
+                        "label": "Protect attack army",
+                        "summary": "Protect troops the run needs to attack with.",
+                        "description": (
+                            "Refuses any donation that would leave the army short. Worth keeping on, since donating "
+                            "the army away and then attacking with what is left wastes the attack."
+                        ),
+                        "default": True,
+                        "required": False,
+                        "engine_binding": "RunPlan.donate_keep_army",
+                    },
+                    {
+                        "id": "donate.max_per_run",
+                        "type": "integer",
+                        "label": "Donation limit",
+                        "summary": "Stop donating after this many per run. Zero means no limit.",
+                        "description": "Caps how much time and Elixir a single run puts into donating.",
+                        "default": 0,
+                        "required": False,
+                        "engine_binding": "RunPlan.donate_max_per_run",
+                        "unit": "donations",
+                        "validation": {"minimum": 0, "maximum": 500, "step": 5},
+                    },
+                    {
+                        "id": "donate.request_when_short",
+                        "type": "boolean",
+                        "label": "Request when empty",
+                        "summary": "Ask the clan for Clan Castle troops.",
+                        "description": "Posts a request when the Clan Castle is empty, so a defending or attacking castle troop is available.",
+                        "default": False,
+                        "required": False,
+                        "engine_binding": "RunPlan.donate_request_when_short",
+                    },
+                ],
+            },
+            {
+                "id": "events",
+                "tab_label": "Events",
+                "order": 46,
+                "title": "Events and lab",
+                "description": (
+                    "The recurring things worth doing between attacks: Clan Games challenges and keeping the "
+                    "laboratory busy."
+                ),
+                "settings": [
+                    {
+                        "id": "events.clan_games",
+                        "type": "boolean",
+                        "label": "Play Clan Games",
+                        "summary": "Pick up and complete Clan Games challenges.",
+                        "description": (
+                            "Clan Games run on a schedule and reward magic items. Automating them means reading the "
+                            "challenge list and tracking points, neither of which has been re-confirmed."
+                        ),
+                        "default": False,
+                        "required": False,
+                        "engine_binding": "RunPlan.events_clan_games",
+                    },
+                    {
+                        "id": "events.clan_games_point_cap",
+                        "type": "integer",
+                        "label": "Stop at points",
+                        "summary": "Stop once this many Clan Games points are earned.",
+                        "description": (
+                            "Clan Games caps individual scoring, and going past the cap earns nothing. Set this to "
+                            "your clan's agreed limit. Zero means play until the event ends."
+                        ),
+                        "default": 0,
+                        "required": False,
+                        "engine_binding": "RunPlan.events_clan_games_point_cap",
+                        "unit": "points",
+                        "validation": {"minimum": 0, "maximum": 10000, "step": 100},
+                    },
+                    {
+                        "id": "events.laboratory",
+                        "type": "select",
+                        "label": "Laboratory",
+                        "summary": "What to research when the lab is free.",
+                        "description": (
+                            "Keeping the laboratory busy is most of long-term progress. Choosing what it researches "
+                            "means reading upgrade costs and levels off the lab screen."
+                        ),
+                        "default": "off",
+                        "required": True,
+                        "engine_binding": "RunPlan.events_laboratory",
+                        "options": [
+                            option("off", "Leave it alone",
+                                   "Do not start research.",
+                                   "The run ignores the laboratory. Right setting while lab recognition is unconfirmed.",
+                                   "available", [], [], recommended=True),
+                            option("cheapest", "Cheapest available",
+                                   "Always start the cheapest research.",
+                                   "Keeps the lab permanently busy at the lowest cost. Needs the lab screen read "
+                                   "accurately, including the Town Hall 18 additions.",
+                                   "gated", ["village.town-hall-18"], ["Laboratory screen recognition"],
+                                   disabled_reason="Laboratory recognition has not been captured for the current client."),
+                            option("priority-list", "Follow a priority list",
+                                   "Work down a configured order.",
+                                   "Researches in the order you specify, skipping anything unaffordable. Needs both "
+                                   "lab recognition and a stored priority list.",
+                                   "planned", ["village.town-hall-18"], ["Laboratory screen recognition"],
+                                   disabled_reason="Priority lists are not implemented yet."),
+                        ],
+                    },
+                    {
+                        "id": "events.collect_resources",
+                        "type": "boolean",
+                        "label": "Collect collectors",
+                        "summary": "Empty mines and collectors each pass.",
+                        "description": (
+                            "Tapping collectors is low risk and adds up. It is skipped automatically when storages "
+                            "are already full, so it costs nothing to leave on."
+                        ),
+                        "default": True,
+                        "required": False,
+                        "engine_binding": "RunPlan.events_collect_resources",
+                    },
+                ],
+            },
+            {
+                "id": "notify",
+                "tab_label": "Notify",
+                "order": 55,
+                "title": "Notifications",
+                "description": (
+                    "Getting told when something happens, so a run does not need watching. These are bot features "
+                    "rather than game ones, so they do not depend on client recognition."
+                ),
+                "settings": [
+                    {
+                        "id": "notify.on_stop",
+                        "type": "boolean",
+                        "label": "On run stop",
+                        "summary": "Send a message whenever a run ends.",
+                        "description": "Fires on every stop, including a clean finish, so a silent bot means it is still going.",
+                        "default": False,
+                        "required": False,
+                        "engine_binding": "RunPlan.notify_on_stop",
+                    },
+                    {
+                        "id": "notify.on_error",
+                        "type": "boolean",
+                        "label": "On errors",
+                        "summary": "Send a message when the run hits a problem.",
+                        "description": (
+                            "Worth turning on before any diagnostic run, since an unverified surface is exactly the "
+                            "case where you want to hear about a failure quickly."
+                        ),
+                        "default": True,
+                        "required": False,
+                        "engine_binding": "RunPlan.notify_on_error",
+                    },
+                    {
+                        "id": "notify.channel",
+                        "type": "select",
+                        "label": "Send to",
+                        "summary": "Where notifications go.",
+                        "description": "Uses the credentials already stored in the bot's own settings. Nothing is stored in the run plan.",
+                        "default": "log-only",
+                        "required": True,
+                        "engine_binding": "RunPlan.notify_channel",
+                        "options": [
+                            option("log-only", "Bot log only",
+                                   "Write to the log and nowhere else.",
+                                   "No external service involved. The message lands in the log window and the JSONL "
+                                   "event stream, which is enough when you are at the machine.",
+                                   "available", [], [], recommended=True),
+                            option("telegram", "Telegram",
+                                   "Send through the inherited Telegram integration.",
+                                   "Uses the Telegram bot token configured in the bot's own settings. Carried over "
+                                   "from upstream and not re-tested against the current Telegram API.",
+                                   "gated", [], ["Telegram token configured in bot settings"],
+                                   disabled_reason="Inherited integration, not re-tested."),
+                            option("windows-toast", "Windows notification",
+                                   "Raise a desktop notification.",
+                                   "A local desktop notification. Only useful if you are at the machine, in which "
+                                   "case the log usually tells you more.",
+                                   "planned", [], [], disabled_reason="Not implemented."),
+                        ],
+                    },
+                ],
+            },
+            {
                 "id": "diagnostics",
                 "tab_label": "Debug",
                 "order": 60,

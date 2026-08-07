@@ -69,6 +69,24 @@ Func _RunPlannerHandlerFor($sSettingId)
 	Return ""
 EndFunc   ;==>_RunPlannerHandlerFor
 
+; Availability, expressed as colour. Green reads as demonstrated, maroon as not yet, grey as absent.
+Func _RunPlannerTintForAvailability($hControl, $sSettingId, $sValue)
+	If $hControl = 0 Then Return
+	For $i = 0 To UBound($g_aRunPlannerOptions, 1) - 1
+		If $g_aRunPlannerOptions[$i][$eRunPlannerOptionSettingId] <> $sSettingId Then ContinueLoop
+		If $g_aRunPlannerOptions[$i][$eRunPlannerOptionValue] <> $sValue Then ContinueLoop
+		Switch StringLower($g_aRunPlannerOptions[$i][$eRunPlannerOptionAvailability])
+			Case "available"
+				GUICtrlSetColor($hControl, $COLOR_GREEN)
+			Case "planned", "unsupported"
+				GUICtrlSetColor($hControl, $COLOR_GRAY)
+			Case Else
+				GUICtrlSetColor($hControl, $COLOR_MAROON)
+		EndSwitch
+		Return
+	Next
+EndFunc   ;==>_RunPlannerTintForAvailability
+
 Func _RunPlannerDefaultLabel($sSettingId, $sValue)
 	For $i = 0 To UBound($g_aRunPlannerOptions, 1) - 1
 		If $g_aRunPlannerOptions[$i][$eRunPlannerOptionSettingId] <> $sSettingId Then ContinueLoop
@@ -100,7 +118,7 @@ Func CreateRunPlannerTab()
 	$y += 32
 
 	; 26px of tab header plus four 26px rows, which is the tallest page. Anything more is dead space.
-	$g_hRunPlannerTab = GUICtrlCreateTab($iLeft, $y, $iWidth, 140)
+	$g_hRunPlannerTab = GUICtrlCreateTab($iLeft, $y, $iWidth, 188, $TCS_MULTILINE)
 	GUICtrlSetResizing(-1, $GUI_DOCKBORDERS)
 
 	Local $iSettingRow = 0
@@ -108,7 +126,7 @@ Func CreateRunPlannerTab()
 		Local $sSectionId = $g_aRunPlannerSections[$iSection][$eRunPlannerSectionId]
 		$g_ahRunPlannerTabItems[$iSection] = GUICtrlCreateTabItem($g_aRunPlannerSections[$iSection][$eRunPlannerSectionTabLabel])
 
-		Local $iRowY = $y + 26
+		Local $iRowY = $y + 52
 		Local $iLabelX = $iLeft + 8
 		Local $iCtrlX = $iLeft + 150
 		Local $iCtrlW = $iWidth - 166
@@ -122,7 +140,7 @@ Func CreateRunPlannerTab()
 			If $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingRequired] Then $sLabel &= " *"
 
 			GUICtrlCreateLabel($sLabel, $iLabelX, $iRowY + 3, 138, 18)
-			GUICtrlSetFont(-1, 8.5, $FW_NORMAL, Default, "Arial")
+			GUICtrlSetFont(-1, 8.5, ($g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingRequired] ? $FW_BOLD : $FW_NORMAL), Default, "Arial")
 			_GUICtrlSetTip(-1, $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingSummary])
 
 			Switch $sType
@@ -131,6 +149,7 @@ Func CreateRunPlannerTab()
 					GUICtrlSetData(-1, _RunPlannerOptionLabelList($sId), _RunPlannerDefaultLabel($sId, $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingDefault]))
 					_GUICtrlSetTip(-1, $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingDescription])
 					If _RunPlannerHandlerFor($sId) <> "" Then GUICtrlSetOnEvent(-1, _RunPlannerHandlerFor($sId))
+					_RunPlannerTintForAvailability($g_ahRunPlannerControls[$iSetting], $sId, $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingDefault])
 					$iRowY += 26
 
 				Case "multi-select"
@@ -194,15 +213,15 @@ Func CreateRunPlannerTab()
 	Next
 	GUICtrlCreateTabItem("")
 
-	$y += 146
+	$y += 194
 
 	GUICtrlCreateLabel("About the selected option", $iLeft, $y, $iWidth, 16)
 	GUICtrlSetFont(-1, 8.5, $FW_BOLD, Default, "Arial")
 	$y += 18
-	$g_hRunPlannerDetail = GUICtrlCreateEdit("Select a control to see what it does and what it still needs.", $iLeft, $y, $iWidth, 124, BitOR($ES_READONLY, $ES_MULTILINE, $WS_VSCROLL))
+	$g_hRunPlannerDetail = GUICtrlCreateEdit("Select a control to see what it does and what it still needs.", $iLeft, $y, $iWidth, 76, BitOR($ES_READONLY, $ES_MULTILINE, $WS_VSCROLL))
 	GUICtrlSetFont(-1, 8, $FW_NORMAL, Default, "Arial")
 	GUICtrlSetBkColor(-1, $COLOR_WHITE)
-	$y += 130
+	$y += 82
 
 	$g_hBtnRunPlannerApply = GUICtrlCreateButton("Apply plan", $iLeft, $y, 90, 24)
 	GUICtrlSetOnEvent(-1, "btnRunPlannerApply")

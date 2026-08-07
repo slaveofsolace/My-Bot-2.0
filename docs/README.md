@@ -16,6 +16,7 @@ gets moved once there is enough test coverage to prove a move was behaviour-neut
 - [Repository plan](architecture/REPOSITORY_PLAN.md) — target structure and the phased sequence for getting there.
 - [Merge playbook](development/MERGE_PLAYBOOK.md) — how upstream fixes and clean-room features enter this repository.
 - [UI handoff](ui/UI_HANDOFF.md) — requirements for the separate design-system work.
+- [Wiki data ingest](development/WIKI_INGEST.md) — how to pull per-level game data from the community wiki, and what it is and is not good for.
 - [Engineering notes](development/ENGINEERING_NOTES.md) — why particular decisions were made, and which ports were deliberately not taken.
 - [Install guide](INSTALL.md) — setup detail beyond the README's quick path.
 - [Upstream changelog](CHANGELOG.md) — release notes inherited from MyBot.run.
