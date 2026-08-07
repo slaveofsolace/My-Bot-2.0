@@ -1,0 +1,561 @@
+#!/usr/bin/env python3
+"""Build the Run Planner metadata from the game catalogs.
+
+The prose lives here; the identifiers, labels, and availability come from config/game/*.json so the planner cannot
+drift from the catalog it is meant to describe. Run this after changing a catalog, then validate_ui_metadata.py.
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+OUT = ROOT / "config/ui/run-planner.settings.json"
+
+
+def load(name: str) -> dict:
+    return json.loads((ROOT / "config/game" / name).read_text(encoding="utf-8-sig"))
+
+
+SURFACE_PROSE = {
+    "regular": (
+        "Ordinary matchmaking. Attacks are unlimited and Trophies are not at stake, which makes this the surface to "
+        "use while you are still confirming that a build behaves the way you expect.",
+        ["Town Hall 2 or above"],
+    ),
+    "ranked": (
+        "Tournament matchmaking with a limited number of attacks per tournament. The bot will not start until it has "
+        "read how many attacks you actually have left, because the published limit is not your remaining count.",
+        ["Town Hall 7 or above", "Remaining attacks visible on the Ranked screen"],
+    ),
+    "revenge": (
+        "Attacks a Shadow Base from your defence log. Each entry can be attacked once and the opportunity expires, so "
+        "this surface is driven by what is in the log rather than by a repeating schedule.",
+        ["An eligible entry in the defence log"],
+    ),
+    "legend-iii": (
+        "The entry Legend tier, with a weekly attack budget. The budget shown in the catalog is the published maximum "
+        "for the tier, not the attacks you have left this week.",
+        ["Legend III placement"],
+    ),
+    "legend-ii": (
+        "The middle Legend tier, with a larger weekly attack budget than Legend III.",
+        ["Legend II placement"],
+    ),
+    "legend-i": (
+        "The top Legend tier, budgeted per League Day rather than per week, so the remaining count resets on a "
+        "different schedule from the lower tiers.",
+        ["Legend I placement"],
+    ),
+    "builder": (
+        "Builder Base matchmaking. Runs against the Builder Base economy and upgrade flow rather than the Home "
+        "Village one, including the additional Builder.",
+        ["Builder Hall unlocked"],
+    ),
+}
+
+HERO_PROSE = {
+    "barbarian-king": "Ground Hero, and the first one you unlock.",
+    "archer-queen": "Ranged ground Hero with high single-target damage.",
+    "minion-prince": "Air Hero, so terrain and ground defences affect it differently from the King or Queen.",
+    "grand-warden": "Support Hero whose movement follows the mode you set, ground or air.",
+    "royal-champion": "Ground Hero that targets defences first.",
+    "dragon-duke": "Air Hero added in the February 2026 update.",
+}
+
+
+def option(value, label, summary, description, availability, capability_ids, prerequisites,
+           recommended=False, warning="", disabled_reason=""):
+    if availability != "available" and not disabled_reason:
+        raise ValueError(f"{value}: an unavailable option needs a disabled reason")
+    return {
+        "value": value,
+        "label": label,
+        "summary": summary,
+        "description": description,
+        "availability": availability,
+        "disabled_reason": disabled_reason,
+        "capability_ids": capability_ids,
+        "prerequisites": prerequisites,
+        "recommended": recommended,
+        "warning": warning,
+    }
+
+
+def build_surface_options(surfaces: dict) -> list[dict]:
+    options = []
+    for surface in surfaces["surfaces"]:
+        sid = surface["id"]
+        prose, prerequisites = SURFACE_PROSE[sid]
+        budget = surface.get("attack_budget", {})
+        kind = budget.get("kind")
+
+        if kind == "unlimited":
+            summary = "Unlimited attacks, no Trophy risk."
+        elif kind == "fixed":
+            summary = f"Limited to {budget['value']} attacks {str(budget.get('unit') or '').replace('-', ' ')}."
+        elif kind == "single-opportunity":
+            summary = "One attack per defence log entry."
+        else:
+            summary = "Attack count is reported by the client."
+
+        options.append(option(
+            value=sid,
+            label=surface["label"],
+            summary=summary,
+            description=prose,
+            availability="gated",
+            disabled_reason=(
+                "No current-client capture has been recorded for this surface yet. You can still run it as a "
+                "diagnostic to see how it behaves."
+            ),
+            capability_ids=["battle.legend-tiers"] if sid.startswith("legend") else (
+                ["builder-base.additional-builder"] if sid == "builder" else (
+                    ["battle.revenge"] if sid == "revenge" else ["battle.regular-ranked-split"])),
+            prerequisites=prerequisites,
+            recommended=(sid == "regular"),
+        ))
+    return options
+
+
+def build_hero_options(heroes: dict) -> list[dict]:
+    options = []
+    for hero in heroes["heroes"]:
+        hid = hero["id"]
+        unlock = hero["unlock_town_hall"]
+        options.append(option(
+            value=hid,
+            label=hero["label"],
+            summary=f"Unlocks at Town Hall {unlock}. Movement: {hero['movement']}.",
+            description=(
+                f"{HERO_PROSE[hid]} Available from Town Hall {unlock}. The Hero Hall holds six Heroes but only "
+                f"{heroes['max_active_slots']} can be active at once, so selecting this Hero may require freeing a slot."
+            ),
+            availability="gated",
+            disabled_reason=(
+                "Hero Hall recognition has not been captured on the current client, so the bot cannot confirm which "
+                "Heroes are actually in your active slots."
+            ),
+            capability_ids=["heroes.dragon-duke"] if hid == "dragon-duke" else ["heroes.six-slot-layout"],
+            prerequisites=[f"Town Hall {unlock} or above"],
+            recommended=(hid == "barbarian-king"),
+        ))
+    return options
+
+
+def main() -> int:
+    surfaces = load("battle-surfaces.json")
+    heroes = load("heroes.json")
+
+    settings = {
+        "schema_version": 1,
+        "surface": "run-planner",
+        "title": "Run Planner",
+        "description": (
+            "Describes one run: where it attacks, which Heroes it uses, when it stops, and what it does between "
+            "battles. Every control states whether the bot has actually been shown working on the current client."
+        ),
+        "sections": [
+            {
+                "id": "destination",
+                "order": 10,
+                "title": "Destination",
+                "description": (
+                    "Picks the exact battle surface. This is stored as an exact surface rather than a general mode, "
+                    "so choosing Legend I cannot end up running the Legend III path."
+                ),
+                "settings": [
+                    {
+                        "id": "run.surface",
+                        "type": "select",
+                        "label": "Battle surface",
+                        "summary": "The exact screen the run attacks from.",
+                        "description": (
+                            "Regular and Ranked are separate surfaces with separate rules, and the three Legend tiers "
+                            "have different attack budgets. Picking the exact one keeps the bot from falling back to "
+                            "whatever the old coordinates happen to respond to."
+                        ),
+                        "default": "regular",
+                        "required": True,
+                        "engine_binding": "RunIntent.surface_id",
+                        "options": build_surface_options(surfaces),
+                    },
+                    {
+                        "id": "run.strategy",
+                        "type": "select",
+                        "label": "Attack strategy",
+                        "summary": "Which deployment routine runs once a base is found.",
+                        "description": (
+                            "Strategies come from the existing attack code. The CSV strategies are the inherited "
+                            "scripted deployments; the others depend on recognition that has not been re-confirmed yet."
+                        ),
+                        "default": "legacy.csv",
+                        "required": True,
+                        "engine_binding": "RunPlan.strategy",
+                        "options": [
+                            option("legacy.csv", "Scripted (CSV)",
+                                   "Runs a deployment script from the Strategies folder.",
+                                   "Uses the CSV deployment scripts that ship with the bot. This is the most "
+                                   "predictable option because the deployment order is written down rather than "
+                                   "decided from the base layout.",
+                                   "available", [], ["At least one CSV strategy present"], recommended=True),
+                            option("legacy.standard", "Standard deployment",
+                                   "The built-in side and line deployment routine.",
+                                   "The inherited standard attack, which spreads troops along the chosen sides. It "
+                                   "depends on troop-bar recognition that has not been re-confirmed on the current "
+                                   "client.",
+                                   "gated", [], ["Troop bar recognition"],
+                                   disabled_reason="Troop bar recognition has not been captured on the current client."),
+                            option("legacy.smart-farm", "Smart farm",
+                                   "Targets collectors and storages based on the base layout.",
+                                   "Reads the base to choose where to drop, which needs current building recognition "
+                                   "including the Town Hall 18 additions.",
+                                   "gated", ["village.town-hall-18"], ["Current building recognition"],
+                                   disabled_reason="Building recognition has not been re-confirmed for Town Hall 18."),
+                            option("builder.baby-dragon", "Builder Base routine",
+                                   "Deployment routine for Builder Base battles.",
+                                   "A Builder Base specific deployment. It is not implemented against the current "
+                                   "Builder Base layout yet.",
+                                   "planned", ["builder-base.additional-builder"], ["Builder Base recognition"],
+                                   disabled_reason="Not implemented for the current Builder Base layout."),
+                        ],
+                    },
+                ],
+            },
+            {
+                "id": "heroes",
+                "order": 15,
+                "title": "Heroes",
+                "description": (
+                    "Chooses which Heroes the run treats as active. The Hero Hall holds six but only four can be "
+                    "active at once, so this is a selection rather than a fixed list."
+                ),
+                "settings": [
+                    {
+                        "id": "run.heroes",
+                        "type": "multi-select",
+                        "label": "Active Heroes",
+                        "summary": "Up to four Heroes from the six in the Hero Hall.",
+                        "description": (
+                            "Heroes below your Town Hall level are released automatically rather than left selected, "
+                            "so the run never plans around a Hero you cannot field."
+                        ),
+                        "default": "barbarian-king",
+                        "required": False,
+                        "engine_binding": "HeroLoadout.hero_ids",
+                        "options": build_hero_options(heroes),
+                    },
+                ],
+            },
+            {
+                "id": "environment",
+                "order": 20,
+                "title": "Emulator",
+                "description": (
+                    "Chooses which Android emulator the run drives and which instance of it, since a single machine "
+                    "commonly has several instances configured."
+                ),
+                "settings": [
+                    {
+                        "id": "runtime.emulator",
+                        "type": "select",
+                        "label": "Emulator",
+                        "summary": "Which emulator the bot attaches to.",
+                        "description": (
+                            "Leave this on automatic unless you run more than one emulator. The LDPlayer 9 and MuMu "
+                            "adapters are new: their discovery and ADB addressing are implemented, but they have not "
+                            "been through a controlled test on real hardware yet."
+                        ),
+                        "default": "auto",
+                        "required": True,
+                        "engine_binding": "RunPlan.emulator",
+                        "options": [
+                            option("auto", "Detect automatically",
+                                   "Uses whichever supported emulator is already running.",
+                                   "Looks for a running, supported emulator and attaches to it. This is the right "
+                                   "choice for a single-instance setup.",
+                                   "available", [], [], recommended=True),
+                            option("bluestacks5", "BlueStacks 5",
+                                   "The inherited BlueStacks 5 backend.",
+                                   "Carried over from the upstream bot. It works against the versions the upstream "
+                                   "project supported, which are older than the current release.",
+                                   "gated", [], ["BlueStacks 5 installed"],
+                                   disabled_reason="Not re-tested against current BlueStacks 5 builds."),
+                            option("memu", "MEmu",
+                                   "The inherited MEmu backend.",
+                                   "Carried over from the upstream bot and not re-tested against current MEmu builds.",
+                                   "gated", [], ["MEmu installed"],
+                                   disabled_reason="Not re-tested against current MEmu builds."),
+                            option("nox", "Nox",
+                                   "The inherited Nox backend.",
+                                   "Carried over from the upstream bot and not re-tested against current Nox builds.",
+                                   "gated", [], ["Nox installed"],
+                                   disabled_reason="Not re-tested against current Nox builds."),
+                            option("ldplayer9", "LDPlayer 9",
+                                   "New adapter with multi-instance ADB addressing.",
+                                   "Discovers installed instances and addresses them on port 5554 plus twice the "
+                                   "instance index, which is how LDPlayer 9 assigns ADB ports to multiple instances.",
+                                   "gated", ["emulator.ldplayer9"], ["LDPlayer 9 installed"],
+                                   disabled_reason="Adapter is written but has not been run against real hardware.",
+                                   warning="Expect to report problems from the first few runs."),
+                            option("mumu", "MuMu Player 12",
+                                   "New adapter reading per-instance ADB ports.",
+                                   "Reads each instance's ADB endpoint from the emulator rather than assuming a fixed "
+                                   "port, and adapts background capture to the active renderer.",
+                                   "gated", ["emulator.mumu"], ["MuMu Player 12 installed"],
+                                   disabled_reason="Adapter is written but has not been run against real hardware.",
+                                   warning="Expect to report problems from the first few runs."),
+                        ],
+                    },
+                    {
+                        "id": "runtime.instance",
+                        "type": "instance-select",
+                        "label": "Instance",
+                        "summary": "Which emulator instance to attach to.",
+                        "description": (
+                            "Populated by asking the selected emulator what it has configured. Instance zero and the "
+                            "later instances are addressed differently, which is a common source of the bot attaching "
+                            "to the wrong window."
+                        ),
+                        "default": "",
+                        "required": False,
+                        "engine_binding": "RunPlan.emulator_instance",
+                        "empty_state": "No instances found. Start the emulator once so it registers its instances.",
+                        "validation": {"max_length": 64},
+                    },
+                ],
+            },
+            {
+                "id": "limits",
+                "order": 30,
+                "title": "Stop conditions",
+                "description": (
+                    "Decides when the run ends. Any condition that is set can stop the run; leaving a value at zero "
+                    "turns that condition off."
+                ),
+                "settings": [
+                    {
+                        "id": "run.duration_minutes",
+                        "type": "integer",
+                        "label": "Run for",
+                        "summary": "Stop after this many minutes. Zero means no time limit.",
+                        "description": (
+                            "Measured from the moment the run starts, not from when the first battle begins, so time "
+                            "spent waiting for troops counts against it."
+                        ),
+                        "default": 0,
+                        "required": False,
+                        "engine_binding": "RunPlan.duration_minutes",
+                        "unit": "minutes",
+                        "validation": {"minimum": 0, "maximum": 1440, "step": 1},
+                    },
+                    {
+                        "id": "run.max_battles",
+                        "type": "integer",
+                        "label": "Battle limit",
+                        "summary": "Stop after this many battles. Zero means no limit.",
+                        "description": (
+                            "Counts every battle the run starts, won or lost. On a surface with a limited attack "
+                            "budget the remaining count still applies on top of this."
+                        ),
+                        "default": 0,
+                        "required": False,
+                        "engine_binding": "RunPlan.max_battles",
+                        "unit": "battles",
+                        "validation": {"minimum": 0, "maximum": 500, "step": 1},
+                    },
+                    {
+                        "id": "run.stop_on_star_bonus",
+                        "type": "boolean",
+                        "label": "Stop at Star Bonus",
+                        "summary": "End the run once the Star Bonus has been earned.",
+                        "description": (
+                            "Ends the run as soon as the Star Bonus is complete, which is the usual stopping point "
+                            "for a daily farming session."
+                        ),
+                        "default": False,
+                        "required": False,
+                        "engine_binding": "RunPlan.stop_on_star_bonus",
+                    },
+                    {
+                        "id": "run.max_failures",
+                        "type": "integer",
+                        "label": "Failure limit",
+                        "summary": "Stop after this many consecutive problems.",
+                        "description": (
+                            "A failure is a battle that could not be completed, not a battle that was lost. Keep this "
+                            "low while testing an unverified surface so a broken run stops quickly."
+                        ),
+                        "default": 3,
+                        "required": True,
+                        "engine_binding": "RunPlan.max_failures",
+                        "unit": "failures",
+                        "validation": {"minimum": 0, "maximum": 100, "step": 1},
+                    },
+                ],
+            },
+            {
+                "id": "resources",
+                "order": 40,
+                "title": "Resource targets",
+                "description": (
+                    "Stops the run once a resource total has been collected. Each target is counted across the run, "
+                    "and zero turns the target off."
+                ),
+                "settings": [
+                    {
+                        "id": "target.gold",
+                        "type": "integer",
+                        "label": "Gold",
+                        "summary": "Stop once this much Gold has been collected.",
+                        "description": "Counts Gold taken during the run, not the Gold currently in your storages.",
+                        "default": 0,
+                        "required": False,
+                        "engine_binding": "RunPlan.target_gold",
+                        "unit": "gold",
+                        "validation": {"minimum": 0, "maximum": 2000000000, "step": 1000},
+                    },
+                    {
+                        "id": "target.elixir",
+                        "type": "integer",
+                        "label": "Elixir",
+                        "summary": "Stop once this much Elixir has been collected.",
+                        "description": "Counts Elixir taken during the run, not the Elixir currently in your storages.",
+                        "default": 0,
+                        "required": False,
+                        "engine_binding": "RunPlan.target_elixir",
+                        "unit": "elixir",
+                        "validation": {"minimum": 0, "maximum": 2000000000, "step": 1000},
+                    },
+                    {
+                        "id": "target.dark_elixir",
+                        "type": "integer",
+                        "label": "Dark Elixir",
+                        "summary": "Stop once this much Dark Elixir has been collected.",
+                        "description": (
+                            "Counts Dark Elixir taken during the run. Dark Elixir loot is much smaller than Gold or "
+                            "Elixir, so this target wants a correspondingly smaller number."
+                        ),
+                        "default": 0,
+                        "required": False,
+                        "engine_binding": "RunPlan.target_dark_elixir",
+                        "unit": "dark elixir",
+                        "validation": {"minimum": 0, "maximum": 2000000000, "step": 100},
+                    },
+                ],
+            },
+            {
+                "id": "maintenance",
+                "order": 50,
+                "title": "Between battles",
+                "description": "What the run does with the resources it collects, and which accounts it rotates through.",
+                "settings": [
+                    {
+                        "id": "upgrade.policy",
+                        "type": "select",
+                        "label": "Upgrades",
+                        "summary": "What the bot spends resources on between battles.",
+                        "description": (
+                            "Upgrade handling reads menus and costs from the client. Anything beyond walls needs "
+                            "current recognition of the upgrade screens, which has not been re-confirmed."
+                        ),
+                        "default": "disabled",
+                        "required": True,
+                        "engine_binding": "RunPlan.upgrade_policy",
+                        "options": [
+                            option("disabled", "Nothing",
+                                   "Collect resources and leave them alone.",
+                                   "The run does not spend anything. This is the right setting while you are "
+                                   "confirming that a surface works at all.",
+                                   "available", [], [], recommended=True),
+                            option("walls", "Walls only",
+                                   "Spend surplus on wall upgrades.",
+                                   "Puts spare resources into walls, which is the least risky upgrade because it "
+                                   "does not occupy a Builder.",
+                                   "gated", ["village.town-hall-18"], ["Current wall recognition"],
+                                   disabled_reason="Wall levels have not been re-confirmed for the current client."),
+                            option("suggested", "Suggested upgrades",
+                                   "Follow the in-game suggested upgrade list.",
+                                   "Uses the game's own suggestions, which requires reading the upgrade menu as it "
+                                   "currently appears.",
+                                   "gated", ["builder-base.additional-builder"], ["Upgrade menu recognition"],
+                                   disabled_reason="Upgrade menu recognition has not been captured."),
+                            option("all", "Everything",
+                                   "Walls, buildings, laboratory, and Heroes.",
+                                   "The full upgrade routine across every category. It depends on the six-Hero "
+                                   "layout and the Town Hall 18 building set.",
+                                   "planned", ["village.town-hall-18", "heroes.six-slot-layout"],
+                                   ["Current upgrade and Hero recognition"],
+                                   disabled_reason="Not implemented against the current upgrade and Hero screens."),
+                        ],
+                    },
+                    {
+                        "id": "account.queue",
+                        "type": "profile-queue",
+                        "label": "Account queue",
+                        "summary": "Local bot profiles to rotate through, in order.",
+                        "description": (
+                            "References bot profiles stored on this machine. No credentials, tokens, or Supercell ID "
+                            "details are kept here; the queue only records which local profile to switch to next."
+                        ),
+                        "default": "",
+                        "required": False,
+                        "engine_binding": "AccountQueue.profile_ids",
+                        "empty_state": "No profiles queued. The run stays on the current profile.",
+                        "validation": {"max_items": 32},
+                    },
+                ],
+            },
+            {
+                "id": "diagnostics",
+                "order": 60,
+                "title": "Diagnostics",
+                "description": (
+                    "Controls whether the run is allowed to attempt work that has not been demonstrated on the "
+                    "current client, so that its behaviour can actually be observed."
+                ),
+                "settings": [
+                    {
+                        "id": "run.diagnostic_mode",
+                        "type": "boolean",
+                        "label": "Allow unverified surfaces to run",
+                        "summary": "Run surfaces that have no current-client capture yet.",
+                        "description": (
+                            "A surface that refuses to start cannot be debugged, so this lets the run proceed anyway. "
+                            "It changes nothing about what the bot has actually been shown to do: the session, its "
+                            "snapshot, and every log line stay marked unverified, and that mark cannot be cleared "
+                            "for the rest of the run."
+                        ),
+                        "default": False,
+                        "required": False,
+                        "engine_binding": "BattleRoute.diagnostic_enabled",
+                    },
+                    {
+                        "id": "run.diagnostic_note",
+                        "type": "instance-select",
+                        "label": "Diagnostic note",
+                        "summary": "Who is watching this run, recorded with the results.",
+                        "description": (
+                            "Required before an unverified surface will start. It is written into the session so a "
+                            "log read later makes clear the run was being observed rather than left unattended."
+                        ),
+                        "default": "",
+                        "required": False,
+                        "engine_binding": "BattleRoute.diagnostic_acknowledgement",
+                        "empty_state": "Required before an unverified surface will start.",
+                        "validation": {"max_length": 120},
+                    },
+                ],
+            },
+        ],
+    }
+
+    OUT.write_text(json.dumps(settings, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    total = sum(len(section["settings"]) for section in settings["sections"])
+    print(f"Wrote {OUT.relative_to(ROOT)} with {len(settings['sections'])} sections and {total} settings")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

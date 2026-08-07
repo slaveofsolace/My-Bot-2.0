@@ -24,6 +24,9 @@ FIRST_PARTY = (
     "COCBot/functions/Other/CurrentClientCompat.au3",
     "COCBot/functions/Android/AndroidLDPlayer9.au3",
     "COCBot/functions/Android/AndroidMumu.au3",
+    "COCBot/GUI/MBR GUI Design Run Planner.au3",
+    "COCBot/GUI/MBR GUI Control Run Planner.au3",
+    "COCBot/GUI/RunPlannerMetadata.generated.au3",
     "tests/autoit",
 )
 

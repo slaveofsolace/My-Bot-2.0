@@ -12,9 +12,11 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 SETTINGS_PATH = ROOT / "config/ui/run-planner.settings.json"
 CAPABILITIES_PATH = ROOT / "config/current-client-capabilities.json"
+SURFACES_PATH = ROOT / "config/game/battle-surfaces.json"
+HEROES_PATH = ROOT / "config/game/heroes.json"
 ID_PATTERN = re.compile(r"^[a-z][a-z0-9]*(?:[.\-_][a-z0-9]+)*$")
 BINDING_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9]*(?:\.[A-Za-z_][A-Za-z0-9_]*)+$")
-ALLOWED_TYPES = {"select", "instance-select", "integer", "boolean", "profile-queue"}
+ALLOWED_TYPES = {"select", "multi-select", "instance-select", "integer", "boolean", "profile-queue"}
 ALLOWED_AVAILABILITY = {"available", "gated", "planned", "unsupported"}
 PROHIBITED_CLAIMS = {"undetectable", "ban-proof", "ban proof", "bypass detection", "evade detection", "humanlike"}
 
@@ -126,7 +128,7 @@ def main() -> int:
             if setting_type == "boolean" and not isinstance(setting.get("default"), bool):
                 errors.append(f"{setting_id}: boolean default must be boolean")
 
-            if setting_type == "select":
+            if setting_type in ("select", "multi-select"):
                 options = setting.get("options")
                 if not isinstance(options, list) or not options:
                     errors.append(f"{setting_id}: select setting requires options")
@@ -180,7 +182,9 @@ def main() -> int:
                     errors.append(f"{setting_id}: no more than one option may be recommended")
 
     expected_settings = {
-        "run.mode",
+        "run.surface",
+        "run.heroes",
+        "run.diagnostic_mode",
         "run.strategy",
         "runtime.emulator",
         "runtime.instance",
@@ -198,8 +202,18 @@ def main() -> int:
     if missing_settings:
         errors.append("required planner settings missing: " + ", ".join(missing_settings))
 
-    if select_values.get("run.mode") != {"regular", "ranked", "legend", "builder"}:
-        errors.append("run.mode must expose exactly regular, ranked, legend, and builder")
+    # The planner must offer exactly the surfaces and Heroes the catalogs define, so a catalog change cannot
+    # silently leave the UI offering a surface the engine no longer knows about, or hiding one it does.
+    catalog_surfaces = {item["id"] for item in load(SURFACES_PATH).get("surfaces", [])}
+    if select_values.get("run.surface") != catalog_surfaces:
+        errors.append(
+            "run.surface must offer exactly the catalog battle surfaces: " + ", ".join(sorted(catalog_surfaces))
+        )
+    catalog_heroes = {item["id"] for item in load(HEROES_PATH).get("heroes", [])}
+    if select_values.get("run.heroes") != catalog_heroes:
+        errors.append(
+            "run.heroes must offer exactly the catalog Heroes: " + ", ".join(sorted(catalog_heroes))
+        )
     required_emulators = {"auto", "bluestacks5", "memu", "nox", "ldplayer9", "mumu"}
     if not required_emulators.issubset(select_values.get("runtime.emulator", set())):
         errors.append("runtime.emulator is missing one or more supported adapter choices")

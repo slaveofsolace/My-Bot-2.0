@@ -46,6 +46,7 @@ Global $g_hFrmBot_WNDPROC_ptr = 0
 #include "GUI\MBR GUI Control Preset.au3"
 #include "GUI\MBR GUI Control Child Misc.au3"
 #include "GUI\MBR GUI Control Android.au3"
+#include "GUI\MBR GUI Control Run Planner.au3"
 #include "MBR GUI Action.au3"
 
 Func InitializeMainGUI($bGuiModeUpdate = False)
@@ -1140,6 +1141,7 @@ Func BotGuiModeToggle()
 			GUICtrlDelete($g_hTabAttack)
 			GUICtrlDelete($g_hTabBot)
 			GUICtrlDelete($g_hTabAbout)
+			GUICtrlDelete($g_hTabRunPlanner)
 
 			GUICtrlDelete($g_hGUI_VILLAGE_TAB)
 			GUICtrlDelete($g_hGUI_MISC_TAB)
@@ -1705,6 +1707,7 @@ Func tabMain()
 			GUISetState(@SW_HIDE, $g_hGUI_ATTACK)
 			GUISetState(@SW_HIDE, $g_hGUI_BOT)
 			GUISetState(@SW_HIDE, $g_hGUI_ABOUT)
+			GUISetState(@SW_HIDE, $g_hGUI_RUNPLANNER)
 			GUISetState(@SW_SHOWNOACTIVATE, $g_hGUI_LOG)
 
 		Case $tabidx = 1 ; Village
@@ -1712,6 +1715,7 @@ Func tabMain()
 			GUISetState(@SW_HIDE, $g_hGUI_ATTACK)
 			GUISetState(@SW_HIDE, $g_hGUI_BOT)
 			GUISetState(@SW_HIDE, $g_hGUI_ABOUT)
+			GUISetState(@SW_HIDE, $g_hGUI_RUNPLANNER)
 			GUISetState(@SW_SHOWNOACTIVATE, $g_hGUI_VILLAGE)
 			tabVillage()
 
@@ -1720,6 +1724,7 @@ Func tabMain()
 			GUISetState(@SW_HIDE, $g_hGUI_VILLAGE)
 			GUISetState(@SW_HIDE, $g_hGUI_BOT)
 			GUISetState(@SW_HIDE, $g_hGUI_ABOUT)
+			GUISetState(@SW_HIDE, $g_hGUI_RUNPLANNER)
 			GUISetState(@SW_SHOWNOACTIVATE, $g_hGUI_ATTACK)
 			tabAttack()
 
@@ -1728,6 +1733,7 @@ Func tabMain()
 			GUISetState(@SW_HIDE, $g_hGUI_VILLAGE)
 			GUISetState(@SW_HIDE, $g_hGUI_ATTACK)
 			GUISetState(@SW_HIDE, $g_hGUI_ABOUT)
+			GUISetState(@SW_HIDE, $g_hGUI_RUNPLANNER)
 			GUISetState(@SW_SHOWNOACTIVATE, $g_hGUI_BOT)
 			tabBot()
 
@@ -1736,13 +1742,24 @@ Func tabMain()
 			GUISetState(@SW_HIDE, $g_hGUI_VILLAGE)
 			GUISetState(@SW_HIDE, $g_hGUI_ATTACK)
 			GUISetState(@SW_HIDE, $g_hGUI_BOT)
+			GUISetState(@SW_HIDE, $g_hGUI_RUNPLANNER)
 			GUISetState(@SW_SHOWNOACTIVATE, $g_hGUI_ABOUT)
+
+		Case $tabidx = 5 ; Run Planner
+			GUISetState(@SW_HIDE, $g_hGUI_LOG)
+			GUISetState(@SW_HIDE, $g_hGUI_VILLAGE)
+			GUISetState(@SW_HIDE, $g_hGUI_ATTACK)
+			GUISetState(@SW_HIDE, $g_hGUI_BOT)
+			GUISetState(@SW_HIDE, $g_hGUI_ABOUT)
+			GUISetState(@SW_SHOWNOACTIVATE, $g_hGUI_RUNPLANNER)
+			tabRunPlanner()
 
 		Case Else
 			GUISetState(@SW_HIDE, $g_hGUI_LOG)
 			GUISetState(@SW_HIDE, $g_hGUI_VILLAGE)
 			GUISetState(@SW_HIDE, $g_hGUI_ATTACK)
 			GUISetState(@SW_HIDE, $g_hGUI_BOT)
+			GUISetState(@SW_HIDE, $g_hGUI_RUNPLANNER)
 	EndSelect
 
 EndFunc   ;==>tabMain

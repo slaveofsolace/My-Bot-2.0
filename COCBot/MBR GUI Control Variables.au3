@@ -310,6 +310,7 @@ Func InitializeControlVariables()
 	$oAlwaysEnabledControls($g_hTabAttack) = 1
 	$oAlwaysEnabledControls($g_hTabBot) = 1
 	$oAlwaysEnabledControls($g_hTabAbout) = 1
+	$oAlwaysEnabledControls($g_hTabRunPlanner) = 1
 
 	$oAlwaysEnabledControls($g_hTxtAutoUpgradeCCLog) = 1
 	$oAlwaysEnabledControls($g_hTxtClanGamesLog) = 1

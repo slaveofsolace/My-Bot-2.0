@@ -68,6 +68,7 @@ Global $g_oGuiNotInMini = ObjCreate("Scripting.Dictionary")
 #include "GUI\MBR GUI Design Attack.au3"
 #include "GUI\MBR GUI Design Bot.au3"
 #include "GUI\MBR GUI Design About.au3"
+#include "GUI\MBR GUI Design Run Planner.au3"
 
 Func CreateMainGUI()
 
@@ -330,6 +331,9 @@ Func CreateMainGUIControls($bGuiModeUpdate = False)
 	SplashStep(GetTranslatedFileIni("MBR GUI Design - Loading", "SplashStep_07", "Loading About Us tab..."))
 	CreateAboutTab()
 
+	SplashStep(GetTranslatedFileIni("MBR GUI Design - Loading", "SplashStep_07b", "Loading Run Planner tab..."))
+	CreateRunPlannerTab()
+
 	Local $sStepText = ""
 	Switch $g_iGuiMode
 		Case 1
@@ -349,6 +353,8 @@ Func CreateMainGUIControls($bGuiModeUpdate = False)
 	$g_hTabAttack = GUICtrlCreateTabItem(GetTranslatedFileIni("MBR Main GUI", "Tab_03", "Attack Plan"))
 	$g_hTabBot = GUICtrlCreateTabItem(GetTranslatedFileIni("MBR Main GUI", "Tab_04", "Bot"))
 	$g_hTabAbout = GUICtrlCreateTabItem(GetTranslatedFileIni("MBR Main GUI", "Tab_05", "About Us"))
+	; Appended last so the existing tab indices used throughout tabMain() stay where they are.
+	$g_hTabRunPlanner = GUICtrlCreateTabItem(GetTranslatedFileIni("MBR Main GUI", "Tab_06", "Run Planner"))
 	GUICtrlCreateTabItem("")
 	GUICtrlSetResizing(-1, $GUI_DOCKBORDERS)
 

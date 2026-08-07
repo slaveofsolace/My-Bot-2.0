@@ -1,0 +1,216 @@
+; #FUNCTION# ====================================================================================================================
+; Name ..........: MBR GUI Design Run Planner
+; Description ...: Builds the Run Planner tab from the generated planner metadata.
+; Remarks .......: Controls are rendered from $g_aRunPlannerSettings rather than laid out by hand, so adding a battle surface
+;                  or changing a disabled reason is a catalog edit. This file is part of My Bot, distributed under the GNU GPL.
+; ===============================================================================================================================
+#include-once
+#include "RunPlannerMetadata.generated.au3"
+
+Global $g_hGUI_RUNPLANNER = 0
+Global $g_hRunPlannerTab = 0
+Global $g_hRunPlannerBanner = 0
+Global $g_hRunPlannerDetail = 0
+Global $g_hRunPlannerStatus = 0
+Global $g_hBtnRunPlannerApply = 0
+Global $g_hBtnRunPlannerReset = 0
+Global $g_hBtnRunPlannerHeroAdd = 0
+Global $g_hBtnRunPlannerHeroRemove = 0
+Global $g_hRunPlannerHeroSelection = 0
+
+; One control handle per row of $g_aRunPlannerSettings, plus the buddy controls some types need.
+Global $g_ahRunPlannerControls[UBound($g_aRunPlannerSettings, 1)]
+Global $g_ahRunPlannerBuddies[UBound($g_aRunPlannerSettings, 1)]
+Global $g_ahRunPlannerTabItems[UBound($g_aRunPlannerSections, 1)]
+
+; A combo cannot grey out individual entries, so availability is marked in the text itself and the detail pane
+; below spells out what is missing. One decorator keeps the list, the default, and the reverse lookup consistent.
+Func _RunPlannerDecoratedLabel($iOptionRow)
+	Local $sLabel = $g_aRunPlannerOptions[$iOptionRow][$eRunPlannerOptionLabel]
+	Switch StringLower($g_aRunPlannerOptions[$iOptionRow][$eRunPlannerOptionAvailability])
+		Case "available"
+			If $g_aRunPlannerOptions[$iOptionRow][$eRunPlannerOptionRecommended] Then $sLabel &= "  (recommended)"
+		Case "planned"
+			$sLabel &= "  (not implemented)"
+		Case "unsupported"
+			$sLabel &= "  (unsupported)"
+		Case Else
+			$sLabel &= "  (unverified)"
+	EndSwitch
+	Return $sLabel
+EndFunc   ;==>_RunPlannerDecoratedLabel
+
+Func _RunPlannerOptionLabelList($sSettingId)
+	Local $sList = ""
+	For $i = 0 To UBound($g_aRunPlannerOptions, 1) - 1
+		If $g_aRunPlannerOptions[$i][$eRunPlannerOptionSettingId] <> $sSettingId Then ContinueLoop
+		$sList &= (($sList = "") ? "" : "|") & _RunPlannerDecoratedLabel($i)
+	Next
+	Return $sList
+EndFunc   ;==>_RunPlannerOptionLabelList
+
+; The GUI runs in OnEvent mode, so each interactive control needs a named handler. Settings without one simply
+; hold their value until Apply reads them.
+Func _RunPlannerHandlerFor($sSettingId)
+	Switch $sSettingId
+		Case "run.surface"
+			Return "cmbRunPlannerSurface"
+		Case "run.heroes"
+			Return "cmbRunPlannerHeroes"
+		Case "run.strategy"
+			Return "cmbRunPlannerStrategy"
+		Case "runtime.emulator"
+			Return "cmbRunPlannerEmulator"
+		Case "upgrade.policy"
+			Return "cmbRunPlannerUpgradePolicy"
+		Case "run.diagnostic_mode"
+			Return "chkRunPlannerDiagnostic"
+	EndSwitch
+	Return ""
+EndFunc   ;==>_RunPlannerHandlerFor
+
+Func _RunPlannerDefaultLabel($sSettingId, $sValue)
+	For $i = 0 To UBound($g_aRunPlannerOptions, 1) - 1
+		If $g_aRunPlannerOptions[$i][$eRunPlannerOptionSettingId] <> $sSettingId Then ContinueLoop
+		If $g_aRunPlannerOptions[$i][$eRunPlannerOptionValue] <> $sValue Then ContinueLoop
+		Return _RunPlannerDecoratedLabel($i)
+	Next
+	Return ""
+EndFunc   ;==>_RunPlannerDefaultLabel
+
+Func CreateRunPlannerTab()
+	$g_hGUI_RUNPLANNER = _GUICreate("", $g_iSizeWGrpTab1, $g_iSizeHGrpTab1, $_GUI_CHILD_LEFT, $_GUI_CHILD_TOP, BitOR($WS_CHILD, $WS_TABSTOP), -1, $g_hFrmBotEx)
+
+	Local $iLeft = 8
+	Local $iWidth = $g_iSizeWGrpTab1 - 22
+	Local $y = 6
+
+	GUICtrlCreateLabel($RUN_PLANNER_TITLE, $iLeft, $y, $iWidth, 18)
+	GUICtrlSetFont(-1, 10, $FW_BOLD, Default, "Arial")
+	$y += 20
+
+	GUICtrlCreateLabel($RUN_PLANNER_DESCRIPTION, $iLeft, $y, $iWidth, 30)
+	GUICtrlSetFont(-1, 8, $FW_NORMAL, Default, "Arial")
+	$y += 34
+
+	; Verification banner. Filled in by UpdateRunPlannerBanner() once a surface is chosen.
+	$g_hRunPlannerBanner = GUICtrlCreateLabel("", $iLeft, $y, $iWidth, 28)
+	GUICtrlSetFont(-1, 8, $FW_BOLD, Default, "Arial")
+	GUICtrlSetColor(-1, $COLOR_MAROON)
+	$y += 32
+
+	$g_hRunPlannerTab = GUICtrlCreateTab($iLeft, $y, $iWidth, 208)
+	GUICtrlSetResizing(-1, $GUI_DOCKBORDERS)
+
+	Local $iSettingRow = 0
+	For $iSection = 0 To UBound($g_aRunPlannerSections, 1) - 1
+		Local $sSectionId = $g_aRunPlannerSections[$iSection][$eRunPlannerSectionId]
+		$g_ahRunPlannerTabItems[$iSection] = GUICtrlCreateTabItem($g_aRunPlannerSections[$iSection][$eRunPlannerSectionTitle])
+
+		Local $iRowY = $y + 26
+		Local $iLabelX = $iLeft + 8
+		Local $iCtrlX = $iLeft + 150
+		Local $iCtrlW = $iWidth - 166
+
+		For $iSetting = 0 To UBound($g_aRunPlannerSettings, 1) - 1
+			If $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingSectionId] <> $sSectionId Then ContinueLoop
+
+			Local $sId = $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingId]
+			Local $sType = StringLower($g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingType])
+			Local $sLabel = $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingLabel]
+			If $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingRequired] Then $sLabel &= " *"
+
+			GUICtrlCreateLabel($sLabel, $iLabelX, $iRowY + 3, 138, 18)
+			GUICtrlSetFont(-1, 8.5, $FW_NORMAL, Default, "Arial")
+			_GUICtrlSetTip(-1, $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingSummary])
+
+			Switch $sType
+				Case "select"
+					$g_ahRunPlannerControls[$iSetting] = GUICtrlCreateCombo("", $iCtrlX, $iRowY, $iCtrlW, 20, BitOR($CBS_DROPDOWNLIST, $WS_VSCROLL))
+					GUICtrlSetData(-1, _RunPlannerOptionLabelList($sId), _RunPlannerDefaultLabel($sId, $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingDefault]))
+					_GUICtrlSetTip(-1, $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingDescription])
+					If _RunPlannerHandlerFor($sId) <> "" Then GUICtrlSetOnEvent(-1, _RunPlannerHandlerFor($sId))
+					$iRowY += 26
+
+				Case "multi-select"
+					; Four active slots out of six Heroes, so this is a picker plus a running selection, not one choice.
+					$g_ahRunPlannerControls[$iSetting] = GUICtrlCreateCombo("", $iCtrlX, $iRowY, $iCtrlW - 90, 20, BitOR($CBS_DROPDOWNLIST, $WS_VSCROLL))
+					GUICtrlSetData(-1, _RunPlannerOptionLabelList($sId), _RunPlannerDefaultLabel($sId, $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingDefault]))
+					_GUICtrlSetTip(-1, $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingDescription])
+					If _RunPlannerHandlerFor($sId) <> "" Then GUICtrlSetOnEvent(-1, _RunPlannerHandlerFor($sId))
+					$g_hBtnRunPlannerHeroAdd = GUICtrlCreateButton("Add", $iCtrlX + $iCtrlW - 86, $iRowY, 40, 21)
+					GUICtrlSetOnEvent(-1, "btnRunPlannerHeroAdd")
+					_GUICtrlSetTip(-1, "Puts the selected Hero into an active slot.")
+					$g_hBtnRunPlannerHeroRemove = GUICtrlCreateButton("Drop", $iCtrlX + $iCtrlW - 43, $iRowY, 43, 21)
+					GUICtrlSetOnEvent(-1, "btnRunPlannerHeroRemove")
+					_GUICtrlSetTip(-1, "Frees the slot the selected Hero occupies.")
+					$iRowY += 26
+					GUICtrlCreateLabel("Active slots", $iLabelX, $iRowY + 3, 138, 18)
+					GUICtrlSetFont(-1, 8.5, $FW_NORMAL, Default, "Arial")
+					$g_hRunPlannerHeroSelection = GUICtrlCreateInput("", $iCtrlX, $iRowY, $iCtrlW, 20, BitOR($ES_READONLY, $ES_AUTOHSCROLL))
+					$g_ahRunPlannerBuddies[$iSetting] = $g_hRunPlannerHeroSelection
+					$iRowY += 26
+
+				Case "integer"
+					$g_ahRunPlannerControls[$iSetting] = GUICtrlCreateInput($g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingDefault], $iCtrlX, $iRowY, 90, 20, BitOR($ES_NUMBER, $ES_RIGHT))
+					_GUICtrlSetTip(-1, $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingDescription])
+					$g_ahRunPlannerBuddies[$iSetting] = GUICtrlCreateUpdown(-1)
+					GUICtrlSetLimit(-1, $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingMaximum], $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingMinimum])
+					Local $sUnit = $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingUnit]
+					If $sUnit <> "" Then
+						GUICtrlCreateLabel($sUnit, $iCtrlX + 96, $iRowY + 3, $iCtrlW - 96, 18)
+						GUICtrlSetFont(-1, 8, $FW_NORMAL, Default, "Arial")
+						GUICtrlSetColor(-1, $COLOR_GRAY)
+					EndIf
+					$iRowY += 26
+
+				Case "boolean"
+					$g_ahRunPlannerControls[$iSetting] = GUICtrlCreateCheckbox("", $iCtrlX, $iRowY, 20, 20)
+					If $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingDefault] Then GUICtrlSetState(-1, $GUI_CHECKED)
+					_GUICtrlSetTip(-1, $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingDescription])
+					If _RunPlannerHandlerFor($sId) <> "" Then GUICtrlSetOnEvent(-1, _RunPlannerHandlerFor($sId))
+					GUICtrlCreateLabel($g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingSummary], $iCtrlX + 24, $iRowY + 3, $iCtrlW - 24, 18)
+					GUICtrlSetFont(-1, 8, $FW_NORMAL, Default, "Arial")
+					GUICtrlSetColor(-1, $COLOR_GRAY)
+					$iRowY += 26
+
+				Case Else
+					; instance-select and profile-queue are free text until their sources can be enumerated.
+					$g_ahRunPlannerControls[$iSetting] = GUICtrlCreateInput($g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingDefault], $iCtrlX, $iRowY, $iCtrlW, 20, $ES_AUTOHSCROLL)
+					_GUICtrlSetTip(-1, $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingDescription])
+					Local $sEmpty = $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingEmptyState]
+					If $sEmpty <> "" Then
+						$iRowY += 20
+						GUICtrlCreateLabel($sEmpty, $iCtrlX, $iRowY, $iCtrlW, 16)
+						GUICtrlSetFont(-1, 7.5, $FW_NORMAL, Default, "Arial")
+						GUICtrlSetColor(-1, $COLOR_GRAY)
+						$iRowY += 8
+					EndIf
+					$iRowY += 26
+			EndSwitch
+			$iSettingRow += 1
+		Next
+	Next
+	GUICtrlCreateTabItem("")
+
+	$y += 214
+
+	GUICtrlCreateLabel("Why this is greyed out", $iLeft, $y, $iWidth, 16)
+	GUICtrlSetFont(-1, 8.5, $FW_BOLD, Default, "Arial")
+	$y += 18
+	$g_hRunPlannerDetail = GUICtrlCreateEdit("Select a control to see what it does and what it still needs.", $iLeft, $y, $iWidth, 66, BitOR($ES_READONLY, $ES_MULTILINE, $WS_VSCROLL))
+	GUICtrlSetFont(-1, 8, $FW_NORMAL, Default, "Arial")
+	GUICtrlSetBkColor(-1, $COLOR_WHITE)
+	$y += 72
+
+	$g_hBtnRunPlannerApply = GUICtrlCreateButton("Apply plan", $iLeft, $y, 90, 24)
+	GUICtrlSetOnEvent(-1, "btnRunPlannerApply")
+	_GUICtrlSetTip(-1, "Builds the run intent from these settings and reports whether it can start.")
+	$g_hBtnRunPlannerReset = GUICtrlCreateButton("Reset", $iLeft + 96, $y, 70, 24)
+	GUICtrlSetOnEvent(-1, "btnRunPlannerReset")
+	_GUICtrlSetTip(-1, "Restores every control to its default.")
+	$g_hRunPlannerStatus = GUICtrlCreateLabel("", $iLeft + 174, $y + 5, $iWidth - 174, 18)
+	GUICtrlSetFont(-1, 8, $FW_NORMAL, Default, "Arial")
+
+	GUISetState(@SW_HIDE, $g_hGUI_RUNPLANNER)
+EndFunc   ;==>CreateRunPlannerTab
