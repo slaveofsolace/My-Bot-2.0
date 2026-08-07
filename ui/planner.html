@@ -1,0 +1,310 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Run Planner</title>
+<style>
+  :root {
+    --bg: #14161a; --panel: #1c1f26; --panel-2: #232730; --line: #2f3540;
+    --ink: #e6e9ef; --ink-dim: #9aa3b2; --ink-faint: #6b7381;
+    --accent: #4c8dff; --ok: #3fb950; --warn: #d29922; --bad: #f85149; --idle: #6b7381;
+    --radius: 8px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 14px/1.5 -apple-system, "Segoe UI", system-ui, sans-serif;
+  }
+  header {
+    padding: 18px 24px; border-bottom: 1px solid var(--line);
+    display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
+    background: linear-gradient(180deg, #1a1d24, var(--bg));
+  }
+  header h1 { margin: 0; font-size: 17px; letter-spacing: .2px; }
+  header .sub { color: var(--ink-dim); font-size: 12.5px; }
+  .banner {
+    margin: 0; padding: 11px 24px; font-size: 13px;
+    border-bottom: 1px solid var(--line); background: #2a2118; color: #f0c674;
+  }
+  .banner.verified { background: #16261a; color: #7ee787; }
+  main { display: grid; grid-template-columns: 190px minmax(0,1fr) 320px; min-height: calc(100vh - 118px); }
+  nav { border-right: 1px solid var(--line); padding: 12px 0; background: var(--panel); }
+  nav button {
+    display: block; width: 100%; text-align: left; padding: 9px 20px;
+    background: none; border: 0; border-left: 3px solid transparent;
+    color: var(--ink-dim); font: inherit; cursor: pointer;
+  }
+  nav button:hover { color: var(--ink); background: var(--panel-2); }
+  nav button[aria-current="true"] {
+    color: var(--ink); border-left-color: var(--accent); background: var(--panel-2); font-weight: 600;
+  }
+  section { padding: 22px 26px; min-width: 0; }
+  section h2 { margin: 0 0 4px; font-size: 15px; }
+  section .lede { margin: 0 0 20px; color: var(--ink-dim); font-size: 13px; max-width: 62ch; }
+  .row { display: grid; grid-template-columns: 210px minmax(0,1fr); gap: 14px; align-items: start; padding: 11px 0; border-top: 1px solid var(--line); }
+  .row:first-of-type { border-top: 0; }
+  .row > label { padding-top: 6px; font-size: 13.5px; }
+  .row > label .req { color: var(--accent); margin-left: 3px; }
+  .row > label .note { display: block; color: var(--ink-faint); font-size: 12px; margin-top: 2px; }
+  .field { min-width: 0; }
+  select, input[type=text], input[type=number] {
+    width: 100%; max-width: 420px; padding: 7px 9px; border-radius: 6px;
+    border: 1px solid var(--line); background: var(--panel-2); color: var(--ink); font: inherit;
+  }
+  select:focus, input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  input[type=checkbox] { width: 17px; height: 17px; accent-color: var(--accent); }
+  .unit { color: var(--ink-faint); font-size: 12px; margin-left: 8px; }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+  .pill.available { background: #15311c; color: #7ee787; }
+  .pill.gated { background: #33280f; color: #e3b341; }
+  .pill.planned, .pill.unsupported { background: #2a2d34; color: var(--ink-faint); }
+  .why { margin-top: 6px; font-size: 12.5px; color: var(--warn); max-width: 62ch; }
+  aside { border-left: 1px solid var(--line); padding: 18px 20px; background: var(--panel); }
+  aside h3 { margin: 0 0 10px; font-size: 12px; text-transform: uppercase; letter-spacing: .8px; color: var(--ink-faint); }
+  aside .detail { font-size: 13px; color: var(--ink-dim); }
+  aside .detail strong { color: var(--ink); }
+  aside ul { margin: 8px 0 0; padding-left: 18px; }
+  .bar {
+    position: sticky; bottom: 0; display: flex; gap: 10px; align-items: center;
+    padding: 13px 24px; border-top: 1px solid var(--line); background: var(--panel);
+  }
+  button.primary, button.ghost {
+    padding: 8px 16px; border-radius: 6px; font: inherit; font-weight: 600; cursor: pointer;
+  }
+  button.primary { background: var(--accent); border: 1px solid var(--accent); color: #08101f; }
+  button.ghost { background: transparent; border: 1px solid var(--line); color: var(--ink-dim); }
+  button.primary:hover { filter: brightness(1.1); }
+  button.ghost:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .status { font-size: 13px; }
+  .status.ok { color: var(--ok); } .status.bad { color: var(--bad); } .status.warn { color: var(--warn); }
+  .events { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 14px; }
+  .events li { list-style: none; font-size: 12px; padding: 3px 0; color: var(--ink-dim); }
+  .events li .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 7px; background: var(--idle); }
+  .events li.error .dot { background: var(--bad); } .events li.warning .dot { background: var(--warn); }
+  .events li.info .dot { background: var(--ok); }
+  @media (max-width: 1100px) { main { grid-template-columns: 160px minmax(0,1fr); } aside { display: none; } }
+</style>
+
+<header>
+  <h1 id="title">Run Planner</h1>
+  <span class="sub" id="lede"></span>
+</header>
+<p class="banner" id="banner">Loading…</p>
+
+<main>
+  <nav id="nav" aria-label="Sections"></nav>
+  <section id="panel"></section>
+  <aside>
+    <h3>About the selected control</h3>
+    <div class="detail" id="detail">Focus a control to see what it does and what it still needs.</div>
+    <div class="events">
+      <h3>Recent activity</h3>
+      <ul id="events"><li>No events yet.</li></ul>
+    </div>
+  </aside>
+</main>
+
+<div class="bar">
+  <button class="primary" id="apply">Apply plan</button>
+  <button class="ghost" id="reset">Reset to defaults</button>
+  <span class="status" id="status"></span>
+</div>
+
+<script>
+let META = null, PLAN = {}, ACTIVE = null;
+const $ = id => document.getElementById(id);
+
+const settingsOf = s => s.settings || [];
+const allSettings = () => (META.sections || []).flatMap(settingsOf);
+const findSetting = id => allSettings().find(s => s.id === id);
+const optionOf = (s, v) => (s.options || []).find(o => o.value === v);
+
+async function boot() {
+  const res = await fetch('/api/metadata').then(r => r.json());
+  META = res.metadata;
+  PLAN = await fetch('/api/plan').then(r => r.json());
+  $('title').textContent = META.title || 'Run Planner';
+  $('lede').textContent = META.description || '';
+  const fromHash = location.hash.replace('#', '');
+  ACTIVE = (META.sections || []).some(s => s.id === fromHash) ? fromHash : (META.sections || [])[0]?.id;
+  drawNav(); drawPanel(); updateBanner(); pollEvents();
+  window.addEventListener('hashchange', () => {
+    const id = location.hash.replace('#', '');
+    if ((META.sections || []).some(s => s.id === id) && id !== ACTIVE) { ACTIVE = id; drawNav(); drawPanel(); }
+  });
+}
+
+function drawNav() {
+  $('nav').innerHTML = '';
+  for (const section of META.sections || []) {
+    const b = document.createElement('button');
+    b.textContent = section.tab_label || section.title;
+    b.setAttribute('aria-current', String(section.id === ACTIVE));
+    b.onclick = () => { ACTIVE = section.id; location.hash = section.id; drawNav(); drawPanel(); };
+    $('nav').append(b);
+  }
+}
+
+function drawPanel() {
+  const section = (META.sections || []).find(s => s.id === ACTIVE);
+  const el = $('panel');
+  el.innerHTML = '';
+  if (!section) return;
+
+  const h = document.createElement('h2'); h.textContent = section.title;
+  const p = document.createElement('p'); p.className = 'lede'; p.textContent = section.description;
+  el.append(h, p);
+
+  for (const setting of settingsOf(section)) el.append(renderRow(setting));
+}
+
+function renderRow(setting) {
+  const row = document.createElement('div'); row.className = 'row';
+
+  const label = document.createElement('label');
+  label.htmlFor = 'f_' + setting.id;
+  label.innerHTML = escapeHtml(setting.label) + (setting.required ? '<span class="req">*</span>' : '');
+  const note = document.createElement('span'); note.className = 'note'; note.textContent = setting.summary;
+  label.append(note);
+
+  const field = document.createElement('div'); field.className = 'field';
+  const control = makeControl(setting);
+  control.id = 'f_' + setting.id;
+  control.onfocus = () => showDetail(setting);
+  control.onchange = () => {
+    PLAN[setting.id] = readControl(setting, control);
+    showDetail(setting);
+    if (setting.id === 'run.surface') updateBanner();
+    if ((setting.options || []).length) paintAvailability(setting, control, field);
+  };
+  field.append(control);
+
+  if (setting.unit) {
+    const u = document.createElement('span'); u.className = 'unit'; u.textContent = setting.unit;
+    field.append(u);
+  }
+  if ((setting.options || []).length) paintAvailability(setting, control, field);
+
+  row.append(label, field);
+  return row;
+}
+
+// Availability shown as a pill plus the specific blocking reason, so "greyed out" is never mysterious.
+function paintAvailability(setting, control, field) {
+  field.querySelectorAll('.pill,.why').forEach(n => n.remove());
+  const opt = optionOf(setting, PLAN[setting.id]);
+  if (!opt) return;
+
+  const pill = document.createElement('span');
+  pill.className = 'pill ' + opt.availability;
+  pill.textContent = { available: 'verified', gated: 'unverified',
+                       planned: 'not implemented', unsupported: 'unsupported' }[opt.availability] || opt.availability;
+  field.append(document.createTextNode(' '), pill);
+
+  if (opt.disabled_reason) {
+    const why = document.createElement('div'); why.className = 'why';
+    why.textContent = opt.disabled_reason;
+    field.append(why);
+  }
+}
+
+function makeControl(setting) {
+  if (setting.type === 'boolean') {
+    const c = document.createElement('input'); c.type = 'checkbox';
+    c.checked = !!PLAN[setting.id]; return c;
+  }
+  if (setting.type === 'integer') {
+    const c = document.createElement('input'); c.type = 'number';
+    const v = setting.validation || {};
+    if (v.minimum !== undefined) c.min = v.minimum;
+    if (v.maximum !== undefined) c.max = v.maximum;
+    if (v.step !== undefined) c.step = v.step;
+    c.value = PLAN[setting.id] ?? setting.default ?? 0; return c;
+  }
+  if ((setting.options || []).length) {
+    const c = document.createElement('select');
+    for (const o of setting.options) {
+      const opt = document.createElement('option');
+      opt.value = o.value;
+      opt.textContent = o.label + (o.recommended ? '  (recommended)' : '');
+      c.append(opt);
+    }
+    c.value = PLAN[setting.id] ?? setting.default; return c;
+  }
+  const c = document.createElement('input'); c.type = 'text';
+  c.value = PLAN[setting.id] ?? '';
+  c.placeholder = setting.empty_state || ''; return c;
+}
+
+function readControl(setting, c) {
+  if (setting.type === 'boolean') return c.checked;
+  if (setting.type === 'integer') return c.value === '' ? 0 : Number(c.value);
+  return c.value;
+}
+
+function showDetail(setting) {
+  const parts = ['<strong>' + escapeHtml(setting.label) + '</strong><br>' + escapeHtml(setting.description)];
+  const opt = optionOf(setting, PLAN[setting.id]);
+  if (opt) {
+    parts.push('<br><br><strong>' + escapeHtml(opt.label) + '</strong><br>' + escapeHtml(opt.description));
+    if ((opt.prerequisites || []).length) {
+      parts.push('<br><br><strong>Needs</strong><ul>' +
+        opt.prerequisites.map(p => '<li>' + escapeHtml(p) + '</li>').join('') + '</ul>');
+    }
+    if (opt.disabled_reason) parts.push('<br><strong>Not verified:</strong> ' + escapeHtml(opt.disabled_reason));
+    if (opt.warning) parts.push('<br><br><strong>Note:</strong> ' + escapeHtml(opt.warning));
+  }
+  $('detail').innerHTML = parts.join('');
+}
+
+function updateBanner() {
+  const setting = findSetting('run.surface');
+  const opt = setting && optionOf(setting, PLAN['run.surface']);
+  const b = $('banner');
+  if (opt && opt.availability === 'available') {
+    b.className = 'banner verified';
+    b.textContent = 'Verified: this surface has been demonstrated on the current client.';
+  } else {
+    b.className = 'banner';
+    b.textContent = 'Diagnostic run: this surface has not been demonstrated on the current client. '
+      + (opt ? opt.disabled_reason + ' ' : '')
+      + 'Treat every result as an observation, not a confirmed capability.';
+  }
+}
+
+async function pollEvents() {
+  try {
+    const { events } = await fetch('/api/events').then(r => r.json());
+    const ul = $('events');
+    ul.innerHTML = events.length ? '' : '<li>No events yet.</li>';
+    for (const e of events.slice(-14).reverse()) {
+      const li = document.createElement('li');
+      li.className = e.severity || 'info';
+      li.innerHTML = '<span class="dot"></span>' + escapeHtml(e.type || '') + ' — ' + escapeHtml(e.message || '');
+      ul.append(li);
+    }
+  } catch {}
+  setTimeout(pollEvents, 3000);
+}
+
+$('apply').onclick = async () => {
+  const r = await fetch('/api/plan', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(PLAN)
+  }).then(r => r.json());
+  const s = $('status');
+  if (!r.ok) { s.className = 'status bad'; s.textContent = (r.problems || ['failed']).join('; '); return; }
+  s.className = r.problems.length ? 'status warn' : 'status ok';
+  s.textContent = r.problems.length ? r.problems.join('; ') : 'Saved to ' + r.written;
+};
+
+$('reset').onclick = async () => {
+  for (const s of allSettings()) PLAN[s.id] = s.default;
+  drawPanel(); updateBanner();
+  $('status').className = 'status'; $('status').textContent = 'Reset to defaults — not saved yet.';
+};
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+boot();
+</script>

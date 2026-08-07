@@ -173,3 +173,7 @@ build/au3Stripper/Au3Stripper.Log
 # Python bytecode cache
 __pycache__/
 *.py[cod]
+
+# Run Planner UI runtime files (local to each machine)
+config/run-plan.local.json
+logs/run-events.jsonl

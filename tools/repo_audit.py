@@ -63,6 +63,7 @@ REQUIRED_PATHS = (
     "docs/development/MERGE_PLAYBOOK.md",
     "docs/ui/UI_HANDOFF.md",
     "docs/INSTALL.md",
+    "ui/planner.html",
     ".github/workflows/ci.yml",
     ".github/workflows/windows-autoit.yml",
 )
