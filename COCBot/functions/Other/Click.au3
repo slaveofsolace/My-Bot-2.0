@@ -15,6 +15,7 @@
 
 #include-once
 #include <WinAPISys.au3>
+#include "..\Run\RunPacingGate.au3"
 
 Func Click($x, $y, $times = 1, $speed = 120, $debugtxt = "")
 	Local $txt = "", $aPrevCoor[2] = [$x, $y]
@@ -34,6 +35,13 @@ Func Click($x, $y, $times = 1, $speed = 120, $debugtxt = "")
 	EndIf
 
 	If TestCapture() Then Return
+
+	; Holds this action back until the run's configured gap has passed. Returns immediately when no run has installed
+	; pacing, which is every bot that has not applied a plan, so the untouched path costs one IsObj.
+	;
+	; Only Click() is gated, not PureClick or PureClickTrain: those drive troop training in tight loops that already
+	; space themselves with their own speed argument, and a second delay on top would double-space something tuned.
+	If RunPacingGateAction() Then Return
 
 	If $g_bAndroidAdbClick = True Then
 		AndroidClick($x, $y, $times, $speed)

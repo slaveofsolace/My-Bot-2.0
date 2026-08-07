@@ -134,6 +134,23 @@ a control's description is what a user ends up believing about it.
 
 The clock is a parameter rather than something the module reads, which keeps the whole thing decidable
 from its arguments and lets the contract tests check the arithmetic without waiting for real time.
+`RunPacingGate.au3` is the other half: the one place that reads a clock and does the sleeping, so the
+module underneath stays testable and the test scripts can compile it without dragging in `_Sleep`.
+
+The gate sits in `Click()`, which is the most-travelled function in the program, so it is opt-in at
+runtime: with no pacing installed it returns on an `IsObj` check and the untouched path is unchanged.
+Applying a plan installs it; Reset removes it.
+
+Note what is **not** gated. `PureClick` and `PureClickTrain` drive troop training in tight loops that
+already space themselves with their own speed argument, and stacking a second delay on top would
+double-space something someone already tuned.
+
+One inherited behaviour is worth knowing about, because it is easy to mistake for this work.
+Upstream v8.2.0 already ships `$g_bUseRandomClick` — a BOT Options checkbox that scatters click
+coordinates by ±5px and click speed by ±15%. It predates this project, it is wired through
+`saveConfig`/`readConfig`/`applyConfig`, and it is not something added here. It is left as it was
+found; nothing in the pacing work extends it, and the two are unrelated mechanisms that happen to
+both affect timing.
 
 ## What still has to happen
 

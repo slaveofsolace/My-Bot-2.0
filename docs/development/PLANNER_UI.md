@@ -127,10 +127,36 @@ fewer misread screens.
 | Rest after | off | Pause the run once it has been going this long |
 | Rest for | 5 min | How long each pause lasts. Nothing is closed and no progress is lost |
 
-`COCBot/functions/Run/RunPacing.au3` holds the arithmetic. The clock is passed in rather than read
-inside, so the whole module is decidable from its arguments and the contract tests check it without
-waiting for real milliseconds to pass. Every run intent carries pacing — defaulted, never absent — so
-nothing downstream has to check whether it is there.
+### How it takes effect
+
+Two files, split on purpose:
+
+- **`RunPacing.au3`** is pure. It reads no clock and sleeps for nobody — the time is an argument. That
+  is what lets the contract tests check the arithmetic without waiting for real milliseconds, and it is
+  why the test scripts can compile it without dragging in half the bot.
+- **`RunPacingGate.au3`** is the half that reads a clock and does the waiting. It holds the active
+  pacing and sits in `Click()`.
+
+**Pressing Apply is what turns pacing on.** Until then the gate is inert: it returns on an `IsObj`
+check, so a bot that never opens this tab behaves exactly as it did before the feature existed. That
+matters because `Click()` is the most-travelled function in the program. Reset turns it back off.
+
+Only `Click()` is gated — not `PureClick` or `PureClickTrain`. Those drive troop training in tight
+loops that already space themselves with their own speed argument, and a second delay on top would
+double-space something already tuned.
+
+Two things in the gate are load-bearing and easy to undo by accident, so `check_plan_bridge.py` pins
+both:
+
+- **`_Sleep` is always called with `$CheckRunState = False`.** Left at its default it returns True
+  whenever `$g_bRunState` is False — the ordinary state of an idle bot — so a gate built on it would
+  report "stopped" for every click made outside a run and the caller would swallow the action. The gate
+  watches for a bot that *was* running and has since stopped instead.
+- **A static reentrancy guard.** `_Sleep` pumps the message loop, so a GUI handler that clicks would
+  otherwise re-enter the gate and wait against a timestamp that had not been written yet.
+
+Waits are taken in 250 ms slices so Stop stays responsive — a run resting for ten minutes should not
+take ten minutes to notice it was stopped.
 
 ---
 

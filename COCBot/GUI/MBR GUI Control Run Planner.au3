@@ -469,6 +469,16 @@ Func btnRunPlannerApply()
 
 	$g_oRunPlannerIntent = $oIntent
 
+	; Applying a plan is what puts its pacing into effect. Until this happens the gate in Click() is inert, so a bot that
+	; never opens this tab is paced exactly as it was before the feature existed.
+	Local $oPacing = $oIntent.Item("pacing")
+	Local $sPacingError = ""
+	If RunPacingActivate($oPacing, $sPacingError) Then
+		SetLog("Run Planner: pacing active - " & RunPacingDescribe($oPacing), $COLOR_INFO)
+	Else
+		SetLog("Run Planner: pacing was not applied - " & $sPacingError, $COLOR_ERROR)
+	EndIf
+
 	Local $sReason = ""
 	If RunIntentCanStart($oIntent, $sReason) Then
 		Local $sState = RunIntentVerificationState($oIntent)
@@ -504,6 +514,8 @@ Func btnRunPlannerReset()
 	Next
 	$g_sRunPlannerHeroIds = ""
 	$g_oRunPlannerIntent = 0
+	; Reset drops the applied plan, so the pacing that came with it goes too rather than outliving the plan that set it.
+	RunPacingDeactivate()
 	RunPlannerRefreshHeroSelection()
 	GUICtrlSetData($g_hRunPlannerStatus, "")
 	UpdateRunPlannerBanner()

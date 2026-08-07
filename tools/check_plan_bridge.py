@@ -149,6 +149,54 @@ def main() -> int:
                 f"{setting_id}: the control offers up to {offered} but the engine accepts up to {declared}"
             )
 
+    # ---------------------------------------------------------------------------------------------
+    # Two invariants of the pacing gate. Both are easy to undo by accident and neither shows up until
+    # a real run on Windows, which is the worst place to find them.
+    # ---------------------------------------------------------------------------------------------
+    gate_path = ROOT / "COCBot/functions/Run/RunPacingGate.au3"
+    if not gate_path.is_file():
+        errors.append("RunPacingGate.au3 is missing; the pacing settings would be inert")
+    else:
+        gate = gate_path.read_text(encoding="utf-8-sig")
+
+        # _Sleep's third argument is $CheckRunState, and it defaults to True. Left at the default it
+        # returns True whenever $g_bRunState is False - the ordinary state of an idle bot - so the gate
+        # would report "stopped" for every click made outside a run and the caller would swallow it.
+        for line_number, line in enumerate(gate.splitlines(), 1):
+            for call in re.finditer(r"_Sleep\(([^)]*)\)", line):
+                arguments = [a.strip() for a in call.group(1).split(",")]
+                if len(arguments) < 3 or arguments[2].lower() != "false":
+                    errors.append(
+                        f"RunPacingGate.au3:{line_number}: _Sleep must pass $CheckRunState=False "
+                        f"explicitly, or an idle bot's actions get swallowed: {call.group(0)}"
+                    )
+
+        # Both remaining invariants live inside RunPacingGateAction, so they are checked against that
+        # function's own body. The short-circuit line appears in several functions here, and looking for
+        # it anywhere in the file would let it be deleted from the one that matters.
+        action = gate.split("Func RunPacingGateAction()", 1)
+        body = action[1].split("EndFunc", 1)[0] if len(action) > 1 else ""
+        if not body:
+            errors.append("RunPacingGateAction is missing; the pacing settings would be inert")
+        else:
+            # Click() calls the gate, and _Sleep pumps the message loop. Without the guard a GUI handler
+            # that clicks re-enters the gate and waits against a timestamp not yet written.
+            if "Static $bInside" not in body:
+                errors.append("RunPacingGateAction has lost its reentrancy guard")
+            # The whole no-risk-when-unused argument rests on this early return.
+            if "If Not IsObj($g_oRunPacingActive) Then Return False" not in body:
+                errors.append("the pacing gate no longer short-circuits when no run has installed pacing")
+
+    # Gating the training clicks would double-space loops that already space themselves.
+    click_path = ROOT / "COCBot/functions/Other/Click.au3"
+    click = click_path.read_text(encoding="utf-8-sig")
+    for function in ("PureClick", "PureClickTrain"):
+        body = click.split(f"Func {function}(", 1)
+        if len(body) > 1 and "RunPacingGateAction" in body[1].split("EndFunc", 1)[0]:
+            errors.append(f"{function} is gated; training loops already space themselves")
+    if "RunPacingGateAction" not in click.split("Func Click(", 1)[-1].split("EndFunc", 1)[0]:
+        errors.append("Click() no longer calls the pacing gate, so the pacing settings do nothing")
+
     # The parser and the tab have to agree on how a list is delimited, since one writes it and the other splits it.
     parser_source = PARSER.read_text(encoding="utf-8-sig")
     if 'RUN_PLAN_FILE_LIST_SEPARATOR = "|"' not in parser_source:
