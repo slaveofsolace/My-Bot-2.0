@@ -33,16 +33,16 @@ Restart Windows after installing runtime components.
 
 ## 2. Get the source
 
-Use the `integration/unified-foundation` branch, not `master`.
+`master` carries the complete runnable source, so a plain clone is all you need.
 
 With Git:
 
 ```powershell
-git clone --branch integration/unified-foundation https://github.com/slaveofsolace/My-Bot-2.0.git
+git clone https://github.com/slaveofsolace/My-Bot-2.0.git
 cd My-Bot-2.0
 ```
 
-Without Git, download the branch archive from GitHub and extract it to a simple local path such as:
+Without Git, download the archive from GitHub and extract it to a simple local path such as:
 
 ```text
 C:\Tools\My-Bot-2.0

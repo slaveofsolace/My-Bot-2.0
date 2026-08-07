@@ -3,7 +3,9 @@ name: Windows AutoIt validation
 on:
   push:
     branches:
-      - "integration/**"
+      - master
+      - main
+      - "claude/**"
       - "compat/**"
   pull_request:
   workflow_dispatch:
