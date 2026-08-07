@@ -3,7 +3,8 @@
 
 Au3Check only runs on Windows, so this catches the mistakes that would otherwise wait for a Windows CI job:
 unbalanced blocks, ByRef parameters carrying defaults, required parameters following optional ones, duplicate
-function definitions, and calls to project functions that no longer exist.
+function definitions, calls to project functions that no longer exist, and uses of a g_-prefixed global that is
+never declared anywhere in the tree.
 """
 
 from __future__ import annotations
@@ -33,6 +34,11 @@ FIRST_PARTY = (
 STRING_RE = re.compile(r'"[^"]*"' + r"|'[^']*'")
 FUNC_DEF_RE = re.compile(r"^\s*Func\s+([A-Za-z_]\w*)\s*\((.*)$", re.IGNORECASE)
 INCLUDE_RE = re.compile(r'^\s*#include\s+"([^"]+)"', re.IGNORECASE)
+# Declarations may list several variables on one line and continue across lines, so the whole
+# statement is scanned for names rather than just the first one.
+GLOBAL_DECL_RE = re.compile(r"^\s*(?:Global|Local|Dim|ReDim|Const|Static|Enum)\b(.*)$", re.IGNORECASE)
+GLOBAL_USE_RE = re.compile(r"\$(g_[A-Za-z_]\w*)")
+VARNAME_RE = re.compile(r"\$([A-Za-z_]\w*)")
 CALL_RE = re.compile(r"\b([A-Za-z_]\w*)\s*\(")
 
 # Keywords that can precede "(" without being a call.
@@ -97,6 +103,8 @@ def check_file(path: Path, errors: list[str]) -> tuple[set[str], set[str]]:
     stack: list[tuple[str, int]] = []
     definitions: set[str] = set()
     calls: set[str] = set()
+    declared_globals: set[str] = set()
+    used_globals: dict[str, int] = {}
 
     # AutoIt continues a statement onto the next line with a trailing underscore. Join those first so a condition
     # split across lines is still recognised as opening a block.
@@ -166,6 +174,15 @@ def check_file(path: Path, errors: list[str]) -> tuple[set[str], set[str]]:
             if candidate.lower() not in NON_CALL:
                 calls.add(candidate)
 
+        # Track g_-prefixed globals so a use with no declaration anywhere in the tree is reported here
+        # rather than by Au3Check on a Windows runner.
+        declaration = GLOBAL_DECL_RE.match(code)
+        if declaration:
+            for name in VARNAME_RE.findall(declaration.group(1)):
+                declared_globals.add(name.casefold())
+        for name in GLOBAL_USE_RE.findall(code):
+            used_globals.setdefault(name, number)  # original casing kept for the message
+
         # Block balance.
         if first == "if":
             if is_multiline_if(code):
@@ -188,7 +205,7 @@ def check_file(path: Path, errors: list[str]) -> tuple[set[str], set[str]]:
     for expected, opened_at in stack:
         errors.append(f"{relative}:{opened_at}: block is never closed, expected {expected}")
 
-    return definitions, calls
+    return definitions, calls, declared_globals, used_globals
 
 
 def resolve_include(source: Path, target: str) -> Path:
@@ -220,10 +237,15 @@ def main() -> int:
 
     all_definitions: set[str] = set()
     all_calls: dict[str, set[str]] = {}
+    all_declared: set[str] = set()
+    all_used: dict[str, dict[str, int]] = {}
     for path in targets:
-        definitions, calls = check_file(path, errors)
+        definitions, calls, declared, used = check_file(path, errors)
         all_definitions |= definitions
-        all_calls[path.relative_to(ROOT).as_posix()] = calls
+        relative = path.relative_to(ROOT).as_posix()
+        all_calls[relative] = calls
+        all_declared |= declared
+        all_used[relative] = used
 
     # Every include a first-party file names must exist on disk.
     for path in first_party:
@@ -242,6 +264,22 @@ def main() -> int:
     # Calls that look like project functions must resolve somewhere in the first-party set.
     project_prefixes = ("RunPlan", "RunSession", "RunEvent", "RunIntent", "RunVerification", "BattleRoute",
                         "BattleQuota", "HeroLoadout", "AccountQueue", "CurrentGame", "_CurrentGame")
+    # Undeclared globals are checked across the whole tree regardless of --all, because a global is
+    # declared in one file and used in another: restricting either side to first-party code misses the
+    # exact case Au3Check reports.
+    if not args.all:
+        for path in ROOT.rglob("*.au3"):
+            if path in targets:
+                continue
+            _, _, declared, used = check_file(path, [])
+            all_declared |= declared
+            all_used[path.relative_to(ROOT).as_posix()] = used
+
+    for relative in sorted(all_used):
+        for name, line in sorted(all_used[relative].items()):
+            if name.casefold() not in all_declared:
+                errors.append(f"{relative}:{line}: undeclared global variable: ${name}")
+
     first_party_relative = {p.relative_to(ROOT).as_posix() for p in first_party}
     for relative, calls in all_calls.items():
         if relative not in first_party_relative:
