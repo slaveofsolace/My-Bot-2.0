@@ -176,9 +176,9 @@ def main() -> int:
     require('"3.3.16.1"' in windows_workflow and '"3.3.18.0"' in windows_workflow, "Windows CI covers baseline and current AutoIt releases", findings)
     require("Get-AuthenticodeSignature" in windows_workflow, "Windows CI verifies the AutoIt executable signature", findings)
 
-    current_workflow = text(".github/workflows/current-client-compat.yml")
+    ci_workflow = text(".github/workflows/ci.yml")
     for report_name in ("fixture-validation.json", "ui-metadata-validation.json", "runtime-evidence-validation.json", "support-readiness.json"):
-        require(report_name in current_workflow, f"current-client CI retains {report_name}", findings)
+        require(report_name in ci_workflow, f"CI retains {report_name}", findings)
 
     payload = {"schema_version": 1, "checks": len(findings), "findings": findings}
     rendered = json.dumps(payload, indent=2, sort_keys=True) + "\n"

@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+      - main
+      - "claude/**"
+      - "feature/**"
+      - "compat/**"
+      - "ui/**"
+      - "refactor/**"
+      - "build/**"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Catalogs, contracts, and repository integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Check tooling syntax
+        run: python -m compileall -q tools
+
+      # Structural AutoIt checks that would otherwise wait for the Windows job.
+      - name: Lint AutoIt sources
+        run: python tools/lint_autoit.py --all --json autoit-lint.json
+
+      - name: Validate sourced game catalogs
+        run: python tools/validate_game_catalog.py --json game-catalog-validation.json
+
+      - name: Check generated game catalog for drift
+        run: python tools/generate_game_catalog_autoit.py --check
+
+      - name: Check generated planner metadata for drift
+        run: python tools/generate_run_planner_autoit.py --check
+
+      - name: Verify runtime catalog integration
+        run: python tools/verify_current_game_model.py --json current-game-verification.json
+
+      - name: Verify current-client integration
+        run: python tools/verify_current_client_compat.py --json current-client-verification.json
+
+      - name: Validate run-planner metadata
+        run: python tools/validate_ui_metadata.py --json ui-metadata-validation.json
+
+      - name: Validate fixture inventory
+        run: python tools/validate_current_client_fixtures.py --json fixture-validation.json
+
+      - name: Validate runtime evidence registry
+        run: python tools/validate_runtime_evidence.py --json runtime-evidence-validation.json
+
+      - name: Evaluate support readiness
+        run: python tools/evaluate_support_readiness.py --json support-readiness.json
+
+      - name: Run repository audit
+        run: python tools/repo_audit.py --json repository-audit.json
+
+      - name: Upload validation reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: validation-${{ github.run_id }}
+          path: |
+            autoit-lint.json
+            game-catalog-validation.json
+            current-game-verification.json
+            current-client-verification.json
+            ui-metadata-validation.json
+            fixture-validation.json
+            runtime-evidence-validation.json
+            support-readiness.json
+            repository-audit.json
+          if-no-files-found: warn
+          retention-days: 14

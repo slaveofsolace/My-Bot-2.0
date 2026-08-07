@@ -12,7 +12,7 @@ My Bot 2.0 is being rebuilt in reviewable stages. The current priority is preser
 
 ## Branches
 
-Use a focused branch from `integration/unified-foundation`.
+Branch from `master`, and keep each branch to one kind of change.
 
 Recommended prefixes:
 
