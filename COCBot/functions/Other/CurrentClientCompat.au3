@@ -7,11 +7,14 @@
 
 #include "..\Android\AndroidLDPlayer9.au3"
 #include "..\Android\AndroidMumu.au3"
+#include "..\Game\GameCatalog.au3"
+#include "..\Game\ScreenStateRegistry.au3"
 #include "..\Run\RunPlan.au3"
 #include "..\Run\AccountQueue.au3"
 #include "..\Run\BattleRoute.au3"
 #include "..\Run\RunSession.au3"
 #include "..\Run\RunEvent.au3"
+#include "..\Run\RunIntent.au3"
 
 Global $__LDPlayer9_Idx = -1
 Global $__Mumu_Idx = -1
@@ -68,6 +71,13 @@ Func RegisterCurrentClientCompat()
 	$__LDPlayer9_Idx = _RegisterLDPlayer9Adapter()
 	$__Mumu_Idx = _RegisterMumuAdapter()
 	SetDebugLog("Current client adapters registered: LDPlayer9=" & $__LDPlayer9_Idx & ", MuMu=" & $__Mumu_Idx)
+
+	Local $sCatalogError
+	If CurrentGameCatalogValidate($sCatalogError) Then
+		SetDebugLog("Current game catalog loaded: Town Hall " & $CURRENT_GAME_MAX_TOWN_HALL & ", " & $CURRENT_GAME_HOME_HERO_COUNT & " Heroes, " & UBound($g_aCurrentGameBattleSurfaces, 1) & " battle surfaces")
+	Else
+		SetLog("Current game catalog rejected: " & $sCatalogError, $COLOR_ERROR)
+	EndIf
 EndFunc   ;==>RegisterCurrentClientCompat
 
 Func ReferenceCurrentClientCompat()
@@ -122,6 +132,56 @@ Func ReferenceCurrentClientCompat()
 	RunSessionSnapshot($oSession)
 	Local $oEvent = RunEventCreate("session.completed", 1, 0, "reference", "info", "Reference event")
 	RunEventToJson($oEvent)
+	Local $oLoadout = HeroLoadoutCreate(18)
+	HeroLoadoutAdd($oLoadout, "barbarian-king", $sPlanError)
+	HeroLoadoutRemove($oLoadout, "barbarian-king")
+	HeroLoadoutClear($oLoadout)
+	HeroLoadoutSetTownHall($oLoadout, 18, $sPlanError)
+	HeroLoadoutAvailable(18)
+	HeroLoadoutContains($oLoadout, "barbarian-king")
+	HeroLoadoutCount($oLoadout)
+	HeroLoadoutDescribe($oLoadout)
+	Local $oQuota = BattleQuotaCreate("regular")
+	BattleQuotaObserve($oQuota, 1, 0, $sPlanError)
+	BattleQuotaInvalidate($oQuota)
+	BattleQuotaCanConsume($oQuota, $sRouteReason)
+	BattleQuotaConsume($oQuota, $sPlanError)
+	BattleQuotaIsExhausted($oQuota)
+	BattleQuotaRemaining($oQuota)
+	BattleQuotaDescribe($oQuota)
+	Local $oIntent = RunIntentCreate($oPlan, "regular", $oLoadout, $sPlanError)
+	RunIntentEnableDiagnostic($oIntent, "reference", $sPlanError)
+	RunIntentObserveQuota($oIntent, 1, 0, $sPlanError)
+	RunIntentSetProfile($oIntent, "profile")
+	RunIntentCanStart($oIntent, $sRouteReason)
+	RunIntentOpenSession($oIntent, "reference", $sPlanError)
+	RunIntentRecordBattle($oIntent, $oSession, True, $sPlanError)
+	RunIntentVerificationState($oIntent)
+	RunIntentDescribe($oIntent)
+	BattleRouteCreateForSurface("regular")
+	BattleRouteDisableDiagnostic($oRoute)
+	BattleRouteVerificationState($oRoute)
+	RunSessionAttachRoute($oSession, $oRoute, $sPlanError)
+	RunSessionMarkDiagnostic($oSession, "reference")
+	RunSessionIsVerified($oSession)
+	RunVerificationBanner($RUN_VERIFICATION_DIAGNOSTIC, "reference")
+	RunVerificationSurfaceState("regular", $sRouteReason)
+	RunVerificationMerge($RUN_VERIFICATION_VERIFIED, $RUN_VERIFICATION_DIAGNOSTIC)
+	RunVerificationLabel($RUN_VERIFICATION_VERIFIED)
+	RunVerificationIsState($RUN_VERIFICATION_VERIFIED)
+	CurrentGameScreenCanHandle("battle.regular.entry", $sRouteReason)
+	CurrentGameScreenDefaultAction("battle.regular.entry")
+	CurrentGameScreenIsBlocking("battle.regular.entry")
+	CurrentGameScreenRetryLimit("battle.regular.entry")
+	CurrentGameScreenAppearsAfterSeconds("battle.fast-forward")
+	CurrentGameScreenSpeedMultiplier("battle.fast-forward")
+	CurrentGameScreenShouldStopRoute("battle.regular.entry")
+	CurrentGameSourceUrl("ranked-2025-10-06")
+	CurrentGameGetHeroUnlockTH("barbarian-king")
+	CurrentGameHeroMovement("barbarian-king")
+	CurrentGameGetBattleMinimumTH("regular")
+	Local $sBudgetKind, $iBudgetValue, $sBudgetUnit
+	CurrentGameGetBattleAttackBudget("regular", $sBudgetKind, $iBudgetValue, $sBudgetUnit)
 EndFunc   ;==>ReferenceCurrentClientCompat
 
 RegisterCurrentClientCompat()

@@ -12,7 +12,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 SETTINGS_PATH = ROOT / "config/ui/run-planner.settings.json"
 CAPABILITIES_PATH = ROOT / "config/current-client-capabilities.json"
-ID_PATTERN = re.compile(r"^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$")
+ID_PATTERN = re.compile(r"^[a-z][a-z0-9]*(?:[.\-_][a-z0-9]+)*$")
 BINDING_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9]*(?:\.[A-Za-z_][A-Za-z0-9_]*)+$")
 ALLOWED_TYPES = {"select", "instance-select", "integer", "boolean", "profile-queue"}
 ALLOWED_AVAILABILITY = {"available", "gated", "planned", "unsupported"}
