@@ -323,7 +323,8 @@
               "recommended": false,
               "warning": ""
             }
-          ]
+          ],
+          "max_selected": 4
         }
       ]
     },

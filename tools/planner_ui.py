@@ -136,11 +136,26 @@ def validate_plan(submitted: dict) -> tuple[dict, list[str]]:
             clean[key] = number
         elif kind in ("select", "multi-select"):
             values = {o["value"] for o in setting.get("options", [])}
-            picked = [v for v in (value if isinstance(value, list) else [value]) if v in values]
-            rejected = [v for v in (value if isinstance(value, list) else [value]) if v not in values]
-            for bad in rejected:
+            submitted_values = value if isinstance(value, list) else [value]
+            picked = [v for v in submitted_values if v in values]
+            for bad in [v for v in submitted_values if v not in values]:
                 problems.append(f"{key}: {bad!r} is not an option")
-            clean[key] = picked if kind == "multi-select" else (picked[0] if picked else setting.get("default"))
+            if kind == "multi-select":
+                # A browser respects the ceiling, but the plan file is a file: anyone can put six
+                # Heroes in four slots with a text editor, and the engine would refuse the whole plan.
+                ceiling = setting.get("max_selected")
+                seen: list = []
+                for item in picked:
+                    if item in seen:
+                        problems.append(f"{key}: {item!r} listed more than once, kept one")
+                        continue
+                    seen.append(item)
+                if isinstance(ceiling, int) and len(seen) > ceiling:
+                    problems.append(f"{key}: {len(seen)} selected but only {ceiling} fit, kept the first {ceiling}")
+                    seen = seen[:ceiling]
+                clean[key] = seen
+            else:
+                clean[key] = picked[0] if picked else setting.get("default")
         else:
             clean[key] = str(value)
 
@@ -267,6 +282,20 @@ def selftest() -> int:
     check(any("yes/no" in p for p in problems), "an unrecognised boolean is reported")
 
     check(MAX_REQUEST_BYTES > 0 and MAX_TAIL_BYTES > 0, "request and tail limits are set")
+
+    # Four Hero slots out of six. A browser cannot submit a fifth, but the plan file is a file and a
+    # text editor can, so the ceiling is enforced here rather than left to the engine to refuse.
+    clean, problems = validate_plan({"run.heroes": [
+        "barbarian-king", "archer-queen", "grand-warden", "royal-champion", "minion-prince"]})
+    check(len(clean["run.heroes"]) == 4, "a multi-select is capped at its declared ceiling")
+    check(any("only 4 fit" in p for p in problems), "going over the ceiling is reported")
+
+    clean, problems = validate_plan({"run.heroes": ["archer-queen", "archer-queen"]})
+    check(clean["run.heroes"] == ["archer-queen"], "a duplicate selection is collapsed")
+    check(any("more than once" in p for p in problems), "a duplicate selection is reported")
+
+    clean, _ = validate_plan({"run.heroes": ["archer-queen", "not-a-hero"]})
+    check(clean["run.heroes"] == ["archer-queen"], "an unknown selection is dropped, the rest kept")
 
     clean, _ = validate_plan({})
     check(set(clean) == setting_ids, "a partial submission is filled out to every setting")

@@ -197,6 +197,17 @@ def main() -> int:
                     if not isinstance(option.get("warning"), str):
                         errors.append(f"{option_prefix}: warning must be a string")
 
+                # A multi-select needs a ceiling, or the UI cannot tell the user when to stop picking
+                # and the engine finds out for them by refusing the plan.
+                if setting_type == "multi-select":
+                    ceiling = setting.get("max_selected")
+                    if not isinstance(ceiling, int) or not 1 <= ceiling <= len(values):
+                        errors.append(
+                            f"{setting_id}: max_selected must be an integer between 1 and {len(values)}"
+                        )
+                elif "max_selected" in setting:
+                    errors.append(f"{setting_id}: max_selected only applies to a multi-select")
+
                 select_values[setting_id] = values
                 if setting.get("default") not in values:
                     errors.append(f"{setting_id}: default does not match an option")
