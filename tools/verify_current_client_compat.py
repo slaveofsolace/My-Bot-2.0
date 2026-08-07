@@ -74,8 +74,20 @@ def main() -> int:
     for relative in REQUIRED_FILES:
         require((ROOT / relative).is_file(), f"required file exists: {relative}", findings)
 
+    # The entry point must be reachable from the main build and from nowhere else: the Mini GUI and Watchdog
+    # builds omit the Android core, so pulling the adapters into them breaks Au3Check.
+    main_entry = text("MyBot.run.au3")
+    require(
+        main_entry.count('#include "COCBot\\functions\\Other\\CurrentClientCompat.au3"') == 1,
+        "main entry point includes the compatibility layer exactly once",
+        findings,
+    )
     api = text("COCBot/functions/Other/Api.au3")
-    require(api.count('#include "CurrentClientCompat.au3"') == 1, "compatibility entry point is included exactly once", findings)
+    require(
+        "CurrentClientCompat.au3" not in api,
+        "shared Api.au3 does not pull the Android adapters into smaller builds",
+        findings,
+    )
 
     compatibility = text("COCBot/functions/Other/CurrentClientCompat.au3")
     for include_name in ("BattleRoute.au3", "RunSession.au3", "RunEvent.au3"):

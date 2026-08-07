@@ -43,6 +43,9 @@ Global $g_hFrmBot = 0 ; The main GUI window
 #include "COCBot\MBR GUI Control.au3"
 #include "COCBot\MBR Functions.au3"
 #include "COCBot\functions\Other\Multilanguage.au3"
+; Current client adapters and run orchestration. Main build only: the Mini GUI and Watchdog
+; entry points do not include the Android core these adapters call into.
+#include "COCBot\functions\Other\CurrentClientCompat.au3"
 ; MBR References.au3 must be last include
 #include "COCBot\MBR References.au3"
 
