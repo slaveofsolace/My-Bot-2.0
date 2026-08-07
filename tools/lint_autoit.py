@@ -37,6 +37,9 @@ ENTRY_POINTS = (
     "MyBot.run.au3",
     "MyBot.run.MiniGui.au3",
     "MyBot.run.Watchdog.au3",
+    "tests/autoit/RunContractsTest.au3",
+    "tests/autoit/GameCatalogTest.au3",
+    "tests/autoit/RunEngineTest.au3",
 )
 
 # Small standalone scripts that define local stubs of AutoIt standard UDFs (they do not include the standard
@@ -121,6 +124,8 @@ def check_file(path: Path, errors: list[str]) -> tuple[set[str], set[str]]:
     calls: set[str] = set()
     declared_globals: set[str] = set()
     used_globals: dict[str, int] = {}
+    byref_positions: dict[str, set[int]] = {}
+    call_sites: list[tuple[int, str, list[str]]] = []
 
     # AutoIt continues a statement onto the next line with a trailing underscore. Join those first so a condition
     # split across lines is still recognised as opening a block.
@@ -171,6 +176,9 @@ def check_file(path: Path, errors: list[str]) -> tuple[set[str], set[str]]:
             definitions.add(name)
 
             params = split_params(definition.group(2))
+            byref_positions[name.casefold()] = {
+                index for index, param in enumerate(params) if re.match(r"^byref\b", param, re.IGNORECASE)
+            }
             seen_optional = False
             for param in params:
                 is_byref = bool(re.match(r"^byref\b", param, re.IGNORECASE))
@@ -186,9 +194,15 @@ def check_file(path: Path, errors: list[str]) -> tuple[set[str], set[str]]:
                         f"{relative}:{number}: required parameter follows an optional one in {name}: {param}"
                     )
 
-        for candidate in CALL_RE.findall(code):
-            if candidate.lower() not in NON_CALL:
-                calls.add(candidate)
+        for match in CALL_RE.finditer(code):
+            candidate = match.group(1)
+            if candidate.lower() in NON_CALL:
+                continue
+            calls.add(candidate)
+            # A Func line declares its parameters, it does not pass arguments, so it is not a call site.
+            if definition:
+                continue
+            call_sites.append((number, candidate, split_params(code[match.end():])))
 
         # Track g_-prefixed globals so a use with no declaration anywhere in the tree is reported here
         # rather than by Au3Check on a Windows runner.
@@ -221,7 +235,7 @@ def check_file(path: Path, errors: list[str]) -> tuple[set[str], set[str]]:
     for expected, opened_at in stack:
         errors.append(f"{relative}:{opened_at}: block is never closed, expected {expected}")
 
-    return definitions, calls, declared_globals, used_globals
+    return definitions, calls, declared_globals, used_globals, byref_positions, call_sites
 
 
 def resolve_include(source: Path, target: str) -> Path:
@@ -288,7 +302,7 @@ def check_entry_points(errors: list[str]) -> dict[str, int]:
     file_globals: dict[str, dict[str, int]] = {}
 
     for path in sorted(ROOT.rglob("*.au3")):
-        definitions, calls, declared, used = check_file(path, [])
+        definitions, calls, declared, used, _byref, _sites = check_file(path, [])
         key = path.resolve().as_posix()
         repo_definitions[key] = definitions
         repo_declarations[key] = declared
@@ -360,8 +374,12 @@ def main() -> int:
     all_calls: dict[str, set[str]] = {}
     all_declared: set[str] = set()
     all_used: dict[str, dict[str, int]] = {}
+    all_byref: dict[str, set[int]] = {}
+    all_sites: dict[str, list] = {}
     for path in targets:
-        definitions, calls, declared, used = check_file(path, errors)
+        definitions, calls, declared, used, byref, sites = check_file(path, errors)
+        all_byref.update(byref)
+        all_sites[path.relative_to(ROOT).as_posix()] = sites
         all_definitions |= definitions
         relative = path.relative_to(ROOT).as_posix()
         all_calls[relative] = calls
@@ -392,7 +410,8 @@ def main() -> int:
         for path in ROOT.rglob("*.au3"):
             if path in targets:
                 continue
-            _, _, declared, used = check_file(path, [])
+            _, _, declared, used, byref, _sites = check_file(path, [])
+            all_byref.update(byref)
             all_declared |= declared
             all_used[path.relative_to(ROOT).as_posix()] = used
 
@@ -400,6 +419,21 @@ def main() -> int:
         for name, line in sorted(all_used[relative].items()):
             if name.casefold() not in all_declared:
                 errors.append(f"{relative}:{line}: undeclared global variable: ${name}")
+
+    simple_variable = re.compile(r"^\$\w+(?:\[[^\]]*\])*$")
+    for relative, sites in sorted(all_sites.items()):
+        for line, name, arguments in sites:
+            positions = all_byref.get(name.casefold())
+            if not positions:
+                continue
+            for index in sorted(positions):
+                if index >= len(arguments):
+                    continue
+                argument = arguments[index].strip()
+                if argument and not simple_variable.fullmatch(argument):
+                    errors.append(
+                        f"{relative}:{line}: {name}() binds an expression to ByRef parameter {index + 1}: {argument}"
+                    )
 
     first_party_relative = {p.relative_to(ROOT).as_posix() for p in first_party}
     for relative, calls in all_calls.items():
