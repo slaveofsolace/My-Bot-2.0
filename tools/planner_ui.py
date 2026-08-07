@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -27,6 +28,9 @@ PLAN_PATH = ROOT / "config/run-plan.local.json"
 # The engine appends one JSON object per line here while a run is going.
 EVENTS_PATH = ROOT / "logs/run-events.jsonl"
 
+MAX_REQUEST_BYTES = 256 * 1024   # a run plan is a few KB; anything larger is a mistake
+MAX_TAIL_BYTES = 512 * 1024      # how far back to seek when tailing the event log
+
 
 def read_json(path: Path, default):
     try:
@@ -39,8 +43,17 @@ def tail_events(limit: int = 200) -> list[dict]:
     """Last N events. Malformed lines are skipped rather than killing the feed."""
     if not EVENTS_PATH.exists():
         return []
+    # A long run's event log can reach hundreds of megabytes. Seek to the tail and read only the
+    # last slice rather than pulling the whole file in to take 200 lines off the end.
     try:
-        lines = EVENTS_PATH.read_text(encoding="utf-8", errors="replace").splitlines()
+        with EVENTS_PATH.open("rb") as stream:
+            stream.seek(0, 2)
+            size = stream.tell()
+            stream.seek(max(0, size - MAX_TAIL_BYTES))
+            blob = stream.read()
+        if size > MAX_TAIL_BYTES:
+            blob = blob.split(b"\n", 1)[-1]      # drop the partial first line
+        lines = blob.decode("utf-8", errors="replace").splitlines()
     except OSError:
         return []
     events = []
@@ -85,7 +98,26 @@ def validate_plan(submitted: dict) -> tuple[dict, list[str]]:
             continue
         kind = setting.get("type")
         if kind == "boolean":
-            clean[key] = bool(value)
+            # bool("false") is True in Python, so a client sending the *string* "false" would switch
+            # the setting on. That matters most for run.diagnostic_mode, which is what permits
+            # unverified surfaces to run, so strings are matched explicitly and anything
+            # unrecognised falls back to the declared default rather than guessing.
+            if isinstance(value, bool):
+                clean[key] = value
+            elif isinstance(value, (int, float)):
+                clean[key] = bool(value)
+            elif isinstance(value, str):
+                token = value.strip().lower()
+                if token in ("true", "1", "yes", "on"):
+                    clean[key] = True
+                elif token in ("false", "0", "no", "off", ""):
+                    clean[key] = False
+                else:
+                    problems.append(f"{key}: {value!r} is not a yes/no value, kept the default")
+                    clean[key] = bool(setting.get("default", False))
+            else:
+                problems.append(f"{key}: {type(value).__name__} is not a yes/no value, kept the default")
+                clean[key] = bool(setting.get("default", False))
         elif kind == "integer":
             try:
                 number = int(value)
@@ -156,8 +188,17 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             length = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            self._json({"ok": False, "problems": ["Content-Length was not a number"]}, 400)
+            return
+        if length < 0 or length > MAX_REQUEST_BYTES:
+            # A plan is a few kilobytes. Reading an arbitrary declared length would let one bad
+            # request pull the process's memory out from under it.
+            self._json({"ok": False, "problems": [f"request body exceeds {MAX_REQUEST_BYTES} bytes"]}, 413)
+            return
+        try:
             submitted = json.loads(self.rfile.read(length).decode("utf-8"))
-        except (ValueError, json.JSONDecodeError):
+        except (ValueError, UnicodeDecodeError, json.JSONDecodeError):
             self._json({"ok": False, "problems": ["request was not valid JSON"]}, 400)
             return
         if not isinstance(submitted, dict):
@@ -166,7 +207,11 @@ class Handler(BaseHTTPRequestHandler):
 
         clean, problems = validate_plan(submitted)
         PLAN_PATH.parent.mkdir(parents=True, exist_ok=True)
-        PLAN_PATH.write_text(json.dumps(clean, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        # Written via a temporary file and renamed, so the engine never reads a half-written plan
+        # if this process dies mid-write. os.replace is atomic on both Windows and POSIX.
+        temporary = PLAN_PATH.with_suffix(".tmp")
+        temporary.write_text(json.dumps(clean, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        os.replace(temporary, PLAN_PATH)
         self._json({"ok": True, "problems": problems, "written": str(PLAN_PATH.relative_to(ROOT))})
 
 
@@ -205,6 +250,23 @@ def selftest() -> int:
 
     clean, _ = validate_plan({"run.stop_on_star_bonus": "true"})
     check(clean["run.stop_on_star_bonus"] is True, "boolean is coerced from a string")
+
+    # The regression that matters: bool("false") is True in Python, so a client sending the string
+    # "false" used to switch the setting on. On run.diagnostic_mode that silently permits
+    # unverified surfaces to run, which is the one default that must never flip by accident.
+    clean, _ = validate_plan({"run.diagnostic_mode": "false"})
+    check(clean["run.diagnostic_mode"] is False, "the string 'false' does not switch a boolean on")
+    for falsey in ("0", "no", "off", ""):
+        clean, _ = validate_plan({"run.diagnostic_mode": falsey})
+        check(clean["run.diagnostic_mode"] is False, f"{falsey!r} reads as off")
+    for truthy in ("1", "yes", "on", "TRUE"):
+        clean, _ = validate_plan({"run.diagnostic_mode": truthy})
+        check(clean["run.diagnostic_mode"] is True, f"{truthy!r} reads as on")
+    clean, problems = validate_plan({"run.diagnostic_mode": "banana"})
+    check(clean["run.diagnostic_mode"] is False, "an unrecognised boolean falls back to the default")
+    check(any("yes/no" in p for p in problems), "an unrecognised boolean is reported")
+
+    check(MAX_REQUEST_BYTES > 0 and MAX_TAIL_BYTES > 0, "request and tail limits are set")
 
     clean, _ = validate_plan({})
     check(set(clean) == setting_ids, "a partial submission is filled out to every setting")

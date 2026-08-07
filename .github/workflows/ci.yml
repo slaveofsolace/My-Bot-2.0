@@ -69,6 +69,9 @@ jobs:
       - name: Check Run Planner UI server contract
         run: python tools/planner_ui.py --selftest
 
+      - name: Check fixture capture harness
+        run: python tools/capture_fixture.py selftest
+
       - name: Validate fixture inventory
         run: python tools/validate_current_client_fixtures.py --json fixture-validation.json
 

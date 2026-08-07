@@ -84,7 +84,10 @@
         "Heroes no longer require healing time.",
         "Army Recipes replaced the former training workflow."
       ],
-      "affected_catalogs": ["screen-states", "battle-surfaces"]
+      "affected_catalogs": [
+        "screen-states",
+        "battle-surfaces"
+      ]
     },
     {
       "id": "cookbook-and-crafted-defenses",
@@ -95,7 +98,9 @@
         "Crafted Defenses became a temporary Town Hall 17 defense system.",
         "Only one Crafted Defense can be active at a time."
       ],
-      "affected_catalogs": ["screen-states"]
+      "affected_catalogs": [
+        "screen-states"
+      ]
     },
     {
       "id": "regular-and-ranked-split",
@@ -106,7 +111,10 @@
         "Ranked Battles are available from Town Hall 7, use weekly tournaments, and have limited attacks.",
         "Revenge returned as a 12-hour regular-battle Shadow Base route."
       ],
-      "affected_catalogs": ["battle-surfaces", "screen-states"]
+      "affected_catalogs": [
+        "battle-surfaces",
+        "screen-states"
+      ]
     },
     {
       "id": "town-hall-18-and-guardians",
@@ -115,9 +123,12 @@
       "facts": [
         "Town Hall 18 became the maximum Town Hall level.",
         "Guardians became a separate Town Hall defense system.",
-        "One Guardian can be active at a time and Guardian upgrades do not require a Builder."
+        "One Guardian can be active at a time. Guardian upgrades occupy a free Builder, and a Guardian cannot be used while it is upgrading, though the previous level still defends in Ranked, War, and Clan War League."
       ],
-      "affected_catalogs": ["screen-states", "heroes"]
+      "affected_catalogs": [
+        "screen-states",
+        "heroes"
+      ]
     },
     {
       "id": "dragon-duke-and-six-hero-ui",
@@ -129,7 +140,10 @@
         "Dragon Duke is available from Town Hall 15 and begins at level 1.",
         "Hero Hall, Blacksmith, and Profile screens were changed to display six Heroes."
       ],
-      "affected_catalogs": ["heroes", "screen-states"]
+      "affected_catalogs": [
+        "heroes",
+        "screen-states"
+      ]
     },
     {
       "id": "tiered-legend-league",
@@ -140,7 +154,10 @@
         "Legend III provides 24 attacks per week and Legend II provides 30 attacks per week.",
         "Legend I uses a four-week tournament and eight attacks per League Day."
       ],
-      "affected_catalogs": ["battle-surfaces", "screen-states"]
+      "affected_catalogs": [
+        "battle-surfaces",
+        "screen-states"
+      ]
     },
     {
       "id": "builder-base-extra-builder-and-earlier-king",
@@ -150,7 +167,10 @@
         "An additional Builder is available in Builder Base from Builder Hall 2 after all Home Village Builders are unlocked.",
         "Barbarian King now unlocks at Town Hall 4."
       ],
-      "affected_catalogs": ["heroes", "screen-states"]
+      "affected_catalogs": [
+        "heroes",
+        "screen-states"
+      ]
     },
     {
       "id": "hero-journey-global-chat-and-fast-forward",
@@ -161,7 +181,11 @@
         "Global Chat returned with Groups, Communities, and Town Square surfaces.",
         "A 4x Fast Forward control can appear after 120 seconds in supported live battles."
       ],
-      "affected_catalogs": ["screen-states", "battle-surfaces", "heroes"]
+      "affected_catalogs": [
+        "screen-states",
+        "battle-surfaces",
+        "heroes"
+      ]
     },
     {
       "id": "july-balance",
@@ -172,7 +196,10 @@
         "The Logger Guardian rolling range was reduced by two tiles.",
         "Rocket Backpack and Flame Blower behavior was temporarily reverted pending a full update."
       ],
-      "affected_catalogs": ["heroes", "screen-states"]
+      "affected_catalogs": [
+        "heroes",
+        "screen-states"
+      ]
     }
   ],
   "excluded_unverified_claims": [
