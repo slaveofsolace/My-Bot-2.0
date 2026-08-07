@@ -61,6 +61,11 @@ jobs:
       - name: Validate run-planner metadata
         run: python tools/validate_ui_metadata.py --json ui-metadata-validation.json
 
+      # Replays the GUI's own layout arithmetic: catches controls that overflow the window,
+      # overlap each other, or carry text too wide for the control that holds it.
+      - name: Check Run Planner layout
+        run: python tools/preview_run_planner.py
+
       - name: Validate fixture inventory
         run: python tools/validate_current_client_fixtures.py --json fixture-validation.json
 

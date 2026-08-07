@@ -169,3 +169,7 @@ build/au3Stripper/Au3Stripper.Log
 ![Ii]mages/WeakBase/Mortars/*.png
 ![Ii]mages/WeakBase/WTower/*.png
 ![Ii]mages/WeakBase/Xbow/*.png
+
+# Python bytecode cache
+__pycache__/
+*.py[cod]

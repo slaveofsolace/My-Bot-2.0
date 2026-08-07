@@ -153,12 +153,13 @@ def main() -> int:
         "surface": "run-planner",
         "title": "Run Planner",
         "description": (
-            "Describes one run: where it attacks, which Heroes it uses, when it stops, and what it does between "
-            "battles. Every control states whether the bot has actually been shown working on the current client."
+            "Describes one run: where it attacks, when it stops, and what it does in between. Every control says "
+            "whether the bot has actually been shown working."
         ),
         "sections": [
             {
                 "id": "destination",
+                "tab_label": "Battle",
                 "order": 10,
                 "title": "Destination",
                 "description": (
@@ -225,6 +226,7 @@ def main() -> int:
             },
             {
                 "id": "heroes",
+                "tab_label": "Heroes",
                 "order": 15,
                 "title": "Heroes",
                 "description": (
@@ -250,6 +252,7 @@ def main() -> int:
             },
             {
                 "id": "environment",
+                "tab_label": "Emulator",
                 "order": 20,
                 "title": "Emulator",
                 "description": (
@@ -321,13 +324,14 @@ def main() -> int:
                         "default": "",
                         "required": False,
                         "engine_binding": "RunPlan.emulator_instance",
-                        "empty_state": "No instances found. Start the emulator once so it registers its instances.",
+                        "empty_state": "No instances found. Start the emulator once.",
                         "validation": {"max_length": 64},
                     },
                 ],
             },
             {
                 "id": "limits",
+                "tab_label": "Limits",
                 "order": 30,
                 "title": "Stop conditions",
                 "description": (
@@ -369,7 +373,7 @@ def main() -> int:
                         "id": "run.stop_on_star_bonus",
                         "type": "boolean",
                         "label": "Stop at Star Bonus",
-                        "summary": "End the run once the Star Bonus has been earned.",
+                        "summary": "Stop once the Star Bonus is earned.",
                         "description": (
                             "Ends the run as soon as the Star Bonus is complete, which is the usual stopping point "
                             "for a daily farming session."
@@ -397,6 +401,7 @@ def main() -> int:
             },
             {
                 "id": "resources",
+                "tab_label": "Loot",
                 "order": 40,
                 "title": "Resource targets",
                 "description": (
@@ -447,6 +452,7 @@ def main() -> int:
             },
             {
                 "id": "maintenance",
+                "tab_label": "Upkeep",
                 "order": 50,
                 "title": "Between battles",
                 "description": "What the run does with the resources it collects, and which accounts it rotates through.",
@@ -502,13 +508,14 @@ def main() -> int:
                         "default": "",
                         "required": False,
                         "engine_binding": "AccountQueue.profile_ids",
-                        "empty_state": "No profiles queued. The run stays on the current profile.",
+                        "empty_state": "No profiles queued. Stays on this profile.",
                         "validation": {"max_items": 32},
                     },
                 ],
             },
             {
                 "id": "diagnostics",
+                "tab_label": "Debug",
                 "order": 60,
                 "title": "Diagnostics",
                 "description": (
@@ -519,8 +526,8 @@ def main() -> int:
                     {
                         "id": "run.diagnostic_mode",
                         "type": "boolean",
-                        "label": "Allow unverified surfaces to run",
-                        "summary": "Run surfaces that have no current-client capture yet.",
+                        "label": "Allow unverified",
+                        "summary": "Run surfaces with no capture yet.",
                         "description": (
                             "A surface that refuses to start cannot be debugged, so this lets the run proceed anyway. "
                             "It changes nothing about what the bot has actually been shown to do: the session, its "

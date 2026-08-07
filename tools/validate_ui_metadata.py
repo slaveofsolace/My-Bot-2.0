@@ -56,6 +56,7 @@ def main() -> int:
     seen_sections: set[str] = set()
     seen_orders: set[int] = set()
     seen_settings: set[str] = set()
+    tab_labels: list[str] = []
     bindings: dict[str, str] = {}
     select_values: dict[str, set[str]] = {}
 
@@ -76,6 +77,12 @@ def main() -> int:
 
         if len(str(section.get("description", "")).strip()) < 20:
             errors.append(f"{section_id}: section description is missing or too short")
+
+        # The tab strip is horizontal inside a 452px window, so captions have a hard budget.
+        tab_label = section.get("tab_label", "")
+        if not isinstance(tab_label, str) or not 2 <= len(tab_label.strip()) <= 10:
+            errors.append(f"{section_id}: tab_label must be 2-10 characters")
+        tab_labels.append(tab_label)
 
         section_settings = section.get("settings")
         if not isinstance(section_settings, list) or not section_settings:
@@ -219,6 +226,11 @@ def main() -> int:
         errors.append("runtime.emulator is missing one or more supported adapter choices")
     if select_values.get("upgrade.policy") != {"disabled", "walls", "suggested", "all"}:
         errors.append("upgrade.policy options do not match the run-plan contract")
+
+    # Rough Win32 tab metrics: about 7px a character plus 12px of padding per tab.
+    strip_width = sum(len(label) * 7 + 12 for label in tab_labels)
+    if strip_width > 430:
+        errors.append(f"tab captions need {strip_width}px but the strip is 430px; shorten them")
 
     ordered = [section.get("order") for section in sections if isinstance(section.get("order"), int)]
     if ordered != sorted(ordered):

@@ -8,9 +8,9 @@
 
 Global Const $RUN_PLANNER_SCHEMA_VERSION = 1
 Global Const $RUN_PLANNER_TITLE = "Run Planner"
-Global Const $RUN_PLANNER_DESCRIPTION = "Describes one run: where it attacks, which Heroes it uses, when it stops, and what it does between battles. Every control states whether the bot has actually been shown working on the current client."
+Global Const $RUN_PLANNER_DESCRIPTION = "Describes one run: where it attacks, when it stops, and what it does in between. Every control says whether the bot has actually been shown working."
 
-Global Enum $eRunPlannerSectionId, $eRunPlannerSectionOrder, $eRunPlannerSectionTitle, $eRunPlannerSectionDescription, $eRunPlannerSectionColumnCount
+Global Enum $eRunPlannerSectionId, $eRunPlannerSectionOrder, $eRunPlannerSectionTitle, $eRunPlannerSectionTabLabel, $eRunPlannerSectionDescription, $eRunPlannerSectionColumnCount
 Global Enum $eRunPlannerSettingId, $eRunPlannerSettingSectionId, $eRunPlannerSettingType, $eRunPlannerSettingLabel, $eRunPlannerSettingSummary, $eRunPlannerSettingDescription, $eRunPlannerSettingDefault, $eRunPlannerSettingRequired, $eRunPlannerSettingBinding, $eRunPlannerSettingUnit, $eRunPlannerSettingMinimum, $eRunPlannerSettingMaximum, $eRunPlannerSettingStep, $eRunPlannerSettingEmptyState, $eRunPlannerSettingColumnCount
 Global Enum $eRunPlannerOptionSettingId, $eRunPlannerOptionValue, $eRunPlannerOptionLabel, $eRunPlannerOptionSummary, $eRunPlannerOptionDescription, $eRunPlannerOptionAvailability, $eRunPlannerOptionDisabledReason, $eRunPlannerOptionPrerequisites, $eRunPlannerOptionCapabilityIds, $eRunPlannerOptionRecommended, $eRunPlannerOptionWarning, $eRunPlannerOptionColumnCount
 
@@ -22,30 +22,37 @@ Func _RunPlannerMetadataInit()
 	$g_aRunPlannerSections[0][$eRunPlannerSectionId] = "destination"
 	$g_aRunPlannerSections[0][$eRunPlannerSectionOrder] = 10
 	$g_aRunPlannerSections[0][$eRunPlannerSectionTitle] = "Destination"
+	$g_aRunPlannerSections[0][$eRunPlannerSectionTabLabel] = "Battle"
 	$g_aRunPlannerSections[0][$eRunPlannerSectionDescription] = "Picks the exact battle surface. This is stored as an exact surface rather than a general mode, so choosing Legend I cannot end up running the Legend III path."
 	$g_aRunPlannerSections[1][$eRunPlannerSectionId] = "heroes"
 	$g_aRunPlannerSections[1][$eRunPlannerSectionOrder] = 15
 	$g_aRunPlannerSections[1][$eRunPlannerSectionTitle] = "Heroes"
+	$g_aRunPlannerSections[1][$eRunPlannerSectionTabLabel] = "Heroes"
 	$g_aRunPlannerSections[1][$eRunPlannerSectionDescription] = "Chooses which Heroes the run treats as active. The Hero Hall holds six but only four can be active at once, so this is a selection rather than a fixed list."
 	$g_aRunPlannerSections[2][$eRunPlannerSectionId] = "environment"
 	$g_aRunPlannerSections[2][$eRunPlannerSectionOrder] = 20
 	$g_aRunPlannerSections[2][$eRunPlannerSectionTitle] = "Emulator"
+	$g_aRunPlannerSections[2][$eRunPlannerSectionTabLabel] = "Emulator"
 	$g_aRunPlannerSections[2][$eRunPlannerSectionDescription] = "Chooses which Android emulator the run drives and which instance of it, since a single machine commonly has several instances configured."
 	$g_aRunPlannerSections[3][$eRunPlannerSectionId] = "limits"
 	$g_aRunPlannerSections[3][$eRunPlannerSectionOrder] = 30
 	$g_aRunPlannerSections[3][$eRunPlannerSectionTitle] = "Stop conditions"
+	$g_aRunPlannerSections[3][$eRunPlannerSectionTabLabel] = "Limits"
 	$g_aRunPlannerSections[3][$eRunPlannerSectionDescription] = "Decides when the run ends. Any condition that is set can stop the run; leaving a value at zero turns that condition off."
 	$g_aRunPlannerSections[4][$eRunPlannerSectionId] = "resources"
 	$g_aRunPlannerSections[4][$eRunPlannerSectionOrder] = 40
 	$g_aRunPlannerSections[4][$eRunPlannerSectionTitle] = "Resource targets"
+	$g_aRunPlannerSections[4][$eRunPlannerSectionTabLabel] = "Loot"
 	$g_aRunPlannerSections[4][$eRunPlannerSectionDescription] = "Stops the run once a resource total has been collected. Each target is counted across the run, and zero turns the target off."
 	$g_aRunPlannerSections[5][$eRunPlannerSectionId] = "maintenance"
 	$g_aRunPlannerSections[5][$eRunPlannerSectionOrder] = 50
 	$g_aRunPlannerSections[5][$eRunPlannerSectionTitle] = "Between battles"
+	$g_aRunPlannerSections[5][$eRunPlannerSectionTabLabel] = "Upkeep"
 	$g_aRunPlannerSections[5][$eRunPlannerSectionDescription] = "What the run does with the resources it collects, and which accounts it rotates through."
 	$g_aRunPlannerSections[6][$eRunPlannerSectionId] = "diagnostics"
 	$g_aRunPlannerSections[6][$eRunPlannerSectionOrder] = 60
 	$g_aRunPlannerSections[6][$eRunPlannerSectionTitle] = "Diagnostics"
+	$g_aRunPlannerSections[6][$eRunPlannerSectionTabLabel] = "Debug"
 	$g_aRunPlannerSections[6][$eRunPlannerSectionDescription] = "Controls whether the run is allowed to attempt work that has not been demonstrated on the current client, so that its behaviour can actually be observed."
 	$g_aRunPlannerSettings[0][$eRunPlannerSettingId] = "run.surface"
 	$g_aRunPlannerSettings[0][$eRunPlannerSettingSectionId] = "destination"
@@ -116,7 +123,7 @@ Func _RunPlannerMetadataInit()
 	$g_aRunPlannerSettings[4][$eRunPlannerSettingMinimum] = 0
 	$g_aRunPlannerSettings[4][$eRunPlannerSettingMaximum] = 0
 	$g_aRunPlannerSettings[4][$eRunPlannerSettingStep] = 0
-	$g_aRunPlannerSettings[4][$eRunPlannerSettingEmptyState] = "No instances found. Start the emulator once so it registers its instances."
+	$g_aRunPlannerSettings[4][$eRunPlannerSettingEmptyState] = "No instances found. Start the emulator once."
 	$g_aRunPlannerSettings[5][$eRunPlannerSettingId] = "run.duration_minutes"
 	$g_aRunPlannerSettings[5][$eRunPlannerSettingSectionId] = "limits"
 	$g_aRunPlannerSettings[5][$eRunPlannerSettingType] = "integer"
@@ -149,7 +156,7 @@ Func _RunPlannerMetadataInit()
 	$g_aRunPlannerSettings[7][$eRunPlannerSettingSectionId] = "limits"
 	$g_aRunPlannerSettings[7][$eRunPlannerSettingType] = "boolean"
 	$g_aRunPlannerSettings[7][$eRunPlannerSettingLabel] = "Stop at Star Bonus"
-	$g_aRunPlannerSettings[7][$eRunPlannerSettingSummary] = "End the run once the Star Bonus has been earned."
+	$g_aRunPlannerSettings[7][$eRunPlannerSettingSummary] = "Stop once the Star Bonus is earned."
 	$g_aRunPlannerSettings[7][$eRunPlannerSettingDescription] = "Ends the run as soon as the Star Bonus is complete, which is the usual stopping point for a daily farming session."
 	$g_aRunPlannerSettings[7][$eRunPlannerSettingDefault] = False
 	$g_aRunPlannerSettings[7][$eRunPlannerSettingRequired] = False
@@ -242,12 +249,12 @@ Func _RunPlannerMetadataInit()
 	$g_aRunPlannerSettings[13][$eRunPlannerSettingMinimum] = 0
 	$g_aRunPlannerSettings[13][$eRunPlannerSettingMaximum] = 0
 	$g_aRunPlannerSettings[13][$eRunPlannerSettingStep] = 0
-	$g_aRunPlannerSettings[13][$eRunPlannerSettingEmptyState] = "No profiles queued. The run stays on the current profile."
+	$g_aRunPlannerSettings[13][$eRunPlannerSettingEmptyState] = "No profiles queued. Stays on this profile."
 	$g_aRunPlannerSettings[14][$eRunPlannerSettingId] = "run.diagnostic_mode"
 	$g_aRunPlannerSettings[14][$eRunPlannerSettingSectionId] = "diagnostics"
 	$g_aRunPlannerSettings[14][$eRunPlannerSettingType] = "boolean"
-	$g_aRunPlannerSettings[14][$eRunPlannerSettingLabel] = "Allow unverified surfaces to run"
-	$g_aRunPlannerSettings[14][$eRunPlannerSettingSummary] = "Run surfaces that have no current-client capture yet."
+	$g_aRunPlannerSettings[14][$eRunPlannerSettingLabel] = "Allow unverified"
+	$g_aRunPlannerSettings[14][$eRunPlannerSettingSummary] = "Run surfaces with no capture yet."
 	$g_aRunPlannerSettings[14][$eRunPlannerSettingDescription] = "A surface that refuses to start cannot be debugged, so this lets the run proceed anyway. It changes nothing about what the bot has actually been shown to do: the session, its snapshot, and every log line stay marked unverified, and that mark cannot be cleared for the rest of the run."
 	$g_aRunPlannerSettings[14][$eRunPlannerSettingDefault] = False
 	$g_aRunPlannerSettings[14][$eRunPlannerSettingRequired] = False

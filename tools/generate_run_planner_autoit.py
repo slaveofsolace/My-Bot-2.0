@@ -27,7 +27,7 @@ Global Const $RUN_PLANNER_SCHEMA_VERSION = {schema_version}
 Global Const $RUN_PLANNER_TITLE = {title}
 Global Const $RUN_PLANNER_DESCRIPTION = {description}
 
-Global Enum $eRunPlannerSectionId, $eRunPlannerSectionOrder, $eRunPlannerSectionTitle, $eRunPlannerSectionDescription, $eRunPlannerSectionColumnCount
+Global Enum $eRunPlannerSectionId, $eRunPlannerSectionOrder, $eRunPlannerSectionTitle, $eRunPlannerSectionTabLabel, $eRunPlannerSectionDescription, $eRunPlannerSectionColumnCount
 Global Enum $eRunPlannerSettingId, $eRunPlannerSettingSectionId, $eRunPlannerSettingType, $eRunPlannerSettingLabel, $eRunPlannerSettingSummary, $eRunPlannerSettingDescription, $eRunPlannerSettingDefault, $eRunPlannerSettingRequired, $eRunPlannerSettingBinding, $eRunPlannerSettingUnit, $eRunPlannerSettingMinimum, $eRunPlannerSettingMaximum, $eRunPlannerSettingStep, $eRunPlannerSettingEmptyState, $eRunPlannerSettingColumnCount
 Global Enum $eRunPlannerOptionSettingId, $eRunPlannerOptionValue, $eRunPlannerOptionLabel, $eRunPlannerOptionSummary, $eRunPlannerOptionDescription, $eRunPlannerOptionAvailability, $eRunPlannerOptionDisabledReason, $eRunPlannerOptionPrerequisites, $eRunPlannerOptionCapabilityIds, $eRunPlannerOptionRecommended, $eRunPlannerOptionWarning, $eRunPlannerOptionColumnCount
 
@@ -76,6 +76,7 @@ def main() -> int:
         body.append(f'\t$g_aRunPlannerSections[{index}][$eRunPlannerSectionId] = {au3_string(section["id"])}')
         body.append(f'\t$g_aRunPlannerSections[{index}][$eRunPlannerSectionOrder] = {int(section["order"])}')
         body.append(f'\t$g_aRunPlannerSections[{index}][$eRunPlannerSectionTitle] = {au3_string(section["title"])}')
+        body.append(f'\t$g_aRunPlannerSections[{index}][$eRunPlannerSectionTabLabel] = {au3_string(section["tab_label"])}')
         body.append(
             f'\t$g_aRunPlannerSections[{index}][$eRunPlannerSectionDescription] = {au3_string(section["description"])}'
         )

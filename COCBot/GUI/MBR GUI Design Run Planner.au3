@@ -89,9 +89,9 @@ Func CreateRunPlannerTab()
 	GUICtrlSetFont(-1, 10, $FW_BOLD, Default, "Arial")
 	$y += 20
 
-	GUICtrlCreateLabel($RUN_PLANNER_DESCRIPTION, $iLeft, $y, $iWidth, 30)
+	GUICtrlCreateLabel($RUN_PLANNER_DESCRIPTION, $iLeft, $y, $iWidth, 32)
 	GUICtrlSetFont(-1, 8, $FW_NORMAL, Default, "Arial")
-	$y += 34
+	$y += 36
 
 	; Verification banner. Filled in by UpdateRunPlannerBanner() once a surface is chosen.
 	$g_hRunPlannerBanner = GUICtrlCreateLabel("", $iLeft, $y, $iWidth, 28)
@@ -99,13 +99,14 @@ Func CreateRunPlannerTab()
 	GUICtrlSetColor(-1, $COLOR_MAROON)
 	$y += 32
 
-	$g_hRunPlannerTab = GUICtrlCreateTab($iLeft, $y, $iWidth, 208)
+	; 26px of tab header plus four 26px rows, which is the tallest page. Anything more is dead space.
+	$g_hRunPlannerTab = GUICtrlCreateTab($iLeft, $y, $iWidth, 140)
 	GUICtrlSetResizing(-1, $GUI_DOCKBORDERS)
 
 	Local $iSettingRow = 0
 	For $iSection = 0 To UBound($g_aRunPlannerSections, 1) - 1
 		Local $sSectionId = $g_aRunPlannerSections[$iSection][$eRunPlannerSectionId]
-		$g_ahRunPlannerTabItems[$iSection] = GUICtrlCreateTabItem($g_aRunPlannerSections[$iSection][$eRunPlannerSectionTitle])
+		$g_ahRunPlannerTabItems[$iSection] = GUICtrlCreateTabItem($g_aRunPlannerSections[$iSection][$eRunPlannerSectionTabLabel])
 
 		Local $iRowY = $y + 26
 		Local $iLabelX = $iLeft + 8
@@ -193,15 +194,15 @@ Func CreateRunPlannerTab()
 	Next
 	GUICtrlCreateTabItem("")
 
-	$y += 214
+	$y += 146
 
-	GUICtrlCreateLabel("Why this is greyed out", $iLeft, $y, $iWidth, 16)
+	GUICtrlCreateLabel("About the selected option", $iLeft, $y, $iWidth, 16)
 	GUICtrlSetFont(-1, 8.5, $FW_BOLD, Default, "Arial")
 	$y += 18
-	$g_hRunPlannerDetail = GUICtrlCreateEdit("Select a control to see what it does and what it still needs.", $iLeft, $y, $iWidth, 66, BitOR($ES_READONLY, $ES_MULTILINE, $WS_VSCROLL))
+	$g_hRunPlannerDetail = GUICtrlCreateEdit("Select a control to see what it does and what it still needs.", $iLeft, $y, $iWidth, 124, BitOR($ES_READONLY, $ES_MULTILINE, $WS_VSCROLL))
 	GUICtrlSetFont(-1, 8, $FW_NORMAL, Default, "Arial")
 	GUICtrlSetBkColor(-1, $COLOR_WHITE)
-	$y += 72
+	$y += 130
 
 	$g_hBtnRunPlannerApply = GUICtrlCreateButton("Apply plan", $iLeft, $y, 90, 24)
 	GUICtrlSetOnEvent(-1, "btnRunPlannerApply")
