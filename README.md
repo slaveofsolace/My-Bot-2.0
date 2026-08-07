@@ -26,7 +26,7 @@ and a planner that actually explains itself.
 
 ## Contents
 
-|  | |
+| Section | What's in it |
 |---|---|
 | **[What this is](#what-this-is)** | The problem it solves, and how |
 | **[Status](#status)** | What works, what does not |
