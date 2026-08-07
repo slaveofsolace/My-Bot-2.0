@@ -101,7 +101,7 @@ def main() -> int:
 
     # A submitted plan goes through the same validator, so check the post-validation shape too: that is
     # what actually reaches disk.
-    written, _ = planner_ui.validate_plan({"run.max_battles": "9", "run.diagnostic_mode": "false"})
+    written, _, _ = planner_ui.validate_plan({"run.max_battles": "9", "run.diagnostic_mode": "false"})
     if set(written) != set(settings):
         errors.append("a validated plan does not cover exactly the declared settings")
     if written.get("run.diagnostic_mode") is not False:

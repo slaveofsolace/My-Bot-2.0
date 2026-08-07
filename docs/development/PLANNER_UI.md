@@ -67,10 +67,21 @@ config/run-plan.local.json   <-- the engine reads this to run
 - **`logs/run-events.jsonl`** is the JSONL event stream the engine appends to during a run — the
   same contract `RunEvent.au3` produces. Also git-ignored.
 
-The UI validates a submitted plan the way the engine will — coercing types, clamping integers to
-their range, rejecting unknown settings and invalid options — so a stale browser tab cannot write a
-file the engine chokes on. The engine still re-validates; the UI is a convenience, not the
-authority.
+A submitted plan is checked before anything reaches disk, and the two outcomes are different:
+
+- **Adjusted** — a value the server could repair: an integer past its bound, a boolean written as a
+  word, a Hero list over its ceiling. The plan is written and the repairs are reported back.
+- **Rejected** — a key that names no setting at all. Nothing is written and the response is `400`.
+  The browser loaded its controls from this same server, so a key it does not recognise means the tab
+  is stale or something else is writing. Saving the rest would leave you looking at a plan the file
+  does not contain.
+
+The AutoIt reader goes the other way: it *ignores* settings this build does not have. That is not an
+inconsistency. It is a build reading a file it did not write, where tolerating an unknown key is
+exactly what lets an older and a newer build share one plan file. The server is a client writing to
+its own server, where an unknown key can only be a bug.
+
+The engine still re-validates everything; the UI is a convenience, not the authority.
 
 ---
 

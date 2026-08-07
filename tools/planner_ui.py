@@ -78,11 +78,20 @@ def default_plan() -> dict:
     return plan
 
 
-def validate_plan(submitted: dict) -> tuple[dict, list[str]]:
-    """Keep only known settings, coerce to the declared type, and report anything rejected.
+def validate_plan(submitted: dict) -> tuple[dict, list[str], list[str]]:
+    """Coerce a submission to the declared types and report what happened to it.
 
-    The UI is not the authority on what is valid: the engine re-validates everything. This exists so a
-    typo or a stale browser tab cannot write a plan file the engine will choke on.
+    Returns the cleaned plan, the adjustments made to it, and the outright rejections.
+
+    Adjustments are values the server could repair - an integer past its bound, a boolean written as a
+    word - and they are reported but do not stop the write. Rejections are keys that name no setting at
+    all, and they do stop it: the browser loaded its controls from this same server, so a key it does
+    not recognise means the tab is stale or something else is writing, and quietly dropping it would
+    save a plan that is not the one the operator was looking at.
+
+    Note the asymmetry with the AutoIt reader, which ignores settings it does not have. That direction
+    is a build reading a file it did not write, where tolerating an unknown key is what lets an older
+    and a newer build share one file. This direction is a client writing to its own server.
     """
     metadata = read_json(METADATA, {"sections": []})
     known = {}
@@ -90,11 +99,11 @@ def validate_plan(submitted: dict) -> tuple[dict, list[str]]:
         for setting in section.get("settings", []):
             known[setting["id"]] = setting
 
-    clean, problems = {}, []
+    clean, problems, rejected = {}, [], []
     for key, value in submitted.items():
         setting = known.get(key)
         if setting is None:
-            problems.append(f"unknown setting ignored: {key}")
+            rejected.append(f"{key} is not a setting this planner has")
             continue
         kind = setting.get("type")
         if kind == "boolean":
@@ -161,7 +170,7 @@ def validate_plan(submitted: dict) -> tuple[dict, list[str]]:
 
     for key, setting in known.items():
         clean.setdefault(key, setting.get("default", ""))
-    return clean, problems
+    return clean, problems, rejected
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -220,7 +229,13 @@ class Handler(BaseHTTPRequestHandler):
             self._json({"ok": False, "problems": ["expected an object of setting ids"]}, 400)
             return
 
-        clean, problems = validate_plan(submitted)
+        clean, problems, rejected = validate_plan(submitted)
+        if rejected:
+            # Nothing is written. A partial save here is worse than no save: the operator would be
+            # looking at a plan the file does not contain.
+            self._json({"ok": False, "problems": rejected, "written": None}, 400)
+            return
+
         PLAN_PATH.parent.mkdir(parents=True, exist_ok=True)
         # Written via a temporary file and renamed, so the engine never reads a half-written plan
         # if this process dies mid-write. os.replace is atomic on both Windows and POSIX.
@@ -248,36 +263,46 @@ def selftest() -> int:
     setting_ids = {s["id"] for sec in metadata.get("sections", []) for s in sec.get("settings", [])}
     check(set(plan) == setting_ids, "default plan covers every setting exactly")
 
-    clean, problems = validate_plan({"run.max_failures": 9999})
+    clean, problems, _ = validate_plan({"run.max_failures": 9999})
     check(clean["run.max_failures"] == 100, "integer above maximum is clamped")
     check(any("above" in p for p in problems), "clamp is reported")
 
-    clean, problems = validate_plan({"run.max_failures": -5})
+    clean, problems, _ = validate_plan({"run.max_failures": -5})
     check(clean["run.max_failures"] == 0, "integer below minimum is clamped")
 
-    clean, problems = validate_plan({"nonexistent.setting": "x"})
-    check("nonexistent.setting" not in clean, "unknown setting is dropped")
-    check(any("unknown" in p for p in problems), "unknown setting is reported")
+    # An unknown key is a rejection, not an adjustment: the browser loaded its controls from this
+    # server, so a key it does not recognise means the tab is stale. Saving the rest would leave the
+    # operator looking at a plan the file does not contain.
+    clean, _, rejected = validate_plan({"nonexistent.setting": "x"})
+    check("nonexistent.setting" not in clean, "unknown setting is not written")
+    check(any("nonexistent.setting" in r for r in rejected), "unknown setting is rejected by name")
 
-    clean, problems = validate_plan({"run.surface": "not-a-surface"})
+    _, _, rejected = validate_plan({"run.max_battles": 5})
+    check(not rejected, "a known setting is not rejected")
+
+    # A repairable value stays repairable: clamping must not start refusing the whole plan.
+    _, problems, rejected = validate_plan({"run.max_failures": 9999})
+    check(problems and not rejected, "an out-of-range value is adjusted, not rejected")
+
+    clean, problems, _ = validate_plan({"run.surface": "not-a-surface"})
     check(clean["run.surface"] != "not-a-surface", "invalid select value is refused")
     check(any("not an option" in p for p in problems), "invalid select value is reported")
 
-    clean, _ = validate_plan({"run.stop_on_star_bonus": "true"})
+    clean, _, _ = validate_plan({"run.stop_on_star_bonus": "true"})
     check(clean["run.stop_on_star_bonus"] is True, "boolean is coerced from a string")
 
     # The regression that matters: bool("false") is True in Python, so a client sending the string
     # "false" used to switch the setting on. On run.diagnostic_mode that silently permits
     # unverified surfaces to run, which is the one default that must never flip by accident.
-    clean, _ = validate_plan({"run.diagnostic_mode": "false"})
+    clean, _, _ = validate_plan({"run.diagnostic_mode": "false"})
     check(clean["run.diagnostic_mode"] is False, "the string 'false' does not switch a boolean on")
     for falsey in ("0", "no", "off", ""):
-        clean, _ = validate_plan({"run.diagnostic_mode": falsey})
+        clean, _, _ = validate_plan({"run.diagnostic_mode": falsey})
         check(clean["run.diagnostic_mode"] is False, f"{falsey!r} reads as off")
     for truthy in ("1", "yes", "on", "TRUE"):
-        clean, _ = validate_plan({"run.diagnostic_mode": truthy})
+        clean, _, _ = validate_plan({"run.diagnostic_mode": truthy})
         check(clean["run.diagnostic_mode"] is True, f"{truthy!r} reads as on")
-    clean, problems = validate_plan({"run.diagnostic_mode": "banana"})
+    clean, problems, _ = validate_plan({"run.diagnostic_mode": "banana"})
     check(clean["run.diagnostic_mode"] is False, "an unrecognised boolean falls back to the default")
     check(any("yes/no" in p for p in problems), "an unrecognised boolean is reported")
 
@@ -285,19 +310,19 @@ def selftest() -> int:
 
     # Four Hero slots out of six. A browser cannot submit a fifth, but the plan file is a file and a
     # text editor can, so the ceiling is enforced here rather than left to the engine to refuse.
-    clean, problems = validate_plan({"run.heroes": [
+    clean, problems, _ = validate_plan({"run.heroes": [
         "barbarian-king", "archer-queen", "grand-warden", "royal-champion", "minion-prince"]})
     check(len(clean["run.heroes"]) == 4, "a multi-select is capped at its declared ceiling")
     check(any("only 4 fit" in p for p in problems), "going over the ceiling is reported")
 
-    clean, problems = validate_plan({"run.heroes": ["archer-queen", "archer-queen"]})
+    clean, problems, _ = validate_plan({"run.heroes": ["archer-queen", "archer-queen"]})
     check(clean["run.heroes"] == ["archer-queen"], "a duplicate selection is collapsed")
     check(any("more than once" in p for p in problems), "a duplicate selection is reported")
 
-    clean, _ = validate_plan({"run.heroes": ["archer-queen", "not-a-hero"]})
+    clean, _, _ = validate_plan({"run.heroes": ["archer-queen", "not-a-hero"]})
     check(clean["run.heroes"] == ["archer-queen"], "an unknown selection is dropped, the rest kept")
 
-    clean, _ = validate_plan({})
+    clean, _, _ = validate_plan({})
     check(set(clean) == setting_ids, "a partial submission is filled out to every setting")
 
     print(f"\n{'selftest passed' if not failures else str(len(failures)) + ' check(s) failed'}")
