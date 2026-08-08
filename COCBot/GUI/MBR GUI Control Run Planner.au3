@@ -8,9 +8,17 @@
 #include "MBR GUI Design Run Planner.au3"
 #include "..\functions\Run\RunIntent.au3"
 #include "..\functions\Run\RunPlanFile.au3"
+#include "..\functions\Run\RunEventLog.au3"
 
 Global Const $RUN_PLANNER_URL = "http://127.0.0.1:8765/"
 Global Const $RUN_PLANNER_HEALTH_URL = "http://127.0.0.1:8765/api/health"
+
+; What /api/health has to say before this build will talk to the service. tools/check_plan_bridge.py
+; compares these two against the values tools/planner_ui.py actually serves, because a bridge version
+; bumped on one side and not the other would otherwise leave the GUI reporting "unavailable" forever
+; with a healthy service running in front of it.
+Global Const $RUN_PLANNER_SERVICE_NAME = "my-bot-control-center"
+Global Const $RUN_PLANNER_BRIDGE_VERSION = "autoit-control-file-v1"
 Global $g_oRunPlannerIntent = 0
 Global $g_sRunPlannerHeroIds = ""
 
@@ -18,13 +26,25 @@ Global $g_sRunPlannerHeroIds = ""
 Global $g_sRunPlannerPlanFileStamp = ""
 Global $g_sRunPlannerPlanFileNote = ""
 
+; The payload is parsed rather than pattern-matched. Substring checks made this depend on the exact
+; spacing json.dumps happens to emit: switching the server to compact separators, or adding an indent,
+; would silently report a perfectly healthy service as unavailable with nothing to show why.
 Func _RunPlannerServiceHealthy()
 	Local $bPayload = InetRead($RUN_PLANNER_HEALTH_URL, 1)
 	If @error Then Return False
+
 	Local $sPayload = BinaryToString($bPayload, 4)
-	Return StringRegExp($sPayload, '(?i)"ok"\s*:\s*true') And _
-			StringInStr($sPayload, '"service": "my-bot-control-center"') > 0 And _
-			StringInStr($sPayload, '"bridge": "autoit-control-file-v1"') > 0
+	If StringStripWS($sPayload, $STR_STRIPALL) = "" Then Return False
+
+	Local $oPayload = Json_Decode($sPayload)
+	If @error Or Not IsObj($oPayload) Then Return False
+
+	; A service that answers but reports itself unhealthy is not healthy, so ok has to be the boolean
+	; true rather than merely present.
+	If Json_ObjGet($oPayload, "ok") <> True Then Return False
+	If Json_ObjGet($oPayload, "service") <> $RUN_PLANNER_SERVICE_NAME Then Return False
+	If Json_ObjGet($oPayload, "bridge") <> $RUN_PLANNER_BRIDGE_VERSION Then Return False
+	Return True
 EndFunc   ;==>_RunPlannerServiceHealthy
 
 Func _RunPlannerPythonExecutable()
@@ -303,6 +323,7 @@ Func RunPlannerSyncPlanFile($bForce = False)
 	EndIf
 
 	SetLog("Run Planner: " & $g_sRunPlannerPlanFileNote, ($sError = "") ? $COLOR_SUCCESS : $COLOR_ACTION)
+	RunEventLogPlanFileLoaded($g_sRunPlannerPlanFileNote)
 	If $sError <> "" Then SetLog("Run Planner: " & $sError, $COLOR_ACTION)
 	If $g_hRunPlannerStatus <> 0 Then GUICtrlSetData($g_hRunPlannerStatus, $g_sRunPlannerPlanFileNote)
 	Return $iApplied
@@ -530,6 +551,10 @@ Func btnRunPlannerApply()
 		SetLog("Run Planner: pacing was not applied - " & $sPacingError, $COLOR_ERROR)
 	EndIf
 
+	; Recorded to the JSONL stream as well as the log, because the control centre's Activity panel reads that file and
+	; applying a plan is the first thing an operator wants to see confirmed there.
+	Local $sSurfaceId = $oIntent.Item("surface_id")
+
 	Local $sReason = ""
 	If RunIntentCanStart($oIntent, $sReason) Then
 		Local $sState = RunIntentVerificationState($oIntent)
@@ -541,9 +566,11 @@ Func btnRunPlannerApply()
 			GUICtrlSetData($g_hRunPlannerStatus, "Ready")
 			SetLog("Run Planner: " & RunIntentDescribe($oIntent), $COLOR_SUCCESS)
 		EndIf
+		RunEventLogPlanApplied($sSurfaceId, $sState, RunIntentDescribe($oIntent))
 	Else
 		GUICtrlSetData($g_hRunPlannerStatus, "Blocked")
 		SetLog("Run Planner cannot start: " & $sReason, $COLOR_ERROR)
+		RunEventLogPlanBlocked($sSurfaceId, $sReason)
 	EndIf
 	UpdateRunPlannerBanner()
 EndFunc   ;==>btnRunPlannerApply

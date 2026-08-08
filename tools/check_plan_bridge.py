@@ -229,6 +229,58 @@ def main() -> int:
     if "RunPacingGateAction" not in click.split("Func Click(", 1)[-1].split("EndFunc", 1)[0]:
         errors.append("Click() no longer calls the pacing gate, so the pacing settings do nothing")
 
+    # ---------------------------------------------------------------------------------------------
+    # The health handshake. The GUI refuses to talk to a service whose /api/health does not name the
+    # expected service and bridge version, so if one side is bumped and the other is not, the GUI
+    # reports "unavailable" forever with a healthy service running in front of it - and nothing in
+    # either program would say why.
+    # ---------------------------------------------------------------------------------------------
+    served = planner_ui.health_payload()
+    expected = {
+        "service": "RUN_PLANNER_SERVICE_NAME",
+        "bridge": "RUN_PLANNER_BRIDGE_VERSION",
+    }
+    for field, constant in sorted(expected.items()):
+        declared = re.search(rf'Global\s+Const\s+\${constant}\s*=\s*"([^"]*)"', applier_source)
+        if not declared:
+            errors.append(f"{constant} is not declared in the Run Planner control file")
+            continue
+        if declared.group(1) != served.get(field):
+            errors.append(
+                f"health handshake mismatch on {field!r}: the service serves "
+                f"{served.get(field)!r} but the GUI requires {declared.group(1)!r}"
+            )
+    if served.get("ok") is not True:
+        errors.append("health_payload does not report ok=true, so the GUI would never accept it")
+
+    # Pattern-matching the payload made the handshake depend on json.dumps spacing.
+    healthy = applier_source.split("Func _RunPlannerServiceHealthy()", 1)
+    if len(healthy) > 1:
+        body = healthy[1].split("EndFunc", 1)[0]
+        if "Json_Decode" not in body:
+            errors.append("_RunPlannerServiceHealthy no longer parses the payload as JSON")
+        if "StringInStr" in body:
+            errors.append("_RunPlannerServiceHealthy is substring-matching the health payload again")
+
+    # Production writers and the Activity panel have to point at the same file. Until RunEventLog.au3
+    # existed the only caller of RunEventAppendJsonLine was a test, so the panel read a file nothing
+    # ever wrote; a path that drifts would put it straight back to empty.
+    log_path = ROOT / "COCBot/functions/Run/RunEventLog.au3"
+    if not log_path.is_file():
+        errors.append("RunEventLog.au3 is missing; nothing in production writes the Activity feed")
+    else:
+        log_source = log_path.read_text(encoding="utf-8-sig")
+        declared = re.search(r'Global\s+Const\s+\$RUN_EVENT_LOG_NAME\s*=\s*"([^"]*)"', log_source)
+        served = planner_ui.EVENTS_PATH.relative_to(ROOT).as_posix()
+        if not declared:
+            errors.append("RUN_EVENT_LOG_NAME is not declared in RunEventLog.au3")
+        elif declared.group(1).replace("\\", "/") != served:
+            errors.append(
+                f"event log path mismatch: the UI reads {served!r} but AutoIt writes {declared.group(1)!r}"
+            )
+        if "RunEventAppendJsonLine" not in log_source:
+            errors.append("RunEventLog.au3 never appends an event, so the Activity feed stays empty")
+
     # The parser and the tab have to agree on how a list is delimited, since one writes it and the other splits it.
     if 'RUN_PLAN_FILE_LIST_SEPARATOR = "|"' not in parser_source:
         errors.append("the plan file list separator is no longer a pipe; the Hero list would not split")

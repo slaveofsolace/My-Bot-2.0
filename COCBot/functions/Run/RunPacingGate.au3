@@ -12,6 +12,7 @@
 ; ===============================================================================================================================
 #include-once
 #include "RunPacing.au3"
+#include "RunEventLog.au3"
 
 ; The pacing a run installed, or 0 for none. Absence is the default and the safe state.
 Global $g_oRunPacingActive = 0
@@ -113,12 +114,14 @@ Func RunPacingRestIfDue()
 	If $iRest <= 0 Then Return False
 
 	SetLog("Pacing: resting " & Round($iRest / 60000, 1) & " minutes", $COLOR_INFO)
+	RunEventLogRestStarted(Round($iRest / 60000, 1))
 	; Slept in slices so the Stop button stays responsive: a run resting for ten minutes should not take ten minutes to
 	; notice it was stopped.
 	If _RunPacingWait($iRest) Then Return True
 
 	; Stamped at the end, so the next interval counts from when work resumed rather than from when it stopped.
 	RunPacingNoteRestTaken($g_oRunPacingActive, RunPacingNowMs())
+	RunEventLogRestEnded()
 	SetLog("Pacing: resuming", $COLOR_INFO)
 	Return False
 EndFunc   ;==>RunPacingRestIfDue
