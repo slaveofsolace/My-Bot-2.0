@@ -9,6 +9,7 @@
 #include "..\functions\Run\RunIntent.au3"
 #include "..\functions\Run\RunPlanFile.au3"
 #include "..\functions\Run\RunEventLog.au3"
+#include "..\functions\Run\RunExecutionContract.au3"
 
 Global Const $RUN_PLANNER_URL = "http://127.0.0.1:8765/"
 Global Const $RUN_PLANNER_HEALTH_URL = "http://127.0.0.1:8765/api/health"
@@ -541,22 +542,17 @@ Func btnRunPlannerApply()
 
 	$g_oRunPlannerIntent = $oIntent
 
-	; Applying a plan is what puts its pacing into effect. Until this happens the gate in Click() is inert, so a bot that
-	; never opens this tab is paced exactly as it was before the feature existed.
-	Local $oPacing = $oIntent.Item("pacing")
-	Local $sPacingError = ""
-	If RunPacingActivate($oPacing, $sPacingError) Then
-		SetLog("Run Planner: pacing active - " & RunPacingDescribe($oPacing), $COLOR_INFO)
-	Else
-		SetLog("Run Planner: pacing was not applied - " & $sPacingError, $COLOR_ERROR)
-	EndIf
+	; Apply prepares only. Pacing and every other override become active together at the explicit Start boundary.
+	RunPacingDeactivate()
 
 	; Recorded to the JSONL stream as well as the log, because the control centre's Activity panel reads that file and
 	; applying a plan is the first thing an operator wants to see confirmed there.
 	Local $sSurfaceId = $oIntent.Item("surface_id")
 
 	Local $sReason = ""
-	If RunIntentCanStart($oIntent, $sReason) Then
+	Local $bCanStart = RunIntentCanStart($oIntent, $sReason)
+	If $bCanStart Then $bCanStart = RunExecutionContractValidate($oIntent, $sReason)
+	If $bCanStart Then
 		Local $sState = RunIntentVerificationState($oIntent)
 		If $sState = $RUN_VERIFICATION_DIAGNOSTIC Then
 			GUICtrlSetData($g_hRunPlannerStatus, "Ready as a diagnostic run")
@@ -658,7 +654,9 @@ Func btnRunPlannerLoad()
 	EndIf
 	$g_oRunPlannerIntent = $oIntent
 	Local $sReason = ""
-	If RunIntentCanStart($oIntent, $sReason) Then
+	Local $bCanStart = RunIntentCanStart($oIntent, $sReason)
+	If $bCanStart Then $bCanStart = RunExecutionContractValidate($oIntent, $sReason)
+	If $bCanStart Then
 		_RunPlannerSetLabel($g_hRunPlannerStatus, "Prepared · engine gates cleared", $COLOR_GREEN)
 	Else
 		_RunPlannerSetLabel($g_hRunPlannerStatus, "Prepared · blocked: " & $sReason, $COLOR_MAROON)

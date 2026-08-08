@@ -271,6 +271,7 @@ def control_status() -> dict:
     """
     offline = {
         "connected": False,
+        "engine_available": False,
         "state": "offline",
         "message": "Native engine is not connected",
         "last_seen_at": None,
@@ -303,6 +304,8 @@ def queue_control_command(action: str) -> tuple[dict, int]:
     status = control_status()
     if not status.get("connected"):
         return {"ok": False, "problems": ["native engine is offline"], "status": status}, 409
+    if action == "start" and not status.get("engine_available", True):
+        return {"ok": False, "problems": [status.get("message") or "native engine is unavailable"], "status": status}, 409
 
     with CONTROL_LOCK:
         if CONTROL_COMMAND_PATH.exists():
@@ -600,7 +603,14 @@ def selftest() -> int:
             payload = json.loads(response.read())
             check(response.status == 409 and payload["ok"] is False, "control command is refused while native engine is offline")
 
-            write_json_atomic({"state": "idle", "message": "Native engine is ready", "bot_pid": 123}, CONTROL_STATUS_PATH)
+            write_json_atomic({"state": "idle", "message": "Managed engine probe timed out", "bot_pid": 123, "engine_available": False}, CONTROL_STATUS_PATH)
+            connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
+            connection.request("POST", "/api/control/command", body=body, headers={"Content-Type": "application/json"})
+            response = connection.getresponse()
+            payload = json.loads(response.read())
+            check(response.status == 409 and "timed out" in payload["problems"][0], "Start is refused when the native engine reports unavailable")
+
+            write_json_atomic({"state": "idle", "message": "Native engine is ready", "bot_pid": 123, "engine_available": True}, CONTROL_STATUS_PATH)
             connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
             connection.request("GET", "/api/control/status")
             response = connection.getresponse()

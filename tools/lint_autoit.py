@@ -37,6 +37,7 @@ ENTRY_POINTS = (
     "MyBot.run.au3",
     "MyBot.run.MiniGui.au3",
     "MyBot.run.Watchdog.au3",
+    "MyBot.run.EngineProbe.au3",
     "tests/autoit/RunContractsTest.au3",
     "tests/autoit/GameCatalogTest.au3",
     "tests/autoit/RunEngineTest.au3",
@@ -47,6 +48,7 @@ ENTRY_POINTS = (
 STUB_SCRIPTS = {
     "MyBot.run.Wmi.au3",
     "MyBot.run.Watchdog.au3",
+    "MyBot.run.EngineProbe.au3",
     "MyBot.run.MiniGui.au3",
 }
 

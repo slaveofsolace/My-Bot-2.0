@@ -37,7 +37,7 @@ Func Click($x, $y, $times = 1, $speed = 120, $debugtxt = "")
 	If TestCapture() Then Return
 
 	; Holds this action back until the run's configured gap has passed. Returns immediately when no run has installed
-	; pacing, which is every bot that has not applied a plan, so the untouched path costs one IsObj.
+	; pacing, which is every bot that has not started a plan, so the untouched path costs one IsObj.
 	;
 	; Only Click() is gated, not PureClick or PureClickTrain: those drive troop training in tight loops that already
 	; space themselves with their own speed argument, and a second delay on top would double-space something tuned.
@@ -45,6 +45,7 @@ Func Click($x, $y, $times = 1, $speed = 120, $debugtxt = "")
 
 	If $g_bAndroidAdbClick = True Then
 		AndroidClick($x, $y, $times, $speed)
+		RunPacingSettle()
 		Return
 	EndIf
 
@@ -72,6 +73,7 @@ Func Click($x, $y, $times = 1, $speed = 120, $debugtxt = "")
 		_ControlClick($x, $y)
 	EndIf
 	SuspendAndroid($SuspendMode)
+	RunPacingSettle()
 EndFunc   ;==>Click
 
 Func _ControlClick($x, $y)

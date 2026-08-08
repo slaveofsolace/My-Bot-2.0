@@ -182,9 +182,10 @@ Two files, split on purpose:
 - **`RunPacingGate.au3`** is the half that reads a clock and does the waiting. It holds the active
   pacing and sits in `Click()`.
 
-**Pressing Apply is what turns pacing on.** Until then the gate is inert: it returns on an `IsObj`
-check, so a bot that never opens this tab behaves exactly as it did before the feature existed. That
-matters because `Click()` is the most-travelled function in the program. Reset turns it back off.
+**Pressing Start is what turns pacing on.** Apply only validates and prepares the intent. Until a
+run begins the gate is inert: it returns on an `IsObj` check, so a bot that never opens this tab
+behaves exactly as it did before the feature existed. That matters because `Click()` is the
+most-travelled function in the program. Reset and Stop turn the gate back off.
 
 Only `Click()` is gated — not `PureClick` or `PureClickTrain`. Those drive troop training in tight
 loops that already space themselves with their own speed argument, and a second delay on top would
@@ -208,13 +209,22 @@ take ten minutes to notice it was stopped.
 ## Current execution boundary
 
 The control bridge runs the real native Start, Stop, Pause, and Resume lifecycle and publishes a
-fresh browser heartbeat. The plan bridge remains a separate configuration boundary.
+fresh browser heartbeat. Start now owns the complete configuration boundary: browser save → plan
+file → native parse → validated `RunIntent` → explicit execution contract → legacy configuration
+→ live session.
 
-The bridge now proves browser save → plan file → native parse → validated `RunIntent`. Pacing is the
-only planner component currently installed into an active runtime gate. The remaining strategy,
-target, army, search, donation, event and notification fields are present on the prepared intent but
-are not yet the source of truth for the legacy run loop. Do not describe those controls as executing
-a battle until each legacy subsystem consumes the intent and hardware validation exists.
+`RunExecution.au3` applies the supported Regular Battles values to the native engine, activates
+pacing only after the engine is initialized, and feeds real battle and loot counters back into the
+session stop checks. The adapter contract rejects settings that do not yet have a safe legacy
+consumer: named recipes, non-default Town Hall filters and search timeouts, Dragon Duke, advanced
+donation policies, capped Clan Games points, automatic laboratory modes, non-supported upgrade
+policies, account rotation, non-log notification channels, and action retries without a visual
+change observer.
+
+Before the GUI enters the mixed-mode DLL, a separate x86 helper performs the first export call with
+a bounded timeout. That contains the known startup hang and produces a clear unavailable state; it
+does not count as current-client combat evidence. Live client validation is still required before a
+surface can be promoted from diagnostic to verified.
 
 ---
 

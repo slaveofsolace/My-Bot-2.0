@@ -41,6 +41,7 @@ EndFunc   ;==>_RunControlBool
 Func _RunControlStateMessage($sState)
 	Switch $sState
 		Case "idle"
+			If Not MBRFuncEngineAvailable() Then Return MBRFuncEngineError()
 			Return "Native engine is ready"
 		Case "starting"
 			Return "Preparing the run"
@@ -72,6 +73,11 @@ Func RunControlWriteStatus($bForce = False)
 	$sJson &= _RunEventJsonString("state") & ":" & _RunEventJsonString($sState) & ","
 	$sJson &= _RunEventJsonString("run_state") & ":" & _RunControlBool($g_bRunState) & ","
 	$sJson &= _RunEventJsonString("paused") & ":" & _RunControlBool($g_bBotPaused) & ","
+	$sJson &= _RunEventJsonString("engine_available") & ":" & _RunControlBool(MBRFuncEngineAvailable()) & ","
+	$sJson &= _RunEventJsonString("engine_probe_state") & ":" & _RunEventJsonString(MBRFuncEngineProbeState()) & ","
+	$sJson &= _RunEventJsonString("plan_active") & ":" & _RunControlBool(RunExecutionPlanActive()) & ","
+	$sJson &= _RunEventJsonString("plan_message") & ":" & _RunEventJsonString(RunExecutionMessage()) & ","
+	$sJson &= _RunEventJsonString("session_id") & ":" & _RunEventJsonString(RunExecutionSessionId()) & ","
 	$sJson &= _RunEventJsonString("profile") & ":" & _RunEventJsonString($g_sProfileCurrentName) & ","
 	$sJson &= _RunEventJsonString("emulator") & ":" & _RunEventJsonString($g_sAndroidEmulator) & ","
 	$sJson &= _RunEventJsonString("instance") & ":" & _RunEventJsonString($g_sAndroidInstance) & ","
@@ -108,6 +114,14 @@ Func _RunControlAcknowledge($sRequestId, $sAction, $sOutcome, $sMessage)
 	RunControlWriteStatus(True)
 EndFunc   ;==>_RunControlAcknowledge
 
+Func RunControlReportStartOutcome($bStarted, $sMessage)
+	If $g_sRunControlLastCommand = "start" And $g_sRunControlLastOutcome = "accepted" Then
+		$g_sRunControlLastOutcome = $bStarted ? "started" : "rejected"
+	EndIf
+	$g_sRunControlMessage = $sMessage
+	RunControlWriteStatus(True)
+EndFunc   ;==>RunControlReportStartOutcome
+
 Func _RunControlConsumeCommand()
 	Local $sPath = RunControlCommandPath()
 	If Not FileExists($sPath) Then Return
@@ -138,6 +152,10 @@ Func _RunControlConsumeCommand()
 
 	Switch $sAction
 		Case "start"
+			If Not MBRFuncEngineAvailable() Then
+				_RunControlAcknowledge($sRequestId, $sAction, "rejected", MBRFuncEngineError())
+				Return
+			EndIf
 			If $g_bRunState Or $g_iBotAction <> $eBotNoAction Then
 				_RunControlAcknowledge($sRequestId, $sAction, "rejected", "Engine is not idle")
 				Return

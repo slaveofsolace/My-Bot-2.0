@@ -68,3 +68,19 @@ EndFunc   ;==>RunEventLogRestStarted
 Func RunEventLogRestEnded()
 	Return RunEventLogWrite("pacing.rest.ended", "info", "Resumed after a scheduled rest")
 EndFunc   ;==>RunEventLogRestEnded
+
+Func RunEventLogRunStarted($sSurfaceId, $sVerificationState, $sDescription)
+	Return RunEventLogWrite("run.started", "info", $sDescription, $sSurfaceId, $sVerificationState)
+EndFunc   ;==>RunEventLogRunStarted
+
+Func RunEventLogRunStopping($sSurfaceId, $sVerificationState, $sReason)
+	Return RunEventLogWrite("run.stopping", "info", "Stop condition: " & $sReason, $sSurfaceId, $sVerificationState)
+EndFunc   ;==>RunEventLogRunStopping
+
+Func RunEventLogRunCompleted($sSurfaceId, $sVerificationState, $sReason)
+	Return RunEventLogWrite("run.completed", "info", "Run ended: " & $sReason, $sSurfaceId, $sVerificationState)
+EndFunc   ;==>RunEventLogRunCompleted
+
+Func RunEventLogEngineUnavailable($sReason)
+	Return RunEventLogWrite("engine.unavailable", "error", $sReason, "", $RUN_VERIFICATION_DIAGNOSTIC)
+EndFunc   ;==>RunEventLogEngineUnavailable

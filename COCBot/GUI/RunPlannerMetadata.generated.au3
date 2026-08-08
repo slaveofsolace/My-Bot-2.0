@@ -326,9 +326,9 @@ Func _RunPlannerMetadataInit()
 	$g_aRunPlannerSettings[17][$eRunPlannerSettingSectionId] = "pacing"
 	$g_aRunPlannerSettings[17][$eRunPlannerSettingType] = "integer"
 	$g_aRunPlannerSettings[17][$eRunPlannerSettingLabel] = "Retries per action"
-	$g_aRunPlannerSettings[17][$eRunPlannerSettingSummary] = "How many times to repeat an action whose result never appeared."
-	$g_aRunPlannerSettings[17][$eRunPlannerSettingDescription] = "A tap that produced no visible change is usually a dropped input rather than a wrong coordinate, and repeating it is cheaper than abandoning the step. Each retry waits the settle time again before looking. Zero gives up on the first miss and lets the run's failure limit deal with it."
-	$g_aRunPlannerSettings[17][$eRunPlannerSettingDefault] = 2
+	$g_aRunPlannerSettings[17][$eRunPlannerSettingSummary] = "Reserved for handlers that can prove a tap changed nothing."
+	$g_aRunPlannerSettings[17][$eRunPlannerSettingDescription] = "Generic retries are unsafe without a visual-change observer: repeating a successful destructive tap can do the wrong thing twice. Keep this at zero until a screen-specific handler can prove the first action was dropped; Start rejects nonzero values instead of guessing."
+	$g_aRunPlannerSettings[17][$eRunPlannerSettingDefault] = 0
 	$g_aRunPlannerSettings[17][$eRunPlannerSettingRequired] = False
 	$g_aRunPlannerSettings[17][$eRunPlannerSettingBinding] = "RunPacing.retry_attempts"
 	$g_aRunPlannerSettings[17][$eRunPlannerSettingUnit] = "attempts"

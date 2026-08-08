@@ -46,6 +46,7 @@ Global $g_hFrmBot = 0 ; The main GUI window
 ; Current client adapters and run orchestration. Main build only: the Mini GUI and Watchdog
 ; entry points do not include the Android core these adapters call into.
 #include "COCBot\functions\Other\CurrentClientCompat.au3"
+#include "COCBot\functions\Run\RunExecution.au3"
 #include "COCBot\functions\Run\RunControlBridge.au3"
 ; MBR References.au3 must be last include
 #include "COCBot\MBR References.au3"
@@ -717,6 +718,7 @@ Func runBot() ;Bot that runs everything in order
 	FirstCheck()
 
 	While 1
+		If RunExecutionCheckStop() Then Return
 		;Restart bot after these seconds
 		If $b_iAutoRestartDelay > 0 And __TimerDiff($g_hBotLaunchTime) > $b_iAutoRestartDelay * 1000 Then
 			If RestartBot(False) Then Return
@@ -876,6 +878,7 @@ Func runBot() ;Bot that runs everything in order
 
 				If $g_iCommandStop <> 0 And $g_iCommandStop <> 3 Then
 					AttackMain()
+					If RunExecutionCheckStop() Then Return
 					$g_bSkipFirstZoomout = False
 					If $g_bOutOfGold Then
 						SetLog("Switching to Halt Attack, Stay Online/Collect mode ...", $COLOR_ERROR)
@@ -913,6 +916,7 @@ Func runBot() ;Bot that runs everything in order
 			$g_aiCurrentLoot[$eLootTrophy] = Number(getTrophyMainScreen($aTrophies[0], $aTrophies[1]))
 			If $g_bDebugSetLog Then SetDebugLog("Runbot Trophy Count: " & $g_aiCurrentLoot[$eLootTrophy], $COLOR_DEBUG)
 			If Not $g_bIsSearchLimit Or Not $g_bCheckDonateOften Then AttackMain() ;If Search Limit hit, do main loop.
+			If RunExecutionCheckStop() Then Return
 			If Not $g_bRunState Then Return
 			$g_bSkipFirstZoomout = False
 			If $g_bOutOfGold Then
@@ -1443,6 +1447,7 @@ Func FirstCheck()
 				SetLog("Before any other routine let's attack!", $COLOR_INFO)
 				If Not $g_bRunState Then Return
 				AttackMain()
+				If RunExecutionCheckStop() Then Return
 				$g_bSkipFirstZoomout = False
 				If $g_bOutOfGold Then
 					SetLog("Switching to Halt Attack, Stay Online/Collect mode", $COLOR_ERROR)

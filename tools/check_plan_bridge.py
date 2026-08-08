@@ -28,6 +28,9 @@ METADATA = ROOT / "config/ui/run-planner.settings.json"
 PARSER = ROOT / "COCBot/functions/Run/RunPlanFile.au3"
 APPLIER = ROOT / "COCBot/GUI/MBR GUI Control Run Planner.au3"
 PACING = ROOT / "COCBot/functions/Run/RunPacing.au3"
+EXECUTION = ROOT / "COCBot/functions/Run/RunExecution.au3"
+ACTION = ROOT / "COCBot/MBR GUI Action.au3"
+MAIN = ROOT / "MyBot.run.au3"
 
 # The value shapes RunPlanFileParse produces. Anything else in a written plan would reach the AutoIt side
 # as a parse failure, which costs the whole file rather than one setting.
@@ -228,6 +231,39 @@ def main() -> int:
             errors.append(f"{function} is gated; training loops already space themselves")
     if "RunPacingGateAction" not in click.split("Func Click(", 1)[-1].split("EndFunc", 1)[0]:
         errors.append("Click() no longer calls the pacing gate, so the pacing settings do nothing")
+    if "RunPacingSettle()" not in click.split("Func Click(", 1)[-1].split("EndFunc", 1)[0]:
+        errors.append("Click() no longer takes the planned screen-settle wait")
+
+    # A prepared intent is only useful if Start crosses an explicit, ordered execution boundary.
+    if not EXECUTION.is_file():
+        errors.append("RunExecution.au3 is missing; prepared plans never reach the legacy engine")
+    else:
+        execution_source = EXECUTION.read_text(encoding="utf-8-sig")
+        for function in ("RunExecutionPrepareStart", "RunExecutionBegin", "RunExecutionCheckStop", "RunExecutionComplete"):
+            if f"Func {function}(" not in execution_source:
+                errors.append(f"{function} is missing from RunExecution.au3")
+        if "RunPacingRestIfDue()" not in execution_source:
+            errors.append("planned rests are not consumed by the execution loop")
+
+    action_source = ACTION.read_text(encoding="utf-8-sig")
+    bot_start = action_source.split("Func BotStart(", 1)
+    bot_start_body = bot_start[1].split("EndFunc", 1)[0] if len(bot_start) > 1 else ""
+    ordered_calls = ["RunExecutionPrepareStart", "MBRFuncProbeEngine", "MBRFuncInitialize", "applyConfig(False)", "RunExecutionBegin"]
+    call_offsets = [bot_start_body.find(call) for call in ordered_calls]
+    if any(offset < 0 for offset in call_offsets):
+        errors.append("BotStart no longer prepares, probes, initializes, applies config, and begins in the required order")
+    elif call_offsets != sorted(call_offsets):
+        errors.append("BotStart execution boundary is out of order; profile loading can overwrite planner values or the DLL can hang before probing")
+    bot_stop = action_source.split("Func BotStop(", 1)
+    bot_stop_body = bot_stop[1].split("EndFunc", 1)[0] if len(bot_stop) > 1 else ""
+    if "RunExecutionComplete" not in bot_stop_body:
+        errors.append("BotStop no longer completes the planned run session")
+
+    main_source = MAIN.read_text(encoding="utf-8-sig")
+    if '#include "COCBot\\functions\\Run\\RunExecution.au3"' not in main_source:
+        errors.append("MyBot.run.au3 does not include the run execution boundary")
+    if main_source.count("RunExecutionCheckStop()") < 4:
+        errors.append("the run loop has lost planner stop checks around one or more attack paths")
 
     # ---------------------------------------------------------------------------------------------
     # The health handshake. The GUI refuses to talk to a service whose /api/health does not name the

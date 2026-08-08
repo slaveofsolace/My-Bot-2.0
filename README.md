@@ -244,6 +244,7 @@ profile. Nothing is written outside that and the repository directory.
 | Bot starts but sees nothing | Emulator is not at 860 × 732, or ADB is not connected. |
 | Bot attaches to the wrong window | More than one instance running. Pick the instance explicitly on the planner's Emulator tab. |
 | Clicks land in the wrong place | Resolution mismatch, or emulator DPI scaling is off its default. |
+| Start reports `Managed engine did not answer` | The isolated DLL probe timed out. Check `.NET Framework` and Windows Security health, resolve any Defender `5008`/`3002` failures, then restart My Bot 2.0. Do not add a broad antivirus exclusion. |
 | Include errors on startup | Incomplete clone. Run `python tools/repo_audit.py` — it lists every include that fails to resolve. |
 
 [`docs/INSTALL.md`](docs/INSTALL.md) goes deeper on each.
@@ -254,16 +255,22 @@ profile. Nothing is written outside that and the repository directory.
 
 ## The Run Planner
 
-The **Run Planner** is the last tab in the main window. Seven sections:
+The **Run Planner** is the last tab in the main window. Thirteen focused sections:
 
 | Section | What you set |
 |---|---|
 | **Destination** | The exact battle surface, and which strategy runs once a base is found |
 | **Heroes** | Up to four active Heroes from the six in the Hero Hall |
+| **Army** | Which troop, spell, and siege groups are available to the selected strategy |
+| **Search** | Minimum loot and base filters used before an attack is accepted |
 | **Emulator** | Which emulator, and which instance |
+| **Pacing** | Action delay, settle time, and scheduled rest windows |
+| **Donations** | Whether to request or donate, and the supported donation policy |
+| **Events** | Clan Games, collectors, walls, and the supported lab policy |
+| **Notifications** | Run lifecycle messages written to the event stream |
 | **Stop conditions** | Time limit, battle limit, Star Bonus, failure limit |
 | **Resource targets** | Stop once a Gold, Elixir, or Dark Elixir total is collected |
-| **Between battles** | Upgrade policy and the account rotation queue |
+| **Between battles** | Supported upgrade policy and account-rotation settings |
 | **Diagnostics** | Whether unverified surfaces are allowed to run |
 
 Set what you want, press **Apply plan**, and you get one of three answers:
@@ -277,6 +284,11 @@ Blocked  ->  <the specific reason>
 It never silently accepts a configuration the engine would reject. Unavailable choices are marked
 in the dropdown and explained in the panel underneath: what the choice does, what it needs, and
 what specifically is missing.
+
+**Apply plan** validates and prepares the intent; it does not start the bot. **Start Bot** re-reads
+the saved plan, applies every supported value to the native engine, opens the run session, and only
+then activates pacing. Unsupported strategy, search, donation, event, notification, or account
+rotation values are blocked with a specific reason instead of being silently ignored.
 
 ---
 

@@ -86,7 +86,8 @@ try {
     $entryPoints = @(
         "MyBot.run.au3",
         "MyBot.run.MiniGui.au3",
-        "MyBot.run.Watchdog.au3"
+        "MyBot.run.Watchdog.au3",
+        "MyBot.run.EngineProbe.au3"
     ) + $testScripts
 
     foreach ($entryPoint in $entryPoints) {

@@ -25,7 +25,7 @@ Func RunPacingCreateDefault()
 	$oPacing.Add("schema_version", 1)
 	$oPacing.Add("action_delay_ms", 120)
 	$oPacing.Add("settle_ms", 400)
-	$oPacing.Add("retry_attempts", 2)
+	$oPacing.Add("retry_attempts", 0)
 	$oPacing.Add("break_every_minutes", 0)
 	$oPacing.Add("break_minutes", 5)
 	; -1 means nothing has happened yet, which is distinct from having happened at time zero.

@@ -14,6 +14,9 @@
 ; ===============================================================================================================================
 
 Global $g_bLibMyBotInitialized = False
+Global $g_bMBRFuncEngineAvailable = True
+Global $g_sMBRFuncEngineProbeState = "not-run"
+Global $g_sMBRFuncEngineError = ""
 
 Func MBRFunc($Start = True, $bInitialize = True)
 	Switch $Start
@@ -41,13 +44,101 @@ Func MBRFuncInitialize()
 	If $g_bLibMyBotInitialized Then Return True
 	If $g_hLibMyBot = 0 Or $g_hLibMyBot = -1 Then Return False
 
-	setProcessingPoolSize($g_iGlobalThreads)
-	setMaxDegreeOfParallelism($g_iThreads)
-	setAndroidPID()
-	SetBotGuiPID()
+	If Not setProcessingPoolSize($g_iGlobalThreads) Then Return False
+	If Not setMaxDegreeOfParallelism($g_iThreads) Then Return False
+	If Not setAndroidPID() Then Return False
+	If Not SetBotGuiPID() Then Return False
 	$g_bLibMyBotInitialized = True
 	Return True
 EndFunc   ;==>MBRFuncInitialize
+
+Func MBRFuncEngineAvailable()
+	Return $g_bMBRFuncEngineAvailable
+EndFunc   ;==>MBRFuncEngineAvailable
+
+Func MBRFuncEngineProbeState()
+	Return $g_sMBRFuncEngineProbeState
+EndFunc   ;==>MBRFuncEngineProbeState
+
+Func MBRFuncEngineError()
+	Return $g_sMBRFuncEngineError
+EndFunc   ;==>MBRFuncEngineError
+
+Func MBRFuncMarkUnavailable($sReason)
+	$g_bMBRFuncEngineAvailable = False
+	$g_sMBRFuncEngineProbeState = "failed"
+	$g_sMBRFuncEngineError = $sReason
+	If IsFunc("RunEventLogEngineUnavailable") Then Call("RunEventLogEngineUnavailable", $sReason)
+EndFunc   ;==>MBRFuncMarkUnavailable
+
+; Starts the mixed-mode DLL in an isolated x86 helper first. A filter-driver or CLR stall can then
+; freeze only the helper, which is terminated at the bounded deadline while the GUI keeps pumping.
+Func MBRFuncProbeEngine(ByRef $sError, $iTimeoutMs = 15000)
+	$sError = ""
+	If $g_sMBRFuncEngineProbeState = "passed" Then Return True
+	If Not $g_bMBRFuncEngineAvailable Then
+		$sError = $g_sMBRFuncEngineError
+		Return False
+	EndIf
+
+	Local $sHelper = @ScriptDir & "\MyBot.run.EngineProbe.exe"
+	If Not FileExists($sHelper) Then
+		$sError = "Managed engine probe helper is missing; rebuild or reinstall My Bot 2.0"
+		MBRFuncMarkUnavailable($sError)
+		Return False
+	EndIf
+
+	Local $sToken = @ScriptDir & "\config\engine-probe-" & @AutoItPID & ".ok"
+	FileDelete($sToken)
+	$g_sMBRFuncEngineProbeState = "running"
+	Local $iProbePid = Run('"' & $sHelper & '" "' & $sToken & '"', @ScriptDir, @SW_HIDE)
+	If @error Or $iProbePid <= 0 Then
+		$sError = "Managed engine probe could not be started"
+		MBRFuncMarkUnavailable($sError)
+		Return False
+	EndIf
+
+	Local $hProbeTimer = __TimerInit()
+	Local $bProbeExited = False
+	While __TimerDiff($hProbeTimer) < $iTimeoutMs
+		If FileExists($sToken) Then
+			Local $sResult = StringStripWS(FileRead($sToken), $STR_STRIPALL)
+			FileDelete($sToken)
+			If $sResult = "ok" Then
+				$g_bMBRFuncEngineAvailable = True
+				$g_sMBRFuncEngineProbeState = "passed"
+				$g_sMBRFuncEngineError = ""
+				Return True
+			EndIf
+		EndIf
+		If Not ProcessExists($iProbePid) Then
+			$bProbeExited = True
+			ExitLoop
+		EndIf
+		If $g_iBotAction = $eBotStop Or $g_iBotAction = $eBotClose Then
+			ProcessClose($iProbePid)
+			ProcessWaitClose($iProbePid, 2)
+			FileDelete($sToken)
+			$sError = "Engine start was cancelled"
+			$g_sMBRFuncEngineProbeState = "not-run"
+			Return False
+		EndIf
+		_Sleep(100, True, False)
+	WEnd
+
+	If ProcessExists($iProbePid) Then
+		ProcessClose($iProbePid)
+		ProcessWaitClose($iProbePid, 2)
+	EndIf
+	FileDelete($sToken)
+	If $bProbeExited Then
+		$sError = "Managed engine startup failed; check Windows Security and .NET health, then restart My Bot 2.0"
+	Else
+		$sError = "Managed engine did not answer within " & Int($iTimeoutMs / 1000) & " seconds; check Windows Security and .NET health, then restart My Bot 2.0"
+	EndIf
+	MBRFuncMarkUnavailable($sError)
+	Return False
+EndFunc   ;==>MBRFuncProbeEngine
 
 ; Private DllCall MyBot.run.dll function call
 Func _DllCallMyBot($sFunc, $sType1 = Default, $vParam1 = Default, $sType2 = Default, $vParam2 = Default, $sType3 = Default, $vParam3 = Default, $sType4 = Default, $vParam4 = Default, $sType5 = Default, $vParam5 = Default _
@@ -130,45 +221,51 @@ Func debugMBRFunctions($iDebugSearchArea = 0, $iDebugRedArea = 0, $iDebugOcr = 0
 EndFunc   ;==>debugMBRFunctions
 
 Func setAndroidPID($pid = GetAndroidPid())
-	If $g_hLibMyBot = -1 Then Return ; Bot didn't finish launch yet
+	If $g_hLibMyBot = -1 Then Return False ; Bot didn't finish launch yet
 	SetDebugLog("setAndroidPID: $pid=" & $pid)
 	Local $result = DllCall($g_hLibMyBot, "str", "setAndroidPID", "int", $pid, "str", $g_sBotVersion, "str", $g_sAndroidEmulator, "str", $g_sAndroidVersion, "str", $g_sAndroidInstance)
 	If @error Then
 		_logErrorDLLCall($g_sLibMyBotPath & ", setAndroidPID:", @error)
-		Return SetError(@error)
+		Return SetError(@error, 0, False)
 	EndIf
 	;dll return 0 on success, -1 on error
 	If IsArray($result) Then
 		If $result[0] = "" Then
 			SetDebugLog($g_sMBRLib & " error setting Android PID.")
+			Return False
 		Else
 			SetDebugLog("Android PID=" & $pid & " initialized: " & $result[0])
 			debugMBRFunctions(0, $g_bDebugRedArea ? 1 : 0, $g_bDebugOcr ? 1 : 0) ; set debug levels
 		EndIf
 	Else
 		SetDebugLog($g_sMBRLib & " not found.", $COLOR_ERROR)
+		Return False
 	EndIf
+	Return True
 EndFunc   ;==>setAndroidPID
 
 Func SetBotGuiPID($pid = $g_iGuiPID)
-	If $g_hLibMyBot = -1 Then Return ; Bot didn't finish launch yet
+	If $g_hLibMyBot = -1 Then Return False ; Bot didn't finish launch yet
 	SetDebugLog("SetBotGuiPID: $pid=" & $pid)
 	Local $result = DllCall($g_hLibMyBot, "str", "SetBotGuiPID", "int", $pid)
 	If @error Then
 		_logErrorDLLCall($g_sLibMyBotPath & ", SetBotGuiPID:", @error)
-		Return SetError(@error)
+		Return SetError(@error, 0, False)
 	EndIf
 	;dll return 0 on success, -1 on error
 	If IsArray($result) Then
 		If $result[0] = "" Then
 			SetDebugLog($g_sMBRLib & " error setting Android PID.")
+			Return False
 		Else
 			SetDebugLog("Bot GUI PID=" & $pid & " initialized: " & $result[0])
 			;debugMBRFunctions($g_iDebugSearchArea, $g_iDebugRedArea, $g_iDebugOcr) ; set debug levels
 		EndIf
 	Else
 		SetDebugLog($g_sMBRLib & " not found.", $COLOR_ERROR)
+		Return False
 	EndIf
+	Return True
 EndFunc   ;==>SetBotGuiPID
 
 Func CheckForumAuthentication()
@@ -233,7 +330,9 @@ Func setMaxDegreeOfParallelism($iMaxDegreeOfParallelism = 0)
 	If $i < 1 Then $i = 0
 	SetDebugLog("Threading: Using " & $i & " threads for parallelism")
 	If $i < 1 Then $i = -1
-	DllCall($g_hLibMyBot, "none", "setMaxDegreeOfParallelism", "int", $i) ;set PARALLELOPTIONS.MaxDegreeOfParallelism for multi-threaded operations
+	Local $aResult = DllCall($g_hLibMyBot, "none", "setMaxDegreeOfParallelism", "int", $i) ;set PARALLELOPTIONS.MaxDegreeOfParallelism for multi-threaded operations
+	If @error Or Not IsArray($aResult) Then Return False
+	Return True
 EndFunc   ;==>setMaxDegreeOfParallelism
 
 Func setProcessingPoolSize($iProcessingPoolSize = 0)
@@ -241,7 +340,9 @@ Func setProcessingPoolSize($iProcessingPoolSize = 0)
 	If $i < 1 Then $i = 0
 	SetDebugLog("Threading: Using " & $i & " threads shared across all bot instances")
 	If $i < 1 Then $i = -1
-	DllCall($g_hLibMyBot, "none", "setProcessingPoolSize", "int", $i) ;set ProcessingPoolSize for multi-threaded operations (global number of used threads for ImgLoc for all bot instances)
+	Local $aResult = DllCall($g_hLibMyBot, "none", "setProcessingPoolSize", "int", $i) ;set ProcessingPoolSize for multi-threaded operations (global number of used threads for ImgLoc for all bot instances)
+	If @error Or Not IsArray($aResult) Then Return False
+	Return True
 EndFunc   ;==>setProcessingPoolSize
 
 Func setGcCollectTotalMemoryPreasure($iGcCollectTotalMemoryPreasure = 0)

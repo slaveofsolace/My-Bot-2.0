@@ -7,12 +7,12 @@ This guide sets up the current source baseline for development and controlled co
 | Item | Current status |
 | --- | --- |
 | Operating system | Windows 10/11 is the development target. Older Windows versions in the inherited README are not part of the new support plan. |
-| Source language | AutoIt 3.3.16.x. The current branch has not yet been compiled in CI. |
+| Source language | AutoIt 3.3.16.1 and 3.3.18.0 are checked by the Windows CI matrix. |
 | Elevation | The main script contains `#RequireAdmin` and will request elevation. |
 | BlueStacks 5 | Present in the v8.2.0 source. Current-version smoke test still required. |
 | MEmu | Present in the v8.2.0 source. Current-version smoke test still required. |
 | Nox | Present in the v8.2.0 source. Current-version smoke test still required. |
-| MuMu / LDPlayer | Recent support exists in the xbebenk reference line but has not yet been adapted and verified in this branch. |
+| MuMu Player 12 / LDPlayer 9 | Adapter code is present. A dated current-version smoke test is still required. |
 | Google Play Games on PC | A future clean-room platform target. It is not implemented by the current AutoIt baseline. |
 
 Do not advertise an emulator/version as supported until a dated smoke-test record is attached to a release.
@@ -72,7 +72,8 @@ Recommended development flow:
 4. Accept the Windows elevation prompt only when the source path and commit are trusted.
 5. Review the startup log before enabling any run feature.
 
-The repository contains inherited executable files. They are not yet produced by the new release pipeline, so source-first execution is preferred during development.
+The repository contains inherited and locally compiled executable files. Source-first execution is
+preferred during development; published binaries still require provenance and release smoke-test evidence.
 
 ## 5. Configure the Android environment
 
@@ -104,7 +105,8 @@ Keep the first run short and disable upgrade, spending, donation, chat, and acco
 
 ## 7. Compile locally
 
-A reproducible build workflow is still being established. For local development:
+The repository has repeatable source and contract validation, but the release-packaging workflow is
+still being established. For local development:
 
 1. Use the AutoIt version recorded for the branch.
 2. Open `MyBot.run.au3` in SciTE.
@@ -148,6 +150,7 @@ Use `/help` for the source-defined list. Developer and no-watchdog modes should 
 | Repeated unknown popup | Stop the run. Save the screenshot and log. Add the screen to the interruption inventory instead of adding a blind click. |
 | Settings behave unexpectedly | Reproduce with a fresh profile. Do not reuse an older INI until migration is implemented. |
 | Stop takes too long | Capture the current engine state and last action. A blocked input or unbounded retry must be fixed rather than hidden by force-closing. |
+| Start reports `Managed engine did not answer` | The x86 helper contained a mixed-mode DLL startup stall. Inspect Windows Security and `.NET Framework` health. Defender Operational events `5008` followed by `3002` indicate an engine/filter failure that must be repaired before retrying; restart My Bot 2.0 afterward. Do not disable Defender or add a broad exclusion. |
 | Antivirus warning | Build from reviewed source. Verify any native DLL or inherited executable independently. Do not disable endpoint protection as an installation step. |
 | Game account warning or penalty | Stop using the environment. Supercell prohibits unapproved gameplay bots on live accounts. Use only environments and accounts for which explicit authorization exists. |
 

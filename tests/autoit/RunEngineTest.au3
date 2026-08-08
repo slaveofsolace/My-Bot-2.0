@@ -7,6 +7,7 @@
 #include "..\..\COCBot\functions\Other\Json.au3"
 #include "..\..\COCBot\functions\Run\RunIntent.au3"
 #include "..\..\COCBot\functions\Run\RunPlanFile.au3"
+#include "..\..\COCBot\functions\Run\RunExecutionContract.au3"
 
 Global $g_iAssertions = 0
 
@@ -130,7 +131,7 @@ Json_ObjPut($oSavedPlan, "run.diagnostic_mode", False)
 Json_ObjPut($oSavedPlan, "run.diagnostic_note", "")
 Json_ObjPut($oSavedPlan, "pacing.action_delay_ms", 120)
 Json_ObjPut($oSavedPlan, "pacing.settle_ms", 400)
-Json_ObjPut($oSavedPlan, "pacing.retry_attempts", 2)
+Json_ObjPut($oSavedPlan, "pacing.retry_attempts", 0)
 Json_ObjPut($oSavedPlan, "pacing.break_every_minutes", 0)
 Json_ObjPut($oSavedPlan, "pacing.break_minutes", 5)
 Local $sSavedPlanPath = @TempDir & "\mybot-run-plan-test.json"
@@ -145,6 +146,19 @@ Local $oSavedLoadout = $oSavedIntent.Item("loadout")
 AssertTrue(HeroLoadoutCount($oSavedLoadout) = 2, "saved Hero list reaches the loadout")
 Local $oSavedPacing = $oSavedIntent.Item("pacing")
 AssertTrue(RunPacingSettleMilliseconds($oSavedPacing) = 400, "saved pacing reaches the intent")
+AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "unsupported planner values are blocked rather than ignored")
+AssertTrue(StringInStr($sError, "recipe") > 0, "the first unsupported adapter is named")
+$oSavedEnginePlan.Item("army_recipe_name") = ""
+$oSavedEnginePlan.Item("search_max_seconds") = 0
+$oSavedEnginePlan.Item("search_town_hall_filter") = "any"
+AssertTrue(RunExecutionContractValidate($oSavedIntent, $sError), "a fully supported regular-battle plan crosses the execution boundary: " & $sError)
+$oSavedPacing.Item("retry_attempts") = 1
+AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "generic retries are blocked without a visual-change observer")
+$oSavedPacing.Item("retry_attempts") = 0
+$oSavedEnginePlan.Item("notify_channel") = "windows-toast"
+AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "unwired notification channels are rejected")
+$oSavedEnginePlan.Item("notify_channel") = "log-only"
+AssertTrue(RunExecutionContractValidate($oSavedIntent, $sError), "restoring supported values clears the adapter gate: " & $sError)
 FileDelete($sSavedPlanPath)
 
 ; Undemonstrated surfaces are blocked by default, which is what makes the diagnostic opt-in meaningful.
@@ -215,7 +229,7 @@ AssertTrue(RunPacingWaitBeforeAction($oPacing, 99999) = 0, "a long gap never bec
 AssertTrue(RunPacingWaitBeforeAction($oPacing, 5000) = 120, "a clock that went backwards waits the whole gap")
 
 AssertTrue(RunPacingSettleMilliseconds($oPacing) = 400, "settle wait is reported")
-AssertTrue(RunPacingRetryAttempts($oPacing) = 2, "retry count is reported")
+AssertTrue(RunPacingRetryAttempts($oPacing) = 0, "safe default does not retry an unobserved action")
 
 AssertTrue(Not RunPacingSet($oPacing, 120, 400, 2, 0, 0, $sError), "a rest shorter than a minute is rejected")
 ; The settle value here differs from the current one, so "untouched" below is a real check and not a coincidence.

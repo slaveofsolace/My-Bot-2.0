@@ -302,7 +302,9 @@ function renderControl() {
   $('engineVersion').textContent = CONTROL.engine_version ? `MyBot.run ${CONTROL.engine_version}` : 'Not connected';
 
   const busy = !!CONTROL_PENDING;
-  $('controlStart').disabled = busy || !connected || state !== 'idle';
+  const engineAvailable = CONTROL.engine_available !== false;
+  if (connected && !engineAvailable) $('engineState').textContent = 'Engine unavailable';
+  $('controlStart').disabled = busy || !connected || !engineAvailable || state !== 'idle';
   $('controlPause').disabled = busy || !connected || !['running', 'paused'].includes(state);
   $('controlStop').disabled = busy || !connected || !['starting', 'running', 'paused'].includes(state);
   $('controlPause').textContent = state === 'paused' ? 'Resume' : 'Pause';

@@ -16,8 +16,28 @@
 Func BotStart($bAutostartDelay = 0)
 	FuncEnter(BotStart)
 
+	Local $sStartError = ""
+	If Not RunExecutionPrepareStart($sStartError) Then
+		SetLog("Run Planner cannot start: " & $sStartError, $COLOR_ERROR)
+		RunControlReportStartOutcome(False, $sStartError)
+		Return False
+	EndIf
+
+	If Not MBRFuncProbeEngine($sStartError) Then
+		SetLog("Engine unavailable: " & $sStartError, $COLOR_ERROR)
+		GUICtrlSetState($g_hBtnStart, $GUI_DISABLE)
+		RunExecutionCancelPrepared($sStartError)
+		RunControlReportStartOutcome(False, $sStartError)
+		Return False
+	EndIf
+
 	If Not MBRFuncInitialize() Then
-		SetLog("Unable to initialize " & $g_sMBRLib & ".", $COLOR_ERROR)
+		$sStartError = "Unable to initialize " & $g_sMBRLib & "."
+		MBRFuncMarkUnavailable($sStartError)
+		SetLog($sStartError, $COLOR_ERROR)
+		GUICtrlSetState($g_hBtnStart, $GUI_DISABLE)
+		RunExecutionCancelPrepared($sStartError)
+		RunControlReportStartOutcome(False, $sStartError)
 		Return False
 	EndIf
 
@@ -56,6 +76,14 @@ Func BotStart($bAutostartDelay = 0)
 	SaveConfig()
 	readConfig()
 	applyConfig(False) ; bot window redraw stays disabled!
+	If Not RunExecutionBegin($sStartError) Then
+		SetLog("Run Planner cannot begin: " & $sStartError, $COLOR_ERROR)
+		RunExecutionCancelPrepared($sStartError)
+		RunControlReportStartOutcome(False, $sStartError)
+		btnStop()
+		Return False
+	EndIf
+	RunControlReportStartOutcome(True, RunExecutionMessage())
 	CreaTableDB()
 
 	; Initial ObjEvents for the Autoit objects errors
@@ -195,6 +223,7 @@ Func BotStop()
 	$g_bBotPaused = False
 	$g_bTogglePauseAllowed = True
 	$g_bRestart = False
+	RunExecutionComplete("stopped")
 
 	;WinSetState($g_hFrmBotBottom, "", @SW_DISABLE)
 	Local $aCtrlState
