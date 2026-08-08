@@ -557,9 +557,9 @@ Func FinalInitialization(Const $sAI)
 	; check for VC2010, .NET software and MyBot Files and Folders
 	Local $bCheckPrerequisitesOK = CheckPrerequisites(True)
 	If $bCheckPrerequisitesOK Then
-		MBRFunc(True) ; start MyBot.run.dll, after this point .net is initialized and threads popup all the time
-		setAndroidPID() ; set Android PID
-		SetBotGuiPID() ; set GUI PID
+		; Opening the file is bounded; its first exported call starts the CLR and is deferred to BotStart.
+		MBRFunc(True, False)
+		SetDebugLog("Managed engine initialization deferred until Start.")
 	EndIf
 
 	If $g_bFoundRunningAndroid Then

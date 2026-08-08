@@ -13,7 +13,9 @@
 ; Example .......: No
 ; ===============================================================================================================================
 
-Func MBRFunc($Start = True)
+Global $g_bLibMyBotInitialized = False
+
+Func MBRFunc($Start = True, $bInitialize = True)
 	Switch $Start
 		Case True
 			RemoveZoneIdentifiers()
@@ -23,14 +25,29 @@ Func MBRFunc($Start = True)
 				Return False
 			EndIf
 			SetDebugLog($g_sMBRLib & " opened.")
-			; set processing pool size immediately
-			setProcessingPoolSize($g_iGlobalThreads)
-			setMaxDegreeOfParallelism($g_iThreads)
+			If $bInitialize Then Return MBRFuncInitialize()
+			Return True
 		Case False
 			DllClose($g_hLibMyBot)
+			$g_bLibMyBotInitialized = False
 			SetDebugLog($g_sMBRLib & " closed.")
 	EndSwitch
 EndFunc   ;==>MBRFunc
+
+; The mixed-mode DLL starts the CLR on its first exported call. Keep that unbounded work out of
+; GUI startup: on affected Windows machines an antivirus/filter-driver stall would otherwise leave
+; both the splash and main window permanently unresponsive. BotStart calls this explicit boundary.
+Func MBRFuncInitialize()
+	If $g_bLibMyBotInitialized Then Return True
+	If $g_hLibMyBot = 0 Or $g_hLibMyBot = -1 Then Return False
+
+	setProcessingPoolSize($g_iGlobalThreads)
+	setMaxDegreeOfParallelism($g_iThreads)
+	setAndroidPID()
+	SetBotGuiPID()
+	$g_bLibMyBotInitialized = True
+	Return True
+EndFunc   ;==>MBRFuncInitialize
 
 ; Private DllCall MyBot.run.dll function call
 Func _DllCallMyBot($sFunc, $sType1 = Default, $vParam1 = Default, $sType2 = Default, $vParam2 = Default, $sType3 = Default, $vParam3 = Default, $sType4 = Default, $vParam4 = Default, $sType5 = Default, $vParam5 = Default _

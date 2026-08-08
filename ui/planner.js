@@ -9,8 +9,9 @@ const optionOf = (s, v) => (s.options || []).find(o => o.value === v);
 // Multi-select values travel as arrays; everything else is a scalar. Normalising here means the
 // comparison, the chips, and the POST body all agree on the shape.
 const asList = v => Array.isArray(v) ? v : (v === '' || v == null ? [] : [v]);
+const defaultFor = s => s.type === 'multi-select' ? asList(s.default) : s.default;
 const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
-const isChanged = s => !same(PLAN[s.id], s.default);
+const isChanged = s => !same(PLAN[s.id], defaultFor(s));
 const isUnsaved = s => !same(PLAN[s.id], SAVED[s.id]);
 
 async function boot() {
@@ -103,7 +104,7 @@ function renderRow(setting) {
   const revert = document.createElement('button');
   revert.className = 'revert'; revert.type = 'button';
   revert.textContent = 'revert'; revert.title = 'Put this setting back to its default';
-  revert.onclick = () => { PLAN[setting.id] = setting.default; refresh(setting); };
+  revert.onclick = () => { PLAN[setting.id] = structuredClone(defaultFor(setting)); refresh(setting); };
   label.append(revert);
 
   const note = document.createElement('span');
@@ -220,7 +221,7 @@ function makeControl(setting) {
     if (v.minimum !== undefined) c.min = v.minimum;
     if (v.maximum !== undefined) c.max = v.maximum;
     if (v.step !== undefined) c.step = v.step;
-    c.value = PLAN[setting.id] ?? setting.default ?? 0; return c;
+    c.value = PLAN[setting.id] ?? defaultFor(setting) ?? 0; return c;
   }
   if ((setting.options || []).length) {
     const c = document.createElement('select');
@@ -230,7 +231,7 @@ function makeControl(setting) {
       opt.textContent = o.label + (o.recommended ? '  (recommended)' : '');
       c.append(opt);
     }
-    c.value = PLAN[setting.id] ?? setting.default; return c;
+    c.value = PLAN[setting.id] ?? defaultFor(setting); return c;
   }
   const c = document.createElement('input'); c.type = 'text';
   c.value = PLAN[setting.id] ?? '';
@@ -318,7 +319,7 @@ $('apply').onclick = async () => {
 };
 
 $('reset').onclick = () => {
-  for (const s of allSettings()) PLAN[s.id] = s.default;
+  for (const s of allSettings()) PLAN[s.id] = structuredClone(defaultFor(s));
   drawNav(); drawPanel(); updateBanner(); updateDirty();
   $('status').className = 'status';
   $('status').textContent = 'Reset to defaults — press Apply to write it.';

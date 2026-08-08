@@ -16,6 +16,11 @@
 Func BotStart($bAutostartDelay = 0)
 	FuncEnter(BotStart)
 
+	If Not MBRFuncInitialize() Then
+		SetLog("Unable to initialize " & $g_sMBRLib & ".", $COLOR_ERROR)
+		Return False
+	EndIf
+
 	If Not $g_bSearchMode Then
 		If $g_hLogFile = 0 Then CreateLogFile() ; only create new log file when doesn't exist yet
 		CreateAttackLogFile()
