@@ -55,6 +55,9 @@ Func _OpenBlueStacks5($bRestart = False)
 			SetError(1, 1, -1)
 			Return False
 		EndIf
+		; Match the LDPlayer and MuMu adapters: yield to the message/control pump and honor Stop.
+		; The inherited busy loop could pin a core and ignore a stop request for the full launch timeout.
+		If _Sleep(500) Then Return False
 		WinGetAndroidHandle()
 	WEnd
 

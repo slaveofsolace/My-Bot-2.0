@@ -18,7 +18,7 @@
 #AutoIt3Wrapper_Change2CUI=y
 ;#pragma compile(Console, true)
 #include "MyBot.run.version.au3"
-#pragma compile(ProductName, My Bot Watchdog)
+#pragma compile(ProductName, My Bot 2.0 Watchdog)
 #pragma compile(Out, MyBot.run.Watchdog.exe) ; Required
 
 ; Enforce variable declarations
@@ -115,7 +115,7 @@ Func UpdateManagedMyBot($aBotDetails)
 	Return True
 EndFunc   ;==>UpdateManagedMyBot
 
-Global $g_sBotTitle = "My Bot Watchdog " & $g_sBotVersion ;~ Don't use any non file name supported characters like \ / : * ? " < > |
+Global $g_sBotTitle = $g_sProductName & " Watchdog " & $g_sProductVersion ;~ Don't use any non file name supported characters like \ / : * ? " < > |
 
 Opt("WinTitleMatchMode", 3) ; Window Title exact match mode
 

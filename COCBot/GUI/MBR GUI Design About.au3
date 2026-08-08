@@ -24,54 +24,54 @@ Func CreateAboutTab()
 	Local $sText = ""
 	Local $x = 18, $y = 10 + $_GUI_MAIN_TOP
 
-	$sText = "My Bot is brought to you by a worldwide team of open source" & @CRLF & _
-			"programmers and a vibrant community of forum members!"
+	$sText = "My Bot 2.0 pairs a native automation engine with a local" & @CRLF & _
+			"browser control center. Your run data stays on this PC."
 	GUICtrlCreateLabel($sText, $x + 8, $y - 10, 400, 35, $SS_CENTER)
 	GUICtrlSetFont(-1, 10, $FW_BOLD, Default, "Arial")
 	GUICtrlSetColor(-1, $COLOR_NAVY)
 
 	$y += 30
-	$sText = "Please visit our web forums:"
-	GUICtrlCreateLabel($sText, $x + 44, $y, 180, 30, $SS_CENTER)
+	$sText = "Project source:"
+	GUICtrlCreateLabel($sText, $x - 5, $y, 105, 30, $SS_CENTER)
 	GUICtrlSetFont(-1, 9.5, $FW_BOLD, Default, "Arial")
-	$g_hLblMyBotURL = GUICtrlCreateLabel("https://mybot.run/forums", $x + 223, $y, 150, 20)
+	$g_hLblMyBotURL = GUICtrlCreateLabel("https://github.com/slaveofsolace/My-Bot-2.0", $x + 105, $y, 310, 20)
 	GUICtrlSetCursor(-1, 0)
 	GUICtrlSetFont(-1, 9.5, $FW_BOLD, Default, "Arial")
 	GUICtrlSetColor(-1, $COLOR_INFO)
 
 	$y += 22
-	GUICtrlCreateLabel("Credits belong to following programmers for donating their time:", $x - 5, $y, 420, 20)
+	GUICtrlCreateLabel("Product and engine information", $x - 5, $y, 420, 20)
 	GUICtrlSetFont(-1, 10, $FW_BOLD, Default, "Arial")
 
 	$y += 30
-	$sText = "Active developers: "
+	$sText = "Product edition: "
 	GUICtrlCreateLabel($sText, $x - 5, $y, 410, 20, BitOR($WS_VISIBLE, $ES_AUTOVSCROLL, $SS_LEFT), 0)
 	GUICtrlSetFont(-1, 9.5, $FW_BOLD, Default, "Arial")
 	GUICtrlSetColor(-1, $COLOR_NAVY)
-	$sText = "HarchH, Moebius14"
+	$sText = $g_sProductName & " " & $g_sProductVersion & " - local control center"
 	GUICtrlCreateLabel($sText, $x + 5, $y + 15, 410, 50, BitOR($WS_VISIBLE, $ES_AUTOVSCROLL, $SS_LEFT), 0)
 	GUICtrlSetFont(-1, 9, $FW_MEDIUM, Default, "Arial")
 
 	$y += 35
-	$sText = "Special participation at v8.1: "
+	$sText = "Engine compatibility: "
 	GUICtrlCreateLabel($sText, $x - 5, $y, 410, 20, BitOR($WS_VISIBLE, $ES_AUTOVSCROLL, $SS_LEFT), 0)
 	GUICtrlSetFont(-1, 9.5, $FW_BOLD, Default, "Arial")
 	GUICtrlSetColor(-1, $COLOR_NAVY)
-	$sText = "MikeD, Anondad, MonkeyHunter and of course Beta/Alpha Tester Teams"
+	$sText = "MyBot.run " & $g_sEngineVersion & " automation core"
 	GUICtrlCreateLabel($sText, $x + 5, $y + 15, 410, 50, BitOR($WS_VISIBLE, $ES_AUTOVSCROLL, $SS_LEFT), 0)
 	GUICtrlSetFont(-1, 9, $FW_MEDIUM, Default, "Arial")
 
 	$y += 35
-	$sText = "Inactive developers: "
+	$sText = "Control architecture: "
 	GUICtrlCreateLabel($sText, $x - 5, $y, 410, 20, BitOR($WS_VISIBLE, $ES_AUTOVSCROLL, $SS_LEFT), 0)
 	GUICtrlSetFont(-1, 9.5, $FW_BOLD, Default, "Arial")
 	GUICtrlSetColor(-1, $COLOR_NAVY)
-	$sText = "GrumpyHog, Hervidero, TFK Nazgul, Xbebenk"
+	$sText = "Native engine in the background; browser console for run control and planning"
 	GUICtrlCreateLabel($sText, $x + 5, $y + 15, 410, 50, BitOR($WS_VISIBLE, $ES_AUTOVSCROLL, $SS_LEFT), 0)
 	GUICtrlSetFont(-1, 9, $FW_MEDIUM, Default, "Arial")
 
 	$y += 50
-	$sText = "Retired developers: "
+	$sText = "Upstream contributors: "
 	GUICtrlCreateLabel($sText, $x - 5, $y, 410, 20, BitOR($WS_VISIBLE, $ES_AUTOVSCROLL, $SS_LEFT), 0)
 	GUICtrlSetFont(-1, 9.5, $FW_BOLD, Default, "Arial")
 	GUICtrlSetColor(-1, $COLOR_NAVY)
@@ -85,12 +85,12 @@ Func CreateAboutTab()
 ;	GUICtrlSetFont(-1, 9, $FW_MEDIUM, Default, "Arial")
 ;
 ;	$y += 40
-	$sText = "The latest release of 'My Bot' can be found at:"
+	$sText = "Current source and releases:"
 	GUICtrlCreateLabel($sText, $x - 5, $y, 400, 15, BitOR($WS_VISIBLE, $ES_AUTOVSCROLL, $SS_LEFT), 0)
 	GUICtrlSetFont(-1, 10, $FW_BOLD, Default, "Arial")
 
 	$y += 18
-	$g_hLblForumURL = GUICtrlCreateLabel("https://mybot.run/forums/index.php?/forum/4-official-releases/", $x + 25, $y, 450, 20)
+	$g_hLblForumURL = GUICtrlCreateLabel("https://github.com/slaveofsolace/My-Bot-2.0", $x + 25, $y, 390, 20)
 	GUICtrlSetCursor(-1, 0)
 	GUICtrlSetFont(-1, 9.5, $FW_BOLD, Default, "Arial")
 	GUICtrlSetColor(-1, $COLOR_INFO)
@@ -100,7 +100,7 @@ Func CreateAboutTab()
 			"This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even " & @CRLF & _
 			"the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General " & @CRLF & _
 			"Public License for more details. The license can be found in the main code folder location." & @CRLF & _
-			"Copyright (C) 2015-2025 MyBot.run"
+			"Copyright (C) My Bot 2.0 contributors and upstream MyBot.run contributors"
 	GUICtrlCreateLabel($sText, $x + 1, $y, 415, 56, BitOR($WS_VISIBLE, $ES_AUTOVSCROLL, $SS_LEFT, $ES_CENTER), 0)
 	GUICtrlSetColor(-1, 0x000053)
 	GUICtrlSetFont(-1, 6.5, $FW_BOLD, Default, "Arial", $CLEARTYPE_QUALITY)

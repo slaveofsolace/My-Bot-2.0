@@ -20,7 +20,7 @@
 ;/SV=0
 ;#pragma compile(Console, true)
 #include "MyBot.run.version.au3"
-#pragma compile(ProductName, My Bot Mini Gui)
+#pragma compile(ProductName, My Bot 2.0 Mini Console)
 #pragma compile(Out, MyBot.run.MiniGui.exe) ; Required
 
 ; Enforce variable declarations
@@ -75,7 +75,7 @@ Global $hTimeoutAutoClose = 0 ; Timer Handle for $iTimeoutAutoClose
 Global $g_iMainLoopSleep = 50 ;
 ;Global $g_bBotLaunchOption_NoBotSlot = True
 
-Global $g_sBotTitle = "My Bot Mini " & $g_sBotVersion & " " ;~ Don't use any non file name supported characters like \ / : * ? " < > |
+Global $g_sBotTitle = $g_sProductName & " Mini " & $g_sProductVersion & " " ;~ Don't use any non file name supported characters like \ / : * ? " < > |
 Global $g_hFrmBot = 0
 Global $g_hFrmBotBackend = 0
 Global $g_bBotLaunched = False
@@ -765,8 +765,7 @@ Func GUIControl_WM_COMMAND($hWind, $iMsg, $wParam, $lParam)
 			; Clean up resources
 			BotCloseRequest()
 		Case $g_hFrmBot_URL_PIC, $g_hFrmBot_URL_PIC2
-			;OpenURL_Label($g_hLblMyBotURL)
-			OpenURL_Label("https://mybot.run/forums")
+			ShellExecute("http://127.0.0.1:8765/")
 		Case $g_hLblDonate
 			; Donate URL is not in text nor tooltip
 			ShellExecute("https://mybot.run/forums/index.php?/donate/make-donation/")
@@ -986,10 +985,11 @@ Func tiHide()
 EndFunc   ;==>tiHide
 
 Func tiAbout()
-	Local $sMsg = "Clash of Clans Bot" & @CRLF & @CRLF & _
-			"Version: " & $g_sBotVersion & @CRLF & _
+	Local $sMsg = $g_sProductName & " local automation control center" & @CRLF & @CRLF & _
+			"Product version: " & $g_sProductVersion & @CRLF & _
+			"Engine compatibility: MyBot.run " & $g_sEngineVersion & @CRLF & _
 			"Released under the GNU GPLv3 license." & @CRLF & _
-			"Visit www.MyBot.run"
+			"Source: github.com/slaveofsolace/My-Bot-2.0"
 	MsgBox(64 + $MB_APPLMODAL + $MB_TOPMOST, $g_sBotTitle, $sMsg, 0, $g_hFrmBot)
 EndFunc   ;==>tiAbout
 

@@ -1,4 +1,5 @@
 let META = null, PLAN = {}, SAVED = {}, ACTIVE = null, FILTER = '';
+let CONTROL = { connected: false, state: 'offline' }, CONTROL_PENDING = null, CONTROL_NOTICE = '';
 const $ = id => document.getElementById(id);
 
 const settingsOf = s => s.settings || [];
@@ -19,12 +20,12 @@ async function boot() {
   META = res.metadata;
   PLAN = await fetch('/api/plan').then(r => r.json());
   SAVED = structuredClone(PLAN);
-  $('title').textContent = META.title || 'Run Planner';
+  $('plannerTitle').textContent = META.title || 'Run Planner';
   $('lede').textContent = META.description || '';
 
   const fromHash = location.hash.replace('#', '');
   ACTIVE = (META.sections || []).some(s => s.id === fromHash) ? fromHash : (META.sections || [])[0]?.id;
-  drawNav(); drawPanel(); updateBanner(); updateDirty(); pollEvents();
+  drawNav(); drawPanel(); updateBanner(); updateDirty(); pollEvents(); pollControl();
 
   window.addEventListener('hashchange', () => {
     const id = location.hash.replace('#', '');
@@ -284,6 +285,81 @@ function updateDirty() {
     : (changed ? `${changed} setting${changed === 1 ? '' : 's'} differ from default` : 'Matches defaults');
 }
 
+function readableState(state) {
+  return ({ offline: 'Engine offline', idle: 'Ready', starting: 'Starting', running: 'Run active',
+            paused: 'Run paused', stopping: 'Stopping', closing: 'Closing', error: 'Status error' })[state]
+    || String(state || 'Unknown');
+}
+
+function renderControl() {
+  const connected = !!CONTROL.connected;
+  const state = connected ? (CONTROL.state || 'idle') : 'offline';
+  $('engineLamp').dataset.state = state;
+  $('engineState').textContent = readableState(state);
+  $('engineMessage').textContent = CONTROL.message || (connected ? 'Native engine connected.' : 'Launch My Bot 2.0 to enable run controls.');
+  $('engineProfile').textContent = CONTROL.profile || 'Default';
+  $('engineEmulator').textContent = [CONTROL.emulator, CONTROL.instance].filter(Boolean).join(' / ') || 'Not selected';
+  $('engineVersion').textContent = CONTROL.engine_version ? `MyBot.run ${CONTROL.engine_version}` : 'Not connected';
+
+  const busy = !!CONTROL_PENDING;
+  $('controlStart').disabled = busy || !connected || state !== 'idle';
+  $('controlPause').disabled = busy || !connected || !['running', 'paused'].includes(state);
+  $('controlStop').disabled = busy || !connected || !['starting', 'running', 'paused'].includes(state);
+  $('controlPause').textContent = state === 'paused' ? 'Resume' : 'Pause';
+
+  if (CONTROL_PENDING) {
+    $('controlAck').textContent = `${CONTROL_PENDING.action} command queued; waiting for native acknowledgement...`;
+    $('controlAck').className = 'control-ack pending';
+  } else if (CONTROL_NOTICE) {
+    $('controlAck').textContent = CONTROL_NOTICE;
+    $('controlAck').className = 'control-ack notice';
+  } else {
+    $('controlAck').textContent = connected
+      ? `Heartbeat ${Math.round(Number(CONTROL.age_seconds || 0))}s ago${CONTROL.bot_pid ? ` / PID ${CONTROL.bot_pid}` : ''}.`
+      : 'Commands stay disabled until a fresh native heartbeat is present.';
+    $('controlAck').className = 'control-ack';
+  }
+}
+
+async function pollControl() {
+  try {
+    CONTROL = await fetch('/api/control/status').then(r => r.json());
+    if (CONTROL_PENDING && CONTROL_PENDING.request_id
+        && CONTROL.last_command_id === CONTROL_PENDING.request_id) {
+      const outcome = CONTROL.last_outcome || 'acknowledged';
+      CONTROL_NOTICE = `${outcome}: ${CONTROL.last_command_message || CONTROL.message || `${CONTROL_PENDING.action} command processed`}`;
+      CONTROL_PENDING = null;
+    }
+  } catch {
+    CONTROL = { connected: false, state: 'offline', message: 'Control service is unreachable.' };
+  }
+  renderControl();
+  setTimeout(pollControl, 1000);
+}
+
+async function sendControl(action) {
+  if (CONTROL_PENDING) return;
+  CONTROL_NOTICE = '';
+  CONTROL_PENDING = { action, request_id: null };
+  renderControl();
+  try {
+    const response = await fetch('/api/control/command', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action })
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.ok) {
+      CONTROL_NOTICE = (payload.problems || ['Command was refused.']).join('; ');
+      CONTROL_PENDING = null;
+    } else {
+      CONTROL_PENDING = { action, request_id: payload.request_id };
+    }
+  } catch {
+    CONTROL_NOTICE = 'Could not reach the local control service.';
+    CONTROL_PENDING = null;
+  }
+  renderControl();
+}
+
 async function pollEvents() {
   try {
     const { events } = await fetch('/api/events').then(r => r.json());
@@ -324,6 +400,10 @@ $('reset').onclick = () => {
   $('status').className = 'status';
   $('status').textContent = 'Reset to defaults — press Apply to write it.';
 };
+
+$('controlStart').onclick = () => sendControl('start');
+$('controlPause').onclick = () => sendControl(CONTROL.state === 'paused' ? 'resume' : 'pause');
+$('controlStop').onclick = () => sendControl('stop');
 
 function escapeHtml(s) {
   return String(s ?? '').replace(/[&<>"']/g, c =>

@@ -1,22 +1,63 @@
 <!doctype html>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Run Planner</title>
-<link rel="stylesheet" href="/planner.css">
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>My Bot 2.0 Control Center</title>
+  <link rel="stylesheet" href="/planner.css">
+</head>
+<body>
+<a class="skip-nav" href="#main">Skip to run settings</a>
 
-<header>
-  <h1 id="title">Run Planner</h1>
-  <span class="sub" id="lede"></span>
+<header class="topbar">
+  <div class="brand" aria-label="My Bot 2.0">
+    <span class="brand-index" aria-hidden="true">2.0</span>
+    <div>
+      <span class="kicker">LOCAL AUTOMATION CONTROL</span>
+      <h1>My Bot 2.0</h1>
+      <span class="brand-sub">Native engine / browser console</span>
+    </div>
+  </div>
   <div class="search">
-    <svg viewBox="0 0 16 16"><path d="M11.7 10.3a5 5 0 1 0-1.4 1.4l3 3a1 1 0 0 0 1.4-1.4zM7 10.5A3.5 3.5 0 1 1 10.5 7 3.5 3.5 0 0 1 7 10.5z"/></svg>
-    <input id="filter" type="search" placeholder="Filter settings…" aria-label="Filter settings">
+    <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M11.7 10.3a5 5 0 1 0-1.4 1.4l3 3a1 1 0 0 0 1.4-1.4zM7 10.5A3.5 3.5 0 1 1 10.5 7 3.5 3.5 0 0 1 7 10.5z"/></svg>
+    <input id="filter" type="search" placeholder="Filter settings..." aria-label="Filter settings">
   </div>
 </header>
-<p class="banner" id="banner"><span class="mark">•</span><span id="bannerText">Loading…</span></p>
 
-<main>
+<section class="command-deck" aria-label="Native engine controls">
+  <div class="engine-identity">
+    <span class="status-lamp" id="engineLamp" aria-hidden="true"></span>
+    <div>
+      <span class="deck-label">NATIVE ENGINE</span>
+      <strong id="engineState">Connecting</strong>
+      <span id="engineMessage">Waiting for the local heartbeat.</span>
+    </div>
+  </div>
+  <dl class="engine-facts">
+    <div><dt>Profile</dt><dd id="engineProfile">&mdash;</dd></div>
+    <div><dt>Emulator</dt><dd id="engineEmulator">&mdash;</dd></div>
+    <div><dt>Engine</dt><dd id="engineVersion">&mdash;</dd></div>
+  </dl>
+  <div class="engine-actions">
+    <button class="engine-button start" id="controlStart" type="button">Start run</button>
+    <button class="engine-button" id="controlPause" type="button">Pause</button>
+    <button class="engine-button stop" id="controlStop" type="button">Stop</button>
+    <span class="control-ack" id="controlAck" aria-live="polite">Commands are acknowledged by the native engine.</span>
+  </div>
+</section>
+
+<div class="workspace-title">
+  <div>
+    <span class="deck-label">RUN CONFIGURATION</span>
+    <h2 id="plannerTitle">Run Planner</h2>
+  </div>
+  <p id="lede"></p>
+</div>
+<p class="banner" id="banner"><span class="mark">&bull;</span><span id="bannerText">Loading...</span></p>
+
+<main id="main">
   <nav id="nav" aria-label="Sections"></nav>
-  <section id="panel"></section>
+  <section id="panel" aria-label="Run settings"></section>
   <aside>
     <h3>About the selected control</h3>
     <div class="detail" id="detail">Focus a control to see what it does and what it still needs.</div>
@@ -31,7 +72,9 @@
   <button class="primary" id="apply">Apply plan</button>
   <button class="ghost" id="reset">Reset to defaults</button>
   <span class="dirty" id="dirty"></span>
-  <span class="status" id="status"></span>
+  <span class="status" id="status" aria-live="polite"></span>
 </div>
 
 <script src="/planner.js" defer></script>
+</body>
+</html>

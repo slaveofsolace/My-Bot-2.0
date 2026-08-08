@@ -49,6 +49,9 @@ Func _Sleep($iDelay, $iSleep = True, $CheckRunState = True, $SleepWhenPaused = T
 	$b_Sleep_Active = True
 
 	debugGdiHandle("_Sleep")
+	; The full GUI registers the loopback control bridge. Mini GUI/Watchdog builds share
+	; this sleep helper but intentionally do not include the main-only bridge.
+	If IsFunc("RunControlPoll") Then Call("RunControlPoll")
 	CheckBotRequests() ; check if bot window should be moved, minized etc.
 
 	If SetCriticalMessageProcessing() = False Then

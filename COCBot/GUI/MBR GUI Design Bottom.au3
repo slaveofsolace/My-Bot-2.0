@@ -45,7 +45,7 @@ Func CreateBottomPanel()
 ;~ Buttons
 	Local $y_bottom = 0 ; 515
 	Local $x = 10, $y = $y_bottom + 10
-	GUICtrlCreateGroup("https://mybot.run " & GetTranslatedFileIni("MBR GUI Design Bottom", "Group_01", "- freeware bot -"), $x - 5, $y - 10, 190, 108)
+	GUICtrlCreateGroup("MY BOT 2.0  |  LOCAL CONTROL", $x - 5, $y - 10, 190, 108)
 	$g_hBtnStart = GUICtrlCreateButton(GetTranslatedFileIni("MBR GUI Design Bottom", "BtnStart", "Start Bot"), $x, $y + 2 + 5, 90, 40 - 5)
 	_GUICtrlSetTip(-1, GetTranslatedFileIni("MBR GUI Design Bottom", "BtnStart_Info_01", "Use this to START the bot."))
 	If $g_bBtnColor Then GUICtrlSetBkColor(-1, 0x5CAD85)
@@ -88,7 +88,7 @@ Func CreateBottomPanel()
 	GUICtrlSetOnEvent(-1, "chkBackground")
 	GUICtrlSetState(-1, (($g_bAndroidAdbScreencap = True) ? ($GUI_CHECKED) : ($GUI_UNCHECKED)))
 
-	$g_hLblVersion = GUICtrlCreateLabel($g_sBotVersion, $x + 120, $y + 77, 60, 17, $SS_LEFT)      ;
+	$g_hLblVersion = GUICtrlCreateLabel($g_sProductVersion, $x + 120, $y + 77, 60, 17, $SS_LEFT)      ;
 	GUICtrlSetColor(-1, $COLOR_GRAY)
 
 

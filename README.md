@@ -4,8 +4,8 @@
 
 **A Clash of Clans automation bot for Windows**
 
-Built on the MyBot.run v8.2.0 source tree, with a rebuilt run engine
-and a planner that actually explains itself.
+My Bot 2.0 v2.0.0: a local browser control center backed by the
+MyBot.run v8.2.0 native automation engine.
 
 [![CI](https://github.com/slaveofsolace/My-Bot-2.0/actions/workflows/ci.yml/badge.svg)](https://github.com/slaveofsolace/My-Bot-2.0/actions/workflows/ci.yml)
 [![Windows AutoIt](https://github.com/slaveofsolace/My-Bot-2.0/actions/workflows/windows-autoit.yml/badge.svg)](https://github.com/slaveofsolace/My-Bot-2.0/actions/workflows/windows-autoit.yml)

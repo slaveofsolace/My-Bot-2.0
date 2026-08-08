@@ -176,6 +176,8 @@ __pycache__/
 
 # Run Planner UI runtime files (local to each machine)
 config/run-plan.local.json
+config/control-command.local.json
+config/control-status.local.json
 logs/run-events.jsonl
 
 # Run Planner interface screenshots are documentation, not build output.

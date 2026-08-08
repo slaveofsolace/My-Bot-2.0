@@ -20,7 +20,7 @@
 #Au3Stripper_Parameters=/rsln /MI=3
 
 #include "MyBot.run.version.au3"
-#pragma compile(ProductName, My Bot)
+#pragma compile(ProductName, My Bot 2.0)
 #pragma compile(Out, MyBot.run.exe) ; Required
 
 ; Enforce variable declarations
@@ -46,6 +46,7 @@ Global $g_hFrmBot = 0 ; The main GUI window
 ; Current client adapters and run orchestration. Main build only: the Mini GUI and Watchdog
 ; entry points do not include the Android core these adapters call into.
 #include "COCBot\functions\Other\CurrentClientCompat.au3"
+#include "COCBot\functions\Run\RunControlBridge.au3"
 ; MBR References.au3 must be last include
 #include "COCBot\MBR References.au3"
 
@@ -69,7 +70,7 @@ InitializeConfiguredEmulatorSelection()
 MainLoop(CheckPrerequisites())
 
 Func UpdateBotTitle()
-	Local $sTitle = "My Bot " & $g_sBotVersion
+	Local $sTitle = $g_sProductName & " " & $g_sProductVersion
 	Local $sConsoleTitle ; Console title has also Android Emulator Name
 	If $g_sBotTitle = "" Then
 		$g_sBotTitle = $sTitle
@@ -618,6 +619,14 @@ Func FinalInitialization(Const $sAI)
 	DisableProcessWindowsGhosting()
 
 	UpdateMainGUI()
+	RunControlInitialize()
+	Local $sControlCenterError = ""
+	If _RunPlannerStartService($sControlCenterError) Then
+		SetLog("My Bot 2.0 control center ready at " & $RUN_PLANNER_URL, $COLOR_SUCCESS)
+		ShellExecute($RUN_PLANNER_URL)
+	Else
+		SetLog("Control center unavailable: " & $sControlCenterError, $COLOR_WARNING)
+	EndIf
 
 EndFunc   ;==>FinalInitialization
 

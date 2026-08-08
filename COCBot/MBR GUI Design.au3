@@ -132,7 +132,7 @@ Func CreateMainGUI()
 	UpdateBotTitle()
 
 	; group multiple bot windows using _WindowAppId
-	_WindowAppId($g_hFrmBot, "MyBot.run")
+	_WindowAppId($g_hFrmBot, "MyBot.2.0")
 
 	; Create tray icon menu
 	$g_hTiShow = TrayCreateItem(GetTranslatedFileIni("MBR GUI Design - Loading", "StatusBar_Item_01", "Show bot"))
@@ -247,9 +247,12 @@ Func CreateMainGUIControls($bGuiModeUpdate = False)
 			GUICtrlSetBkColor(-1, 0xFF4040)
 			GUICtrlSetColor(-1, 0xF8F8F8)
 
-			$g_hFrmBotLogoUrlSmall = GUICreate("My Bot URL", 290, 13, 0, 0, BitOR($WS_CHILD, $WS_TABSTOP), BitOR($WS_EX_TOOLWINDOW, $WS_EX_NOACTIVATE, ($g_bAndroidShieldPreWin8 ? 0 : $WS_EX_LAYERED)), $g_hFrmBot)
+			$g_hFrmBotLogoUrlSmall = GUICreate("My Bot 2.0", 290, 13, 0, 0, BitOR($WS_CHILD, $WS_TABSTOP), BitOR($WS_EX_TOOLWINDOW, $WS_EX_NOACTIVATE, ($g_bAndroidShieldPreWin8 ? 0 : $WS_EX_LAYERED)), $g_hFrmBot)
 			;WinSetTrans($g_hFrmBotLogoUrlSmall, "", 254) ; trick to hide buttons from Android Screen that is not always refreshing
-			$g_hFrmBot_URL_PIC2 = _GUICtrlCreatePic($g_sLogoUrlSmallPath, 0, 0, 290, 13)
+			$g_hFrmBot_URL_PIC2 = GUICtrlCreateLabel("MY BOT 2.0  |  LOCAL CONTROL", 0, 0, 290, 13, $SS_CENTER)
+			GUICtrlSetBkColor(-1, 0x16191D)
+			GUICtrlSetColor(-1, 0xF0A83A)
+			GUICtrlSetFont(-1, 7, 700, 0, "Segoe UI")
 			GUICtrlSetCursor(-1, 0)
 
 			GUISwitch($g_hFrmBotEx)
@@ -259,10 +262,26 @@ Func CreateMainGUIControls($bGuiModeUpdate = False)
 			GUICtrlSetBkColor(-1, $COLOR_WHITE)
 		EndIf
 
-		$g_hFrmBot_MAIN_PIC = _GUICtrlCreatePic($g_sLogoPath, 0, $_GUI_MAIN_TOP, $_GUI_MAIN_WIDTH, 67)
+		$g_hFrmBot_MAIN_PIC = GUICtrlCreateLabel("", 0, $_GUI_MAIN_TOP, $_GUI_MAIN_WIDTH, 67)
+		GUICtrlSetBkColor(-1, 0x16191D)
 		GUICtrlSetOnEvent(-1, "BotMoveRequest")
+		GUICtrlCreateLabel("MY BOT", 22, $_GUI_MAIN_TOP + 8, 158, 38)
+		GUICtrlSetBkColor(-1, $GUI_BKCOLOR_TRANSPARENT)
+		GUICtrlSetColor(-1, 0xF2F0E9)
+		GUICtrlSetFont(-1, 24, 800, 0, "Segoe UI")
+		GUICtrlCreateLabel("2.0", 178, $_GUI_MAIN_TOP + 8, 76, 38)
+		GUICtrlSetBkColor(-1, 0xF0A83A)
+		GUICtrlSetColor(-1, 0x191108)
+		GUICtrlSetFont(-1, 21, 800, 0, "Segoe UI")
+		GUICtrlCreateLabel("LOCAL AUTOMATION CONTROL CENTER", 278, $_GUI_MAIN_TOP + 18, 170, 28, $SS_RIGHT)
+		GUICtrlSetBkColor(-1, $GUI_BKCOLOR_TRANSPARENT)
+		GUICtrlSetColor(-1, 0xA8AFB4)
+		GUICtrlSetFont(-1, 8, 600, 0, "Segoe UI")
 
-		$g_hFrmBot_URL_PIC = _GUICtrlCreatePic($g_sLogoUrlPath, 0, $_GUI_MAIN_TOP + 67, $_GUI_MAIN_WIDTH, 13)
+		$g_hFrmBot_URL_PIC = GUICtrlCreateLabel("OPEN BROWSER CONTROL CENTER", 0, $_GUI_MAIN_TOP + 67, $_GUI_MAIN_WIDTH, 13, $SS_CENTER)
+		GUICtrlSetBkColor(-1, 0xF0A83A)
+		GUICtrlSetColor(-1, 0x191108)
+		GUICtrlSetFont(-1, 7, 700, 0, "Segoe UI")
 		GUICtrlSetCursor(-1, 0)
 
 		GUISwitch($g_hFrmBot)

@@ -21,6 +21,7 @@ import json
 import os
 import tempfile
 import threading
+import uuid
 import webbrowser
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -37,9 +38,14 @@ UI_JS = ROOT / "ui/planner.js"
 
 PLAN_PATH = ROOT / "config/run-plan.local.json"
 EVENTS_PATH = ROOT / "logs/run-events.jsonl"
+CONTROL_COMMAND_PATH = ROOT / "config/control-command.local.json"
+CONTROL_STATUS_PATH = ROOT / "config/control-status.local.json"
 
 MAX_REQUEST_BYTES = 256 * 1024
 MAX_TAIL_BYTES = 512 * 1024
+CONTROL_STATUS_MAX_AGE_SECONDS = 4.0
+CONTROL_ACTIONS = {"start", "stop", "pause", "resume"}
+CONTROL_LOCK = threading.Lock()
 LOCAL_HOSTS = {"127.0.0.1", "localhost"}
 
 
@@ -199,6 +205,11 @@ def write_plan_atomic(plan: dict, path: Path | None = None) -> None:
         raise
 
 
+def write_json_atomic(document: dict, destination: Path) -> None:
+    """Use the same crash-safe write contract for commands and planner documents."""
+    write_plan_atomic(document, destination)
+
+
 def plan_status() -> dict:
     """Report what is on disk.
 
@@ -252,16 +263,81 @@ def tail_events(limit: int = 200) -> list[dict]:
     return events
 
 
+def control_status() -> dict:
+    """Return native state plus an explicit freshness verdict.
+
+    The native process owns the status file and refreshes it once per second. A syntactically valid
+    but old file must never make the browser claim that a dead engine is online.
+    """
+    offline = {
+        "connected": False,
+        "state": "offline",
+        "message": "Native engine is not connected",
+        "last_seen_at": None,
+        "age_seconds": None,
+    }
+    if not CONTROL_STATUS_PATH.exists():
+        return offline
+    try:
+        modified = CONTROL_STATUS_PATH.stat().st_mtime
+        age = max(0.0, datetime.now(timezone.utc).timestamp() - modified)
+        document = read_json(CONTROL_STATUS_PATH, None)
+    except OSError:
+        return offline
+    if not isinstance(document, dict):
+        return {**offline, "state": "error", "message": "Native status file is unreadable"}
+
+    document = dict(document)
+    document["last_seen_at"] = datetime.fromtimestamp(modified, timezone.utc).isoformat()
+    document["age_seconds"] = round(age, 2)
+    document["connected"] = age <= CONTROL_STATUS_MAX_AGE_SECONDS
+    if not document["connected"]:
+        document["state"] = "offline"
+        document["message"] = "Native engine heartbeat is stale"
+    return document
+
+
+def queue_control_command(action: str) -> tuple[dict, int]:
+    if action not in CONTROL_ACTIONS:
+        return {"ok": False, "problems": ["unsupported control action"]}, 400
+    status = control_status()
+    if not status.get("connected"):
+        return {"ok": False, "problems": ["native engine is offline"], "status": status}, 409
+
+    with CONTROL_LOCK:
+        if CONTROL_COMMAND_PATH.exists():
+            return {"ok": False, "problems": ["another control command is awaiting the native engine"]}, 409
+        request_id = uuid.uuid4().hex
+        command = {
+            "schema_version": 1,
+            "request_id": request_id,
+            "action": action,
+            "requested_at": datetime.now(timezone.utc).isoformat(),
+        }
+        try:
+            write_json_atomic(command, CONTROL_COMMAND_PATH)
+        except OSError:
+            return {"ok": False, "problems": ["the control command could not be queued atomically"]}, 500
+    return {
+        "ok": True,
+        "accepted": True,
+        "request_id": request_id,
+        "action": action,
+        "written": displayed_path(CONTROL_COMMAND_PATH),
+    }, 202
+
+
 def health_payload() -> dict:
     metadata = metadata_document()
     settings = [setting for section in metadata.get("sections", []) for setting in section.get("settings", [])]
     return {
         "ok": True,
-        "service": "run-planner",
-        "bridge": "autoit-plan-file-v1",
+        "service": "my-bot-control-center",
+        "bridge": "autoit-control-file-v1",
         "sections": len(metadata.get("sections", [])),
         "settings": len(settings),
         "plan": plan_status(),
+        "engine": control_status(),
     }
 
 
@@ -333,13 +409,15 @@ class Handler(BaseHTTPRequestHandler):
             self._json(read_plan())
         elif self.path == "/api/events":
             self._json({"events": tail_events()})
+        elif self.path == "/api/control/status":
+            self._json(control_status())
         else:
             self._send(404, b"not found", "text/plain; charset=utf-8")
 
     def do_POST(self):
         if not self._allow_local():
             return
-        if self.path != "/api/plan":
+        if self.path not in {"/api/plan", "/api/control/command"}:
             self._send(404, b"not found", "text/plain; charset=utf-8")
             return
         if self.headers.get_content_type() != "application/json":
@@ -359,7 +437,16 @@ class Handler(BaseHTTPRequestHandler):
             self._json({"ok": False, "problems": ["request was not valid JSON"]}, 400)
             return
         if not isinstance(submitted, dict):
-            self._json({"ok": False, "problems": ["expected an object of setting ids"]}, 400)
+            self._json({"ok": False, "problems": ["expected a JSON object"]}, 400)
+            return
+
+        if self.path == "/api/control/command":
+            action = submitted.get("action")
+            if not isinstance(action, str):
+                self._json({"ok": False, "problems": ["action must be a string"]}, 400)
+                return
+            payload, code = queue_control_command(action.strip().lower())
+            self._json(payload, code)
             return
 
         clean, adjustments, rejected = validate_plan(submitted)
@@ -438,11 +525,14 @@ def selftest() -> int:
         check(read_json(target, {}) == {"sentinel": True}, "interrupted replacement preserves the previous plan")
         check(not list(target.parent.glob(".*.tmp")), "failed writes leave no temporary plan behind")
 
-    global PLAN_PATH, EVENTS_PATH
+    global PLAN_PATH, EVENTS_PATH, CONTROL_COMMAND_PATH, CONTROL_STATUS_PATH
     original_plan, original_events = PLAN_PATH, EVENTS_PATH
+    original_control_command, original_control_status = CONTROL_COMMAND_PATH, CONTROL_STATUS_PATH
     with tempfile.TemporaryDirectory() as folder:
         PLAN_PATH = Path(folder) / "plan.json"
         EVENTS_PATH = Path(folder) / "events.jsonl"
+        CONTROL_COMMAND_PATH = Path(folder) / "control-command.json"
+        CONTROL_STATUS_PATH = Path(folder) / "control-status.json"
 
         # A corrupt plan file must not be reported as saved, because AutoIt would refuse it.
         PLAN_PATH.write_text("{ this is not json", encoding="utf-8")
@@ -457,7 +547,7 @@ def selftest() -> int:
             connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
             connection.request("GET", "/api/health")
             response = connection.getresponse()
-            check(response.status == 200 and json.loads(response.read())["bridge"] == "autoit-plan-file-v1", "health endpoint reports the AutoIt bridge")
+            check(response.status == 200 and json.loads(response.read())["bridge"] == "autoit-control-file-v1", "health endpoint reports the native control bridge")
 
             connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
             connection.request("GET", "/api/health")
@@ -502,11 +592,41 @@ def selftest() -> int:
             response = connection.getresponse()
             payload = json.loads(response.read())
             check(response.status == 200 and payload["ok"] and set(payload["plan"]) == setting_ids, "valid partial plan is normalized and written")
+
+            connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
+            body = json.dumps({"action": "start"}).encode()
+            connection.request("POST", "/api/control/command", body=body, headers={"Content-Type": "application/json"})
+            response = connection.getresponse()
+            payload = json.loads(response.read())
+            check(response.status == 409 and payload["ok"] is False, "control command is refused while native engine is offline")
+
+            write_json_atomic({"state": "idle", "message": "Native engine is ready", "bot_pid": 123}, CONTROL_STATUS_PATH)
+            connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
+            connection.request("GET", "/api/control/status")
+            response = connection.getresponse()
+            payload = json.loads(response.read())
+            check(response.status == 200 and payload["connected"] and payload["state"] == "idle", "fresh native heartbeat is reported online")
+
+            connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
+            body = json.dumps({"action": "start"}).encode()
+            connection.request("POST", "/api/control/command", body=body, headers={"Content-Type": "application/json"})
+            response = connection.getresponse()
+            payload = json.loads(response.read())
+            check(response.status == 202 and payload["accepted"] and CONTROL_COMMAND_PATH.exists(), "valid control command is queued atomically")
+
+            connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
+            connection.request("POST", "/api/control/command", body=body, headers={"Content-Type": "application/json"})
+            response = connection.getresponse()
+            check(response.status == 409, "a pending control command is never overwritten")
+
+            queued = read_json(CONTROL_COMMAND_PATH, {})
+            check(queued.get("action") == "start" and bool(queued.get("request_id")), "queued command carries action and request id")
         finally:
             server.shutdown()
             server.server_close()
             thread.join(timeout=3)
     PLAN_PATH, EVENTS_PATH = original_plan, original_events
+    CONTROL_COMMAND_PATH, CONTROL_STATUS_PATH = original_control_command, original_control_status
 
     print(f"\n{'selftest passed' if not failures else str(len(failures)) + ' check(s) failed'}")
     return 1 if failures else 0
@@ -530,9 +650,10 @@ def main() -> int:
 
     server = PlannerServer(("127.0.0.1", args.port), Handler)
     url = f"http://127.0.0.1:{args.port}"
-    print(f"Run Planner UI on {url}")
+    print(f"My Bot 2.0 Control Center on {url}")
     print(f"  plan file   {PLAN_PATH.relative_to(ROOT)}")
     print(f"  event feed  {EVENTS_PATH.relative_to(ROOT)}")
+    print(f"  engine link {CONTROL_STATUS_PATH.relative_to(ROOT)}")
     print("  ctrl-c to stop")
     if not args.no_browser:
         try:

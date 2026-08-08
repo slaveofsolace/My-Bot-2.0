@@ -1,8 +1,11 @@
-# The Run Planner web UI
+# My Bot 2.0 control center
 
-There are two front-ends for the same run planner. The AutoIt tab lives inside the bot window and
-is what ships. The web UI is a nicer way to build a plan, and it is where visual work happens
-without fighting AutoIt's control limits.
+The browser UI is the primary operator surface. It shows a live native-engine heartbeat and sends
+acknowledged Start, Stop, Pause, and Resume commands. The AutoIt window remains the background
+engine, recovery surface, and in-window fallback.
+
+There are also two front-ends for the same run planner. Both read the same generated metadata.
+The product is My Bot 2.0 v2.0.0; MyBot.run v8.2.0 is the upstream engine compatibility version.
 
 Both read the **same** generated metadata (`config/ui/run-planner.settings.json`), so they always
 offer the same settings, options, defaults and disabled reasons. Neither can drift from the other,
@@ -12,6 +15,9 @@ both.
 ---
 
 ## Running it
+
+Normal My Bot 2.0 startup launches the loopback service and opens the browser automatically. The
+command below is the standalone development entry point.
 
 ```bash
 python tools/planner_ui.py
@@ -33,6 +39,11 @@ limited to 256 KB, and plan replacement is atomic.
 ---
 
 ## What it does
+
+- **Command deck**: live native state, heartbeat age, profile, emulator, and engine compatibility,
+  with Start, Pause, Resume, and Stop enabled only when the current state permits them.
+- **Native acknowledgement**: distinguishes a queued request from the engine accepting, rejecting,
+  or treating it as a no-op.
 
 - **Left**: one entry per section — Battle, Heroes, Emulator, Army, Search, Pacing, Limits, Loot,
   Donate, Events, Upkeep, Notify, Debug. The chosen section lives in the URL, so a refresh keeps
@@ -73,6 +84,16 @@ config/run-plan.local.json   <-- the engine reads this to run
   machine and git-ignored.
 - **`logs/run-events.jsonl`** is the JSONL event stream the engine appends to during a run — the
   same contract `RunEvent.au3` produces. Also git-ignored.
+
+The lifecycle bridge uses two other git-ignored files:
+
+- `config/control-command.local.json` is an atomic, single-use command envelope. A pending command
+  is never overwritten.
+- `config/control-status.local.json` is the native heartbeat and last-command acknowledgement. The
+  service marks stale status offline instead of presenting old state as live.
+
+`POST /api/control/command` queues `start`, `stop`, `pause`, or `resume`. `GET /api/control/status`
+returns the current native state. Applying a plan and starting a run remain separate explicit acts.
 
 A submitted plan is checked before anything reaches disk, and the two outcomes are different:
 
@@ -185,6 +206,9 @@ take ten minutes to notice it was stopped.
 ---
 
 ## Current execution boundary
+
+The control bridge runs the real native Start, Stop, Pause, and Resume lifecycle and publishes a
+fresh browser heartbeat. The plan bridge remains a separate configuration boundary.
 
 The bridge now proves browser save → plan file → native parse → validated `RunIntent`. Pacing is the
 only planner component currently installed into an active runtime gate. The remaining strategy,

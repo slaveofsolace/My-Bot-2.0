@@ -21,7 +21,7 @@
 #AutoIt3Wrapper_Change2CUI=y
 #pragma compile(Console, true)
 #include "MyBot.run.version.au3"
-#pragma compile(ProductName, My Bot Wmi)
+#pragma compile(ProductName, My Bot 2.0 WMI Helper)
 #pragma compile(Out, MyBot.run.Wmi.exe) ; Required
 
 ; Enforce variable declarations

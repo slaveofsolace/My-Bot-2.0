@@ -22,7 +22,9 @@ Func _RunPlannerServiceHealthy()
 	Local $bPayload = InetRead($RUN_PLANNER_HEALTH_URL, 1)
 	If @error Then Return False
 	Local $sPayload = BinaryToString($bPayload, 4)
-	Return StringInStr($sPayload, '"ok"') > 0 And StringInStr(StringLower($sPayload), "true") > 0
+	Return StringRegExp($sPayload, '(?i)"ok"\s*:\s*true') And _
+			StringInStr($sPayload, '"service": "my-bot-control-center"') > 0 And _
+			StringInStr($sPayload, '"bridge": "autoit-control-file-v1"') > 0
 EndFunc   ;==>_RunPlannerServiceHealthy
 
 Func _RunPlannerPythonExecutable()
@@ -598,7 +600,7 @@ EndFunc   ;==>chkRunPlannerDiagnostic
 
 Func btnRunPlannerRefresh()
 	Local $bHealthy = _RunPlannerServiceHealthy()
-	Local $sService = ($bHealthy ? "Planner online" : "Planner offline")
+	Local $sService = ($bHealthy ? "Control center online" : "Control center offline")
 	Local $sPlan = "no saved plan"
 	Local $bSaved = FileExists(RunPlanFileDefaultPath())
 	If $bSaved Then $sPlan = "plan saved " & FileGetTime(RunPlanFileDefaultPath(), 0, 1)

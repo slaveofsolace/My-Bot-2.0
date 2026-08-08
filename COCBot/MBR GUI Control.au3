@@ -485,7 +485,7 @@ Func GUIControl_WM_COMMAND($hWind, $iMsg, $wParam, $lParam)
 			; Handle open URL when label fires the event normally
 			OpenURL_Label($nID)
 		Case $g_hFrmBot_URL_PIC, $g_hFrmBot_URL_PIC2
-			OpenURL_Label($g_hLblMyBotURL)
+			btnRunPlannerOpen()
 		Case $g_hLblDonate
 			; Donate URL is not in text nor tooltip
 			ShellExecute("https://mybot.run/forums/index.php?/donate/make-donation/")
@@ -1483,10 +1483,11 @@ Func tiHide()
 EndFunc   ;==>tiHide
 
 Func tiAbout()
-	Local $sMsg = "Clash of Clans Bot" & @CRLF & @CRLF & _
-			"Version: " & $g_sBotVersion & @CRLF & _
+	Local $sMsg = $g_sProductName & " local automation control center" & @CRLF & @CRLF & _
+			"Product version: " & $g_sProductVersion & @CRLF & _
+			"Engine compatibility: MyBot.run " & $g_sEngineVersion & @CRLF & _
 			"Released under the GNU GPLv3 license." & @CRLF & _
-			"Visit www.MyBot.run"
+			"Source: github.com/slaveofsolace/My-Bot-2.0"
 	MsgBox(64 + $MB_APPLMODAL + $MB_TOPMOST, $g_sBotTitle, $sMsg, 0, $g_hFrmBot)
 EndFunc   ;==>tiAbout
 

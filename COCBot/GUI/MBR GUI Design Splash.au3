@@ -43,8 +43,7 @@ Func CreateSplashScreen($iSteps = Default)
 		EndIf
 	EndIf
 
-	Local $sSplashImg = $g_sLogoPath
-	Local $hImage, $iX, $iY
+	Local $iX = 472, $iY = 67
 	Local $iT = 20 ; Top of logo (additional space)
 	Local $iB = 10 ; Bottom of logo (additional space)
 
@@ -62,11 +61,6 @@ Func CreateSplashScreen($iSteps = Default)
 
 	If $bDisableSplash = False Or $bCustomWindow Then
 
-		Local $hSplashImg = _GDIPlus_BitmapCreateFromFile($sSplashImg)
-		; Determine dimensions of splash image
-		$iX = _GDIPlus_ImageGetWidth($hSplashImg)
-		$iY = _GDIPlus_ImageGetHeight($hSplashImg)
-
 		Local $iHeight = $iY + $iT + $iB + 60 ; size = image+Top space+Bottom space+60
 		Local $iCenterX = @DesktopWidth / 2 ; find center of main display
 		Local $iCenterY = @DesktopHeight / 2
@@ -80,7 +74,23 @@ Func CreateSplashScreen($iSteps = Default)
 		; Create Splash container
 		$g_hSplash = GUICreate("", $iX, $iHeight, $iLeft, $iTop, BitOR($WS_POPUP, $WS_BORDER, $DS_MODALFRAME), BitOR($WS_EX_TOPMOST, $WS_EX_WINDOWEDGE, $WS_EX_TOOLWINDOW))
 		GUISetBkColor($COLOR_WHITE, $g_hSplash)
-		$g_lSplashPic = _GUICtrlCreatePic($hSplashImg, 0, $iT) ; Splash Image
+		$g_lSplashPic = GUICtrlCreateLabel("", 0, $iT, $iX, $iY)
+		GUICtrlSetBkColor(-1, 0x16191D)
+		GUICtrlSetOnEvent(-1, "MoveSplashScreen")
+		GUICtrlCreateLabel("MY BOT", 22, $iT + 8, 158, 38)
+		GUICtrlSetBkColor(-1, $GUI_BKCOLOR_TRANSPARENT)
+		GUICtrlSetColor(-1, 0xF2F0E9)
+		GUICtrlSetFont(-1, 24, 800, 0, "Segoe UI")
+		GUICtrlSetOnEvent(-1, "MoveSplashScreen")
+		GUICtrlCreateLabel("2.0", 178, $iT + 8, 76, 38)
+		GUICtrlSetBkColor(-1, 0xF0A83A)
+		GUICtrlSetColor(-1, 0x191108)
+		GUICtrlSetFont(-1, 21, 800, 0, "Segoe UI")
+		GUICtrlSetOnEvent(-1, "MoveSplashScreen")
+		GUICtrlCreateLabel("LOCAL AUTOMATION CONTROL CENTER", 278, $iT + 18, 170, 28, $SS_RIGHT)
+		GUICtrlSetBkColor(-1, $GUI_BKCOLOR_TRANSPARENT)
+		GUICtrlSetColor(-1, 0xA8AFB4)
+		GUICtrlSetFont(-1, 8, 600, 0, "Segoe UI")
 		GUICtrlSetOnEvent(-1, "MoveSplashScreen")
 		If Not $bCustomWindow Then
 			$g_lSplashTitle = GUICtrlCreateLabel($g_sBotTitle, 15, $iY + $iT + $iB + 3, $iX - 30, 15, $SS_CENTER) ; Splash Title
@@ -93,9 +103,6 @@ Func CreateSplashScreen($iSteps = Default)
 			$g_hSplashProgress = 0
 			$g_lSplashStatus = 0
 		EndIf
-
-		; Cleanup GDI resources
-		_GDIPlus_BitmapDispose($hSplashImg)
 
 		If $g_bDebugSetLog Then SetDebugLog("Splash created: $g_hSplash=" & $g_hSplash & ", $g_lSplashPic=" & $g_lSplashPic & ", $g_lSplashTitle=" & $g_lSplashTitle & ", $g_hSplashProgress=" & $g_hSplashProgress & ", $g_lSplashStatus=" & $g_lSplashStatus)
 

@@ -1,8 +1,9 @@
 {
   "schema_version": 1,
   "as_of": "2026-08-06",
+  "product_version": "v2.0.0",
   "core_baseline": {
-    "project_version": "v8.2.0",
+    "engine_version": "v8.2.0",
     "game_support_claim": "Clash of Clans April 2025 client family",
     "status": "legacy-baseline"
   },
