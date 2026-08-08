@@ -19,6 +19,8 @@ AssertTrue($CURRENT_GAME_VERIFIED_THROUGH = "2026-07-09", "official facts are bo
 AssertTrue($CURRENT_GAME_MAX_TOWN_HALL = 18, "Town Hall 18 is the maximum")
 AssertTrue(UBound($g_aCurrentGameHeroes, 1) = 6, "six Home Village Heroes are generated")
 AssertTrue($CURRENT_GAME_MAX_ACTIVE_HERO_SLOTS = 4, "four active Hero slots are retained")
+AssertTrue(UBound($g_aCurrentGameGuardians, 1) = 3, "three Guardians are generated")
+AssertTrue($CURRENT_GAME_MAX_ACTIVE_GUARDIANS = 1, "one active Guardian is retained")
 
 AssertTrue(CurrentGameGetHeroUnlockTH("barbarian-king") = 4, "Barbarian King unlocks at Town Hall 4")
 AssertTrue(CurrentGameGetHeroUnlockTH("dragon-duke") = 15, "Dragon Duke unlocks at Town Hall 15")
@@ -26,6 +28,9 @@ AssertTrue(CurrentGameHeroMovement("dragon-duke") = "air", "Dragon Duke movement
 AssertTrue(CurrentGameHeroIsUnlocked("archer-queen", 8), "Archer Queen is available at Town Hall 8")
 AssertTrue(Not CurrentGameHeroIsUnlocked("royal-champion", 12), "Royal Champion remains locked below Town Hall 13")
 AssertTrue(StringInStr(CurrentGameSourceUrl("february-2026-02-23"), "supercell.com") > 0, "Hero source URL is official")
+AssertTrue(CurrentGameFindGuardian("logger") >= 0, "Logger is catalogued as a Guardian")
+AssertTrue(CurrentGameGuardianRequiresBuilder("smasher"), "Guardian upgrades require a Builder")
+AssertTrue(CurrentGameGuardianUnavailableWhileUpgrading("longshot"), "upgrading Guardians are unavailable")
 
 Local $sKind = "", $iValue = -1, $sUnit = ""
 AssertTrue(CurrentGameGetBattleAttackBudget("regular", $sKind, $iValue, $sUnit), "regular battle budget is available")

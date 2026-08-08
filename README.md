@@ -316,10 +316,10 @@ COCBot/
 │   ├── Run/          run engine - plan, intent, session, quota, loadout, events, verification
 │   ├── Game/         generated game catalog and screen-state registry
 │   └── Android/      emulator backends, including the LDPlayer 9 and MuMu adapters
-└── GUI/              AutoIt GUI, including the Run Planner and its generated metadata
+└── GUI/              AutoIt GUI, including the Run Planner browser bridge
 
 config/
-├── game/             source of truth - battle surfaces, Heroes, screen states
+├── game/             source of truth - battle surfaces, Guardians, Heroes, screen states
 └── ui/               Run Planner metadata, generated from the catalogs
 
 docs/                 audit, architecture, engineering notes, compatibility matrix, install guide

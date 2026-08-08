@@ -70,6 +70,20 @@ def applied_types(source: str) -> set[str]:
     return types
 
 
+def autoit_required_keys(source: str) -> list[str] | None:
+    """Return the exact keys enforced by _RunPlanFileRequiredKeys()."""
+    match = re.search(
+        r"Func\s+_RunPlanFileRequiredKeys\s*\(\s*\).*?EndFunc",
+        source,
+        re.DOTALL | re.IGNORECASE,
+    )
+    if not match:
+        return None
+    body = re.sub(r"_\s*\r?\n\s*", " ", match.group(0))
+    array = re.search(r"\[(.*?)\]", body, re.DOTALL)
+    return re.findall(r'"([^"]*)"', array.group(1)) if array else None
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--json", dest="json_path", type=Path)
@@ -80,6 +94,24 @@ def main() -> int:
 
     metadata = load(METADATA)
     settings = {s["id"]: s for section in metadata["sections"] for s in section["settings"]}
+
+    parser_source = PARSER.read_text(encoding="utf-8-sig")
+    required_keys = autoit_required_keys(parser_source)
+    if required_keys is None:
+        errors.append("_RunPlanFileRequiredKeys could not be read from RunPlanFile.au3")
+    else:
+        required_set = set(required_keys)
+        for key in sorted(set(settings) - required_set):
+            errors.append(f"_RunPlanFileRequiredKeys is missing {key!r}")
+        for key in sorted(required_set - set(settings)):
+            errors.append(f"_RunPlanFileRequiredKeys requires unknown setting {key!r}")
+        duplicates = sorted({key for key in required_keys if required_keys.count(key) > 1})
+        if duplicates:
+            errors.append(f"_RunPlanFileRequiredKeys lists duplicate keys: {', '.join(duplicates)}")
+        if len(required_keys) != len(settings):
+            errors.append(
+                f"_RunPlanFileRequiredKeys has {len(required_keys)} entries; metadata declares {len(settings)}"
+            )
 
     # ---------------------------------------------------------------------------------------------
     # The plan the server writes, checked against what the AutoIt parser accepts.
@@ -198,7 +230,6 @@ def main() -> int:
         errors.append("Click() no longer calls the pacing gate, so the pacing settings do nothing")
 
     # The parser and the tab have to agree on how a list is delimited, since one writes it and the other splits it.
-    parser_source = PARSER.read_text(encoding="utf-8-sig")
     if 'RUN_PLAN_FILE_LIST_SEPARATOR = "|"' not in parser_source:
         errors.append("the plan file list separator is no longer a pipe; the Hero list would not split")
     if "$RUN_PLAN_FILE_LIST_SEPARATOR" not in applier_source:

@@ -1,35 +1,46 @@
 #!/usr/bin/env python3
-"""Serve the Run Planner as a local web UI.
+"""Serve the local Run Planner control center.
 
-    python tools/planner_ui.py            then open http://127.0.0.1:8765
+The server is deliberately small: standard library only, loopback only, no credentials, and no
+remote assets. It validates and atomically writes the flat planner document consumed by AutoIt.
 
-Reads the same generated metadata the AutoIt tab renders from, so the two cannot describe different
-settings. Writes a run plan the engine can pick up, and tails the JSONL event stream for live status.
-
-Standard library only, no build step, and it binds to loopback so nothing is exposed off the machine.
+Merge note (cloud base + Windows hardening):
+    The save contract is strict in one direction only. A POST naming a setting this planner does not
+    have is refused with 400 and nothing is written, because the caller and the server disagree about
+    what exists and guessing would silently drop the caller's intent. Values that are merely out of
+    range, or a boolean spelled as a word, or a Hero list over the ceiling, are adjusted, saved, and
+    reported -- those are recoverable. The AutoIt reader stays deliberately lenient; different
+    direction, different concern.
 """
 
 from __future__ import annotations
 
 import argparse
+import http.client
 import json
 import os
+import tempfile
+import threading
 import webbrowser
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from unittest import mock
+from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
 METADATA = ROOT / "config/ui/run-planner.settings.json"
 CAPABILITIES = ROOT / "config/current-client-capabilities.json"
 UI_HTML = ROOT / "ui/planner.html"
+UI_CSS = ROOT / "ui/planner.css"
+UI_JS = ROOT / "ui/planner.js"
 
-# Written by this UI, read by the engine. Local to the machine, so it stays out of git.
 PLAN_PATH = ROOT / "config/run-plan.local.json"
-# The engine appends one JSON object per line here while a run is going.
 EVENTS_PATH = ROOT / "logs/run-events.jsonl"
 
-MAX_REQUEST_BYTES = 256 * 1024   # a run plan is a few KB; anything larger is a mistake
-MAX_TAIL_BYTES = 512 * 1024      # how far back to seek when tailing the event log
+MAX_REQUEST_BYTES = 256 * 1024
+MAX_TAIL_BYTES = 512 * 1024
+LOCAL_HOSTS = {"127.0.0.1", "localhost"}
 
 
 def read_json(path: Path, default):
@@ -39,12 +50,185 @@ def read_json(path: Path, default):
         return default
 
 
+def metadata_document() -> dict:
+    return read_json(METADATA, {"sections": []})
+
+
+def settings_index() -> dict[str, dict]:
+    return {
+        setting["id"]: setting
+        for section in metadata_document().get("sections", [])
+        for setting in section.get("settings", [])
+    }
+
+
+def normalized_default(setting: dict):
+    value = setting.get("default", "")
+    if setting.get("type") == "multi-select":
+        if isinstance(value, list):
+            return list(value)
+        return [] if value in (None, "") else [value]
+    return value
+
+
+def default_plan() -> dict:
+    return {setting_id: normalized_default(setting) for setting_id, setting in settings_index().items()}
+
+
+def validate_plan(submitted: dict) -> tuple[dict, list[str], list[str]]:
+    """Normalize the complete planner document without guessing ambiguous values.
+
+    Returns (clean, adjustments, rejected). `adjustments` records values that were coerced or
+    clamped and then saved. `rejected` records settings this planner does not have; a caller that
+    names one gets a 400 and nothing is written.
+    """
+    known = settings_index()
+    clean: dict = {}
+    adjustments: list[str] = []
+    rejected: list[str] = []
+
+    for key, value in submitted.items():
+        setting = known.get(key)
+        if setting is None:
+            rejected.append(f"{key} is not a setting this planner has")
+            continue
+
+        kind = setting.get("type")
+        default = normalized_default(setting)
+
+        if kind == "boolean":
+            if isinstance(value, bool):
+                clean[key] = value
+            elif isinstance(value, str):
+                token = value.strip().lower()
+                if token in {"true", "1", "yes", "on"}:
+                    clean[key] = True
+                elif token in {"false", "0", "no", "off", ""}:
+                    clean[key] = False
+                else:
+                    adjustments.append(f"{key}: {value!r} is not a yes/no value, kept the default")
+                    clean[key] = default
+            else:
+                adjustments.append(f"{key}: {type(value).__name__} is not a yes/no value, kept the default")
+                clean[key] = default
+
+        elif kind == "integer":
+            if isinstance(value, bool):
+                adjustments.append(f"{key}: boolean is not a whole number, kept the default")
+                clean[key] = default
+                continue
+            try:
+                number = int(value)
+            except (TypeError, ValueError, OverflowError):
+                adjustments.append(f"{key}: not a whole number, kept the default")
+                clean[key] = default
+                continue
+            rules = setting.get("validation", {})
+            low, high = rules.get("minimum"), rules.get("maximum")
+            if isinstance(low, int) and number < low:
+                adjustments.append(f"{key}: {number} is below {low}, clamped")
+                number = low
+            if isinstance(high, int) and number > high:
+                adjustments.append(f"{key}: {number} is above {high}, clamped")
+                number = high
+            clean[key] = number
+
+        elif kind in {"select", "multi-select"}:
+            choices = {option["value"] for option in setting.get("options", [])}
+            if kind == "multi-select":
+                incoming = value if isinstance(value, list) else [value]
+                picked: list[str] = []
+                for item in incoming:
+                    if not isinstance(item, str) or item not in choices:
+                        adjustments.append(f"{key}: {item!r} is not an option")
+                    elif item not in picked:
+                        picked.append(item)
+                # A MISSING ceiling is treated as a fault, not as "no ceiling". Silently falling
+                # through on None is exactly how the Hero four-slot cap would disappear from the
+                # server while still looking enforced in the browser and the metadata validator.
+                # Every multi-select is required to declare a ceiling, so absence is a real defect.
+                limit = setting.get("max_selected")
+                if isinstance(limit, bool) or not isinstance(limit, int):
+                    adjustments.append(f"{key}: no selection ceiling is declared for this setting")
+                elif len(picked) > limit:
+                    adjustments.append(f"{key}: only {limit} selections are allowed")
+                    picked = picked[:limit]
+                clean[key] = picked
+            elif isinstance(value, str) and value in choices:
+                clean[key] = value
+            else:
+                adjustments.append(f"{key}: {value!r} is not an option, kept the default")
+                clean[key] = default
+
+        else:
+            if isinstance(value, str):
+                clean[key] = value.strip()
+            else:
+                adjustments.append(f"{key}: expected text, kept the default")
+                clean[key] = default
+
+    for key, setting in known.items():
+        clean.setdefault(key, normalized_default(setting))
+    return clean, adjustments, rejected
+
+
+def read_plan() -> dict:
+    raw = read_json(PLAN_PATH, default_plan())
+    if not isinstance(raw, dict):
+        return default_plan()
+    return validate_plan(raw)[0]
+
+
+def write_plan_atomic(plan: dict, path: Path | None = None) -> None:
+    """Write through a unique same-directory file, flush it, then replace the destination."""
+    destination = path or PLAN_PATH
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{destination.name}.", suffix=".tmp", dir=destination.parent
+    )
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as stream:
+            json.dump(plan, stream, indent=2, sort_keys=True)
+            stream.write("\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, destination)
+    except Exception:
+        temporary.unlink(missing_ok=True)
+        raise
+
+
+def plan_status() -> dict:
+    """Report what is on disk.
+
+    A file that exists but cannot be parsed is reported as "unreadable", not "saved". The AutoIt
+    loader is strict and would refuse such a file, and a status that disagrees with the reader is
+    worse than no status at all.
+    """
+    if not PLAN_PATH.exists():
+        return {"exists": False, "state": "defaults", "written_at": None}
+    try:
+        written = datetime.fromtimestamp(PLAN_PATH.stat().st_mtime, timezone.utc).isoformat()
+    except OSError:
+        written = None
+    parsed = read_json(PLAN_PATH, None)
+    if not isinstance(parsed, dict):
+        return {"exists": True, "state": "unreadable", "written_at": written}
+    return {"exists": True, "state": "saved", "written_at": written}
+
+
+def displayed_path(path: Path) -> str:
+    try:
+        return str(path.relative_to(ROOT))
+    except ValueError:
+        return str(path)
+
+
 def tail_events(limit: int = 200) -> list[dict]:
-    """Last N events. Malformed lines are skipped rather than killing the feed."""
+    """Read a bounded tail and ignore malformed lines without losing the complete feed."""
     if not EVENTS_PATH.exists():
         return []
-    # A long run's event log can reach hundreds of megabytes. Seek to the tail and read only the
-    # last slice rather than pulling the whole file in to take 200 lines off the end.
     try:
         with EVENTS_PATH.open("rb") as stream:
             stream.seek(0, 2)
@@ -52,163 +236,114 @@ def tail_events(limit: int = 200) -> list[dict]:
             stream.seek(max(0, size - MAX_TAIL_BYTES))
             blob = stream.read()
         if size > MAX_TAIL_BYTES:
-            blob = blob.split(b"\n", 1)[-1]      # drop the partial first line
+            blob = blob.split(b"\n", 1)[-1]
         lines = blob.decode("utf-8", errors="replace").splitlines()
     except OSError:
         return []
-    events = []
+
+    events: list[dict] = []
     for line in lines[-limit:]:
-        line = line.strip()
-        if not line:
-            continue
         try:
-            events.append(json.loads(line))
+            event = json.loads(line)
         except json.JSONDecodeError:
             continue
+        if isinstance(event, dict):
+            events.append(event)
     return events
 
 
-def default_plan() -> dict:
-    """Every setting at its declared default, so a fresh UI matches a fresh AutoIt tab."""
-    metadata = read_json(METADATA, {"sections": []})
-    plan = {}
-    for section in metadata.get("sections", []):
-        for setting in section.get("settings", []):
-            plan[setting["id"]] = setting.get("default", "")
-    return plan
+def health_payload() -> dict:
+    metadata = metadata_document()
+    settings = [setting for section in metadata.get("sections", []) for setting in section.get("settings", [])]
+    return {
+        "ok": True,
+        "service": "run-planner",
+        "bridge": "autoit-plan-file-v1",
+        "sections": len(metadata.get("sections", [])),
+        "settings": len(settings),
+        "plan": plan_status(),
+    }
 
 
-def validate_plan(submitted: dict) -> tuple[dict, list[str], list[str]]:
-    """Coerce a submission to the declared types and report what happened to it.
+def local_request_allowed(handler: BaseHTTPRequestHandler) -> bool:
+    try:
+        host = urlsplit("//" + handler.headers.get("Host", "")).hostname
+        port = urlsplit("//" + handler.headers.get("Host", "")).port
+    except ValueError:
+        return False
+    expected_port = handler.server.server_address[1]
+    if host not in LOCAL_HOSTS or port not in (None, expected_port):
+        return False
 
-    Returns the cleaned plan, the adjustments made to it, and the outright rejections.
-
-    Adjustments are values the server could repair - an integer past its bound, a boolean written as a
-    word - and they are reported but do not stop the write. Rejections are keys that name no setting at
-    all, and they do stop it: the browser loaded its controls from this same server, so a key it does
-    not recognise means the tab is stale or something else is writing, and quietly dropping it would
-    save a plan that is not the one the operator was looking at.
-
-    Note the asymmetry with the AutoIt reader, which ignores settings it does not have. That direction
-    is a build reading a file it did not write, where tolerating an unknown key is what lets an older
-    and a newer build share one file. This direction is a client writing to its own server.
-    """
-    metadata = read_json(METADATA, {"sections": []})
-    known = {}
-    for section in metadata.get("sections", []):
-        for setting in section.get("settings", []):
-            known[setting["id"]] = setting
-
-    clean, problems, rejected = {}, [], []
-    for key, value in submitted.items():
-        setting = known.get(key)
-        if setting is None:
-            rejected.append(f"{key} is not a setting this planner has")
-            continue
-        kind = setting.get("type")
-        if kind == "boolean":
-            # bool("false") is True in Python, so a client sending the *string* "false" would switch
-            # the setting on. That matters most for run.diagnostic_mode, which is what permits
-            # unverified surfaces to run, so strings are matched explicitly and anything
-            # unrecognised falls back to the declared default rather than guessing.
-            if isinstance(value, bool):
-                clean[key] = value
-            elif isinstance(value, (int, float)):
-                clean[key] = bool(value)
-            elif isinstance(value, str):
-                token = value.strip().lower()
-                if token in ("true", "1", "yes", "on"):
-                    clean[key] = True
-                elif token in ("false", "0", "no", "off", ""):
-                    clean[key] = False
-                else:
-                    problems.append(f"{key}: {value!r} is not a yes/no value, kept the default")
-                    clean[key] = bool(setting.get("default", False))
-            else:
-                problems.append(f"{key}: {type(value).__name__} is not a yes/no value, kept the default")
-                clean[key] = bool(setting.get("default", False))
-        elif kind == "integer":
-            try:
-                number = int(value)
-            except (TypeError, ValueError):
-                problems.append(f"{key}: not a whole number, kept the default")
-                clean[key] = setting.get("default", 0)
-                continue
-            rules = setting.get("validation", {})
-            low, high = rules.get("minimum"), rules.get("maximum")
-            if isinstance(low, int) and number < low:
-                problems.append(f"{key}: {number} is below {low}, clamped")
-                number = low
-            if isinstance(high, int) and number > high:
-                problems.append(f"{key}: {number} is above {high}, clamped")
-                number = high
-            clean[key] = number
-        elif kind in ("select", "multi-select"):
-            values = {o["value"] for o in setting.get("options", [])}
-            submitted_values = value if isinstance(value, list) else [value]
-            picked = [v for v in submitted_values if v in values]
-            for bad in [v for v in submitted_values if v not in values]:
-                problems.append(f"{key}: {bad!r} is not an option")
-            if kind == "multi-select":
-                # A browser respects the ceiling, but the plan file is a file: anyone can put six
-                # Heroes in four slots with a text editor, and the engine would refuse the whole plan.
-                ceiling = setting.get("max_selected")
-                seen: list = []
-                for item in picked:
-                    if item in seen:
-                        problems.append(f"{key}: {item!r} listed more than once, kept one")
-                        continue
-                    seen.append(item)
-                if isinstance(ceiling, int) and len(seen) > ceiling:
-                    problems.append(f"{key}: {len(seen)} selected but only {ceiling} fit, kept the first {ceiling}")
-                    seen = seen[:ceiling]
-                clean[key] = seen
-            else:
-                clean[key] = picked[0] if picked else setting.get("default")
-        else:
-            clean[key] = str(value)
-
-    for key, setting in known.items():
-        clean.setdefault(key, setting.get("default", ""))
-    return clean, problems, rejected
+    origin = handler.headers.get("Origin")
+    if not origin:
+        return True
+    try:
+        parsed = urlsplit(origin)
+        return parsed.scheme == "http" and parsed.hostname in LOCAL_HOSTS and parsed.port == expected_port
+    except ValueError:
+        return False
 
 
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, *args):
-        pass  # the console stays readable; the UI shows what matters
+        pass
 
     def _send(self, code: int, body: bytes, content_type: str):
         self.send_response(code)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Security-Policy", "default-src 'self'; style-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self' data:; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "DENY")
         self.end_headers()
         self.wfile.write(body)
 
     def _json(self, payload, code: int = 200):
         self._send(code, json.dumps(payload).encode("utf-8"), "application/json; charset=utf-8")
 
+    def _allow_local(self) -> bool:
+        if local_request_allowed(self):
+            return True
+        self._json({"ok": False, "problems": ["request origin is not this local planner"]}, 403)
+        return False
+
     def do_GET(self):
-        if self.path in ("/", "/index.html"):
-            if not UI_HTML.exists():
-                self._send(500, b"ui/planner.html is missing", "text/plain; charset=utf-8")
+        if not self._allow_local():
+            return
+        assets = {
+            "/": (UI_HTML, "text/html; charset=utf-8"),
+            "/index.html": (UI_HTML, "text/html; charset=utf-8"),
+            "/planner.css": (UI_CSS, "text/css; charset=utf-8"),
+            "/planner.js": (UI_JS, "text/javascript; charset=utf-8"),
+        }
+        if self.path in assets:
+            path, content_type = assets[self.path]
+            if not path.exists():
+                self._send(500, f"{path.relative_to(ROOT)} is missing".encode(), "text/plain; charset=utf-8")
                 return
-            self._send(200, UI_HTML.read_bytes(), "text/html; charset=utf-8")
+            self._send(200, path.read_bytes(), content_type)
+        elif self.path == "/api/health":
+            self._json(health_payload())
         elif self.path == "/api/metadata":
-            self._json({
-                "metadata": read_json(METADATA, {}),
-                "capabilities": read_json(CAPABILITIES, {}),
-            })
+            self._json({"metadata": metadata_document(), "capabilities": read_json(CAPABILITIES, {})})
         elif self.path == "/api/plan":
-            self._json(read_json(PLAN_PATH, default_plan()))
+            self._json(read_plan())
         elif self.path == "/api/events":
             self._json({"events": tail_events()})
         else:
             self._send(404, b"not found", "text/plain; charset=utf-8")
 
     def do_POST(self):
+        if not self._allow_local():
+            return
         if self.path != "/api/plan":
             self._send(404, b"not found", "text/plain; charset=utf-8")
+            return
+        if self.headers.get_content_type() != "application/json":
+            self._json({"ok": False, "problems": ["Content-Type must be application/json"]}, 415)
             return
         try:
             length = int(self.headers.get("Content-Length", "0"))
@@ -216,8 +351,6 @@ class Handler(BaseHTTPRequestHandler):
             self._json({"ok": False, "problems": ["Content-Length was not a number"]}, 400)
             return
         if length < 0 or length > MAX_REQUEST_BYTES:
-            # A plan is a few kilobytes. Reading an arbitrary declared length would let one bad
-            # request pull the process's memory out from under it.
             self._json({"ok": False, "problems": [f"request body exceeds {MAX_REQUEST_BYTES} bytes"]}, 413)
             return
         try:
@@ -229,29 +362,35 @@ class Handler(BaseHTTPRequestHandler):
             self._json({"ok": False, "problems": ["expected an object of setting ids"]}, 400)
             return
 
-        clean, problems, rejected = validate_plan(submitted)
+        clean, adjustments, rejected = validate_plan(submitted)
+
+        # An unknown setting means the caller and this server disagree about what exists. Saving the
+        # rest would silently drop the caller's intent, so refuse the whole document and write nothing.
         if rejected:
-            # Nothing is written. A partial save here is worse than no save: the operator would be
-            # looking at a plan the file does not contain.
             self._json({"ok": False, "problems": rejected, "written": None}, 400)
             return
 
-        PLAN_PATH.parent.mkdir(parents=True, exist_ok=True)
-        # Written via a temporary file and renamed, so the engine never reads a half-written plan
-        # if this process dies mid-write. os.replace is atomic on both Windows and POSIX.
-        temporary = PLAN_PATH.with_suffix(".tmp")
-        temporary.write_text(json.dumps(clean, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-        os.replace(temporary, PLAN_PATH)
-        self._json({"ok": True, "problems": problems, "written": str(PLAN_PATH.relative_to(ROOT))})
+        try:
+            write_plan_atomic(clean)
+        except OSError:
+            self._json({"ok": False, "problems": ["the plan could not be written atomically"]}, 500)
+            return
+        self._json({
+            "ok": True,
+            "problems": adjustments,
+            "written": displayed_path(PLAN_PATH),
+            "plan": clean,
+            "status": plan_status(),
+        })
+
+
+class PlannerServer(ThreadingHTTPServer):
+    allow_reuse_address = True
+    daemon_threads = True
 
 
 def selftest() -> int:
-    """Exercise the validation and defaults logic without a browser, so CI can check it.
-
-    The HTML is verified separately by tools/preview_run_planner.py; this covers the server contract:
-    every setting has a default, and the validator coerces, clamps, and rejects the way the UI relies on.
-    """
-    failures = []
+    failures: list[str] = []
 
     def check(condition, message):
         print(f"  {'ok  ' if condition else 'FAIL'}  {message}")
@@ -259,71 +398,115 @@ def selftest() -> int:
             failures.append(message)
 
     plan = default_plan()
-    metadata = read_json(METADATA, {"sections": []})
-    setting_ids = {s["id"] for sec in metadata.get("sections", []) for s in sec.get("settings", [])}
+    setting_ids = set(settings_index())
     check(set(plan) == setting_ids, "default plan covers every setting exactly")
+    check(isinstance(plan["run.heroes"], list), "multi-select defaults use a stable list shape")
 
-    clean, problems, _ = validate_plan({"run.max_failures": 9999})
-    check(clean["run.max_failures"] == 100, "integer above maximum is clamped")
-    check(any("above" in p for p in problems), "clamp is reported")
+    clean, adjustments, rejected = validate_plan({"run.max_failures": 9999})
+    check(clean["run.max_failures"] == 100 and any("clamped" in item for item in adjustments), "integer maximum is enforced")
+    clean, adjustments, rejected = validate_plan({"run.diagnostic_mode": "false"})
+    check(clean["run.diagnostic_mode"] is False and not adjustments, "the string 'false' reads as off")
+    clean, adjustments, rejected = validate_plan({"run.diagnostic_mode": "0"})
+    check(clean["run.diagnostic_mode"] is False and not adjustments, "the string '0' reads as off")
+    for ambiguous in (0, None, [], {}):
+        clean, adjustments, rejected = validate_plan({"run.diagnostic_mode": ambiguous})
+        check(clean["run.diagnostic_mode"] is False and bool(adjustments), f"ambiguous boolean {ambiguous!r} is rejected")
+    clean, adjustments, rejected = validate_plan({"run.heroes": ["barbarian-king", "archer-queen", "minion-prince", "grand-warden", "royal-champion"]})
+    check(len(clean["run.heroes"]) == 4 and any("only 4" in item for item in adjustments), "Hero selection is capped at four")
 
-    clean, problems, _ = validate_plan({"run.max_failures": -5})
-    check(clean["run.max_failures"] == 0, "integer below minimum is clamped")
+    # Strict rejection: unknown settings are never silently dropped.
+    clean, adjustments, rejected = validate_plan({"run.not_a_real_setting": 1})
+    check(len(rejected) == 1 and "not a setting" in rejected[0], "an unknown setting is rejected, not ignored")
+    clean, adjustments, rejected = validate_plan({"run.max_failures": 9999, "run.not_a_real_setting": 1})
+    check(bool(rejected) and bool(adjustments), "rejections and adjustments are reported separately")
 
-    # An unknown key is a rejection, not an adjustment: the browser loaded its controls from this
-    # server, so a key it does not recognise means the tab is stale. Saving the rest would leave the
-    # operator looking at a plan the file does not contain.
-    clean, _, rejected = validate_plan({"nonexistent.setting": "x"})
-    check("nonexistent.setting" not in clean, "unknown setting is not written")
-    check(any("nonexistent.setting" in r for r in rejected), "unknown setting is rejected by name")
+    # The pacing section arrives with the cloud metadata; prove its bounds are live.
+    check("pacing.settle_ms" in setting_ids, "the pacing section is present in the metadata")
+    clean, adjustments, rejected = validate_plan({"pacing.settle_ms": 999999})
+    check(clean["pacing.settle_ms"] == 10000 and any("clamped" in item for item in adjustments), "pacing settle bound is enforced")
 
-    _, _, rejected = validate_plan({"run.max_battles": 5})
-    check(not rejected, "a known setting is not rejected")
+    with tempfile.TemporaryDirectory() as folder:
+        target = Path(folder) / "plan.json"
+        write_plan_atomic(plan, target)
+        check(read_json(target, {}) == plan, "atomic writer produces the complete plan")
+        target.write_text('{"sentinel": true}\n', encoding="utf-8")
+        with mock.patch("os.replace", side_effect=OSError("interrupted")):
+            try:
+                write_plan_atomic(plan, target)
+            except OSError:
+                pass
+        check(read_json(target, {}) == {"sentinel": True}, "interrupted replacement preserves the previous plan")
+        check(not list(target.parent.glob(".*.tmp")), "failed writes leave no temporary plan behind")
 
-    # A repairable value stays repairable: clamping must not start refusing the whole plan.
-    _, problems, rejected = validate_plan({"run.max_failures": 9999})
-    check(problems and not rejected, "an out-of-range value is adjusted, not rejected")
+    global PLAN_PATH, EVENTS_PATH
+    original_plan, original_events = PLAN_PATH, EVENTS_PATH
+    with tempfile.TemporaryDirectory() as folder:
+        PLAN_PATH = Path(folder) / "plan.json"
+        EVENTS_PATH = Path(folder) / "events.jsonl"
 
-    clean, problems, _ = validate_plan({"run.surface": "not-a-surface"})
-    check(clean["run.surface"] != "not-a-surface", "invalid select value is refused")
-    check(any("not an option" in p for p in problems), "invalid select value is reported")
+        # A corrupt plan file must not be reported as saved, because AutoIt would refuse it.
+        PLAN_PATH.write_text("{ this is not json", encoding="utf-8")
+        check(plan_status()["state"] == "unreadable", "a corrupt plan file is reported as unreadable")
+        PLAN_PATH.unlink()
 
-    clean, _, _ = validate_plan({"run.stop_on_star_bonus": "true"})
-    check(clean["run.stop_on_star_bonus"] is True, "boolean is coerced from a string")
+        server = PlannerServer(("127.0.0.1", 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        port = server.server_address[1]
+        try:
+            connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
+            connection.request("GET", "/api/health")
+            response = connection.getresponse()
+            check(response.status == 200 and json.loads(response.read())["bridge"] == "autoit-plan-file-v1", "health endpoint reports the AutoIt bridge")
 
-    # The regression that matters: bool("false") is True in Python, so a client sending the string
-    # "false" used to switch the setting on. On run.diagnostic_mode that silently permits
-    # unverified surfaces to run, which is the one default that must never flip by accident.
-    clean, _, _ = validate_plan({"run.diagnostic_mode": "false"})
-    check(clean["run.diagnostic_mode"] is False, "the string 'false' does not switch a boolean on")
-    for falsey in ("0", "no", "off", ""):
-        clean, _, _ = validate_plan({"run.diagnostic_mode": falsey})
-        check(clean["run.diagnostic_mode"] is False, f"{falsey!r} reads as off")
-    for truthy in ("1", "yes", "on", "TRUE"):
-        clean, _, _ = validate_plan({"run.diagnostic_mode": truthy})
-        check(clean["run.diagnostic_mode"] is True, f"{truthy!r} reads as on")
-    clean, problems, _ = validate_plan({"run.diagnostic_mode": "banana"})
-    check(clean["run.diagnostic_mode"] is False, "an unrecognised boolean falls back to the default")
-    check(any("yes/no" in p for p in problems), "an unrecognised boolean is reported")
+            connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
+            connection.request("GET", "/api/health")
+            headers = connection.getresponse().headers
+            check(headers.get("Content-Security-Policy") is not None and headers.get("X-Content-Type-Options") == "nosniff", "security headers are present")
 
-    check(MAX_REQUEST_BYTES > 0 and MAX_TAIL_BYTES > 0, "request and tail limits are set")
+            connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
+            connection.putrequest("GET", "/api/health", skip_host=True)
+            connection.putheader("Host", "example.invalid")
+            connection.endheaders()
+            check(connection.getresponse().status == 403, "non-local Host is refused")
 
-    # Four Hero slots out of six. A browser cannot submit a fifth, but the plan file is a file and a
-    # text editor can, so the ceiling is enforced here rather than left to the engine to refuse.
-    clean, problems, _ = validate_plan({"run.heroes": [
-        "barbarian-king", "archer-queen", "grand-warden", "royal-champion", "minion-prince"]})
-    check(len(clean["run.heroes"]) == 4, "a multi-select is capped at its declared ceiling")
-    check(any("only 4 fit" in p for p in problems), "going over the ceiling is reported")
+            connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
+            connection.request("POST", "/api/plan", body=b"{}", headers={
+                "Content-Type": "application/json", "Origin": "https://example.invalid"
+            })
+            check(connection.getresponse().status == 403, "foreign Origin is refused")
 
-    clean, problems, _ = validate_plan({"run.heroes": ["archer-queen", "archer-queen"]})
-    check(clean["run.heroes"] == ["archer-queen"], "a duplicate selection is collapsed")
-    check(any("more than once" in p for p in problems), "a duplicate selection is reported")
+            connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
+            connection.request("POST", "/api/plan", body=b"{}", headers={"Content-Type": "text/plain"})
+            check(connection.getresponse().status == 415, "a non-JSON Content-Type is refused")
 
-    clean, _, _ = validate_plan({"run.heroes": ["archer-queen", "not-a-hero"]})
-    check(clean["run.heroes"] == ["archer-queen"], "an unknown selection is dropped, the rest kept")
+            connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
+            connection.putrequest("POST", "/api/plan")
+            connection.putheader("Content-Type", "application/json")
+            connection.putheader("Content-Length", str(MAX_REQUEST_BYTES + 1))
+            connection.endheaders()
+            check(connection.getresponse().status == 413, "oversized plan is refused before reading")
 
-    clean, _, _ = validate_plan({})
-    check(set(clean) == setting_ids, "a partial submission is filled out to every setting")
+            # Strict rejection over the wire: 400, and the file on disk is untouched.
+            connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
+            body = json.dumps({"run.not_a_real_setting": 1}).encode()
+            connection.request("POST", "/api/plan", body=body, headers={"Content-Type": "application/json"})
+            response = connection.getresponse()
+            payload = json.loads(response.read())
+            check(response.status == 400 and payload["ok"] is False, "an unknown setting is refused with 400")
+            check(not PLAN_PATH.exists(), "a refused save writes nothing")
+
+            connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
+            body = json.dumps({"run.diagnostic_mode": False}).encode()
+            connection.request("POST", "/api/plan", body=body, headers={"Content-Type": "application/json"})
+            response = connection.getresponse()
+            payload = json.loads(response.read())
+            check(response.status == 200 and payload["ok"] and set(payload["plan"]) == setting_ids, "valid partial plan is normalized and written")
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=3)
+    PLAN_PATH, EVENTS_PATH = original_plan, original_events
 
     print(f"\n{'selftest passed' if not failures else str(len(failures)) + ' check(s) failed'}")
     return 1 if failures else 0
@@ -333,19 +516,20 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--no-browser", action="store_true")
-    parser.add_argument("--selftest", action="store_true", help="check the server contract, no browser")
+    parser.add_argument("--selftest", action="store_true", help="check the complete local server contract")
     args = parser.parse_args()
 
     if args.selftest:
         return selftest()
-
     if not METADATA.exists():
         print(f"missing {METADATA.relative_to(ROOT)}; run tools/generate_run_planner_settings.py first")
         return 2
+    if not all(path.exists() for path in (UI_HTML, UI_CSS, UI_JS)):
+        print("missing one or more planner UI files")
+        return 2
 
-    address = ("127.0.0.1", args.port)
-    server = ThreadingHTTPServer(address, Handler)
-    url = f"http://{address[0]}:{address[1]}"
+    server = PlannerServer(("127.0.0.1", args.port), Handler)
+    url = f"http://127.0.0.1:{args.port}"
     print(f"Run Planner UI on {url}")
     print(f"  plan file   {PLAN_PATH.relative_to(ROOT)}")
     print(f"  event feed  {EVENTS_PATH.relative_to(ROOT)}")
@@ -359,6 +543,8 @@ def main() -> int:
         server.serve_forever()
     except KeyboardInterrupt:
         print("\nstopped")
+    finally:
+        server.server_close()
     return 0
 
 

@@ -18,7 +18,7 @@ Global $g_hCmbCOCDistributors = 0, $g_hCmbAndroidBackgroundMode = 0, $g_hCmbAndr
 	$g_hChkAndroidAdbClickDragScript = 0, $g_hBtnAndroidAdbShell = 0, $g_hBtnAndroidHome = 0, $g_hBtnAndroidBack = 0, $g_hTxtAndroidRebootHours = 0, _
 	$g_hChkAndroidCloseWithBot = 0, $g_hChkUpdateSharedPrefs = 0, $g_hBtnAndroidEnableTouch = 0, $g_hBtnAndroidDisableTouch = 0, $g_lblHelpBot = 0, _
 	$g_hLblAdditionalClickDelay = 0, $g_hSldAdditionalClickDelay = 0, $g_hChkUseDedicatedAdbPort = 0, $g_hCmbAndroidReplaceAdb = 0, _
-	$g_hCmbAndroidEmulator = 0, $g_hCmbAndroidInstance = 0
+	$g_hCmbAndroidEmulator = 0, $g_hCmbAndroidInstance = 0, $g_hBtnAndroidDetect = 0
 
 Func CreateBotAndroid()
 
@@ -166,11 +166,14 @@ Func CreateBotAndroid()
 
 	Local $x = 25
 	GUICtrlCreateGroup(GetTranslatedFileIni("Android Control", "Group_04", "Emulator/Instance"), $x - 20, $y - 20, 255, 45)
-		$g_hCmbAndroidEmulator = GUICtrlCreateCombo("", $x - 10, $y - 5, 115, -1, BitOR($CBS_DROPDOWNLIST, $CBS_AUTOHSCROLL))
+		$g_hCmbAndroidEmulator = GUICtrlCreateCombo("", $x - 10, $y - 5, 82, -1, BitOR($CBS_DROPDOWNLIST, $CBS_AUTOHSCROLL))
 			_GUICtrlSetTip(-1, GetTranslatedFileIni("Android Control", "CmbAndroidEmulator_Info", "Change the emulator. MyBot will automaticly detect the installed version."))
 			GUICtrlSetOnEvent(-1, "cmbAndroidEmulator")
-		$g_hCmbAndroidInstance = GUICtrlCreateCombo("", $x + 110, $y - 5, 115, -1, BitOR($CBS_DROPDOWNLIST, $CBS_AUTOHSCROLL))
+		$g_hCmbAndroidInstance = GUICtrlCreateCombo("", $x + 77, $y - 5, 82, -1, BitOR($CBS_DROPDOWNLIST, $CBS_AUTOHSCROLL))
 			_GUICtrlSetTip(-1, GetTranslatedFileIni("Android Control", "CmbAndroidInstance_Info", "Change the instance. MyBot will automaticly detect the available instance."))
 			GUICtrlSetOnEvent(-1, "cmbAndroidInstance")
+		$g_hBtnAndroidDetect = GUICtrlCreateButton("Detect", $x + 164, $y - 7, 58, 24)
+			_GUICtrlSetTip(-1, "Scan installed emulators and instances now.")
+			GUICtrlSetOnEvent(-1, "btnDetectEmulators")
 	GUICtrlCreateGroup("", -99, -99, 1, 1)
 EndFunc   ;==>CreateBotAndroid

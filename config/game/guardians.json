@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "as_of": "2026-08-06",
+  "guardian_count": 3,
+  "max_active_guardians": 1,
+  "guardians": [
+    {
+      "id": "smasher",
+      "label": "Smasher",
+      "unlock_town_hall": 18,
+      "source_id": "town-hall-18-2025-11-17",
+      "builder_required": true,
+      "unavailable_while_upgrading": true,
+      "completed_level_defends_while_upgrading": true,
+      "fixture_ids": ["home.th18.guardian"]
+    },
+    {
+      "id": "longshot",
+      "label": "Longshot",
+      "unlock_town_hall": 18,
+      "source_id": "town-hall-18-2025-11-17",
+      "builder_required": true,
+      "unavailable_while_upgrading": true,
+      "completed_level_defends_while_upgrading": true,
+      "fixture_ids": ["home.th18.guardian"]
+    },
+    {
+      "id": "logger",
+      "label": "Logger",
+      "unlock_town_hall": 18,
+      "source_id": "sound-of-clash-2026-04-27",
+      "builder_required": true,
+      "unavailable_while_upgrading": true,
+      "completed_level_defends_while_upgrading": true,
+      "fixture_ids": ["home.th18.guardian"]
+    }
+  ]
+}

@@ -9,12 +9,61 @@
 #include "..\functions\Run\RunIntent.au3"
 #include "..\functions\Run\RunPlanFile.au3"
 
+Global Const $RUN_PLANNER_URL = "http://127.0.0.1:8765/"
+Global Const $RUN_PLANNER_HEALTH_URL = "http://127.0.0.1:8765/api/health"
 Global $g_oRunPlannerIntent = 0
 Global $g_sRunPlannerHeroIds = ""
 
 ; Change token of the plan file as of the last time it was read into the controls. Empty means never read, or no file.
 Global $g_sRunPlannerPlanFileStamp = ""
 Global $g_sRunPlannerPlanFileNote = ""
+
+Func _RunPlannerServiceHealthy()
+	Local $bPayload = InetRead($RUN_PLANNER_HEALTH_URL, 1)
+	If @error Then Return False
+	Local $sPayload = BinaryToString($bPayload, 4)
+	Return StringInStr($sPayload, '"ok"') > 0 And StringInStr(StringLower($sPayload), "true") > 0
+EndFunc   ;==>_RunPlannerServiceHealthy
+
+Func _RunPlannerPythonExecutable()
+	Local $aCandidates = [ _
+		@LocalAppDataDir & "\Programs\Python\Python313\pythonw.exe", _
+		@LocalAppDataDir & "\Programs\Python\Python312\pythonw.exe", _
+		@LocalAppDataDir & "\Programs\Python\Python311\pythonw.exe", _
+		@LocalAppDataDir & "\Programs\Python\Python310\pythonw.exe"]
+	For $i = 0 To UBound($aCandidates) - 1
+		If FileExists($aCandidates[$i]) Then Return $aCandidates[$i]
+	Next
+	Return "pythonw.exe"
+EndFunc   ;==>_RunPlannerPythonExecutable
+
+Func _RunPlannerStartService(ByRef $sError)
+	$sError = ""
+	If _RunPlannerServiceHealthy() Then Return True
+	Local $sScript = @ScriptDir & "\tools\planner_ui.py"
+	If Not FileExists($sScript) Then
+		$sError = "Planner service script is missing"
+		Return False
+	EndIf
+	Local $sPython = _RunPlannerPythonExecutable()
+	Local $iPid = Run('"' & $sPython & '" "' & $sScript & '" --no-browser', @ScriptDir, @SW_HIDE)
+	If $iPid = 0 Then
+		$sError = "Python could not start the planner service"
+		Return False
+	EndIf
+	For $i = 1 To 25
+		Sleep(200)
+		If _RunPlannerServiceHealthy() Then Return True
+	Next
+	$sError = "Planner service did not become healthy"
+	Return False
+EndFunc   ;==>_RunPlannerStartService
+
+Func _RunPlannerSetLabel($hControl, $sText, $iColor)
+	If $hControl = 0 Then Return
+	GUICtrlSetData($hControl, $sText)
+	GUICtrlSetColor($hControl, $iColor)
+EndFunc   ;==>_RunPlannerSetLabel
 
 Func RunPlannerSettingIndex($sSettingId)
 	For $i = 0 To UBound($g_aRunPlannerSettings, 1) - 1
@@ -547,9 +596,51 @@ Func chkRunPlannerDiagnostic()
 	UpdateRunPlannerBanner()
 EndFunc   ;==>chkRunPlannerDiagnostic
 
+Func btnRunPlannerRefresh()
+	Local $bHealthy = _RunPlannerServiceHealthy()
+	Local $sService = ($bHealthy ? "Planner online" : "Planner offline")
+	Local $sPlan = "no saved plan"
+	Local $bSaved = FileExists(RunPlanFileDefaultPath())
+	If $bSaved Then $sPlan = "plan saved " & FileGetTime(RunPlanFileDefaultPath(), 0, 1)
+	_RunPlannerSetLabel($g_hRunPlannerStatus, $sService & " · " & $sPlan, ($bHealthy And $bSaved ? $COLOR_GREEN : $COLOR_MAROON))
+EndFunc   ;==>btnRunPlannerRefresh
+
+Func btnRunPlannerOpen()
+	Local $sError = ""
+	If Not _RunPlannerStartService($sError) Then
+		GUICtrlSetData($g_hRunPlannerStatus, $sError)
+		SetLog("Run Planner: " & $sError, $COLOR_ERROR)
+		btnRunPlannerRefresh()
+		Return
+	EndIf
+	ShellExecute($RUN_PLANNER_URL)
+	GUICtrlSetData($g_hRunPlannerStatus, "Control center opened")
+	btnRunPlannerRefresh()
+EndFunc   ;==>btnRunPlannerOpen
+
+Func btnRunPlannerLoad()
+	Local $sError = ""
+	Local $oIntent = RunPlanFileLoadIntent(RunPlanFileDefaultPath(), $sError)
+	If Not IsObj($oIntent) Then
+		$g_oRunPlannerIntent = 0
+		_RunPlannerSetLabel($g_hRunPlannerStatus, "Rejected · " & $sError, $COLOR_MAROON)
+		SetLog("Run Planner: " & $sError, $COLOR_ERROR)
+		Return
+	EndIf
+	$g_oRunPlannerIntent = $oIntent
+	Local $sReason = ""
+	If RunIntentCanStart($oIntent, $sReason) Then
+		_RunPlannerSetLabel($g_hRunPlannerStatus, "Prepared · engine gates cleared", $COLOR_GREEN)
+	Else
+		_RunPlannerSetLabel($g_hRunPlannerStatus, "Prepared · blocked: " & $sReason, $COLOR_MAROON)
+	EndIf
+	SetLog("Run Planner: " & RunIntentDescribe($oIntent), $COLOR_SUCCESS)
+EndFunc   ;==>btnRunPlannerLoad
+
 Func tabRunPlanner()
 	If $g_iGuiMode <> 1 Then Return
 	RunPlannerSyncPlanFile()
 	UpdateRunPlannerBanner()
 	RunPlannerRefreshHeroSelection()
+	btnRunPlannerRefresh()
 EndFunc   ;==>tabRunPlanner

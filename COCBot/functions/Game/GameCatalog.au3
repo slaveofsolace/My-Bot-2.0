@@ -68,6 +68,22 @@ Func CurrentGameHeroMovement($sHeroId)
 	Return $g_aCurrentGameHeroes[$iIndex][$eGameHeroMovement]
 EndFunc   ;==>CurrentGameHeroMovement
 
+Func CurrentGameFindGuardian($sGuardianId)
+	Return _CurrentGameFindRow($g_aCurrentGameGuardians, $eGameGuardianId, $sGuardianId)
+EndFunc   ;==>CurrentGameFindGuardian
+
+Func CurrentGameGuardianRequiresBuilder($sGuardianId)
+	Local $iIndex = CurrentGameFindGuardian($sGuardianId)
+	If $iIndex < 0 Then Return SetError(1, 0, False)
+	Return $g_aCurrentGameGuardians[$iIndex][$eGameGuardianBuilderRequired]
+EndFunc   ;==>CurrentGameGuardianRequiresBuilder
+
+Func CurrentGameGuardianUnavailableWhileUpgrading($sGuardianId)
+	Local $iIndex = CurrentGameFindGuardian($sGuardianId)
+	If $iIndex < 0 Then Return SetError(1, 0, False)
+	Return $g_aCurrentGameGuardians[$iIndex][$eGameGuardianUnavailableWhileUpgrading]
+EndFunc   ;==>CurrentGameGuardianUnavailableWhileUpgrading
+
 Func CurrentGameFindBattleSurface($sSurfaceId)
 	Return _CurrentGameFindRow($g_aCurrentGameBattleSurfaces, $eGameBattleId, $sSurfaceId)
 EndFunc   ;==>CurrentGameFindBattleSurface
@@ -127,10 +143,15 @@ Func CurrentGameCatalogValidate(ByRef $sError)
 		$sError = "Generated Hero row count does not match the current-client constant"
 		Return SetError(4, 0, False)
 	EndIf
+	If $CURRENT_GAME_GUARDIAN_COUNT <> 3 Or $CURRENT_GAME_MAX_ACTIVE_GUARDIANS <> 1 Or UBound($g_aCurrentGameGuardians, 1) <> $CURRENT_GAME_GUARDIAN_COUNT Then
+		$sError = "Expected three Guardians and one active slot"
+		Return SetError(5, 0, False)
+	EndIf
 	If Not _CurrentGameValidateUniqueIds($g_aCurrentGameSources, $eGameSourceId, "Source catalog", $sError) Then Return SetError(5, 0, False)
 	If Not _CurrentGameValidateUniqueIds($g_aCurrentGameHeroes, $eGameHeroId, "Hero catalog", $sError) Then Return SetError(6, 0, False)
-	If Not _CurrentGameValidateUniqueIds($g_aCurrentGameBattleSurfaces, $eGameBattleId, "Battle surface catalog", $sError) Then Return SetError(7, 0, False)
-	If Not _CurrentGameValidateUniqueIds($g_aCurrentGameScreenStates, $eGameScreenId, "Screen-state catalog", $sError) Then Return SetError(8, 0, False)
+	If Not _CurrentGameValidateUniqueIds($g_aCurrentGameGuardians, $eGameGuardianId, "Guardian catalog", $sError) Then Return SetError(7, 0, False)
+	If Not _CurrentGameValidateUniqueIds($g_aCurrentGameBattleSurfaces, $eGameBattleId, "Battle surface catalog", $sError) Then Return SetError(8, 0, False)
+	If Not _CurrentGameValidateUniqueIds($g_aCurrentGameScreenStates, $eGameScreenId, "Screen-state catalog", $sError) Then Return SetError(9, 0, False)
 
 	For $i = 0 To UBound($g_aCurrentGameHeroes, 1) - 1
 		If Int($g_aCurrentGameHeroes[$i][$eGameHeroUnlockTownHall]) < 1 Or Int($g_aCurrentGameHeroes[$i][$eGameHeroUnlockTownHall]) > $CURRENT_GAME_MAX_TOWN_HALL Then
@@ -144,6 +165,25 @@ Func CurrentGameCatalogValidate(ByRef $sError)
 		If StringStripWS($g_aCurrentGameHeroes[$i][$eGameHeroFixtureIds], 8) = "" Then
 			$sError = "Hero has no fixture requirement: " & $g_aCurrentGameHeroes[$i][$eGameHeroId]
 			Return SetError(11, $i, False)
+		EndIf
+	Next
+
+	For $i = 0 To UBound($g_aCurrentGameGuardians, 1) - 1
+		If Int($g_aCurrentGameGuardians[$i][$eGameGuardianUnlockTownHall]) <> 18 Then
+			$sError = "Guardian unlock Town Hall must be 18: " & $g_aCurrentGameGuardians[$i][$eGameGuardianId]
+			Return SetError(12, $i, False)
+		EndIf
+		If CurrentGameFindSource($g_aCurrentGameGuardians[$i][$eGameGuardianSourceId]) < 0 Then
+			$sError = "Guardian references an unknown source: " & $g_aCurrentGameGuardians[$i][$eGameGuardianId]
+			Return SetError(13, $i, False)
+		EndIf
+		If Not $g_aCurrentGameGuardians[$i][$eGameGuardianBuilderRequired] Or Not $g_aCurrentGameGuardians[$i][$eGameGuardianUnavailableWhileUpgrading] Or Not $g_aCurrentGameGuardians[$i][$eGameGuardianCompletedLevelDefends] Then
+			$sError = "Guardian upgrade safety contract is incomplete: " & $g_aCurrentGameGuardians[$i][$eGameGuardianId]
+			Return SetError(14, $i, False)
+		EndIf
+		If StringStripWS($g_aCurrentGameGuardians[$i][$eGameGuardianFixtureIds], 8) = "" Then
+			$sError = "Guardian has no fixture requirement: " & $g_aCurrentGameGuardians[$i][$eGameGuardianId]
+			Return SetError(15, $i, False)
 		EndIf
 	Next
 

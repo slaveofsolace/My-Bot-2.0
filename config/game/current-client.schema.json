@@ -14,7 +14,7 @@
     "home_village_hero_count": {"type": "integer", "minimum": 1},
     "max_active_hero_slots": {"type": "integer", "minimum": 1},
     "sources": {"type":"array","minItems":1,"items":{"type":"object","additionalProperties":false,"required":["id","published_date","title","url"],"properties":{"id":{"type":"string"},"published_date":{"type":"string","format":"date"},"title":{"type":"string","minLength":5},"url":{"type":"string","format":"uri"}}}},
-    "updates": {"type":"array","minItems":1,"items":{"type":"object","required":["id","effective_date","source_id","facts","affected_catalogs"],"properties":{"id":{"type":"string"},"effective_date":{"type":"string","format":"date"},"availability_date":{"type":"string","format":"date"},"source_id":{"type":"string"},"facts":{"type":"array","minItems":1,"items":{"type":"string","minLength":15}},"affected_catalogs":{"type":"array","minItems":1,"items":{"enum":["battle-surfaces","heroes","screen-states"]}}}}},
+    "updates": {"type":"array","minItems":1,"items":{"type":"object","required":["id","effective_date","source_id","facts","affected_catalogs"],"properties":{"id":{"type":"string"},"effective_date":{"type":"string","format":"date"},"availability_date":{"type":"string","format":"date"},"source_id":{"type":"string"},"facts":{"type":"array","minItems":1,"items":{"type":"string","minLength":15}},"affected_catalogs":{"type":"array","minItems":1,"items":{"enum":["battle-surfaces","guardians","heroes","screen-states"]}}}}},
     "excluded_unverified_claims": {"type":"array","items":{"type":"object","additionalProperties":false,"required":["name","reason"],"properties":{"name":{"type":"string","minLength":3},"reason":{"type":"string","minLength":20}}}}
   }
 }

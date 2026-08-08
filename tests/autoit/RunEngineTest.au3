@@ -4,6 +4,7 @@
 #include <StringConstants.au3>
 #include <FileConstants.au3>
 #include <Array.au3>
+#include "..\..\COCBot\functions\Other\Json.au3"
 #include "..\..\COCBot\functions\Run\RunIntent.au3"
 #include "..\..\COCBot\functions\Run\RunPlanFile.au3"
 
@@ -86,6 +87,65 @@ AssertTrue($oIntent.Item("surface_id") = "legend-ii", "intent keeps the exact su
 
 Local $oMismatch = RunIntentCreate($oPlan, "builder", $oIntentLoadout, $sError)
 AssertTrue(Not IsObj($oMismatch), "surface that contradicts the plan mode is rejected")
+
+; The browser planner writes one flat document. The bridge must revalidate every field before producing an intent.
+Local $oSavedPlan = Json_ObjCreate()
+Local $aSavedHeroes = ["barbarian-king", "archer-queen"]
+Json_ObjPut($oSavedPlan, "run.surface", "regular")
+Json_ObjPut($oSavedPlan, "run.strategy", "legacy.csv")
+Json_ObjPut($oSavedPlan, "run.heroes", $aSavedHeroes)
+Json_ObjPut($oSavedPlan, "runtime.emulator", "auto")
+Json_ObjPut($oSavedPlan, "runtime.instance", "")
+Json_ObjPut($oSavedPlan, "run.duration_minutes", 45)
+Json_ObjPut($oSavedPlan, "run.max_battles", 12)
+Json_ObjPut($oSavedPlan, "run.stop_on_star_bonus", True)
+Json_ObjPut($oSavedPlan, "run.max_failures", 3)
+Json_ObjPut($oSavedPlan, "target.gold", 1000000)
+Json_ObjPut($oSavedPlan, "target.elixir", 750000)
+Json_ObjPut($oSavedPlan, "target.dark_elixir", 5000)
+Json_ObjPut($oSavedPlan, "upgrade.policy", "disabled")
+Json_ObjPut($oSavedPlan, "account.queue", "")
+Json_ObjPut($oSavedPlan, "army.source", "recipe")
+Json_ObjPut($oSavedPlan, "army.recipe_name", "farm")
+Json_ObjPut($oSavedPlan, "army.wait_for_full", True)
+Json_ObjPut($oSavedPlan, "army.train_spells", True)
+Json_ObjPut($oSavedPlan, "army.train_sieges", False)
+Json_ObjPut($oSavedPlan, "search.min_gold", 400000)
+Json_ObjPut($oSavedPlan, "search.min_elixir", 400000)
+Json_ObjPut($oSavedPlan, "search.min_dark", 0)
+Json_ObjPut($oSavedPlan, "search.max_seconds", 120)
+Json_ObjPut($oSavedPlan, "search.town_hall_filter", "same-or-lower")
+Json_ObjPut($oSavedPlan, "donate.mode", "off")
+Json_ObjPut($oSavedPlan, "donate.keep_army", True)
+Json_ObjPut($oSavedPlan, "donate.max_per_run", 0)
+Json_ObjPut($oSavedPlan, "donate.request_when_short", False)
+Json_ObjPut($oSavedPlan, "events.clan_games", False)
+Json_ObjPut($oSavedPlan, "events.clan_games_point_cap", 0)
+Json_ObjPut($oSavedPlan, "events.laboratory", "off")
+Json_ObjPut($oSavedPlan, "events.collect_resources", True)
+Json_ObjPut($oSavedPlan, "notify.on_stop", False)
+Json_ObjPut($oSavedPlan, "notify.on_error", True)
+Json_ObjPut($oSavedPlan, "notify.channel", "log-only")
+Json_ObjPut($oSavedPlan, "run.diagnostic_mode", False)
+Json_ObjPut($oSavedPlan, "run.diagnostic_note", "")
+Json_ObjPut($oSavedPlan, "pacing.action_delay_ms", 120)
+Json_ObjPut($oSavedPlan, "pacing.settle_ms", 400)
+Json_ObjPut($oSavedPlan, "pacing.retry_attempts", 2)
+Json_ObjPut($oSavedPlan, "pacing.break_every_minutes", 0)
+Json_ObjPut($oSavedPlan, "pacing.break_minutes", 5)
+Local $sSavedPlanPath = @TempDir & "\mybot-run-plan-test.json"
+FileDelete($sSavedPlanPath)
+AssertTrue(FileWrite($sSavedPlanPath, Json_Encode($oSavedPlan)) > 0, "saved planner fixture is written")
+Local $oSavedIntent = RunPlanFileLoadIntent($sSavedPlanPath, $sError)
+AssertTrue(IsObj($oSavedIntent), "saved planner document becomes a run intent: " & $sError)
+Local $oSavedEnginePlan = $oSavedIntent.Item("plan")
+AssertTrue($oSavedEnginePlan.Item("search_max_seconds") = 120, "saved search limit reaches RunPlan")
+AssertTrue($oSavedEnginePlan.Item("army_recipe_name") = "farm", "saved army recipe reaches RunPlan")
+Local $oSavedLoadout = $oSavedIntent.Item("loadout")
+AssertTrue(HeroLoadoutCount($oSavedLoadout) = 2, "saved Hero list reaches the loadout")
+Local $oSavedPacing = $oSavedIntent.Item("pacing")
+AssertTrue(RunPacingSettleMilliseconds($oSavedPacing) = 400, "saved pacing reaches the intent")
+FileDelete($sSavedPlanPath)
 
 ; Undemonstrated surfaces are blocked by default, which is what makes the diagnostic opt-in meaningful.
 AssertTrue(Not RunIntentCanStart($oIntent, $sReason), "intent is blocked before evidence")
@@ -211,7 +271,7 @@ AssertTrue($oValues.Item("run.diagnostic_mode") = False, "false parses as false"
 AssertTrue($oValues.Item("run.diagnostic_note") = "", "an empty string stays empty")
 AssertTrue($oValues.Item("run.heroes") = "barbarian-king|archer-queen", "a list arrives pipe-delimited")
 
-Local $oEscaped = RunPlanFileParse('{"a": "line\nbreak", "b": "quote\"inside", "c": "sla\\sh", "d": "\\u00e9", "e": null, "f": [], "g": -1.5}', $sError)
+Local $oEscaped = RunPlanFileParse('{"a": "line\nbreak", "b": "quote\"inside", "c": "sla\\sh", "d": "\u00e9", "e": null, "f": [], "g": -1.5}', $sError)
 AssertTrue(IsObj($oEscaped), "escapes parse: " & $sError)
 AssertTrue($oEscaped.Item("a") = "line" & @LF & "break", "\n becomes a newline")
 AssertTrue($oEscaped.Item("b") = 'quote"inside', "an escaped quote does not end the string")

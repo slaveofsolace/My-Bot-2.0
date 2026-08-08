@@ -19,6 +19,7 @@ DEFAULT_OUTPUT = ROOT / "COCBot/functions/Game/GameCatalog.generated.au3"
 INPUTS = {
     "client": GAME_DIR / "current-client.json",
     "battles": GAME_DIR / "battle-surfaces.json",
+    "guardians": GAME_DIR / "guardians.json",
     "heroes": GAME_DIR / "heroes.json",
     "screens": GAME_DIR / "screen-states.json",
 }
@@ -55,6 +56,7 @@ def emit_assignments(
 def render() -> str:
     client = load(INPUTS["client"])
     battles = load(INPUTS["battles"])
+    guardians = load(INPUTS["guardians"])
     heroes = load(INPUTS["heroes"])
     screens = load(INPUTS["screens"])
 
@@ -88,6 +90,19 @@ def render() -> str:
             ("$eGameHeroFixtureIds", au3_string(joined(hero["fixture_ids"]))),
             ("$eGameHeroAvailabilityDate", au3_string(hero.get("availability_date", ""))),
             ("$eGameHeroActiveSlotEligible", au3_bool(hero["active_slot_eligible"])),
+        ])
+
+    guardian_rows: list[list[tuple[str, str]]] = []
+    for guardian in guardians["guardians"]:
+        guardian_rows.append([
+            ("$eGameGuardianId", au3_string(guardian["id"])),
+            ("$eGameGuardianLabel", au3_string(guardian["label"])),
+            ("$eGameGuardianUnlockTownHall", str(int(guardian["unlock_town_hall"]))),
+            ("$eGameGuardianSourceId", au3_string(guardian["source_id"])),
+            ("$eGameGuardianBuilderRequired", au3_bool(guardian["builder_required"])),
+            ("$eGameGuardianUnavailableWhileUpgrading", au3_bool(guardian["unavailable_while_upgrading"])),
+            ("$eGameGuardianCompletedLevelDefends", au3_bool(guardian["completed_level_defends_while_upgrading"])),
+            ("$eGameGuardianFixtureIds", au3_string(joined(guardian["fixture_ids"]))),
         ])
 
     battle_rows: list[list[tuple[str, str]]] = []
@@ -134,7 +149,7 @@ def render() -> str:
     lines = [
         "; AUTO-GENERATED FILE. DO NOT EDIT.",
         "; Generator: tools/generate_game_catalog_autoit.py",
-        "; Inputs: config/game/current-client.json, config/game/battle-surfaces.json, config/game/heroes.json, config/game/screen-states.json",
+        "; Inputs: config/game/current-client.json, config/game/battle-surfaces.json, config/game/guardians.json, config/game/heroes.json, config/game/screen-states.json",
         ";",
         "; This file is distributed under the terms of the GNU GPL v3.",
         "#include-once",
@@ -145,14 +160,18 @@ def render() -> str:
         f"Global Const $CURRENT_GAME_MAX_TOWN_HALL = {int(client['max_town_hall'])}",
         f"Global Const $CURRENT_GAME_HOME_HERO_COUNT = {int(client['home_village_hero_count'])}",
         f"Global Const $CURRENT_GAME_MAX_ACTIVE_HERO_SLOTS = {int(client['max_active_hero_slots'])}",
+        f"Global Const $CURRENT_GAME_GUARDIAN_COUNT = {int(guardians['guardian_count'])}",
+        f"Global Const $CURRENT_GAME_MAX_ACTIVE_GUARDIANS = {int(guardians['max_active_guardians'])}",
         "",
         "Global Enum $eGameSourceId, $eGameSourceDate, $eGameSourceTitle, $eGameSourceUrl, $eGameSourceColumnCount",
         "Global Enum $eGameHeroId, $eGameHeroLabel, $eGameHeroUnlockTownHall, $eGameHeroMovement, $eGameHeroSourceId, $eGameHeroSourceConfidence, $eGameHeroFixtureIds, $eGameHeroAvailabilityDate, $eGameHeroActiveSlotEligible, $eGameHeroColumnCount",
+        "Global Enum $eGameGuardianId, $eGameGuardianLabel, $eGameGuardianUnlockTownHall, $eGameGuardianSourceId, $eGameGuardianBuilderRequired, $eGameGuardianUnavailableWhileUpgrading, $eGameGuardianCompletedLevelDefends, $eGameGuardianFixtureIds, $eGameGuardianColumnCount",
         "Global Enum $eGameBattleId, $eGameBattleLabel, $eGameBattleSourceId, $eGameBattleEngineRoute, $eGameBattleParentSurface, $eGameBattleMinimumTownHall, $eGameBattleSchedule, $eGameBattleBudgetKind, $eGameBattleBudgetValue, $eGameBattleBudgetUnit, $eGameBattleTrophyEffect, $eGameBattleFixtureIds, $eGameBattleRecognitionStatus, $eGameBattleExecutionStatus, $eGameBattleLegacyFallbackAllowed, $eGameBattleShadowBase, $eGameBattleColumnCount",
         "Global Enum $eGameScreenId, $eGameScreenCategory, $eGameScreenSourceId, $eGameScreenCapabilityIds, $eGameScreenFixtureIds, $eGameScreenBlocking, $eGameScreenRecognitionStatus, $eGameScreenHandlerStatus, $eGameScreenSafeDefaultAction, $eGameScreenRetryLimit, $eGameScreenAppearsAfterSeconds, $eGameScreenSpeedMultiplier, $eGameScreenColumnCount",
         "",
         f"Global $g_aCurrentGameSources[{len(source_rows)}][$eGameSourceColumnCount]",
         f"Global $g_aCurrentGameHeroes[{len(hero_rows)}][$eGameHeroColumnCount]",
+        f"Global $g_aCurrentGameGuardians[{len(guardian_rows)}][$eGameGuardianColumnCount]",
         f"Global $g_aCurrentGameBattleSurfaces[{len(battle_rows)}][$eGameBattleColumnCount]",
         f"Global $g_aCurrentGameScreenStates[{len(screen_rows)}][$eGameScreenColumnCount]",
         "Global $__g_bCurrentGameCatalogInitialized = False",
@@ -162,6 +181,7 @@ def render() -> str:
     ]
     emit_assignments(lines, "$g_aCurrentGameSources", source_rows)
     emit_assignments(lines, "$g_aCurrentGameHeroes", hero_rows)
+    emit_assignments(lines, "$g_aCurrentGameGuardians", guardian_rows)
     emit_assignments(lines, "$g_aCurrentGameBattleSurfaces", battle_rows)
     emit_assignments(lines, "$g_aCurrentGameScreenStates", screen_rows)
     lines += [

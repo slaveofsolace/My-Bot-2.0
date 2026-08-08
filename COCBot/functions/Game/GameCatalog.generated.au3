@@ -1,6 +1,6 @@
 ; AUTO-GENERATED FILE. DO NOT EDIT.
 ; Generator: tools/generate_game_catalog_autoit.py
-; Inputs: config/game/current-client.json, config/game/battle-surfaces.json, config/game/heroes.json, config/game/screen-states.json
+; Inputs: config/game/current-client.json, config/game/battle-surfaces.json, config/game/guardians.json, config/game/heroes.json, config/game/screen-states.json
 ;
 ; This file is distributed under the terms of the GNU GPL v3.
 #include-once
@@ -11,14 +11,18 @@ Global Const $CURRENT_GAME_VERIFIED_THROUGH = "2026-07-09"
 Global Const $CURRENT_GAME_MAX_TOWN_HALL = 18
 Global Const $CURRENT_GAME_HOME_HERO_COUNT = 6
 Global Const $CURRENT_GAME_MAX_ACTIVE_HERO_SLOTS = 4
+Global Const $CURRENT_GAME_GUARDIAN_COUNT = 3
+Global Const $CURRENT_GAME_MAX_ACTIVE_GUARDIANS = 1
 
 Global Enum $eGameSourceId, $eGameSourceDate, $eGameSourceTitle, $eGameSourceUrl, $eGameSourceColumnCount
 Global Enum $eGameHeroId, $eGameHeroLabel, $eGameHeroUnlockTownHall, $eGameHeroMovement, $eGameHeroSourceId, $eGameHeroSourceConfidence, $eGameHeroFixtureIds, $eGameHeroAvailabilityDate, $eGameHeroActiveSlotEligible, $eGameHeroColumnCount
+Global Enum $eGameGuardianId, $eGameGuardianLabel, $eGameGuardianUnlockTownHall, $eGameGuardianSourceId, $eGameGuardianBuilderRequired, $eGameGuardianUnavailableWhileUpgrading, $eGameGuardianCompletedLevelDefends, $eGameGuardianFixtureIds, $eGameGuardianColumnCount
 Global Enum $eGameBattleId, $eGameBattleLabel, $eGameBattleSourceId, $eGameBattleEngineRoute, $eGameBattleParentSurface, $eGameBattleMinimumTownHall, $eGameBattleSchedule, $eGameBattleBudgetKind, $eGameBattleBudgetValue, $eGameBattleBudgetUnit, $eGameBattleTrophyEffect, $eGameBattleFixtureIds, $eGameBattleRecognitionStatus, $eGameBattleExecutionStatus, $eGameBattleLegacyFallbackAllowed, $eGameBattleShadowBase, $eGameBattleColumnCount
 Global Enum $eGameScreenId, $eGameScreenCategory, $eGameScreenSourceId, $eGameScreenCapabilityIds, $eGameScreenFixtureIds, $eGameScreenBlocking, $eGameScreenRecognitionStatus, $eGameScreenHandlerStatus, $eGameScreenSafeDefaultAction, $eGameScreenRetryLimit, $eGameScreenAppearsAfterSeconds, $eGameScreenSpeedMultiplier, $eGameScreenColumnCount
 
 Global $g_aCurrentGameSources[11][$eGameSourceColumnCount]
 Global $g_aCurrentGameHeroes[6][$eGameHeroColumnCount]
+Global $g_aCurrentGameGuardians[3][$eGameGuardianColumnCount]
 Global $g_aCurrentGameBattleSurfaces[7][$eGameBattleColumnCount]
 Global $g_aCurrentGameScreenStates[17][$eGameScreenColumnCount]
 Global $__g_bCurrentGameCatalogInitialized = False
@@ -56,7 +60,7 @@ Func _InitializeCurrentGameCatalogGenerated()
 	$g_aCurrentGameSources[7][$eGameSourceId] = "sound-of-clash-2026-04-27"
 	$g_aCurrentGameSources[7][$eGameSourceDate] = "2026-04-27"
 	$g_aCurrentGameSources[7][$eGameSourceTitle] = "The Sound of Clash Update Is Here"
-	$g_aCurrentGameSources[7][$eGameSourceUrl] = "https://supercell.com/en/games/clashofclans/blog/release-notes/the-sound-of-clash-update-is-here/"
+	$g_aCurrentGameSources[7][$eGameSourceUrl] = "https://supercell.com/en/games/clashofclans/blog/release-notes/the-sound-of-clash-update/"
 	$g_aCurrentGameSources[8][$eGameSourceId] = "may-update-2026-05-26"
 	$g_aCurrentGameSources[8][$eGameSourceDate] = "2026-05-26"
 	$g_aCurrentGameSources[8][$eGameSourceTitle] = "May Update"
@@ -123,6 +127,30 @@ Func _InitializeCurrentGameCatalogGenerated()
 	$g_aCurrentGameHeroes[5][$eGameHeroFixtureIds] = "heroes.dragon-duke|heroes.hall.six"
 	$g_aCurrentGameHeroes[5][$eGameHeroAvailabilityDate] = "2026-03-01"
 	$g_aCurrentGameHeroes[5][$eGameHeroActiveSlotEligible] = True
+	$g_aCurrentGameGuardians[0][$eGameGuardianId] = "smasher"
+	$g_aCurrentGameGuardians[0][$eGameGuardianLabel] = "Smasher"
+	$g_aCurrentGameGuardians[0][$eGameGuardianUnlockTownHall] = 18
+	$g_aCurrentGameGuardians[0][$eGameGuardianSourceId] = "town-hall-18-2025-11-17"
+	$g_aCurrentGameGuardians[0][$eGameGuardianBuilderRequired] = True
+	$g_aCurrentGameGuardians[0][$eGameGuardianUnavailableWhileUpgrading] = True
+	$g_aCurrentGameGuardians[0][$eGameGuardianCompletedLevelDefends] = True
+	$g_aCurrentGameGuardians[0][$eGameGuardianFixtureIds] = "home.th18.guardian"
+	$g_aCurrentGameGuardians[1][$eGameGuardianId] = "longshot"
+	$g_aCurrentGameGuardians[1][$eGameGuardianLabel] = "Longshot"
+	$g_aCurrentGameGuardians[1][$eGameGuardianUnlockTownHall] = 18
+	$g_aCurrentGameGuardians[1][$eGameGuardianSourceId] = "town-hall-18-2025-11-17"
+	$g_aCurrentGameGuardians[1][$eGameGuardianBuilderRequired] = True
+	$g_aCurrentGameGuardians[1][$eGameGuardianUnavailableWhileUpgrading] = True
+	$g_aCurrentGameGuardians[1][$eGameGuardianCompletedLevelDefends] = True
+	$g_aCurrentGameGuardians[1][$eGameGuardianFixtureIds] = "home.th18.guardian"
+	$g_aCurrentGameGuardians[2][$eGameGuardianId] = "logger"
+	$g_aCurrentGameGuardians[2][$eGameGuardianLabel] = "Logger"
+	$g_aCurrentGameGuardians[2][$eGameGuardianUnlockTownHall] = 18
+	$g_aCurrentGameGuardians[2][$eGameGuardianSourceId] = "sound-of-clash-2026-04-27"
+	$g_aCurrentGameGuardians[2][$eGameGuardianBuilderRequired] = True
+	$g_aCurrentGameGuardians[2][$eGameGuardianUnavailableWhileUpgrading] = True
+	$g_aCurrentGameGuardians[2][$eGameGuardianCompletedLevelDefends] = True
+	$g_aCurrentGameGuardians[2][$eGameGuardianFixtureIds] = "home.th18.guardian"
 	$g_aCurrentGameBattleSurfaces[0][$eGameBattleId] = "regular"
 	$g_aCurrentGameBattleSurfaces[0][$eGameBattleLabel] = "Regular Battles"
 	$g_aCurrentGameBattleSurfaces[0][$eGameBattleSourceId] = "ranked-2025-10-06"

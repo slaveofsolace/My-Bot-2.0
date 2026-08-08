@@ -304,3 +304,215 @@ Func RunPlanFileLoad($sPath, ByRef $sError)
 	If Not IsObj($oValues) Then Return SetError(5, 0, 0)
 	Return SetError(0, 0, $oValues)
 EndFunc   ;==>RunPlanFileLoad
+
+Global Const $RUN_PLAN_FILE_SCHEMA_VERSION = 1
+
+Func _RunPlanFileModeForSurface($sSurface)
+	Switch StringLower(String($sSurface))
+		Case "builder"
+			Return "builder"
+		Case "ranked"
+			Return "ranked"
+		Case "legend-iii", "legend-ii", "legend-i"
+			Return "legend"
+		Case "regular", "revenge"
+			Return "regular"
+	EndSwitch
+	Return ""
+EndFunc   ;==>_RunPlanFileModeForSurface
+
+; The exact contract. 42 keys: the original 37 plus the five pacing settings the cloud surface adds.
+; If a setting is added to config/ui/run-planner.settings.json it MUST be added here too, or every
+; saved plan is refused.
+Func _RunPlanFileRequiredKeys()
+	Local $aKeys = ["run.surface", "run.strategy", "run.heroes", "runtime.emulator", "runtime.instance", "run.duration_minutes", "run.max_battles", "run.stop_on_star_bonus", "run.max_failures", _
+		"target.gold", "target.elixir", "target.dark_elixir", "upgrade.policy", "account.queue", "army.source", "army.recipe_name", "army.wait_for_full", "army.train_spells", "army.train_sieges", _
+		"search.min_gold", "search.min_elixir", "search.min_dark", "search.max_seconds", "search.town_hall_filter", "donate.mode", "donate.keep_army", "donate.max_per_run", "donate.request_when_short", _
+		"events.clan_games", "events.clan_games_point_cap", "events.laboratory", "events.collect_resources", "notify.on_stop", "notify.on_error", "notify.channel", "run.diagnostic_mode", "run.diagnostic_note", _
+		"pacing.action_delay_ms", "pacing.settle_ms", "pacing.retry_attempts", "pacing.break_every_minutes", "pacing.break_minutes"]
+	Return $aKeys
+EndFunc   ;==>_RunPlanFileRequiredKeys
+
+Func _RunPlanFileValidateShape(ByRef $oJson, ByRef $sError)
+	If Not IsObj($oJson) Then
+		$sError = "Saved plan must contain one JSON object"
+		Return False
+	EndIf
+	Local $aRequired = _RunPlanFileRequiredKeys()
+	If $oJson.Count <> UBound($aRequired) Then
+		$sError = "Saved plan has " & $oJson.Count & " fields; the planner contract has " & UBound($aRequired)
+		Return False
+	EndIf
+	For $i = 0 To UBound($aRequired) - 1
+		If Not $oJson.Exists($aRequired[$i]) Then
+			$sError = "Saved plan is missing: " & $aRequired[$i]
+			Return False
+		EndIf
+	Next
+	Return True
+EndFunc   ;==>_RunPlanFileValidateShape
+
+Func _RunPlanFileRequireString(ByRef $oJson, $sKey, ByRef $sError)
+	Local $vValue = $oJson.Item($sKey)
+	If Not IsString($vValue) Then
+		$sError = $sKey & " must be text"
+		Return SetError(1, 0, "")
+	EndIf
+	Return $vValue
+EndFunc   ;==>_RunPlanFileRequireString
+
+Func _RunPlanFileRequireInteger(ByRef $oJson, $sKey, ByRef $sError)
+	Local $vValue = $oJson.Item($sKey)
+	If Not IsNumber($vValue) Or Int($vValue) <> Number($vValue) Or Number($vValue) < 0 Then
+		$sError = $sKey & " must be a non-negative integer"
+		Return SetError(1, 0, 0)
+	EndIf
+	Return Int($vValue)
+EndFunc   ;==>_RunPlanFileRequireInteger
+
+Func _RunPlanFileRequireBoolean(ByRef $oJson, $sKey, ByRef $sError)
+	Local $vValue = $oJson.Item($sKey)
+	If Not IsBool($vValue) Then
+		$sError = $sKey & " must be true or false"
+		Return SetError(1, 0, False)
+	EndIf
+	Return $vValue
+EndFunc   ;==>_RunPlanFileRequireBoolean
+
+Func _RunPlanFileAssignString(ByRef $oPlan, ByRef $oJson, $sPlanKey, $sJsonKey, ByRef $sError)
+	Local $sValue = _RunPlanFileRequireString($oJson, $sJsonKey, $sError)
+	If @error Then Return False
+	$oPlan.Item($sPlanKey) = $sValue
+	Return True
+EndFunc   ;==>_RunPlanFileAssignString
+
+Func _RunPlanFileAssignInteger(ByRef $oPlan, ByRef $oJson, $sPlanKey, $sJsonKey, ByRef $sError)
+	Local $iValue = _RunPlanFileRequireInteger($oJson, $sJsonKey, $sError)
+	If @error Then Return False
+	$oPlan.Item($sPlanKey) = $iValue
+	Return True
+EndFunc   ;==>_RunPlanFileAssignInteger
+
+Func _RunPlanFileAssignBoolean(ByRef $oPlan, ByRef $oJson, $sPlanKey, $sJsonKey, ByRef $sError)
+	Local $bValue = _RunPlanFileRequireBoolean($oJson, $sJsonKey, $sError)
+	If @error Then Return False
+	$oPlan.Item($sPlanKey) = $bValue
+	Return True
+EndFunc   ;==>_RunPlanFileAssignBoolean
+
+; LIST REPRESENTATION - do not simplify this.
+; tools/check_plan_bridge.py requires `RUN_PLAN_FILE_LIST_SEPARATOR = "|"` in this file and checks
+; "list delimiter consistency between parser and applier", so cloud's parser hands multi-select
+; values back as a PIPE-DELIMITED STRING, not an AutoIt array.
+;
+; The Windows original assumed an array and treated any string as a single Hero. Composed against
+; cloud's parser that silently breaks: "barbarian-king|archer-queen" would be passed to
+; HeroLoadoutAdd as one identifier and rejected as an unknown Hero. Split first.
+;
+; The array branch is kept as defence in case the parser is ever changed to return real arrays.
+Func _RunPlanFileBuildLoadout(ByRef $oJson, ByRef $sError)
+	Local $oLoadout = HeroLoadoutCreate()
+	If Not IsObj($oLoadout) Then
+		$sError = "Unable to create a Hero loadout"
+		Return SetError(1, 0, 0)
+	EndIf
+	Local $vHeroes = $oJson.Item("run.heroes")
+	Local $aHeroes
+	If IsString($vHeroes) Then
+		If StringStripWS($vHeroes, 3) = "" Then Return $oLoadout ; an empty selection is legitimate
+		$aHeroes = StringSplit($vHeroes, $RUN_PLAN_FILE_LIST_SEPARATOR, $STR_ENTIRESPLIT + $STR_NOCOUNT)
+	ElseIf IsArray($vHeroes) Then
+		$aHeroes = $vHeroes
+	Else
+		$sError = "run.heroes must be a list"
+		Return SetError(2, 0, 0)
+	EndIf
+
+	For $i = 0 To UBound($aHeroes) - 1
+		If Not IsString($aHeroes[$i]) Then
+			$sError = "run.heroes must contain Hero identifiers"
+			Return SetError(3, $i, 0)
+		EndIf
+		Local $sHero = StringStripWS($aHeroes[$i], 3)
+		If $sHero = "" Then ContinueLoop
+		If Not HeroLoadoutAdd($oLoadout, $sHero, $sError) Then Return SetError(4, $i, 0)
+	Next
+	Return $oLoadout
+EndFunc   ;==>_RunPlanFileBuildLoadout
+
+; Reads five pacing integers off the saved document and installs them on the intent.
+; Kept separate so the bound errors name pacing rather than surfacing as a generic plan failure.
+Func _RunPlanFileApplyPacing(ByRef $oIntent, ByRef $oJson, ByRef $sError)
+	Local $iActionDelay = _RunPlanFileRequireInteger($oJson, "pacing.action_delay_ms", $sError)
+	If @error Then Return False
+	Local $iSettle = _RunPlanFileRequireInteger($oJson, "pacing.settle_ms", $sError)
+	If @error Then Return False
+	Local $iRetries = _RunPlanFileRequireInteger($oJson, "pacing.retry_attempts", $sError)
+	If @error Then Return False
+	Local $iBreakEvery = _RunPlanFileRequireInteger($oJson, "pacing.break_every_minutes", $sError)
+	If @error Then Return False
+	Local $iBreakFor = _RunPlanFileRequireInteger($oJson, "pacing.break_minutes", $sError)
+	If @error Then Return False
+
+	; RunIntentSetPacing enforces the engine's own bounds and is the single place they live.
+	; Note break_minutes is 1-240: a hand-edited 0 is refused here, which is correct.
+	If Not RunIntentSetPacing($oIntent, $iActionDelay, $iSettle, $iRetries, $iBreakEvery, $iBreakFor, $sError) Then Return False
+	Return True
+EndFunc   ;==>_RunPlanFileApplyPacing
+
+; Loads the saved planner document and prepares engine objects. Prepares only: opening a session
+; and pressing Start remain the run loop's job. Nothing here begins a run.
+Func RunPlanFileLoadIntent($sPath, ByRef $sError)
+	$sError = ""
+	If $sPath = "" Then $sPath = RunPlanFileDefaultPath()
+
+	; Cloud's loader already checks existence, bounds the size, and refuses nested objects/arrays.
+	Local $oJson = RunPlanFileLoad($sPath, $sError)
+	If Not IsObj($oJson) Then Return SetError(1, 0, 0)
+	If Not _RunPlanFileValidateShape($oJson, $sError) Then Return SetError(2, 0, 0)
+
+	Local $sSurface = _RunPlanFileRequireString($oJson, "run.surface", $sError)
+	If @error Then Return SetError(3, 0, 0)
+	Local $sMode = _RunPlanFileModeForSurface($sSurface)
+	If $sMode = "" Then
+		$sError = "Unsupported saved surface: " & $sSurface
+		Return SetError(4, 0, 0)
+	EndIf
+	Local $sStrategy = _RunPlanFileRequireString($oJson, "run.strategy", $sError)
+	If @error Then Return SetError(5, 0, 0)
+	Local $oPlan = RunPlanCreateDefault($sMode, $sStrategy)
+	If Not IsObj($oPlan) Then
+		$sError = "Unable to create a run plan"
+		Return SetError(6, 0, 0)
+	EndIf
+
+	Local $aStrings[10][2] = [["emulator", "runtime.emulator"], ["emulator_instance", "runtime.instance"], ["upgrade_policy", "upgrade.policy"], ["account_queue_id", "account.queue"], ["army_source", "army.source"], ["army_recipe_name", "army.recipe_name"], ["search_town_hall_filter", "search.town_hall_filter"], ["donate_mode", "donate.mode"], ["events_laboratory", "events.laboratory"], ["notify_channel", "notify.channel"]]
+	; mode is derived from the surface. Assign every other text field explicitly.
+	For $i = 0 To UBound($aStrings) - 1
+		If Not _RunPlanFileAssignString($oPlan, $oJson, $aStrings[$i][0], $aStrings[$i][1], $sError) Then Return SetError(7, $i, 0)
+	Next
+	; pacing.* is deliberately absent from this table - it belongs to the intent, not the plan.
+	Local $aIntegers[12][2] = [["duration_minutes", "run.duration_minutes"], ["max_battles", "run.max_battles"], ["max_failures", "run.max_failures"], ["target_gold", "target.gold"], ["target_elixir", "target.elixir"], ["target_dark_elixir", "target.dark_elixir"], ["search_min_gold", "search.min_gold"], ["search_min_elixir", "search.min_elixir"], ["search_min_dark", "search.min_dark"], ["search_max_seconds", "search.max_seconds"], ["donate_max_per_run", "donate.max_per_run"], ["events_clan_games_point_cap", "events.clan_games_point_cap"]]
+	For $i = 0 To UBound($aIntegers) - 1
+		If Not _RunPlanFileAssignInteger($oPlan, $oJson, $aIntegers[$i][0], $aIntegers[$i][1], $sError) Then Return SetError(8, $i, 0)
+	Next
+	Local $aBooleans[10][2] = [["stop_on_star_bonus", "run.stop_on_star_bonus"], ["army_wait_for_full", "army.wait_for_full"], ["army_train_spells", "army.train_spells"], ["army_train_sieges", "army.train_sieges"], ["donate_keep_army", "donate.keep_army"], ["donate_request_when_short", "donate.request_when_short"], ["events_clan_games", "events.clan_games"], ["events_collect_resources", "events.collect_resources"], ["notify_on_stop", "notify.on_stop"], ["notify_on_error", "notify.on_error"]]
+	For $i = 0 To UBound($aBooleans) - 1
+		If Not _RunPlanFileAssignBoolean($oPlan, $oJson, $aBooleans[$i][0], $aBooleans[$i][1], $sError) Then Return SetError(9, $i, 0)
+	Next
+	If Not RunPlanValidate($oPlan, $sError) Then Return SetError(10, 0, 0)
+
+	Local $oLoadout = _RunPlanFileBuildLoadout($oJson, $sError)
+	If Not IsObj($oLoadout) Then Return SetError(11, 0, 0)
+	Local $oIntent = RunIntentCreate($oPlan, $sSurface, $oLoadout, $sError)
+	If Not IsObj($oIntent) Then Return SetError(12, 0, 0)
+
+	If Not _RunPlanFileApplyPacing($oIntent, $oJson, $sError) Then Return SetError(13, 0, 0)
+
+	Local $bDiagnostic = _RunPlanFileRequireBoolean($oJson, "run.diagnostic_mode", $sError)
+	If @error Then Return SetError(14, 0, 0)
+	Local $sDiagnosticNote = _RunPlanFileRequireString($oJson, "run.diagnostic_note", $sError)
+	If @error Then Return SetError(15, 0, 0)
+	If $bDiagnostic And Not RunIntentEnableDiagnostic($oIntent, $sDiagnosticNote, $sError) Then Return SetError(16, 0, 0)
+	Return $oIntent
+EndFunc   ;==>RunPlanFileLoadIntent

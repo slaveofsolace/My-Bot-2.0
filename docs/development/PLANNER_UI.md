@@ -25,6 +25,11 @@ It serves on `http://127.0.0.1:8765` and opens your browser. `Ctrl-C` stops it.
 
 It binds to loopback only, so nothing is reachable from outside the machine.
 
+The page shell, stylesheet and script are separate files: `ui/planner.html`, `ui/planner.css` and
+`ui/planner.js`. The server's Content Security Policy allows only same-origin styles and scripts;
+inline blocks are intentionally absent. Requests also require a local Host/Origin, JSON writes are
+limited to 256 KB, and plan replacement is atomic.
+
 ---
 
 ## What it does
@@ -59,7 +64,9 @@ config/run-plan.local.json   <-- the engine reads this to run
         |    |  the engine appends events
         |   logs/run-events.jsonl  --(GET /api/events)-->  live activity feed
         |
-        +--> RunPlanFile.au3 --> the AutoIt tab's controls, on startup and whenever the file changes
+        +--> RunPlanFile.au3 --> flat JSON parser --> tab synchronization
+                                      |
+                                      +--> exact 42-key validator --> prepared RunIntent
 ```
 
 - **`config/run-plan.local.json`** is what the UI writes and the engine reads. It is local to each
@@ -76,12 +83,14 @@ A submitted plan is checked before anything reaches disk, and the two outcomes a
   is stale or something else is writing. Saving the rest would leave you looking at a plan the file
   does not contain.
 
-The AutoIt reader goes the other way: it *ignores* settings this build does not have. That is not an
-inconsistency. It is a build reading a file it did not write, where tolerating an unknown key is
-exactly what lets an older and a newer build share one plan file. The server is a client writing to
-its own server, where an unknown key can only be a bug.
+The AutoIt file layer has two deliberate stages. The parser accepts any flat JSON object made from
+strings, numbers, booleans, nulls and scalar lists. The constructor is strict: before it prepares a
+`RunIntent`, the document must contain exactly the 42 metadata keys and every value must satisfy the
+engine contract. Parsing remains reusable while an incomplete or mixed-version plan cannot reach the
+engine.
 
-The engine still re-validates everything; the UI is a convenience, not the authority.
+Loading prepares an intent; it never presses Start. The engine still re-validates everything, so the
+UI is a convenience rather than an authority boundary.
 
 ---
 
@@ -108,20 +117,24 @@ library, so it parses the subset the plan file can contain: strings, numbers, bo
 lists of those. **Nested objects are refused by name** rather than flattened, because a plan that
 grew a nested shape is a contract change and should fail loudly.
 
-A value the tab cannot represent costs that one setting, not the whole file:
+A value the tab cannot represent costs that one control during synchronization:
 
 - **out of range** — clamped to the nearest legal value and reported
 - **not one of the offered options** — refused, that control left alone
-- **a setting this build does not have** — ignored, so an older or newer plan file still loads
+- **a setting this build does not have** — ignored by the visual synchronization pass
+
+Preparing an intent is stricter. **Load saved plan** and **Apply plan** reread the document through
+the composed parser and validator, require all 42 keys exactly once, validate types and engine
+bounds, construct the Hero loadout, and attach pacing. Any unknown, missing or malformed setting
+rejects the complete intent rather than preparing a partial run.
 
 Reset is still yours. It puts the controls back to their defaults and the file does not immediately
 undo it; the file re-asserts itself the next time it actually changes.
 
-`tools/check_plan_bridge.py` is what keeps the two halves honest. The AutoIt side cannot be executed
-off Windows, so it checks the agreement statically: that the plan the server writes only uses shapes
-the parser accepts, that every key names a control, that every setting type has a branch that applies
-it, and that the pacing bounds the engine enforces are the ones the controls offer. CI runs it on
-every push.
+`tools/check_plan_bridge.py` keeps the two halves honest. It checks that the plan uses shapes the
+parser accepts, every key names a control, the AutoIt constructor's required-key list matches all 42
+metadata settings in both directions, every setting type has an apply branch, and the pacing bounds
+match the engine. CI runs it on every push; Windows additionally executes the AutoIt contract tests.
 
 ---
 
@@ -168,6 +181,16 @@ both:
 
 Waits are taken in 250 ms slices so Stop stays responsive — a run resting for ten minutes should not
 take ten minutes to notice it was stopped.
+
+---
+
+## Current execution boundary
+
+The bridge now proves browser save → plan file → native parse → validated `RunIntent`. Pacing is the
+only planner component currently installed into an active runtime gate. The remaining strategy,
+target, army, search, donation, event and notification fields are present on the prepared intent but
+are not yet the source of truth for the legacy run loop. Do not describe those controls as executing
+a battle until each legacy subsystem consumes the intent and hardware validation exists.
 
 ---
 

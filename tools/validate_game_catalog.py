@@ -54,6 +54,7 @@ def main() -> int:
 
     client = load(GAME_DIR / "current-client.json")
     battles = load(GAME_DIR / "battle-surfaces.json")
+    guardians = load(GAME_DIR / "guardians.json")
     heroes = load(GAME_DIR / "heroes.json")
     screens = load(GAME_DIR / "screen-states.json")
     capabilities = load(CAPABILITIES_PATH)
@@ -88,7 +89,7 @@ def main() -> int:
         errors.append("current-client updates must be a non-empty list")
         updates = []
     update_ids = unique_ids(updates, "updates", errors)
-    allowed_catalogs = {"battle-surfaces", "heroes", "screen-states"}
+    allowed_catalogs = {"battle-surfaces", "guardians", "heroes", "screen-states"}
     for update in updates:
         if update.get("source_id") not in source_ids:
             errors.append(f"update {update.get('id')} references an unknown source")
@@ -102,7 +103,7 @@ def main() -> int:
         if not isinstance(affected, list) or not affected or not set(affected).issubset(allowed_catalogs):
             errors.append(f"update {update.get('id')} has invalid affected_catalogs")
 
-    serialized_catalogs = json.dumps([client, battles, heroes, screens], ensure_ascii=False).lower()
+    serialized_catalogs = json.dumps([client, battles, guardians, heroes, screens], ensure_ascii=False).lower()
     for claim in PROHIBITED_UNVERIFIED:
         occurrences = serialized_catalogs.count(claim)
         if occurrences != 1:
@@ -191,6 +192,28 @@ def main() -> int:
             if fixture_id not in fixture_ids:
                 errors.append(f"hero {hero_id} references missing fixture {fixture_id}")
 
+    guardian_items = guardians.get("guardians")
+    if not isinstance(guardian_items, list):
+        errors.append("guardians must be a list")
+        guardian_items = []
+    guardian_ids = unique_ids(guardian_items, "guardians", errors)
+    if guardian_ids != {"smasher", "longshot", "logger"}:
+        errors.append("guardian catalog must contain exactly Smasher, Longshot, and Logger")
+    if guardians.get("guardian_count") != 3 or guardians.get("max_active_guardians") != 1:
+        errors.append("guardian catalog count or active limit is incorrect")
+    for guardian in guardian_items:
+        guardian_id = guardian.get("id")
+        if guardian.get("unlock_town_hall") != 18:
+            errors.append(f"guardian {guardian_id} must unlock at Town Hall 18")
+        if guardian.get("source_id") not in source_ids:
+            errors.append(f"guardian {guardian_id} references an unknown source")
+        for rule in ("builder_required", "unavailable_while_upgrading", "completed_level_defends_while_upgrading"):
+            if guardian.get(rule) is not True:
+                errors.append(f"guardian {guardian_id} must declare {rule}=true")
+        for fixture_id in guardian.get("fixture_ids", []):
+            if fixture_id not in fixture_ids:
+                errors.append(f"guardian {guardian_id} references missing fixture {fixture_id}")
+
     states = screens.get("states")
     if not isinstance(states, list) or not states:
         errors.append("screen states must be a non-empty list")
@@ -241,6 +264,7 @@ def main() -> int:
         "sources": len(source_ids),
         "updates": len(update_ids),
         "battle_surfaces": len(surface_ids),
+        "guardians": len(guardian_ids),
         "heroes": len(hero_ids),
         "screen_states": len(state_ids),
         "errors": errors,

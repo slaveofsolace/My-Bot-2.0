@@ -154,6 +154,20 @@ Func cmbAndroidInstance()
 	EndIf
 EndFunc   ;==>cmbAndroidInstance
 
+Func InitializeConfiguredEmulatorSelection()
+	GUICtrlSetData($g_hCmbAndroidEmulator, $g_sAndroidEmulator, $g_sAndroidEmulator)
+	Local $sInstance = ($g_sAndroidInstance = "" ? "Android" : $g_sAndroidInstance)
+	GUICtrlSetData($g_hCmbAndroidInstance, $sInstance, $sInstance)
+	SetDebugLog("Configured emulator restored; installed-emulator scan deferred")
+EndFunc   ;==>InitializeConfiguredEmulatorSelection
+
+Func btnDetectEmulators()
+	GUICtrlSetState($g_hBtnAndroidDetect, $GUI_DISABLE)
+	SetLog("Scanning installed emulators…", $COLOR_INFO)
+	getAllEmulators()
+	GUICtrlSetState($g_hBtnAndroidDetect, $GUI_ENABLE)
+EndFunc   ;==>btnDetectEmulators
+
 Func getAllEmulators()
 
 	; Initial Var with all emulators , will populate the ComboBox UI

@@ -16,6 +16,8 @@ REQUIRED_FILES = [
     "config/game/current-client.schema.json",
     "config/game/battle-surfaces.json",
     "config/game/battle-surfaces.schema.json",
+    "config/game/guardians.json",
+    "config/game/guardians.schema.json",
     "config/game/heroes.json",
     "config/game/heroes.schema.json",
     "config/game/screen-states.json",
@@ -66,6 +68,7 @@ def main() -> int:
 
     client = load("config/game/current-client.json")
     battles = load("config/game/battle-surfaces.json")
+    guardians = load("config/game/guardians.json")
     heroes = load("config/game/heroes.json")
     screens = load("config/game/screen-states.json")
 
@@ -74,6 +77,10 @@ def main() -> int:
     require(client["max_town_hall"] == 18, "game model declares Town Hall 18", findings)
     require(heroes["home_village_hero_count"] == 6, "game model declares six Home Village Heroes", findings)
     require(heroes["max_active_slots"] == 4, "game model declares four active Hero slots", findings)
+    require(guardians["guardian_count"] == 3, "game model declares three Guardians", findings)
+    require(guardians["max_active_guardians"] == 1, "game model declares one active Guardian", findings)
+    sound_source = next(item for item in client["sources"] if item["id"] == "sound-of-clash-2026-04-27")
+    require(sound_source["url"].endswith("/the-sound-of-clash-update/"), "Sound of Clash source uses the canonical URL", findings)
 
     generated = text("COCBot/functions/Game/GameCatalog.generated.au3")
     require(generated.startswith("; AUTO-GENERATED FILE. DO NOT EDIT."), "generated AutoIt has a source warning", findings)
@@ -81,17 +88,22 @@ def main() -> int:
     require("$CURRENT_GAME_HOME_HERO_COUNT = 6" in generated, "generated AutoIt carries the Hero count", findings)
     require(f"Global $g_aCurrentGameSources[{len(client['sources'])}]" in generated, "generated AutoIt source row count matches JSON", findings)
     require(f"Global $g_aCurrentGameHeroes[{len(heroes['heroes'])}]" in generated, "generated AutoIt Hero row count matches JSON", findings)
+    require(f"Global $g_aCurrentGameGuardians[{len(guardians['guardians'])}]" in generated, "generated AutoIt Guardian row count matches JSON", findings)
     require(f"Global $g_aCurrentGameBattleSurfaces[{len(battles['surfaces'])}]" in generated, "generated AutoIt battle row count matches JSON", findings)
     require(f"Global $g_aCurrentGameScreenStates[{len(screens['states'])}]" in generated, "generated AutoIt screen row count matches JSON", findings)
 
     for index, hero in enumerate(heroes["heroes"]):
         require(f'$g_aCurrentGameHeroes[{index}][$eGameHeroId] = "{hero["id"]}"' in generated, f"generated AutoIt contains Hero {hero['id']}", findings)
+    for index, guardian in enumerate(guardians["guardians"]):
+        require(f'$g_aCurrentGameGuardians[{index}][$eGameGuardianId] = "{guardian["id"]}"' in generated, f"generated AutoIt contains Guardian {guardian['id']}", findings)
 
     catalog = text("COCBot/functions/Game/GameCatalog.au3")
     for function_name in (
         "CurrentGameCatalogValidate",
         "CurrentGameFindHero",
         "CurrentGameGetHeroUnlockTH",
+        "CurrentGameFindGuardian",
+        "CurrentGameGuardianRequiresBuilder",
         "CurrentGameFindBattleSurface",
         "CurrentGameGetBattleAttackBudget",
         "CurrentGameBattleSurfaceReady",
@@ -122,6 +134,7 @@ def main() -> int:
     for expectation in (
         "Town Hall 18 is the maximum",
         "Dragon Duke unlocks at Town Hall 15",
+        "Guardian upgrades require a Builder",
         "Legend III has 24 weekly attacks",
         "Legend II has 30 weekly attacks",
         "Legend I has eight attacks per League Day",

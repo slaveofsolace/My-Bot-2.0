@@ -21,6 +21,29 @@ Func RunPlanCreateDefault($sMode = "home", $sStrategy = "auto")
 	$oPlan.Add("target_dark_elixir", 0)
 	$oPlan.Add("upgrade_policy", "disabled")
 	$oPlan.Add("account_queue_id", "")
+	$oPlan.Add("emulator", "auto")
+	$oPlan.Add("emulator_instance", "")
+	$oPlan.Add("army_source", "recipe")
+	$oPlan.Add("army_recipe_name", "")
+	$oPlan.Add("army_wait_for_full", True)
+	$oPlan.Add("army_train_spells", True)
+	$oPlan.Add("army_train_sieges", False)
+	$oPlan.Add("search_min_gold", 0)
+	$oPlan.Add("search_min_elixir", 0)
+	$oPlan.Add("search_min_dark", 0)
+	$oPlan.Add("search_max_seconds", 0)
+	$oPlan.Add("search_town_hall_filter", "any")
+	$oPlan.Add("donate_mode", "off")
+	$oPlan.Add("donate_keep_army", True)
+	$oPlan.Add("donate_max_per_run", 0)
+	$oPlan.Add("donate_request_when_short", False)
+	$oPlan.Add("events_clan_games", False)
+	$oPlan.Add("events_clan_games_point_cap", 0)
+	$oPlan.Add("events_laboratory", "off")
+	$oPlan.Add("events_collect_resources", True)
+	$oPlan.Add("notify_on_stop", False)
+	$oPlan.Add("notify_on_error", True)
+	$oPlan.Add("notify_channel", "log-only")
 	Return $oPlan
 EndFunc   ;==>RunPlanCreateDefault
 
@@ -30,7 +53,9 @@ Func RunPlanValidate(ByRef $oPlan, ByRef $sError)
 		Return SetError(1, 0, False)
 	EndIf
 
-	Local $aRequired = ["schema_version", "mode", "strategy", "duration_minutes", "max_battles", "stop_on_star_bonus", "max_failures", "target_gold", "target_elixir", "target_dark_elixir", "upgrade_policy", "account_queue_id"]
+	Local $aRequired = ["schema_version", "mode", "strategy", "duration_minutes", "max_battles", "stop_on_star_bonus", "max_failures", "target_gold", "target_elixir", "target_dark_elixir", "upgrade_policy", "account_queue_id", _
+		"emulator", "emulator_instance", "army_source", "army_recipe_name", "army_wait_for_full", "army_train_spells", "army_train_sieges", "search_min_gold", "search_min_elixir", "search_min_dark", "search_max_seconds", "search_town_hall_filter", _
+		"donate_mode", "donate_keep_army", "donate_max_per_run", "donate_request_when_short", "events_clan_games", "events_clan_games_point_cap", "events_laboratory", "events_collect_resources", "notify_on_stop", "notify_on_error", "notify_channel"]
 	For $i = 0 To UBound($aRequired) - 1
 		If Not $oPlan.Exists($aRequired[$i]) Then
 			$sError = "Missing run plan field: " & $aRequired[$i]
@@ -50,11 +75,19 @@ Func RunPlanValidate(ByRef $oPlan, ByRef $sError)
 		Return SetError(4, 0, False)
 	EndIf
 
-	Local $aNonNegative = ["duration_minutes", "max_battles", "max_failures", "target_gold", "target_elixir", "target_dark_elixir"]
+	Local $aNonNegative = ["duration_minutes", "max_battles", "max_failures", "target_gold", "target_elixir", "target_dark_elixir", "search_min_gold", "search_min_elixir", "search_min_dark", "search_max_seconds", "donate_max_per_run", "events_clan_games_point_cap"]
 	For $i = 0 To UBound($aNonNegative) - 1
 		If Number($oPlan.Item($aNonNegative[$i])) < 0 Then
 			$sError = $aNonNegative[$i] & " cannot be negative"
 			Return SetError(5, $i, False)
+		EndIf
+	Next
+
+	Local $aBoolean = ["stop_on_star_bonus", "army_wait_for_full", "army_train_spells", "army_train_sieges", "donate_keep_army", "donate_request_when_short", "events_clan_games", "events_collect_resources", "notify_on_stop", "notify_on_error"]
+	For $i = 0 To UBound($aBoolean) - 1
+		If Not IsBool($oPlan.Item($aBoolean[$i])) Then
+			$sError = $aBoolean[$i] & " must be boolean"
+			Return SetError(6, $i, False)
 		EndIf
 	Next
 
@@ -63,6 +96,43 @@ Func RunPlanValidate(ByRef $oPlan, ByRef $sError)
 		Case Else
 			$sError = "Unsupported upgrade policy: " & $oPlan.Item("upgrade_policy")
 			Return SetError(6, 0, False)
+	EndSwitch
+
+	Switch StringLower($oPlan.Item("emulator"))
+		Case "auto", "bluestacks5", "memu", "nox", "ldplayer9", "mumu"
+		Case Else
+			$sError = "Unsupported emulator: " & $oPlan.Item("emulator")
+			Return SetError(7, 0, False)
+	EndSwitch
+	Switch StringLower($oPlan.Item("army_source"))
+		Case "recipe", "cookbook", "legacy-list"
+		Case Else
+			$sError = "Unsupported army source: " & $oPlan.Item("army_source")
+			Return SetError(8, 0, False)
+	EndSwitch
+	Switch StringLower($oPlan.Item("search_town_hall_filter"))
+		Case "any", "lower-only", "same-or-lower"
+		Case Else
+			$sError = "Unsupported Town Hall filter: " & $oPlan.Item("search_town_hall_filter")
+			Return SetError(9, 0, False)
+	EndSwitch
+	Switch StringLower($oPlan.Item("donate_mode"))
+		Case "off", "matching", "anything"
+		Case Else
+			$sError = "Unsupported donation mode: " & $oPlan.Item("donate_mode")
+			Return SetError(10, 0, False)
+	EndSwitch
+	Switch StringLower($oPlan.Item("events_laboratory"))
+		Case "off", "cheapest", "priority-list"
+		Case Else
+			$sError = "Unsupported laboratory mode: " & $oPlan.Item("events_laboratory")
+			Return SetError(11, 0, False)
+	EndSwitch
+	Switch StringLower($oPlan.Item("notify_channel"))
+		Case "log-only", "telegram", "windows-toast"
+		Case Else
+			$sError = "Unsupported notification channel: " & $oPlan.Item("notify_channel")
+			Return SetError(12, 0, False)
 	EndSwitch
 
 	$sError = ""

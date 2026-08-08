@@ -201,15 +201,23 @@ def main() -> int:
                 # and the engine finds out for them by refusing the plan.
                 if setting_type == "multi-select":
                     ceiling = setting.get("max_selected")
-                    if not isinstance(ceiling, int) or not 1 <= ceiling <= len(values):
+                    if not isinstance(ceiling, int) or isinstance(ceiling, bool) or not 1 <= ceiling <= len(values):
                         errors.append(
                             f"{setting_id}: max_selected must be an integer between 1 and {len(values)}"
                         )
+                    raw_default = setting.get("default")
+                    defaults = raw_default if isinstance(raw_default, list) else [raw_default]
+                    if (
+                        not defaults
+                        or not set(defaults).issubset(values)
+                        or (isinstance(ceiling, int) and not isinstance(ceiling, bool) and len(defaults) > ceiling)
+                    ):
+                        errors.append(f"{setting_id}: defaults do not match the selection contract")
                 elif "max_selected" in setting:
                     errors.append(f"{setting_id}: max_selected only applies to a multi-select")
 
                 select_values[setting_id] = values
-                if setting.get("default") not in values:
+                if setting_type != "multi-select" and setting.get("default") not in values:
                     errors.append(f"{setting_id}: default does not match an option")
                 if recommended_count > 1:
                     errors.append(f"{setting_id}: no more than one option may be recommended")

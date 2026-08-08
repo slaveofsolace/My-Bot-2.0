@@ -53,7 +53,7 @@
       "id": "sound-of-clash-2026-04-27",
       "published_date": "2026-04-27",
       "title": "The Sound of Clash Update Is Here",
-      "url": "https://supercell.com/en/games/clashofclans/blog/release-notes/the-sound-of-clash-update-is-here/"
+      "url": "https://supercell.com/en/games/clashofclans/blog/release-notes/the-sound-of-clash-update/"
     },
     {
       "id": "may-update-2026-05-26",
@@ -127,7 +127,7 @@
       ],
       "affected_catalogs": [
         "screen-states",
-        "heroes"
+        "guardians"
       ]
     },
     {
@@ -152,10 +152,12 @@
       "facts": [
         "Legend League is divided into Legend III, Legend II, and Legend I.",
         "Legend III provides 24 attacks per week and Legend II provides 30 attacks per week.",
-        "Legend I uses a four-week tournament and eight attacks per League Day."
+        "Legend I uses a four-week tournament and eight attacks per League Day.",
+        "Logger became the third Guardian available at Town Hall 18."
       ],
       "affected_catalogs": [
         "battle-surfaces",
+        "guardians",
         "screen-states"
       ]
     },
@@ -198,6 +200,7 @@
       ],
       "affected_catalogs": [
         "heroes",
+        "guardians",
         "screen-states"
       ]
     }

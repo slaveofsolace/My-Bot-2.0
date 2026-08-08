@@ -62,8 +62,8 @@ Opt("TrayOnEventMode", 1)
 
 ; All executable code is in a function block, to detect coding errors, such as variable declaration scope problems
 InitializeBot()
-; Get All Emulators installed on machine.
-getAllEmulators()
+; Keep startup responsive. Full emulator discovery is available from the Android selector.
+InitializeConfiguredEmulatorSelection()
 
 ; Hand over control to main loop
 MainLoop(CheckPrerequisites())

@@ -14,6 +14,9 @@ Global $g_hRunPlannerDetail = 0
 Global $g_hRunPlannerStatus = 0
 Global $g_hBtnRunPlannerApply = 0
 Global $g_hBtnRunPlannerReset = 0
+Global $g_hBtnRunPlannerOpen = 0
+Global $g_hBtnRunPlannerLoad = 0
+Global $g_hBtnRunPlannerRefresh = 0
 Global $g_hBtnRunPlannerHeroAdd = 0
 Global $g_hBtnRunPlannerHeroRemove = 0
 Global $g_hRunPlannerHeroSelection = 0
@@ -223,13 +226,22 @@ Func CreateRunPlannerTab()
 	GUICtrlSetBkColor(-1, $COLOR_WHITE)
 	$y += 82
 
-	$g_hBtnRunPlannerApply = GUICtrlCreateButton("Apply plan", $iLeft, $y, 90, 24)
+	$g_hBtnRunPlannerApply = GUICtrlCreateButton("Apply", $iLeft, $y, 70, 24)
 	GUICtrlSetOnEvent(-1, "btnRunPlannerApply")
 	_GUICtrlSetTip(-1, "Builds the run intent from these settings and reports whether it can start.")
-	$g_hBtnRunPlannerReset = GUICtrlCreateButton("Reset", $iLeft + 96, $y, 70, 24)
+	$g_hBtnRunPlannerReset = GUICtrlCreateButton("Reset", $iLeft + 75, $y, 55, 24)
 	GUICtrlSetOnEvent(-1, "btnRunPlannerReset")
 	_GUICtrlSetTip(-1, "Restores every control to its default.")
-	$g_hRunPlannerStatus = GUICtrlCreateLabel("", $iLeft + 174, $y + 5, $iWidth - 174, 18)
+	$g_hBtnRunPlannerOpen = GUICtrlCreateButton("Open center", $iLeft + 135, $y, 105, 24)
+	GUICtrlSetOnEvent(-1, "btnRunPlannerOpen")
+	_GUICtrlSetTip(-1, "Starts the loopback planner service when needed, then opens it in your browser.")
+	$g_hBtnRunPlannerLoad = GUICtrlCreateButton("Load saved", $iLeft + 245, $y, 100, 24)
+	GUICtrlSetOnEvent(-1, "btnRunPlannerLoad")
+	_GUICtrlSetTip(-1, "Revalidates the saved plan and prepares an engine RunIntent.")
+	$g_hBtnRunPlannerRefresh = GUICtrlCreateButton("Refresh", $iLeft + 350, $y, 60, 24)
+	GUICtrlSetOnEvent(-1, "btnRunPlannerRefresh")
+	$y += 28
+	$g_hRunPlannerStatus = GUICtrlCreateLabel("", $iLeft, $y + 2, $iWidth, 18)
 	GUICtrlSetFont(-1, 8, $FW_NORMAL, Default, "Arial")
 
 	GUISetState(@SW_HIDE, $g_hGUI_RUNPLANNER)
