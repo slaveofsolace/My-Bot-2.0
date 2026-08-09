@@ -198,8 +198,13 @@ Func GetVillageSize($DebugLog = Default, $sStonePrefix = Default, $sTreePrefix =
 		SetDeBugLog("Error: Missing stone files (" & @error & ")", $COLOR_ERROR)
 		Return $aResult
 	EndIf
+	; Only a complete prior measurement proves that the stone/tree pair belongs together. Try those
+	; exact anchors first, but retain every fallback candidate if either one no longer matches.
+	Local $bHasProvenVillageAnchors = Number($g_aVillageSize[0]) > 0 And $g_aVillageSize[6] <> "" And $g_aVillageSize[9] <> ""
+	If $bHasProvenVillageAnchors Then _VillageAnchorPromote($aStoneFiles, $g_aVillageSize[6])
 
 	For $i = 1 To $aStoneFiles[0]
+		If Not $g_bRunState And Not $bMeasureOnly Then Return $aResult
 		$findImage = $aStoneFiles[$i]
 		$a = StringRegExp($findImage, ".*-(\d+)-(\d+)-(\d*,*\d+)_.*[.](xml|png|bmp)$", $STR_REGEXPARRAYMATCH)
 		If UBound($a) = 4 Then
@@ -269,8 +274,10 @@ Func GetVillageSize($DebugLog = Default, $sStonePrefix = Default, $sTreePrefix =
 		SetDeBugLog("Error: Missing tree (" & @error & ")", $COLOR_ERROR)
 		Return FuncReturn($aResult)
 	EndIf
+	If $bHasProvenVillageAnchors Then _VillageAnchorPromote($aTreeFiles, $g_aVillageSize[9])
 
 	For $i = 1 To $aTreeFiles[0]
+		If Not $g_bRunState And Not $bMeasureOnly Then Return $aResult
 		$findImage = $aTreeFiles[$i]
 		$a = StringRegExp($findImage, ".*-(\d+)-(\d+)-(\d*,*\d+)_.*[.](xml|png|bmp)$", $STR_REGEXPARRAYMATCH)
 		If UBound($a) = 4 Then
@@ -513,3 +520,23 @@ Func IsCustomScenery($bIsOnMainBase = True, $bZone = "All", $bScenery = "")
 	EndSwitch
 	Return False
 EndFunc   ;==>IsCustomScenery
+
+; Move a previously proven anchor to the front without removing or trusting it. When the scenery,
+; base, prefix, or client changes the cached name is absent (or its normal image match fails), and
+; GetVillageSize continues through the unchanged complete candidate list.
+Func _VillageAnchorPromote(ByRef $aFiles, $sPreferred)
+	If $sPreferred = "" Or Not IsArray($aFiles) Or UBound($aFiles) < 2 Then Return False
+	For $i = 1 To $aFiles[0]
+		If StringCompare($aFiles[$i], $sPreferred, 0) <> 0 Then ContinueLoop
+		If $i > 1 Then
+			Local $sMatch = $aFiles[$i]
+			For $j = $i To 2 Step -1
+				$aFiles[$j] = $aFiles[$j - 1]
+			Next
+			$aFiles[1] = $sMatch
+			SetDebugLog("Prioritizing last proven village anchor: " & $sPreferred)
+		EndIf
+		Return True
+	Next
+	Return False
+EndFunc   ;==>_VillageAnchorPromote

@@ -15,6 +15,8 @@ AUTOIT_CONTRACT_FILES = [
     "COCBot/functions/Other/CurrentClientCompat.au3",
     "COCBot/functions/Android/AndroidLDPlayer9.au3",
     "COCBot/functions/Android/AndroidMumu.au3",
+    "COCBot/functions/Android/ZoomOut.au3",
+    "COCBot/functions/Village/GetVillageSize.au3",
     "COCBot/functions/Run/RunPlan.au3",
     "COCBot/functions/Run/AccountQueue.au3",
     "COCBot/functions/Run/BattleRoute.au3",
@@ -100,6 +102,33 @@ def main() -> int:
     android = text("COCBot/functions/Android/Android.au3")
     require("Current client emulator ADB paths" in android, "generic ADB resolution includes new adapters", findings)
 
+    village_size = text("COCBot/functions/Village/GetVillageSize.au3")
+    require(
+        "_VillageAnchorPromote($aStoneFiles, $g_aVillageSize[6])" in village_size
+        and "_VillageAnchorPromote($aTreeFiles, $g_aVillageSize[9])" in village_size,
+        "village measurement prioritizes the last proven exact anchors",
+        findings,
+    )
+    for cache_guard in (
+        'Number($g_aVillageSize[0]) > 0',
+        '$g_aVillageSize[6] <> ""',
+        '$g_aVillageSize[9] <> ""',
+        "For $i = 1 To $aFiles[0]",
+        "For $j = $i To 2 Step -1",
+        "$aFiles[$j] = $aFiles[$j - 1]",
+        "$aFiles[1] = $sMatch",
+        "If Not $g_bRunState And Not $bMeasureOnly Then Return $aResult",
+        "Return False",
+    ):
+        require(cache_guard in village_size, f"village anchor cache retains fail-safe guard: {cache_guard}", findings)
+
+    zoom_out = text("COCBot/functions/Android/ZoomOut.au3")
+    require(
+        not re.search(r"(?<!_)TimerDiff\(\$hTimer\)", zoom_out),
+        "zoom timing uses the matching high-resolution timer API",
+        findings,
+    )
+
     ldplayer = text("COCBot/functions/Android/AndroidLDPlayer9.au3")
     require("5554 + (2 * _LDPlayer9InstanceIndex())" in ldplayer, "LDPlayer multi-instance ADB port formula is correct", findings)
     require("$g_iGAME_WIDTH" in ldplayer and "$g_iGAME_HEIGHT" in ldplayer, "LDPlayer resolution follows the engine dimensions", findings)
@@ -168,6 +197,18 @@ def main() -> int:
 
     session_schema = json.loads(text("config/run-session.schema.json"))
     require(set(session_schema["properties"]["state"]["enum"]) == {"ready", "running", "stopping", "completed", "failed"}, "run-session schema matches the state machine", findings)
+    require(
+        {"verification_state", "verification_reason"} <= set(session_schema["required"])
+        and {"verification_state", "verification_reason"} <= set(session_schema["properties"]),
+        "run-session schema accepts every verification field emitted by RunSessionSnapshot",
+        findings,
+    )
+    require(
+        set(session_schema["properties"]["verification_state"]["enum"])
+        == {"verified", "unverified-diagnostic"},
+        "run-session schema preserves the verification-state latch",
+        findings,
+    )
 
     event_schema = json.loads(text("config/run-event.schema.json"))
     require("battle.completed" in event_schema["properties"]["type"]["enum"], "run-event schema includes completed battle events", findings)

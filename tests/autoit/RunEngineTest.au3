@@ -8,6 +8,7 @@
 #include "..\..\COCBot\functions\Run\RunIntent.au3"
 #include "..\..\COCBot\functions\Run\RunPlanFile.au3"
 #include "..\..\COCBot\functions\Run\RunExecutionContract.au3"
+#include "..\..\COCBot\functions\Run\RunEventLog.au3"
 #include "..\..\COCBot\functions\Run\RunProfileWriteGuard.au3"
 
 Global $g_iAssertions = 0
@@ -26,6 +27,15 @@ Func AttemptGuardedProfileWrite($sPath, $sValue)
 EndFunc   ;==>AttemptGuardedProfileWrite
 
 Local $sError = "", $sReason = ""
+
+; The Activity feed and native control status must identify one planned run with the same id.
+AssertTrue(RunEventLogBindSession("run-session-a"), "event logger accepts the canonical run session id")
+AssertTrue(RunEventLogSessionId() = "run-session-a", "event logger exposes the bound run session id")
+$g_iRunEventSequence = 7
+AssertTrue(Not RunEventLogReleaseSession("run-session-b"), "a stale run cannot release the active event session")
+AssertTrue(RunEventLogSessionId() = "run-session-a" And $g_iRunEventSequence = 7, "rejected release preserves event correlation")
+AssertTrue(RunEventLogReleaseSession("run-session-a"), "the matching run releases its event session")
+AssertTrue($g_sRunEventSessionId = "" And $g_iRunEventSequence = 0, "event session release clears id and sequence")
 
 ; A planner run mutates live globals, but inherited runtime paths call SaveConfig while the bot is
 ; active. The shared guard must leave the on-disk profile byte-for-byte unchanged until restore.

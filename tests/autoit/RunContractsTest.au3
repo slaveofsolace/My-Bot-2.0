@@ -47,6 +47,8 @@ Local $oSnapshot = RunSessionSnapshot($oSession)
 AssertTrue(IsObj($oSnapshot), "snapshot is created")
 AssertTrue($oSnapshot.Item("gold") = 1100, "loot totals are accumulated")
 AssertTrue($oSnapshot.Item("account_profile_id") = "profile-a", "snapshot contains profile reference")
+AssertTrue($oSnapshot.Item("verification_state") = $RUN_VERIFICATION_VERIFIED, "snapshot contains verification state")
+AssertTrue($oSnapshot.Item("verification_reason") = "", "verified snapshot has no diagnostic reason")
 
 Local $oQueue = AccountQueueCreate(False)
 AssertTrue(AccountQueueAdd($oQueue, "profile-a", "Alpha"), "first queue item is added")

@@ -609,6 +609,25 @@ def main() -> int:
             )
         if "RunEventAppendJsonLine" not in log_source:
             errors.append("RunEventLog.au3 never appends an event, so the Activity feed stays empty")
+        for required in ("RunEventLogBindSession", "RunEventLogReleaseSession", "$g_iRunEventSequence = 0"):
+            if required not in log_source:
+                errors.append(f"Activity events are no longer bounded to one canonical run session by {required}")
+        prepare_body = execution_source.split("Func RunExecutionPrepareStart", 1)
+        prepare_body = prepare_body[1].split("EndFunc", 1)[0] if len(prepare_body) > 1 else ""
+        session_assign = prepare_body.find("$g_oRunExecutionSession = $oSession")
+        session_bind = prepare_body.find("RunEventLogBindSession($sSessionId)")
+        if session_assign < 0 or session_bind < session_assign:
+            errors.append("RunExecution no longer binds Activity events after establishing the canonical session")
+        cancel_body = execution_source.split("Func RunExecutionCancelPrepared", 1)
+        cancel_body = cancel_body[1].split("EndFunc", 1)[0] if len(cancel_body) > 1 else ""
+        if "RunEventLogReleaseSession($sCancelledSessionId)" not in cancel_body:
+            errors.append("cancelled prepared runs can strand the Activity logger on a dead session id")
+        complete_body = execution_source.split("Func RunExecutionComplete", 1)
+        complete_body = complete_body[1].split("EndFunc", 1)[0] if len(complete_body) > 1 else ""
+        completed_event = complete_body.find("RunEventLogRunCompleted(")
+        completed_release = complete_body.find("RunEventLogReleaseSession(RunExecutionSessionId())")
+        if completed_event < 0 or completed_release < completed_event:
+            errors.append("completed planned runs do not release the Activity logger after the terminal event")
         validator_block = event_source.split('Switch $oEvent.Item("type")', 1)[-1].split("EndSwitch", 1)[0]
         case_lines = "\n".join(re.findall(r"^\s*Case\s+(.+)$", validator_block, re.MULTILINE))
         accepted_types = set(re.findall(r'"([a-z]+(?:\.[a-z]+)*)"', case_lines))

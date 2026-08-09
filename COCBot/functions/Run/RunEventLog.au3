@@ -22,13 +22,29 @@ Func RunEventLogPath()
 	Return @ScriptDir & "\" & $RUN_EVENT_LOG_NAME
 EndFunc   ;==>RunEventLogPath
 
-; One id per bot launch, so a reader can tell one session's events from the next without a clock.
+; Planned runs bind this logger to RunExecution's canonical session id. Events outside a planned run
+; retain a process-local id so diagnostics still remain grouped without inventing a run session.
 Func RunEventLogSessionId()
 	If $g_sRunEventSessionId = "" Then
 		$g_sRunEventSessionId = @YEAR & @MON & @MDAY & "-" & @HOUR & @MIN & @SEC & "-" & @AutoItPID
 	EndIf
 	Return $g_sRunEventSessionId
 EndFunc   ;==>RunEventLogSessionId
+
+Func RunEventLogBindSession($sSessionId)
+	$sSessionId = StringStripWS(String($sSessionId), $STR_STRIPLEADING + $STR_STRIPTRAILING)
+	If $sSessionId = "" Then Return SetError(1, 0, False)
+	$g_sRunEventSessionId = $sSessionId
+	$g_iRunEventSequence = 0
+	Return True
+EndFunc   ;==>RunEventLogBindSession
+
+Func RunEventLogReleaseSession($sExpectedSessionId = "")
+	If $sExpectedSessionId <> "" And StringCompare($g_sRunEventSessionId, $sExpectedSessionId, 0) <> 0 Then Return False
+	$g_sRunEventSessionId = ""
+	$g_iRunEventSequence = 0
+	Return True
+EndFunc   ;==>RunEventLogReleaseSession
 
 ; Milliseconds since launch. The event contract wants a number, and a monotonic one beats a wall clock
 ; that can step backwards mid-run.

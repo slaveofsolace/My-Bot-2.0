@@ -177,6 +177,7 @@ Func RunExecutionPrepareStart(ByRef $sError)
 	$g_oRunPlannerIntent = $oIntent
 	$g_oRunExecutionIntent = $oIntent
 	$g_oRunExecutionSession = $oSession
+	RunEventLogBindSession($sSessionId)
 	$g_bRunExecutionPrepared = True
 	$g_sRunExecutionMessage = "Prepared " & $oIntent.Item("surface_label")
 	Return True
@@ -410,6 +411,7 @@ Func RunExecutionCheckStop()
 EndFunc   ;==>RunExecutionCheckStop
 
 Func RunExecutionCancelPrepared($sReason)
+	Local $sCancelledSessionId = RunExecutionSessionId()
 	If IsObj($g_oRunExecutionIntent) Then
 		Local $oPlan = $g_oRunExecutionIntent.Item("plan")
 		If $oPlan.Item("notify_on_error") Then SetLog("Run notification: " & $sReason, $COLOR_ERROR)
@@ -419,6 +421,7 @@ Func RunExecutionCancelPrepared($sReason)
 	$g_bRunExecutionPrepared = False
 	$g_bRunExecutionActive = False
 	$g_oRunExecutionSession = 0
+	If $sCancelledSessionId <> "" Then RunEventLogReleaseSession($sCancelledSessionId)
 	RunPacingDeactivate()
 	$g_sRunExecutionMessage = $sReason
 EndFunc   ;==>RunExecutionCancelPrepared
@@ -432,6 +435,7 @@ Func RunExecutionComplete($sFallbackReason = "stopped")
 		If $sReason = "" Then $sReason = $sFallbackReason
 		RunSessionComplete($g_oRunExecutionSession)
 		RunEventLogRunCompleted($g_oRunExecutionIntent.Item("surface_id"), RunIntentVerificationState($g_oRunExecutionIntent), $sReason)
+		RunEventLogReleaseSession(RunExecutionSessionId())
 		Local $oPlan = $g_oRunExecutionIntent.Item("plan")
 		If $oPlan.Item("notify_on_stop") Then SetLog("Run notification: " & $sReason, $COLOR_SUCCESS)
 		$g_sRunExecutionMessage = "Completed: " & $sReason

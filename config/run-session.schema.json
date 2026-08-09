@@ -16,7 +16,9 @@
     "elixir",
     "dark_elixir",
     "stop_reason",
-    "last_error"
+    "last_error",
+    "verification_state",
+    "verification_reason"
   ],
   "properties": {
     "schema_version": {"const": 1},
@@ -30,6 +32,8 @@
     "elixir": {"type": "integer", "minimum": 0},
     "dark_elixir": {"type": "integer", "minimum": 0},
     "stop_reason": {"type": "string", "maxLength": 128},
-    "last_error": {"type": "string", "maxLength": 1024}
+    "last_error": {"type": "string", "maxLength": 1024},
+    "verification_state": {"enum": ["verified", "unverified-diagnostic"]},
+    "verification_reason": {"type": "string", "maxLength": 2048}
   }
 }
