@@ -50,15 +50,17 @@ EndFunc   ;==>RunEventLogWrite
 ; The moments worth recording, named so a reader of the Activity panel can follow what happened without
 ; knowing the code.
 Func RunEventLogPlanApplied($sSurfaceId, $sVerificationState, $sDescription)
-	Return RunEventLogWrite("plan.applied", "info", $sDescription, $sSurfaceId, $sVerificationState)
+	If $sVerificationState = $RUN_VERIFICATION_DIAGNOSTIC Then _
+			Return RunEventLogWrite("route.diagnostic", "warning", $sDescription, $sSurfaceId, $sVerificationState)
+	Return RunEventLogWrite("route.ready", "info", $sDescription, $sSurfaceId, $sVerificationState)
 EndFunc   ;==>RunEventLogPlanApplied
 
 Func RunEventLogPlanBlocked($sSurfaceId, $sReason)
-	Return RunEventLogWrite("plan.blocked", "warning", $sReason, $sSurfaceId, $RUN_VERIFICATION_DIAGNOSTIC)
+	Return RunEventLogWrite("route.blocked", "warning", $sReason, $sSurfaceId, $RUN_VERIFICATION_DIAGNOSTIC)
 EndFunc   ;==>RunEventLogPlanBlocked
 
 Func RunEventLogPlanFileLoaded($sSummary)
-	Return RunEventLogWrite("plan.loaded", "info", $sSummary)
+	Return RunEventLogWrite("session.ready", "info", $sSummary)
 EndFunc   ;==>RunEventLogPlanFileLoaded
 
 Func RunEventLogRestStarted($iMinutes)
@@ -70,17 +72,17 @@ Func RunEventLogRestEnded()
 EndFunc   ;==>RunEventLogRestEnded
 
 Func RunEventLogRunStarted($sSurfaceId, $sVerificationState, $sDescription)
-	Return RunEventLogWrite("run.started", "info", $sDescription, $sSurfaceId, $sVerificationState)
+	Return RunEventLogWrite("session.started", "info", $sDescription, $sSurfaceId, $sVerificationState)
 EndFunc   ;==>RunEventLogRunStarted
 
 Func RunEventLogRunStopping($sSurfaceId, $sVerificationState, $sReason)
-	Return RunEventLogWrite("run.stopping", "info", "Stop condition: " & $sReason, $sSurfaceId, $sVerificationState)
+	Return RunEventLogWrite("session.stopping", "info", "Stop condition: " & $sReason, $sSurfaceId, $sVerificationState)
 EndFunc   ;==>RunEventLogRunStopping
 
 Func RunEventLogRunCompleted($sSurfaceId, $sVerificationState, $sReason)
-	Return RunEventLogWrite("run.completed", "info", "Run ended: " & $sReason, $sSurfaceId, $sVerificationState)
+	Return RunEventLogWrite("session.completed", "info", "Run ended: " & $sReason, $sSurfaceId, $sVerificationState)
 EndFunc   ;==>RunEventLogRunCompleted
 
 Func RunEventLogEngineUnavailable($sReason)
-	Return RunEventLogWrite("engine.unavailable", "error", $sReason, "", $RUN_VERIFICATION_DIAGNOSTIC)
+	Return RunEventLogWrite("error", "error", "Managed engine unavailable: " & $sReason, "", $RUN_VERIFICATION_DIAGNOSTIC)
 EndFunc   ;==>RunEventLogEngineUnavailable

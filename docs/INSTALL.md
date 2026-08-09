@@ -56,9 +56,34 @@ Do not copy profile or configuration folders from an older MyBot installation. T
 
 Keep the original folder untouched. Use a separate copy for each experimental branch until profile migration tests exist.
 
-## 4. Run from source
+## 4. Run the application or source
 
-The source entry point is:
+For normal use, run:
+
+```text
+My Bot 2.0.exe
+```
+
+The launcher requests elevation and starts the exact pinned MyBot.run v8.2
+`MyBot.run.MiniGui.exe`. The Mini GUI stays visible and functional as the native safety controller
+for Start, Stop, Pause and Resume. It launches `MyBot.run.exe` as the modern `/ng` backend and
+passes its exact process ID through `/guipid`. The browser Control Center remains the primary
+planner, and the backend performs the automation work.
+
+The launcher snaps the Mini GUI beside the selected exact BlueStacks top-level window. It keeps
+both windows independent and does not embed, reparent, or rename BlueStacks. This external
+side-by-side placement is the supported docked layout.
+
+Keep `My Bot 2.0.exe`, the exact pinned `MyBot.run.MiniGui.exe`, `MyBot.run.exe`,
+`MyBot.run.exe.config`, and the empty `MyBot.run.txt` compatibility marker together. The marker is
+required and must remain zero bytes. The Mini GUI and backend names and identities are retained
+because the inherited image engine validates them; the configuration lets the backend load its
+managed dependencies from `lib`.
+
+Closing the Mini GUI stops the native controller/backend pair. This independent downstream layout
+is not endorsed, sponsored, supported, or approved by the upstream MyBot.run project.
+
+For development, the source entry point is:
 
 ```text
 MyBot.run.au3
@@ -73,7 +98,8 @@ Recommended development flow:
 5. Review the startup log before enabling any run feature.
 
 The repository contains inherited and locally compiled executable files. Source-first execution is
-preferred during development; published binaries still require provenance and release smoke-test evidence.
+preferred during development. `config/binary-provenance.json` records the exact shipped hashes and
+build origins; a release still requires its runtime smoke-test evidence.
 
 ## 5. Configure the Android environment
 
@@ -115,7 +141,19 @@ still being established. For local development:
 5. keep the source commit SHA beside the output
 6. do not publish the output as an official project release without dependency and smoke-test evidence
 
-Related entry points such as Mini GUI and Watchdog should be compiled from their matching source at the same commit.
+Related development entry points such as Watchdog should be compiled from their matching source at
+the same commit. A locally compiled or rebranded Mini GUI is not a drop-in replacement for the exact
+pinned v8.2 Mini GUI used by the normal compatibility path unless that identity-sensitive path has
+been separately proved.
+
+### Redistribution boundary
+
+The GPL notice applies to the source code derived from MyBot.run. It does not establish GPL or
+open-source status for the inherited compiled ImgLoc component, whose redistribution terms remain
+separate and unclear or restrictive. Hash and provenance records establish identity, not permission.
+Do not describe the complete binary bundle as wholly GPL-licensed or open source. Obtain written
+permission from the rights holder or replace ImgLoc with a clearly licensed open implementation and
+revalidate it before public binary redistribution.
 
 ## Command-line options
 
@@ -138,6 +176,9 @@ The current entry point includes options such as:
 ```
 
 Use `/help` for the source-defined list. Developer and no-watchdog modes should not be the default for ordinary testing.
+The inherited `/dock1` and `/dock2` switches are not used to create the supported Mini GUI layout.
+The launcher positions the Mini GUI and exact BlueStacks window side by side without reparenting
+either window.
 
 ## Troubleshooting
 
@@ -150,6 +191,7 @@ Use `/help` for the source-defined list. Developer and no-watchdog modes should 
 | Repeated unknown popup | Stop the run. Save the screenshot and log. Add the screen to the interruption inventory instead of adding a blind click. |
 | Settings behave unexpectedly | Reproduce with a fresh profile. Do not reuse an older INI until migration is implemented. |
 | Stop takes too long | Capture the current engine state and last action. A blocked input or unbounded retry must be fixed rather than hidden by force-closing. |
+| Mini GUI opens but the backend closes or ImgLoc blocks the run | Confirm the exact pinned v8.2 Mini GUI and backend are unmodified, `MyBot.run.exe.config` is beside them, and `MyBot.run.txt` exists as a zero-byte file. Do not rename or patch the protected binaries. |
 | Start reports `Managed engine did not answer` | The x86 helper contained a mixed-mode DLL startup stall. Inspect Windows Security and `.NET Framework` health. Defender Operational events `5008` followed by `3002` indicate an engine/filter failure that must be repaired before retrying; restart My Bot 2.0 afterward. Do not disable Defender or add a broad exclusion. |
 | Antivirus warning | Build from reviewed source. Verify any native DLL or inherited executable independently. Do not disable endpoint protection as an installation step. |
 | Game account warning or penalty | Stop using the environment. Supercell prohibits unapproved gameplay bots on live accounts. Use only environments and accounts for which explicit authorization exists. |

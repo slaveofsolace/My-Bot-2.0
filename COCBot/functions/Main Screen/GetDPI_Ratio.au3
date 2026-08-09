@@ -54,7 +54,7 @@ EndFunc   ;==>GUISetFont_DPI
 Func SetDPI()
 	; This uses undocumented dll function from MS and does work reliably in all OS so it was removed from main bot code
 	_ExtMsgBoxSet(1 + 64, $SS_CENTER, 0x004080, 0xFFFF00, 12, "Comic Sans MS", 600)
-	Local $stext = "My Bot needs to change your DPI settinng to continue!" & @CRLF & @CRLF & _
+	Local $stext = $g_sProductName & " needs to change your DPI settinng to continue!" & @CRLF & @CRLF & _
 			"You will be required to reboot your PC when done" & @CRLF & @CRLF & "Please close other programs and save you work NOW!" & @CRLF & @CRLF & _
 			"Hit OK to change settings and reboot, or cancel to exit bot"
 	Local $MsgBox = _ExtMsgBox(0, GetTranslatedFileIni("MBR Popups", "Ok_Cancel", "Ok|Cancel"), GetTranslatedFileIni("MBR Popups", "Settings_Error", "Display Settings Error"), $stext, 120)

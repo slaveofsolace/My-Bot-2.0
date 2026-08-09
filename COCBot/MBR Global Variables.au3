@@ -1360,6 +1360,10 @@ Global $g_bGUIControlDisabled = False
 ; Languages
 Global Const $g_sDirLanguages = @ScriptDir & "\Languages\"
 Global Const $g_sDefaultLanguage = "English"
+; Raw translation values are cached by language, section, and key. Keep raw
+; values because placeholder substitution can differ between calls.
+Global $g_oLanguageFileCache = ObjCreate("Scripting.Dictionary")
+Global $g_oLanguageFileCacheLoaded = ObjCreate("Scripting.Dictionary")
 
 ; Notify
 Global Const $g_sNotifyVersion = "v2.0"
@@ -1502,8 +1506,8 @@ Func TranslateTroopNames()
 	Dim $g_avStarLabTroops[13][5] = [ _
 			[-1, -1, -1, GetTranslatedFileIni("MBR Global GUI Design", "Any", "Any"), $eIcnBlank], _
 			[114, 341 + $g_iMidOffsetY, 0, GetTranslatedFileIni("MBR Global GUI Design Names Builderbase Troops", "TxtRagedBarbarian", "Raged Barbarian"), $eIcnRagedBarbarian], _
-			[114, 449 + $g_iMidOffsetY, 0, GetTranslatedFileIni("MBR Global GUI Design Names Builderbase Troops", "TxtSneakyArcher", "SneakyArcher"), $eIcnSneakyArcher], _
-			[213, 341 + $g_iMidOffsetY, 0, GetTranslatedFileIni("MBR Global GUI Design Names Builderbase Troops", "TxtBoxerGiant", "Boxer Giants"), $eIcnBoxerGiant], _
+			[114, 449 + $g_iMidOffsetY, 0, GetTranslatedFileIni("MBR Global GUI Design Names Builderbase Troops", "TxtSneakyArcher", "Sneaky Archer"), $eIcnSneakyArcher], _
+			[213, 341 + $g_iMidOffsetY, 0, GetTranslatedFileIni("MBR Global GUI Design Names Builderbase Troops", "TxtBoxerGiant", "Boxer Giant"), $eIcnBoxerGiant], _
 			[213, 449 + $g_iMidOffsetY, 0, GetTranslatedFileIni("MBR Global GUI Design Names Builderbase Troops", "TxtBetaMinion", "Beta Minion"), $eIcnBetaMinion], _
 			[314, 341 + $g_iMidOffsetY, 0, GetTranslatedFileIni("MBR Global GUI Design Names Builderbase Troops", "TxtBomber", "Bomber"), $eIcnBomber], _
 			[314, 449 + $g_iMidOffsetY, 0, GetTranslatedFileIni("MBR Global GUI Design Names Builderbase Troops", "TxtBabyDragon", "Baby Dragon"), $eIcnBBBabyDragon], _
@@ -2039,7 +2043,7 @@ Global $g_asEquipmentOrderList[30][4] = [ _
 		[GetTranslatedFileIni("MBR GUI Design Child Village - Equipment", "TxtMagicMirror", "Magic Mirror"), "MagicMirror", "Queen", 180], _
 		[GetTranslatedFileIni("MBR GUI Design Child Village - Equipment", "TxtActionFigure", "Action Figure"), "ActionFigure", "Queen", 180], _
 		[GetTranslatedFileIni("MBR GUI Design Child Village - Equipment", "TxtHenchmenPuppet", "Henchmen Puppet"), "Henchmen", "Prince", 209], _
-		[GetTranslatedFileIni("MBR GUI Design Child Village - Equipment", "TxtMagicMirror", "Dark Orb"), "DarkOrb", "Prince", 209], _
+		[GetTranslatedFileIni("MBR GUI Design Child Village - Equipment", "TxtDarkOrb", "Dark Orb"), "DarkOrb", "Prince", 209], _
 		[GetTranslatedFileIni("MBR GUI Design Child Village - Equipment", "TxtMetalPants", "Metal Pants"), "MetalPants", "Prince", 209], _
 		[GetTranslatedFileIni("MBR GUI Design Child Village - Equipment", "TxtNobleIron", "Noble Iron"), "NobleIron", "Prince", 209], _
 		[GetTranslatedFileIni("MBR GUI Design Child Village - Equipment", "TxtEternalTome", "Eternal Tome"), "EternalTome", "Warden", 238], _

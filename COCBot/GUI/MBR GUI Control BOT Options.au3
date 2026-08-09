@@ -418,7 +418,7 @@ Func btnTestDonateCC()
 	_GUICtrlTab_ClickTab($g_hTabMain, 0)
 	$g_bRunState = True
 
-	SetLog(_PadStringCenter(" Test DonateCC begin (" & $g_sBotVersion & ")", 54, "="), $COLOR_INFO)
+	SetLog(_PadStringCenter(" Test DonateCC begin (product " & $g_sProductVersion & "; upstream engine " & $g_sEngineVersion & ")", 54, "="), $COLOR_INFO)
 	PrepareDonateCC()
 	DonateCC(False)
 	SetLog(_PadStringCenter(" Test DonateCC end ", 54, "="), $COLOR_INFO)
@@ -431,7 +431,7 @@ Func btnTestRequestCC()
 	Local $currentRunState = $g_bRunState
 	$g_bRunState = True
 	$g_bCanRequestCC = True
-	SetLog(_PadStringCenter(" Test RequestCC begin (" & $g_sBotVersion & ")", 54, "="), $COLOR_INFO)
+	SetLog(_PadStringCenter(" Test RequestCC begin (product " & $g_sProductVersion & "; upstream engine " & $g_sEngineVersion & ")", 54, "="), $COLOR_INFO)
 	RequestCC()
 	SetLog(_PadStringCenter(" Test RequestCC end ", 54, "="), $COLOR_INFO)
 	$g_bRunState = $currentRunState
@@ -440,7 +440,7 @@ EndFunc   ;==>btnTestRequestCC
 Func btnTestSendText()
 	Local $currentRunState = $g_bRunState
 	$g_bRunState = True
-	SetLog(_PadStringCenter(" Test SendText begin (" & $g_sBotVersion & ")", 54, "="), $COLOR_INFO)
+	SetLog(_PadStringCenter(" Test SendText begin (product " & $g_sProductVersion & "; upstream engine " & $g_sEngineVersion & ")", 54, "="), $COLOR_INFO)
 	Local $s = InputBox("Send characters to Android", "Text to send (please open a input box in Android):", "some text ;-)", "")
 	SendText($s)
 	SetLog(_PadStringCenter(" Test SendText end ", 54, "="), $COLOR_INFO)

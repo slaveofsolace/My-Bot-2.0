@@ -1,9 +1,9 @@
 #NoTrayIcon
 #AutoIt3Wrapper_UseX64=n
 #include <FileConstants.au3>
-#include "MyBot.run.version.au3"
-#pragma compile(ProductName, My Bot 2.0)
 #pragma compile(FileDescription, My Bot 2.0 - managed engine compatibility probe)
+#include "MyBot.run.version.au3"
+#pragma compile(ProductName, My Bot)
 #pragma compile(Out, MyBot.run.EngineProbe.exe)
 
 If $CmdLine[0] <> 1 Then Exit 2

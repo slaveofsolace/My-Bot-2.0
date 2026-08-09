@@ -12,9 +12,9 @@
 ; Link ..........: https://github.com/MyBotRun/MyBot/wiki
 ; Example .......: No
 ; ===============================================================================================================================
+#include "..\Run\RunProfileWriteGuard.au3"
 
 Func saveConfig()
-
 	If $g_iGuiMode = 0 Then Return
 
 	If $g_bSaveConfigIsActive Then
@@ -37,8 +37,15 @@ Func saveConfig()
 	SaveBuildingConfig()
 	;SetDebugLog("SaveBuildingConfig(), time = " & Round(__TimerDiff($t)/1000, 2) & " sec")
 
-	SaveRegularConfig()
-	;SetDebugLog("SaveRegularConfig(), time = " & Round(__TimerDiff($t)/1000, 2) & " sec")
+	; A Normal GUI save reads unchanged controls back into the planner-owned globals before writing;
+	; a Mini GUI save writes those temporary globals directly. Skipping only this serializer keeps
+	; the override live and ephemeral while stats and unrelated profile files continue to save.
+	If RunProfileRegularConfigSerializationAllowed() Then
+		SaveRegularConfig()
+		;SetDebugLog("SaveRegularConfig(), time = " & Round(__TimerDiff($t)/1000, 2) & " sec")
+	Else
+		SetDebugLog("saveConfig(), skipped regular profile serialization during one-run overrides")
+	EndIf
 
 	SaveClanGamesConfig()
 
@@ -86,7 +93,7 @@ Func SaveClanGamesConfig()
 	_Ini_Add("general", "ClanGames", $clanGamesVersion)
 
 	# NEW CLANGAMES GUI
-	_Ini_Add("clangames", "ChkClanGamesEnabled", $g_bChkClanGamesEnabled ? 1 : 0)
+	_Ini_Add("clangames", "ChkClanGamesEnabled", RunProfileClanGamesEnabledForSerialization($g_bChkClanGamesEnabled) ? 1 : 0)
 	_Ini_Add("clangames", "ChkClanGamesAllTimes", $g_bChkClanGamesAlltimes ? 1 : 0)
 	_Ini_Add("clangames", "ChkClanGamesNoOneDay", $g_bChkClanGamesNoOneDay ? 1 : 0)
 	_Ini_Add("clangames", "ChkClanGamesCollectRewards", $g_bChkClanGamesCollectRewards ? 1 : 0)
@@ -254,7 +261,7 @@ Func SaveBuildingConfig()
 
 	; <><><><> Village / Upgrade - Lab <><><><>
 	ApplyConfig_600_14(GetApplyConfigSaveAction())
-	_Ini_Add("upgrade", "upgradetroops", $g_bAutoLabUpgradeEnable ? 1 : 0)
+	_Ini_Add("upgrade", "upgradetroops", RunProfileAutoLabUpgradeEnabledForSerialization($g_bAutoLabUpgradeEnable) ? 1 : 0)
 	_Ini_Add("upgrade", "IsChkLabAssistant", _GUICtrlComboBox_GetCurSel($g_hChkLabAssistant))
 	_Ini_Add("upgrade", "upgradetroopname", $g_iCmbLaboratory)
 	;_Ini_Add("upgrade", "upgradelabelexircost", $g_iLaboratoryElixirCost)
@@ -1260,7 +1267,7 @@ Func SaveConfig_600_35_2()
 		IniWrite($sSwitchAccFile, "SwitchAccount", "Enable", $g_bChkSwitchAcc ? 1 : 0)
 		IniWrite($sSwitchAccFile, "SwitchAccount", "SuperCellID", $g_bChkSuperCellID ? 1 : 0)
 		IniWrite($sSwitchAccFile, "SwitchAccount", "SharedPrefs", $g_bChkSharedPrefs ? 1 : 0)
-		IniWrite($sSwitchAccFile, "SwitchAccount", "DonateLikeCrazy", $g_bDonateLikeCrazy ? 1 : 0)
+		IniWrite($sSwitchAccFile, "SwitchAccount", "DonateLikeCrazy", RunProfileDonateLikeCrazyForSerialization($g_bDonateLikeCrazy) ? 1 : 0)
 		IniWrite($sSwitchAccFile, "SwitchAccount", "TotalCocAccount", $g_iTotalAcc)
 		IniWrite($sSwitchAccFile, "SwitchAccount", "CmbMaxInARow", $g_iCmbMaxInARow)
 		For $i = 1 To 8

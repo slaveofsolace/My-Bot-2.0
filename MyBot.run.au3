@@ -20,7 +20,9 @@
 #Au3Stripper_Parameters=/rsln /MI=3
 
 #include "MyBot.run.version.au3"
-#pragma compile(ProductName, My Bot 2.0)
+; The combined v8.2 engine validates the native host identity. Keep the executable resource
+; compatible with upstream while the visible product title comes from $g_sProductName below.
+#pragma compile(ProductName, My Bot)
 #pragma compile(Out, MyBot.run.exe) ; Required
 
 ; Enforce variable declarations
@@ -72,17 +74,23 @@ MainLoop(CheckPrerequisites())
 
 Func UpdateBotTitle()
 	Local $sTitle = $g_sProductName & " " & $g_sProductVersion
+	; The inherited v8.2 image engine validates the native AutoIt window caption before
+	; servicing image calls. Keep that compatibility-only caption upstream-exact while
+	; the in-window label, tray, console, launcher, and Control Center use My Bot 2.0.
+	Local $sNativeEngineTitle = "My Bot " & $g_sBotVersion
 	Local $sConsoleTitle ; Console title has also Android Emulator Name
 	If $g_sBotTitle = "" Then
 		$g_sBotTitle = $sTitle
 		$sConsoleTitle = $sTitle
 	Else
 		$g_sBotTitle = $sTitle & " (" & ($g_sAndroidInstance <> "" ? $g_sAndroidInstance : $g_sAndroidEmulator) & ")" ;Do not change this. If you do, multiple instances will not work.
+		$sNativeEngineTitle &= " (" & ($g_sAndroidInstance <> "" ? $g_sAndroidInstance : $g_sAndroidEmulator) & ")"
 		$sConsoleTitle = $sTitle & " " & $g_sAndroidEmulator & " (" & ($g_sAndroidInstance <> "" ? $g_sAndroidInstance : $g_sAndroidEmulator) & ")"
 	EndIf
 	If $g_hFrmBot <> 0 Then
-		; Update Bot Window Title also
-		WinSetTitle($g_hFrmBot, "", $g_sBotTitle)
+		; Preserve the engine-compatible HWND caption without exposing upstream branding
+		; inside the product chrome.
+		WinSetTitle($g_hFrmBot, "", $sNativeEngineTitle)
 		GUICtrlSetData($g_hLblBotTitle, $g_sBotTitle)
 	EndIf
 	; Update Console Window (if it exists)
@@ -159,9 +167,8 @@ Func InitializeBot()
 	; Show main GUI
 	ShowMainGUI()
 
-	; The web planner writes config\run-plan.local.json. Read it once here so the Run Planner tab already agrees with it
-	; before anyone opens the tab; after this it is re-read whenever the file changes.
-	RunPlannerSyncPlanFile(True)
+	; The native Run Planner tab hydrates from config\run-plan.local.json when it is opened.
+	; Browser Start independently reloads and validates the same file at its execution boundary.
 
 	If $g_iBotLaunchOption_Dock Then
 		If AndroidEmbed(True) And $g_iBotLaunchOption_Dock = 2 And $g_bCustomTitleBarActive Then
@@ -599,10 +606,8 @@ Func FinalInitialization(Const $sAI)
 
 	; destroy splash screen here (so we witness the 100% ;)
 	DestroySplashScreen(False)
-	If $bCheckPrerequisitesOK Then
-		; only when bot can run, register with forum
-		ForumAuthentication()
-	EndIf
+	; Upstream engine authorization is deferred to an explicit BotStart after the
+	; mixed-mode DLL has passed its isolated probe.
 
 	; allow now other bots to launch
 	DestroySplashScreen()
@@ -620,13 +625,17 @@ Func FinalInitialization(Const $sAI)
 	DisableProcessWindowsGhosting()
 
 	UpdateMainGUI()
-	RunControlInitialize()
 	Local $sControlCenterError = ""
-	If _RunPlannerStartService($sControlCenterError) Then
-		SetLog("My Bot 2.0 control center ready at " & $RUN_PLANNER_URL, $COLOR_SUCCESS)
-		ShellExecute($RUN_PLANNER_URL)
+	If RunControlInitialize() Then
+		If _RunPlannerStartService($sControlCenterError) Then
+			SetLog("My Bot 2.0 control center ready at " & $RUN_PLANNER_URL, $COLOR_SUCCESS)
+			ShellExecute($RUN_PLANNER_URL)
+		Else
+			SetLog("Control center unavailable: " & $sControlCenterError, $COLOR_WARNING)
+		EndIf
 	Else
-		SetLog("Control center unavailable: " & $sControlCenterError, $COLOR_WARNING)
+		RunPlannerStopOwnedService()
+		SetLog("Control center unavailable: native control bridge initialization failed", $COLOR_WARNING)
 	EndIf
 
 EndFunc   ;==>FinalInitialization
@@ -655,9 +664,10 @@ Func MainLoop($bCheckPrerequisitesOK = True)
 		$g_iBotAction = $eBotStart
 		; check if android should be hidden
 		If $g_bBotLaunchOption_HideAndroid Then $g_bIsHidden = True
-		; check if bot should be minimized
-		If $g_bBotLaunchOption_MinimizeBot Then BotMinimizeRequest()
 	EndIf
+	; Minimize is a host-window launch option, not an auto-start option. Keep the
+	; separate hide-Android behavior scoped to auto-start above.
+	If $bCheckPrerequisitesOK And $g_bBotLaunchOption_MinimizeBot Then BotMinimizeRequest()
 
 	Local $hStarttime = _Timer_Init()
 

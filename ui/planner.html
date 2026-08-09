@@ -4,13 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>My Bot 2.0 Control Center</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/planner.css">
 </head>
 <body>
 <a class="skip-nav" href="#main">Skip to run settings</a>
 
 <header class="topbar">
-  <div class="brand" aria-label="My Bot 2.0">
+  <div class="brand">
     <span class="brand-index" aria-hidden="true">2.0</span>
     <div>
       <span class="kicker">LOCAL AUTOMATION CONTROL</span>
@@ -18,9 +19,12 @@
       <span class="brand-sub">Native engine / browser console</span>
     </div>
   </div>
-  <div class="search">
-    <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M11.7 10.3a5 5 0 1 0-1.4 1.4l3 3a1 1 0 0 0 1.4-1.4zM7 10.5A3.5 3.5 0 1 1 10.5 7 3.5 3.5 0 0 1 7 10.5z"/></svg>
-    <input id="filter" type="search" placeholder="Filter settings..." aria-label="Filter settings">
+  <div class="topbar-tools">
+    <button class="diagnostics-button" id="exportDiagnostics" type="button">Export diagnostics</button>
+    <div class="search">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M11.7 10.3a5 5 0 1 0-1.4 1.4l3 3a1 1 0 0 0 1.4-1.4zM7 10.5A3.5 3.5 0 1 1 10.5 7 3.5 3.5 0 0 1 7 10.5z"/></svg>
+      <input id="filter" type="search" placeholder="Filter settings..." aria-label="Filter settings">
+    </div>
   </div>
 </header>
 
@@ -46,16 +50,42 @@
   </div>
 </section>
 
-<div class="workspace-title">
+<section class="health-region" aria-label="Startup health">
+  <ol class="health-rail">
+    <li id="healthUi" data-state="ready"><span>Control Center</span><strong>Ready</strong></li>
+    <li id="healthNative" data-state="waiting"><span>Native app</span><strong>Waiting</strong></li>
+    <li id="healthEngine" data-state="waiting"><span>Managed engine</span><strong>Waiting</strong></li>
+    <li id="healthEmulator" data-state="waiting"><span>Emulator</span><strong>Waiting</strong></li>
+  </ol>
+</section>
+
+<div class="workspace-title" role="region" aria-labelledby="plannerTitle">
   <div>
     <span class="deck-label">RUN CONFIGURATION</span>
     <h2 id="plannerTitle">Run Planner</h2>
   </div>
   <p id="lede"></p>
 </div>
-<p class="banner" id="banner"><span class="mark">&bull;</span><span id="bannerText">Loading...</span></p>
+<section class="preset-dock" aria-labelledby="presetTitle">
+  <div class="preset-picker">
+    <div>
+      <span class="deck-label">COMPATIBILITY STARTING POINT</span>
+      <h3 id="presetTitle">Town Hall preset</h3>
+    </div>
+    <label class="sr-only" for="presetSelect">Town Hall preset</label>
+    <select id="presetSelect">
+      <option value="custom">Custom &mdash; keep visible plan</option>
+    </select>
+    <button class="preset-apply" id="applyPreset" type="button" disabled>Apply preset</button>
+  </div>
+  <div class="preset-preview" id="presetPreview" aria-live="polite">
+    <strong>Custom plan</strong>
+    <span>Select a Town Hall to preview its changes. Nothing is changed or saved yet.</span>
+  </div>
+</section>
+<p class="banner" id="banner" role="region" aria-label="Verification status"><span class="mark">&bull;</span><span id="bannerText">Loading...</span></p>
 
-<main id="main">
+<main id="main" tabindex="-1">
   <nav id="nav" aria-label="Sections"></nav>
   <section id="panel" aria-label="Run settings"></section>
   <aside>
@@ -68,7 +98,7 @@
   </aside>
 </main>
 
-<div class="bar">
+<div class="bar" role="region" aria-label="Plan actions">
   <button class="primary" id="apply">Apply plan</button>
   <button class="ghost" id="reset">Reset to defaults</button>
   <span class="dirty" id="dirty"></span>

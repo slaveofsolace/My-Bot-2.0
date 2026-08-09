@@ -54,3 +54,5 @@ fine in one build and not another.
 6. Do not add stealth, detection evasion, or account-protection bypasses, and do not claim that
    usage is undetectable.
 7. Run automation only where that testing is authorised.
+8. Update `config/binary-provenance.json` whenever a shipped executable, DLL, or archive is rebuilt
+   or replaced; `tools/repo_audit.py` treats hash or coverage drift as a release error.

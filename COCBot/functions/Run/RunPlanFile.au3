@@ -321,17 +321,26 @@ Func _RunPlanFileModeForSurface($sSurface)
 	Return ""
 EndFunc   ;==>_RunPlanFileModeForSurface
 
-; The exact contract. 42 keys: the original 37 plus the five pacing settings the cloud surface adds.
+; The exact contract. 43 keys: 38 run settings plus the five pacing settings the cloud surface adds.
 ; If a setting is added to config/ui/run-planner.settings.json it MUST be added here too, or every
 ; saved plan is refused.
 Func _RunPlanFileRequiredKeys()
-	Local $aKeys = ["run.surface", "run.strategy", "run.heroes", "runtime.emulator", "runtime.instance", "run.duration_minutes", "run.max_battles", "run.stop_on_star_bonus", "run.max_failures", _
+	Local $aKeys = ["run.surface", "run.strategy", "run.attack_script", "run.heroes", "runtime.emulator", "runtime.instance", "run.duration_minutes", "run.max_battles", "run.stop_on_star_bonus", "run.max_failures", _
 		"target.gold", "target.elixir", "target.dark_elixir", "upgrade.policy", "account.queue", "army.source", "army.recipe_name", "army.wait_for_full", "army.train_spells", "army.train_sieges", _
 		"search.min_gold", "search.min_elixir", "search.min_dark", "search.max_seconds", "search.town_hall_filter", "donate.mode", "donate.keep_army", "donate.max_per_run", "donate.request_when_short", _
 		"events.clan_games", "events.clan_games_point_cap", "events.laboratory", "events.collect_resources", "notify.on_stop", "notify.on_error", "notify.channel", "run.diagnostic_mode", "run.diagnostic_note", _
 		"pacing.action_delay_ms", "pacing.settle_ms", "pacing.retry_attempts", "pacing.break_every_minutes", "pacing.break_minutes"]
 	Return $aKeys
 EndFunc   ;==>_RunPlanFileRequiredKeys
+
+; Plans saved by the immediately preceding 42-key build did not carry a one-run script override.
+; Adding the explicit preserve sentinel is lossless: it means exactly what that build did - keep the
+; active profile's script. Unknown or otherwise incomplete documents remain strict failures below.
+Func _RunPlanFileNormalizeCurrentContract(ByRef $oJson)
+	If Not IsObj($oJson) Then Return False
+	If $oJson.Count = 42 And Not $oJson.Exists("run.attack_script") Then $oJson.Add("run.attack_script", "profile-current")
+	Return True
+EndFunc   ;==>_RunPlanFileNormalizeCurrentContract
 
 Func _RunPlanFileValidateShape(ByRef $oJson, ByRef $sError)
 	If Not IsObj($oJson) Then
@@ -469,6 +478,7 @@ Func RunPlanFileLoadIntent($sPath, ByRef $sError)
 	; Cloud's loader already checks existence, bounds the size, and refuses nested objects/arrays.
 	Local $oJson = RunPlanFileLoad($sPath, $sError)
 	If Not IsObj($oJson) Then Return SetError(1, 0, 0)
+	_RunPlanFileNormalizeCurrentContract($oJson)
 	If Not _RunPlanFileValidateShape($oJson, $sError) Then Return SetError(2, 0, 0)
 
 	Local $sSurface = _RunPlanFileRequireString($oJson, "run.surface", $sError)
@@ -486,7 +496,7 @@ Func RunPlanFileLoadIntent($sPath, ByRef $sError)
 		Return SetError(6, 0, 0)
 	EndIf
 
-	Local $aStrings[10][2] = [["emulator", "runtime.emulator"], ["emulator_instance", "runtime.instance"], ["upgrade_policy", "upgrade.policy"], ["account_queue_id", "account.queue"], ["army_source", "army.source"], ["army_recipe_name", "army.recipe_name"], ["search_town_hall_filter", "search.town_hall_filter"], ["donate_mode", "donate.mode"], ["events_laboratory", "events.laboratory"], ["notify_channel", "notify.channel"]]
+	Local $aStrings[11][2] = [["attack_script", "run.attack_script"], ["emulator", "runtime.emulator"], ["emulator_instance", "runtime.instance"], ["upgrade_policy", "upgrade.policy"], ["account_queue_id", "account.queue"], ["army_source", "army.source"], ["army_recipe_name", "army.recipe_name"], ["search_town_hall_filter", "search.town_hall_filter"], ["donate_mode", "donate.mode"], ["events_laboratory", "events.laboratory"], ["notify_channel", "notify.channel"]]
 	; mode is derived from the surface. Assign every other text field explicitly.
 	For $i = 0 To UBound($aStrings) - 1
 		If Not _RunPlanFileAssignString($oPlan, $oJson, $aStrings[$i][0], $aStrings[$i][1], $sError) Then Return SetError(7, $i, 0)

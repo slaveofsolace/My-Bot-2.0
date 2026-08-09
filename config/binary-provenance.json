@@ -1,0 +1,211 @@
+{
+  "schema_version": 1,
+  "reviewed_at": "2026-08-09",
+  "artifacts": [
+    {
+      "path": "lib/adb/adb.exe",
+      "sha256": "e39e25bbed119156cd975bf85e446e8a5d592fd928fedd667e0e548845e20734",
+      "bytes": 1868800,
+      "provenance": {
+        "kind": "inherited-repository",
+        "source_id": "mybotrun-v8",
+        "introduced_commit": "117a53e4104a7770a79765400cbfbc22623c2126"
+      }
+    },
+    {
+      "path": "lib/adb/AdbWinApi.dll",
+      "sha256": "d60103a5e99bc9888f786ee916f5d6e45493c3247972cb053833803de7e95cf9",
+      "bytes": 97792,
+      "provenance": {
+        "kind": "inherited-repository",
+        "source_id": "mybotrun-v8",
+        "introduced_commit": "117a53e4104a7770a79765400cbfbc22623c2126"
+      }
+    },
+    {
+      "path": "lib/adb/AdbWinUsbApi.dll",
+      "sha256": "25207c506d29c4e8dceb61b4bd50e8669ba26012988a43fbf26a890b1e60fc97",
+      "bytes": 62976,
+      "provenance": {
+        "kind": "inherited-repository",
+        "source_id": "mybotrun-v8",
+        "introduced_commit": "117a53e4104a7770a79765400cbfbc22623c2126"
+      }
+    },
+    {
+      "path": "lib/curl/curl.exe",
+      "sha256": "337ca6b7d98b0740319e9f18e808ac904deb318dd452ea2b674ba23f62a2cd09",
+      "bytes": 636968,
+      "provenance": {
+        "kind": "inherited-repository",
+        "source_id": "mybotrun-v8",
+        "introduced_commit": "2c800d6135809b525edfa54eb81965c6b5e843ef"
+      }
+    },
+    {
+      "path": "lib/helper_functions.dll",
+      "sha256": "907db7c371be9af27f69a88561926f58fe497ba3a4c78d0af18fcad87f24093f",
+      "bytes": 78848,
+      "provenance": {
+        "kind": "inherited-repository",
+        "source_id": "mybotrun-v8",
+        "introduced_commit": "4cde399734fe9bec6d4793f19109846e553c99ce"
+      }
+    },
+    {
+      "path": "lib/libcurl.dll",
+      "sha256": "62b3a76919f4585a0ef1b424f7adf5d6aa4f869ac9916fbd53fb0d4976e9b281",
+      "bytes": 1706496,
+      "provenance": {
+        "kind": "inherited-repository",
+        "source_id": "mybotrun-v8",
+        "introduced_commit": "dfc6279931f9f96202568e4f71351cd12e514b8e"
+      }
+    },
+    {
+      "path": "lib/LibCurlShim.dll",
+      "sha256": "298a2735195c241714afe580e96a966d58603cc676b5f67036f6bc96beb0384a",
+      "bytes": 111616,
+      "provenance": {
+        "kind": "inherited-repository",
+        "source_id": "mybotrun-v8",
+        "introduced_commit": "dfc6279931f9f96202568e4f71351cd12e514b8e"
+      }
+    },
+    {
+      "path": "lib/MBRBot.dll",
+      "sha256": "c33e598acace41a8b6c52b84f992a0f39ff8a45916017967eeabd4d89898eb0a",
+      "bytes": 19664384,
+      "provenance": {
+        "kind": "inherited-repository",
+        "source_id": "mybotrun-v8",
+        "introduced_commit": "60eef52de8dfcc569296ed7b08948bde5c2af9c4"
+      }
+    },
+    {
+      "path": "lib/MyBot.run.dll",
+      "sha256": "347b204a15fd56800130740aff639c7608621206482f07298c595a363e328699",
+      "bytes": 2761728,
+      "provenance": {
+        "kind": "inherited-repository",
+        "source_id": "mybotrun-v8",
+        "introduced_commit": "ac63750be395c4bac50dae18f8295238aa26bdfe"
+      }
+    },
+    {
+      "path": "lib/Newtonsoft.Json.dll",
+      "sha256": "56032ade45ccf8f4c259a2e57487124cf448a90bca2eeb430da2722d9e109583",
+      "bytes": 554408,
+      "provenance": {
+        "kind": "inherited-repository",
+        "source_id": "mybotrun-v8",
+        "introduced_commit": "2d711679e4758381ee54f0263f9c287fde20a533"
+      }
+    },
+    {
+      "path": "lib/opencv_core220.dll",
+      "sha256": "fec7498d29445abc62cc40766a04601a7fd52cb6cc914c3f562c8751762fb051",
+      "bytes": 2009088,
+      "provenance": {
+        "kind": "inherited-repository",
+        "source_id": "mybotrun-v8",
+        "introduced_commit": "9a72e9e633340892462f33e0c731d096466adda5"
+      }
+    },
+    {
+      "path": "lib/opencv_imgproc220.dll",
+      "sha256": "422806832c9be6d2b1d4d6de6ad28b68cce63a4723c7c004bc356eb1c688cac2",
+      "bytes": 1241600,
+      "provenance": {
+        "kind": "inherited-repository",
+        "source_id": "mybotrun-v8",
+        "introduced_commit": "9a72e9e633340892462f33e0c731d096466adda5"
+      }
+    },
+    {
+      "path": "lib/sqlite3.dll",
+      "sha256": "06280368d06e48607d5ad2926cbef7240ef76f657b2582b19be2e9207a00dc81",
+      "bytes": 846336,
+      "provenance": {
+        "kind": "inherited-repository",
+        "source_id": "mybotrun-v8",
+        "introduced_commit": "28c520605d6001f96731d1d233bc2ef7c3c34a88"
+      }
+    },
+    {
+      "path": "My Bot 2.0.exe",
+      "sha256": "d3b4271e81921977562eee393ff77329985babc55c7c360443fcdb158f69d46d",
+      "bytes": 1073152,
+      "provenance": {
+        "kind": "local-build",
+        "source": "My Bot 2.0.au3",
+        "toolchain": "AutoIt Aut2Exe",
+        "tool_version": "3.3.16.1",
+        "tool_signer": "AutoIt Consulting Ltd",
+        "built_at": "2026-08-09"
+      }
+    },
+    {
+      "path": "MyBot.run.EngineProbe.exe",
+      "sha256": "08d79e47001ee4849deac733dff5eb4af45e6f663f8a10f5ca2ed4192e5dd495",
+      "bytes": 963584,
+      "provenance": {
+        "kind": "local-build",
+        "source": "MyBot.run.EngineProbe.au3",
+        "toolchain": "AutoIt Aut2Exe",
+        "tool_version": "3.3.16.1",
+        "tool_signer": "AutoIt Consulting Ltd",
+        "built_at": "2026-08-09"
+      }
+    },
+    {
+      "path": "MyBot.run.exe",
+      "sha256": "40df684920b5f94e51adcd0014e3875e279e0d3e08b859646b227a3e0fa0c2ec",
+      "bytes": 3207680,
+      "provenance": {
+        "kind": "local-build",
+        "source": "MyBot.run.au3",
+        "toolchain": "AutoIt Aut2Exe",
+        "tool_version": "3.3.16.1",
+        "tool_signer": "AutoIt Consulting Ltd",
+        "built_at": "2026-08-09"
+      }
+    },
+    {
+      "path": "MyBot.run.MiniGui.exe",
+      "sha256": "ae26c098ceb3c74e3d7f567834d9135257e094172e32140f4a5b615eaf90ceda",
+      "bytes": 1634304,
+      "provenance": {
+        "kind": "inherited-repository",
+        "source_id": "mybotrun-v8",
+        "introduced_commit": "8ad6e5a552347acc2fcb8048d30262e2735a0c33"
+      }
+    },
+    {
+      "path": "MyBot.run.Watchdog.exe",
+      "sha256": "fc90c1a5e9fbc1e1c7e8bc45b00c43deeec601011b33c1808edb77646776c5a1",
+      "bytes": 1354240,
+      "provenance": {
+        "kind": "local-build",
+        "source": "MyBot.run.Watchdog.au3",
+        "toolchain": "AutoIt Aut2Exe",
+        "tool_version": "3.3.16.1",
+        "tool_signer": "AutoIt Consulting Ltd",
+        "built_at": "2026-08-09"
+      }
+    },
+    {
+      "path": "MyBot.run.Wmi.exe",
+      "sha256": "d1ac8549e396bc7ff6fa747bcdd8d2f611f7734e63baadef16e182b94ae076af",
+      "bytes": 1350144,
+      "provenance": {
+        "kind": "local-build",
+        "source": "MyBot.run.Wmi.au3",
+        "toolchain": "AutoIt Aut2Exe",
+        "tool_version": "3.3.16.1",
+        "tool_signer": "AutoIt Consulting Ltd",
+        "built_at": "2026-08-09"
+      }
+    }
+  ]
+}

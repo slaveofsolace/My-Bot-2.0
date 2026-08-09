@@ -101,7 +101,7 @@ Func Unbreakable()
 	ClearScreen()
 	If _Sleep($DELAYUNBREAKABLE1) Then Return True
 
-	If CheckObstacles() = True Then SetLog("Window clean required, but no problem for MyBot!", $COLOR_INFO)
+	If CheckObstacles() = True Then SetLog("Window clean required, but no problem for " & $g_sProductName & "!", $COLOR_INFO)
 
 	CloseCoC()
 

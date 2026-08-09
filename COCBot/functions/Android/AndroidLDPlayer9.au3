@@ -198,7 +198,7 @@ EndFunc   ;==>CloseLDPlayer9
 Func CloseUnsupportedLDPlayer9()
 	Local $aPos = ControlGetPos($g_sAndroidTitle, "", "")
 	If IsArray($aPos) Then
-		SetLog("Let My Bot configure and start the selected LDPlayer 9 instance", $COLOR_INFO)
+		SetLog("Let " & $g_sProductName & " configure and start the selected LDPlayer 9 instance", $COLOR_INFO)
 		RebootLDPlayer9SetScreen(False)
 		Return True
 	EndIf

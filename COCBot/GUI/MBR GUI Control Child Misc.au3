@@ -1465,6 +1465,6 @@ EndFunc   ;==>EnableAutoUpgradeCC
 
 Func CmbForgeBuilder()
 	$g_iCmbForgeBuilder = Int(_GUICtrlComboBox_GetCurSel($g_hCmbForgeBuilder))
-	GUICtrlSetData($g_hLbCmbForgeBuilder, $g_iCmbForgeBuilder > 0 ? GetTranslatedFileIni("MBR GUI Design Child Village - Misc", "LblForgeBuilder", "Builders for Forge") : _
+	GUICtrlSetData($g_hLbCmbForgeBuilder, $g_iCmbForgeBuilder > 0 ? GetTranslatedFileIni("MBR GUI Design Child Village - Misc", "LblForgeBuilder", "Builder for Forge") : _
 			GetTranslatedFileIni("MBR GUI Design Child Village - Misc", "LblForgeBuilder", "Builder for Forge"))
 EndFunc   ;==>CmbForgeBuilder

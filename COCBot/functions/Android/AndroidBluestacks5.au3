@@ -20,6 +20,48 @@ Func GetBlueStacks5ProgramParameter($bAlternative = False)
 	Return DoubleQuote("--instance") & " " & DoubleQuote($g_sAndroidInstance)
 EndFunc   ;==>GetBlueStacks5ProgramParameter
 
+; BlueStacks 5.22 moved its visible shell from the inherited BlueStacksApp class/title to a Qt
+; top-level window, and may withhold CommandLine from WMI. Its configured display name includes the
+; instance ID; require that exact title and exactly one candidate so HWND input and ADB cannot bind
+; to different accounts.
+Func FindBlueStacks5WindowFallback()
+	; Include hidden/off-screen windows: the product launcher intentionally minimizes the native
+	; surfaces while leaving the exact emulator instance running for browser control.
+	Local $aWindows = _WinAPI_EnumWindows(False)
+	Local $hFound = 0
+	Local $iFound = 0
+	If Not IsArray($aWindows) Then Return 0
+	For $i = 1 To $aWindows[0][0]
+		Local $hWindow = $aWindows[$i][0]
+		If Not StringRegExp(_WinAPI_GetClassName($hWindow), "^Qt[0-9]+QWindowIcon$") Then ContinueLoop
+		Local $sTitle = WinGetTitle($hWindow)
+		If $g_sAndroidInstance = "" Or StringCompare($sTitle, "BlueStacks5-" & $g_sAndroidInstance, 0) <> 0 Then ContinueLoop
+		Local $aPosition = WinGetPos($hWindow)
+		If Not IsArray($aPosition) Then ContinueLoop
+		; A minimized Qt window reports a tiny placeholder rectangle. Exact class/title/instance and
+		; uniqueness remain authoritative while ADB supplies both capture and input coordinates.
+		If BitAND(WinGetState($hWindow), 16) = 0 And ($aPosition[2] < 400 Or $aPosition[3] < 400) Then ContinueLoop
+		$hFound = $hWindow
+		$iFound += 1
+	Next
+	If $iFound = 1 Then Return $hFound
+	If $iFound > 1 Then SetDebugLog("BlueStacks5 modern-window fallback refused: multiple exact player windows were found", $COLOR_ERROR)
+	Return 0
+EndFunc   ;==>FindBlueStacks5WindowFallback
+
+; BlueStacks 5.22's Qt shell is not the Android rendering surface. Its native toolbar and
+; window chrome can be resized independently while the ADB framebuffer remains fixed at the
+; configured dimensions. When capture and input both use ADB, report that framebuffer geometry
+; so generic window-resize recovery never destroys a healthy modern instance.
+Func GetBlueStacks5ModernAdbSurfacePosition()
+	If $g_sAndroidEmulator <> "BlueStacks5" Or Not $g_bChkBackgroundMode Or Not $g_bAndroidAdbScreencap Or Not $g_bAndroidAdbClick Then Return 0
+	Local $hWindow = GetCurrentAndroidHWnD()
+	If Not IsHWnd($hWindow) Or Not StringRegExp(_WinAPI_GetClassName($hWindow), "^Qt[0-9]+QWindowIcon$") Then Return 0
+	If $g_sAndroidInstance = "" Or StringCompare(WinGetTitle($hWindow), "BlueStacks5-" & $g_sAndroidInstance, 0) <> 0 Then Return 0
+	Local $aSurface[4] = [0, 0, $g_iAndroidClientWidth, $g_iAndroidClientHeight]
+	Return $aSurface
+EndFunc   ;==>GetBlueStacks5ModernAdbSurfacePosition
+
 Func OpenBlueStacks5($bRestart = False)
 	SetLog("Starting BlueStacks and Clash Of Clans", $COLOR_SUCCESS)
 	If Not InitAndroid() Then Return False
@@ -37,7 +79,16 @@ Func _OpenBlueStacks5($bRestart = False)
 
 	$cmdPar = GetAndroidProgramParameter()
 	If WinGetAndroidHandle() = 0 Then
-		$PID = LaunchAndroid($g_sAndroidProgramPath, $cmdPar, $g_sAndroidPath)
+		; Current BlueStacks exits a duplicate launcher process when the requested instance is already
+		; running. Do not cancel the bot on that zero PID until the exact Qt instance fallback has had
+		; one final chance to claim the existing player window.
+		$PID = LaunchAndroid($g_sAndroidProgramPath, $cmdPar, $g_sAndroidPath, 0, False)
+		If $PID = 0 And WinGetAndroidHandle() = 0 Then
+			SetLog("Unable to load " & $g_sAndroidEmulator & ($g_sAndroidInstance = "" ? "" : "(" & $g_sAndroidInstance & ")") & ", please check emulator/installation.", $COLOR_ERROR)
+			SetLog("Unable to continue........", $COLOR_WARNING)
+			btnStop()
+			Return False
+		EndIf
 		;LaunchAndroid($g_sAndroidProgramPath, GetAndroidProgramParameter(), $g_sAndroidPath)
 	Else
 		SetLog("BlueStacks5 Already Loaded")
@@ -177,9 +228,9 @@ Func InitBlueStacks5($bCheckOnly = False)
 	For $i = 0 To $iLineCount - 1
 		If StringInStr($__Bluestacks5Conf[$i], "bst.instance." & $g_sAndroidInstance & ".") Then
 			Local $propkey = StringReplace($__Bluestacks5Conf[$i], "bst.instance." & $g_sAndroidInstance & ".", "")
-			SetDebugLog($propkey)
 			Local $aProperty = StringSplit($propkey, "=", $STR_NOCOUNT)
 			If IsArray($aProperty) And UBound($aProperty) = 2 Then
+				If StringRegExp($aProperty[0], "^(adb_port|display_name|dpi|fb_height|fb_width|graphics_renderer)$") Then SetDebugLog($propkey)
 				If StringInStr($aProperty[0], "adb_port") Then
 					Local $port = StringReplace($aProperty[1], '"', '')
 					$g_sAndroidAdbDevice = "127.0.0.1:" & $port
@@ -192,11 +243,12 @@ Func InitBlueStacks5($bCheckOnly = False)
 		$__VBoxManage_Path = $__BlueStacks_Path & "BstkVMMgr.exe"
 		Local $bsNow = GetVersionNormalized($__BlueStacks5_Version)
 		If $bsNow > GetVersionNormalized("5.0") Then
-			; only Version 4 requires new options
-			;$g_sAndroidAdbInstanceShellOptions = " -t -t" ; Additional shell options, only used by BlueStacks2 " -t -t"
-			$g_sAndroidAdbShellOptions = " /data/anr/../../system/xbin/bstk/su root" ; Additional shell options when launch shell with command, only used by BlueStacks2 " /data/anr/../../system/xbin/bstk/su root"
+			; Modern BlueStacks 5 exposes screencap, input and property commands through the normal ADB
+			; shell. The inherited bstk/su wrapper is a BlueStacks 2/4 path; current builds may accept
+			; it and then close without output, which falsely looks like a boot failure and reboots CoC.
+			$g_sAndroidAdbShellOptions = ""
 
-			; tcp forward not working in BS4
+			; Keep the stdin minitouch transport used by the BlueStacks adapter.
 			$g_iAndroidAdbMinitouchMode = 1
 		EndIf
 	EndIf
@@ -251,8 +303,13 @@ EndFunc   ;==>RestartBlueStacks5CoC
 
 Func CheckScreenBlueStacks5($bSetLog = True)
 	Local $__BlueStacks5_ProgramData = RegRead($g_sHKLM & "\SOFTWARE\BlueStacks_nxt\", "UserDefinedDir")
-	Local $__Bluestacks5Conf = FileReadToArray($__BlueStacks5_ProgramData & "\bluestacks.conf")
+	Local $sConfigPath = $__BlueStacks5_ProgramData & "\bluestacks.conf"
+	Local $__Bluestacks5Conf = FileReadToArray($sConfigPath)
 	Local $iLineCount = @extended
+	If $__BlueStacks5_ProgramData = "" Or Not IsArray($__Bluestacks5Conf) Then
+		If $bSetLog Then SetLog("Cannot read BlueStacks configuration: " & $sConfigPath, $COLOR_ERROR)
+		Return False
+	EndIf
 
 	Local $aiSearch = ["bst.instance." & $g_sAndroidInstance & ".fb_width", _
 			"bst.instance." & $g_sAndroidInstance & ".fb_height", _
@@ -266,9 +323,14 @@ Func CheckScreenBlueStacks5($bSetLog = True)
 			'"732"', _
 			'"BlueStacks5']
 
+	Local $bAdbAccessConfigured = False
+	Local $abSettingFound[UBound($aiSearch)]
 	For $i = 0 To $iLineCount - 1
+		If StringInStr($__Bluestacks5Conf[$i], "bst.enable_adb_access") Then _
+				$bAdbAccessConfigured = StringInStr($__Bluestacks5Conf[$i], '="1"') > 0
 		For $iSearch = 0 To UBound($aiSearch) - 1
 			If StringInStr($__Bluestacks5Conf[$i], $aiSearch[$iSearch]) Then
+				$abSettingFound[$iSearch] = True
 				SetDebugLog($__Bluestacks5Conf[$i])
 				If StringInStr($__Bluestacks5Conf[$i], $aiMustBe[$iSearch]) = 0 Then
 					If $bSetLog = True Then SetLog("Please wait, Bot will configure your Bluestacks", $COLOR_ERROR)
@@ -277,13 +339,28 @@ Func CheckScreenBlueStacks5($bSetLog = True)
 			EndIf
 		Next
 	Next
+	For $iSearch = 0 To UBound($abSettingFound) - 1
+		If Not $abSettingFound[$iSearch] Then
+			If $bSetLog Then SetLog("BlueStacks setting is missing: " & $aiSearch[$iSearch], $COLOR_ERROR)
+			Return False
+		EndIf
+	Next
+	If Not $bAdbAccessConfigured Then
+		If $bSetLog = True Then SetLog("Please wait, Bot will enable BlueStacks ADB access", $COLOR_ERROR)
+		Return False
+	EndIf
 	Return True
 EndFunc   ;==>CheckScreenBlueStacks5
 
 Func SetScreenBlueStacks5()
 	Local $__BlueStacks5_ProgramData = RegRead($g_sHKLM & "\SOFTWARE\BlueStacks_nxt\", "UserDefinedDir")
-	Local $__Bluestacks5Conf = FileReadToArray($__BlueStacks5_ProgramData & "\bluestacks.conf")
+	Local $sConfigPath = $__BlueStacks5_ProgramData & "\bluestacks.conf"
+	Local $__Bluestacks5Conf = FileReadToArray($sConfigPath)
 	Local $iLineCount = @extended
+	If $__BlueStacks5_ProgramData = "" Or Not IsArray($__Bluestacks5Conf) Then
+		SetLog("Cannot read BlueStacks configuration: " & $sConfigPath, $COLOR_ERROR)
+		Return False
+	EndIf
 
 	Local $aiSearch = ["bst.instance." & $g_sAndroidInstance & ".fb_width", _
 			"bst.instance." & $g_sAndroidInstance & ".fb_height", _
@@ -303,14 +380,29 @@ Func SetScreenBlueStacks5()
 			'bst.instance.' & $g_sAndroidInstance & '.enable_fps_display="1"', _
 			"bst.instance." & $g_sAndroidInstance & '.google_login_popup_shown="0"']
 
+	Local $bAdbAccessFound = False
+	Local $abSettingFound[UBound($aiSearch)]
 	For $i = 0 To $iLineCount - 1
+		If StringInStr($__Bluestacks5Conf[$i], "bst.enable_adb_access") Then
+				$__Bluestacks5Conf[$i] = 'bst.enable_adb_access="1"'
+			$bAdbAccessFound = True
+		EndIf
 		For $iSearch = 0 To UBound($aiSearch) - 1
 			If StringInStr($__Bluestacks5Conf[$i], $aiSearch[$iSearch]) Then
 				$__Bluestacks5Conf[$i] = $aiMustBe[$iSearch]
+				$abSettingFound[$iSearch] = True
 			EndIf
 		Next
 	Next
-	_FileWriteFromArray($__BlueStacks5_ProgramData & "\bluestacks.conf", $__Bluestacks5Conf)
+	For $iSearch = 0 To UBound($abSettingFound) - 1
+		If Not $abSettingFound[$iSearch] Then _ArrayAdd($__Bluestacks5Conf, $aiMustBe[$iSearch])
+	Next
+	If Not $bAdbAccessFound Then _ArrayAdd($__Bluestacks5Conf, 'bst.enable_adb_access="1"')
+	If _FileWriteFromArray($sConfigPath, $__Bluestacks5Conf) = 0 Then
+		SetLog("Cannot update BlueStacks configuration: " & $sConfigPath, $COLOR_ERROR)
+		Return False
+	EndIf
+	Return True
 EndFunc   ;==>SetScreenBlueStacks5
 
 Func ConfigBlueStacks5WindowManager()
@@ -436,8 +528,8 @@ Func CloseUnsupportedBlueStacksX($bClose = True)
 		Opt("WinTitleMatchMode", $WinTitleMatchMode)
 		; Offical "Bluestacks App Player" v2.0 not supported because it changes the Android Screen!!!
 		If $bClose = True Then
-			SetLog("MyBot doesn't work with " & $g_sAndroidEmulator & " App Player", $COLOR_ERROR)
-			SetLog("Please let MyBot start " & $g_sAndroidEmulator & " automatically", $COLOR_INFO)
+			SetLog($g_sProductName & " doesn't work with " & $g_sAndroidEmulator & " App Player", $COLOR_ERROR)
+			SetLog("Please let " & $g_sProductName & " start " & $g_sAndroidEmulator & " automatically", $COLOR_INFO)
 			RebootBlueStacks5SetScreen(False)
 		EndIf
 		Return True

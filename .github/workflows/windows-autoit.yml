@@ -6,7 +6,12 @@ on:
       - master
       - main
       - "fix/**"
+      - "feature/**"
       - "compat/**"
+      - "ui/**"
+      - "refactor/**"
+      - "build/**"
+      - "sol/**"
   pull_request:
   workflow_dispatch:
 
@@ -34,6 +39,14 @@ jobs:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Check Town Hall preset contract
+        run: python tools/check_town_hall_presets.py
+
       - name: Download signed AutoIt portable package
         id: autoit
         shell: pwsh
@@ -51,6 +64,7 @@ jobs:
           $signature = Get-AuthenticodeSignature -FilePath $autoItExe.FullName
           if ($signature.Status -ne "Valid") { throw "Downloaded AutoIt signature status: $($signature.Status)" }
           "root=$destination" >> $env:GITHUB_OUTPUT
+          "exe=$($autoItExe.FullName)" >> $env:GITHUB_OUTPUT
 
       - name: Run syntax and contract validation
         shell: pwsh
@@ -59,6 +73,10 @@ jobs:
             -AutoItRoot "${{ steps.autoit.outputs.root }}" `
             -Version "${{ matrix.autoit }}" `
             -ReportPath "autoit-validation-${{ matrix.autoit }}.json"
+
+      - name: Run translation-cache runtime contract
+        shell: pwsh
+        run: python tools/check_translation_cache.py --autoit "${{ steps.autoit.outputs.exe }}" --require-autoit
 
       - name: Upload AutoIt evidence
         if: always()

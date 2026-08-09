@@ -11,10 +11,20 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 SETTINGS_PATH = ROOT / "config/ui/run-planner.settings.json"
+SETTINGS_SCHEMA_PATH = ROOT / "config/ui/settings.schema.json"
 CAPABILITIES_PATH = ROOT / "config/current-client-capabilities.json"
 SURFACES_PATH = ROOT / "config/game/battle-surfaces.json"
 HEROES_PATH = ROOT / "config/game/heroes.json"
-ID_PATTERN = re.compile(r"^[a-z][a-z0-9]*(?:[.\-_][a-z0-9]+)*$")
+CURRENT_CLIENT_PATH = ROOT / "config/game/current-client.json"
+ATTACK_SCRIPTS_PATH = ROOT / "CSV/Attack"
+HIDDEN_SCRIPT_TOKENS = ("human-like",)
+HERO_DROP_NAMES = {
+    "barbarian-king": "King",
+    "archer-queen": "Queen",
+    "grand-warden": "Warden",
+    "royal-champion": "Champion",
+}
+ID_PATTERN = re.compile(r"^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$")
 BINDING_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9]*(?:\.[A-Za-z_][A-Za-z0-9_]*)+$")
 ALLOWED_TYPES = {"select", "multi-select", "instance-select", "integer", "boolean", "profile-queue"}
 ALLOWED_AVAILABILITY = {"available", "gated", "planned", "unsupported"}
@@ -39,6 +49,148 @@ def load(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8-sig"))
 
 
+def validate_schema_alignment(settings: dict[str, Any], schema: dict[str, Any]) -> list[str]:
+    """Keep the generated metadata shape and its published JSON Schema in lockstep."""
+    errors: list[str] = []
+    definitions = schema.get("$defs")
+    if not isinstance(definitions, dict):
+        return ["settings schema is missing $defs"]
+
+    def definition(name: str) -> dict[str, Any]:
+        value = definitions.get(name)
+        if not isinstance(value, dict):
+            errors.append(f"settings schema is missing the {name!r} definition")
+            return {}
+        return value
+
+    section_schema = definition("section")
+    setting_schema = definition("setting")
+    option_schema = definition("option")
+    validation_schema = definition("validation")
+    preset_collection_schema = definition("preset_collection")
+    preset_schema = definition("preset")
+
+    def declared_properties(label: str, contract: dict[str, Any]) -> set[str]:
+        properties = contract.get("properties")
+        if not isinstance(properties, dict):
+            errors.append(f"settings schema {label} has no properties map")
+            return set()
+        if contract.get("additionalProperties") is not False:
+            errors.append(f"settings schema {label} must reject undeclared properties")
+        return set(properties)
+
+    root_properties = declared_properties("root", schema)
+    section_properties = declared_properties("section", section_schema)
+    setting_properties = declared_properties("setting", setting_schema)
+    option_properties = declared_properties("option", option_schema)
+    validation_properties = declared_properties("validation", validation_schema)
+    preset_collection_properties = declared_properties("preset_collection", preset_collection_schema)
+    preset_properties = declared_properties("preset", preset_schema)
+
+    def reject_undeclared(label: str, value: Any, declared: set[str]) -> None:
+        if not isinstance(value, dict):
+            return
+        unknown = sorted(set(value) - declared)
+        if unknown:
+            errors.append(f"settings schema does not declare {label} fields: {', '.join(unknown)}")
+
+    reject_undeclared("root", settings, root_properties)
+    presets = settings.get("presets")
+    reject_undeclared("presets", presets, preset_collection_properties)
+    if isinstance(presets, dict):
+        for preset_index, preset in enumerate(presets.get("items", [])):
+            reject_undeclared(f"presets.items[{preset_index}]", preset, preset_properties)
+    for section_index, section in enumerate(settings.get("sections", [])):
+        reject_undeclared(f"section[{section_index}]", section, section_properties)
+        if not isinstance(section, dict):
+            continue
+        for setting_index, setting in enumerate(section.get("settings", [])):
+            reject_undeclared(
+                f"section[{section_index}].settings[{setting_index}]", setting, setting_properties
+            )
+            if not isinstance(setting, dict):
+                continue
+            reject_undeclared(
+                f"section[{section_index}].settings[{setting_index}].validation",
+                setting.get("validation"),
+                validation_properties,
+            )
+            for option_index, option in enumerate(setting.get("options", [])):
+                reject_undeclared(
+                    f"section[{section_index}].settings[{setting_index}].options[{option_index}]",
+                    option,
+                    option_properties,
+                )
+
+    setting_contracts = setting_schema.get("properties", {})
+    type_contract = setting_contracts.get("type", {}) if isinstance(setting_contracts, dict) else {}
+    schema_types = type_contract.get("enum") if isinstance(type_contract, dict) else None
+    if not isinstance(schema_types, list) or set(schema_types) != ALLOWED_TYPES:
+        errors.append("settings schema type enum does not match the metadata validator")
+
+    id_contract = setting_contracts.get("id", {}) if isinstance(setting_contracts, dict) else {}
+    if not isinstance(id_contract, dict) or id_contract.get("pattern") != ID_PATTERN.pattern:
+        errors.append("settings schema id pattern does not match the metadata validator")
+    binding_contract = setting_contracts.get("engine_binding", {}) if isinstance(setting_contracts, dict) else {}
+    if not isinstance(binding_contract, dict) or binding_contract.get("pattern") != BINDING_PATTERN.pattern:
+        errors.append("settings schema engine_binding pattern does not match the metadata validator")
+
+    section_contracts = section_schema.get("properties", {})
+    tab_contract = section_contracts.get("tab_label", {}) if isinstance(section_contracts, dict) else {}
+    if (
+        not isinstance(tab_contract, dict)
+        or tab_contract.get("type") != "string"
+        or tab_contract.get("minLength") != 2
+        or tab_contract.get("maxLength") != 10
+        or "tab_label" not in section_schema.get("required", [])
+    ):
+        errors.append("settings schema tab_label contract must require a 2-10 character string")
+
+    max_selected = setting_contracts.get("max_selected", {}) if isinstance(setting_contracts, dict) else {}
+    if (
+        not isinstance(max_selected, dict)
+        or max_selected.get("type") != "integer"
+        or max_selected.get("minimum") != 1
+    ):
+        errors.append("settings schema max_selected contract must be a positive integer")
+
+    multi_select_branches = []
+    for branch in setting_schema.get("allOf", []):
+        if not isinstance(branch, dict):
+            continue
+        branch_type = (
+            branch.get("if", {})
+            .get("properties", {})
+            .get("type", {})
+            .get("const")
+        )
+        if branch_type == "multi-select":
+            multi_select_branches.append(branch)
+    if len(multi_select_branches) != 1:
+        errors.append("settings schema must define exactly one multi-select conditional contract")
+    else:
+        branch = multi_select_branches[0]
+        required = set(branch.get("then", {}).get("required", []))
+        forbidden_elsewhere = set(branch.get("else", {}).get("not", {}).get("required", []))
+        default_options = (
+            branch.get("then", {})
+            .get("properties", {})
+            .get("default", {})
+            .get("oneOf", [])
+        )
+        default_types = {
+            item.get("type") for item in default_options if isinstance(item, dict)
+        }
+        if not {"options", "max_selected"}.issubset(required):
+            errors.append("settings schema multi-select contract must require options and max_selected")
+        if "max_selected" not in forbidden_elsewhere:
+            errors.append("settings schema must forbid max_selected on non-multi-select settings")
+        if default_types != {"string", "array"}:
+            errors.append("settings schema multi-select default must accept the generated scalar or a list")
+
+    return errors
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--json", dest="json_path", type=Path)
@@ -47,6 +199,8 @@ def main() -> int:
     errors: list[str] = []
     warnings: list[str] = []
     settings = load(SETTINGS_PATH)
+    settings_schema = load(SETTINGS_SCHEMA_PATH)
+    errors.extend(validate_schema_alignment(settings, settings_schema))
     capabilities = load(CAPABILITIES_PATH)
     capability_ids = {item["id"] for item in capabilities.get("capabilities", [])}
 
@@ -74,6 +228,7 @@ def main() -> int:
     tab_labels: list[str] = []
     bindings: dict[str, str] = {}
     select_values: dict[str, set[str]] = {}
+    settings_by_id: dict[str, dict[str, Any]] = {}
 
     for section_index, section in enumerate(sections):
         section_id = section.get("id", "")
@@ -113,6 +268,7 @@ def main() -> int:
             if setting_id in seen_settings:
                 errors.append(f"duplicate setting id: {setting_id}")
             seen_settings.add(setting_id)
+            settings_by_id[setting_id] = setting
 
             setting_type = setting.get("type")
             if setting_type not in ALLOWED_TYPES:
@@ -227,6 +383,7 @@ def main() -> int:
         "run.heroes",
         "run.diagnostic_mode",
         "run.strategy",
+        "run.attack_script",
         "runtime.emulator",
         "runtime.instance",
         "run.duration_minutes",
@@ -250,7 +407,9 @@ def main() -> int:
         errors.append(
             "run.surface must offer exactly the catalog battle surfaces: " + ", ".join(sorted(catalog_surfaces))
         )
-    catalog_heroes = {item["id"] for item in load(HEROES_PATH).get("heroes", [])}
+    hero_catalog = load(HEROES_PATH).get("heroes", [])
+    catalog_heroes = {item["id"] for item in hero_catalog}
+    hero_unlocks = {item["id"]: item.get("unlock_town_hall") for item in hero_catalog}
     if select_values.get("run.heroes") != catalog_heroes:
         errors.append(
             "run.heroes must offer exactly the catalog Heroes: " + ", ".join(sorted(catalog_heroes))
@@ -260,6 +419,189 @@ def main() -> int:
         errors.append("runtime.emulator is missing one or more supported adapter choices")
     if select_values.get("upgrade.policy") != {"disabled", "walls", "suggested", "all"}:
         errors.append("upgrade.policy options do not match the run-plan contract")
+
+    script_options = {"profile-current"} | {
+        path.stem
+        for path in ATTACK_SCRIPTS_PATH.glob("*.csv")
+        if not any(token in path.stem.casefold() for token in HIDDEN_SCRIPT_TOKENS)
+    }
+    if select_values.get("run.attack_script") != script_options:
+        errors.append("run.attack_script must offer profile-current and every bundled CSV attack script exactly")
+
+    presets = settings.get("presets")
+    if not isinstance(presets, dict):
+        errors.append("presets must be an object")
+        presets = {}
+    preserved = presets.get("preserved_settings")
+    if not isinstance(preserved, list) or not all(isinstance(item, str) for item in preserved):
+        errors.append("presets.preserved_settings must be a list of setting ids")
+        preserved = []
+    preserved_set = set(preserved)
+    required_preserved = {"runtime.emulator", "runtime.instance", "run.diagnostic_mode", "run.diagnostic_note"}
+    if preserved_set != required_preserved:
+        errors.append("Town Hall presets must preserve emulator selection and diagnostic acknowledgement exactly")
+    unknown_preserved = sorted(preserved_set - seen_settings)
+    if unknown_preserved:
+        errors.append("presets preserve unknown settings: " + ", ".join(unknown_preserved))
+
+    preset_items = presets.get("items")
+    if not isinstance(preset_items, list) or not preset_items:
+        errors.append("presets.items must be a non-empty list")
+        preset_items = []
+    max_town_hall = load(CURRENT_CLIENT_PATH).get("max_town_hall")
+    expected_town_halls = set(range(2, max_town_hall + 1)) if isinstance(max_town_hall, int) else set()
+    seen_town_halls: set[int] = set()
+    seen_preset_ids: set[str] = set()
+
+    for preset_index, preset in enumerate(preset_items):
+        prefix = f"presets.items[{preset_index}]"
+        if not isinstance(preset, dict):
+            errors.append(f"{prefix} must be an object")
+            continue
+        preset_id = preset.get("id")
+        town_hall = preset.get("town_hall")
+        if not isinstance(preset_id, str) or not re.fullmatch(r"th[0-9]+", preset_id):
+            errors.append(f"{prefix}: invalid preset id")
+        elif preset_id in seen_preset_ids:
+            errors.append(f"duplicate preset id: {preset_id}")
+        seen_preset_ids.add(preset_id)
+        if not isinstance(town_hall, int) or isinstance(town_hall, bool):
+            errors.append(f"{prefix}: town_hall must be an integer")
+        elif town_hall in seen_town_halls:
+            errors.append(f"duplicate Town Hall preset: {town_hall}")
+        else:
+            seen_town_halls.add(town_hall)
+            if preset_id != f"th{town_hall}":
+                errors.append(f"{prefix}: id does not match Town Hall {town_hall}")
+        for field, minimum in (("label", 6), ("summary", 20), ("description", 40), ("source_note", 20)):
+            if len(str(preset.get(field, "")).strip()) < minimum:
+                errors.append(f"{prefix}: {field} is missing or too short")
+
+        values = preset.get("values")
+        if not isinstance(values, dict) or not values:
+            errors.append(f"{prefix}: values must be a non-empty object")
+            continue
+        unknown_values = sorted(set(values) - seen_settings)
+        if unknown_values:
+            errors.append(f"{prefix}: unknown setting values: {', '.join(unknown_values)}")
+        overwritten = sorted(set(values) & preserved_set)
+        if overwritten:
+            errors.append(f"{prefix}: preset must preserve: {', '.join(overwritten)}")
+
+        for setting_id, value in values.items():
+            setting = settings_by_id.get(setting_id)
+            if not setting:
+                continue
+            kind = setting.get("type")
+            if kind == "boolean" and not isinstance(value, bool):
+                errors.append(f"{prefix}: {setting_id} must be boolean")
+            elif kind == "integer":
+                rules = setting.get("validation", {})
+                if (
+                    not isinstance(value, int)
+                    or isinstance(value, bool)
+                    or value < rules.get("minimum", value)
+                    or value > rules.get("maximum", value)
+                ):
+                    errors.append(f"{prefix}: {setting_id} is outside its integer contract")
+            elif kind == "select" and value not in select_values.get(setting_id, set()):
+                errors.append(f"{prefix}: {setting_id} does not name an option")
+            elif kind == "multi-select":
+                available = select_values.get(setting_id, set())
+                ceiling = setting.get("max_selected", 0)
+                if (
+                    not isinstance(value, list)
+                    or len(value) > ceiling
+                    or len(value) != len(set(value))
+                    or not set(value).issubset(available)
+                ):
+                    errors.append(f"{prefix}: {setting_id} violates its selection contract")
+            elif kind in {"instance-select", "profile-queue"} and not isinstance(value, str):
+                errors.append(f"{prefix}: {setting_id} must be text")
+
+        compatibility = preset.get("compatibility")
+        strategy = values.get("run.strategy")
+        attack_script = values.get("run.attack_script")
+        script_text = ""
+        if compatibility == "script-declared":
+            if strategy != "legacy.csv" or attack_script == "profile-current":
+                errors.append(f"{prefix}: script-declared preset must select an exact CSV strategy")
+            else:
+                script_path = ATTACK_SCRIPTS_PATH / f"{attack_script}.csv"
+                if not script_path.is_file():
+                    errors.append(f"{prefix}: selected attack script is not bundled")
+                else:
+                    script_text = script_path.read_text(encoding="utf-8-sig", errors="replace")
+                    town_hall_token = re.compile(rf"(?<![A-Za-z0-9])TH0?{town_hall}(?!\d)", re.IGNORECASE)
+                    if not town_hall_token.search(script_text):
+                        errors.append(f"{prefix}: selected script does not declare Town Hall {town_hall}")
+                    expected_source = f"CSV/Attack/{attack_script}.csv"
+                    if expected_source not in str(preset.get("source_note", "")):
+                        errors.append(f"{prefix}: source_note must name {expected_source}")
+        elif compatibility == "engine-fallback":
+            if strategy != "legacy.standard" or attack_script != "profile-current":
+                errors.append(f"{prefix}: engine fallback must use Standard and preserve the profile script")
+            if "run.heroes" in values:
+                errors.append(f"{prefix}: engine fallback must preserve the visible Hero selection")
+            town_hall_token = re.compile(rf"(?<![A-Za-z0-9])TH0?{town_hall}(?!\d)", re.IGNORECASE)
+            declaring_scripts = [
+                path.name
+                for path in ATTACK_SCRIPTS_PATH.glob("*.csv")
+                if town_hall_token.search(path.read_text(encoding="utf-8-sig", errors="replace"))
+            ]
+            if declaring_scripts:
+                errors.append(
+                    f"{prefix}: fallback source claim is stale; scripts now declare Town Hall {town_hall}: "
+                    + ", ".join(sorted(declaring_scripts))
+                )
+        else:
+            errors.append(f"{prefix}: unsupported compatibility classification {compatibility!r}")
+
+        supported_values = {
+            "run.surface": "regular",
+            "army.source": "recipe",
+            "army.recipe_name": "",
+            "search.max_seconds": 0,
+            "search.town_hall_filter": "any",
+            "pacing.retry_attempts": 0,
+            "donate.keep_army": True,
+            "donate.max_per_run": 0,
+            "events.clan_games_point_cap": 0,
+            "events.laboratory": "off",
+            "account.queue": "",
+            "notify.channel": "log-only",
+        }
+        for setting_id, expected in supported_values.items():
+            if values.get(setting_id) != expected:
+                errors.append(f"{prefix}: {setting_id} must stay at the wired value {expected!r}")
+        if values.get("upgrade.policy") not in {"disabled", "walls"}:
+            errors.append(f"{prefix}: upgrade.policy has no exact legacy adapter")
+        preset_heroes = set(values.get("run.heroes", []))
+        unsupported_preset_heroes = preset_heroes & {"minion-prince", "dragon-duke"}
+        if unsupported_preset_heroes:
+            errors.append(
+                f"{prefix}: preset selects Heroes outside the source-proven CSV deployment set: "
+                + ", ".join(sorted(unsupported_preset_heroes))
+            )
+        for hero_id in sorted(preset_heroes):
+            unlock = hero_unlocks.get(hero_id)
+            if not isinstance(unlock, int) or not isinstance(town_hall, int) or unlock > town_hall:
+                errors.append(f"{prefix}: {hero_id} is not unlocked at Town Hall {town_hall}")
+            drop_name = HERO_DROP_NAMES.get(hero_id)
+            if compatibility == "script-declared" and (
+                not drop_name
+                or not re.search(
+                    rf"^DROP\s*\|[^\r\n]*\|\s*{re.escape(drop_name)}\s*\|",
+                    script_text,
+                    re.IGNORECASE | re.MULTILINE,
+                )
+            ):
+                errors.append(f"{prefix}: {hero_id} has no matching DROP action in the selected CSV")
+
+    if seen_town_halls != expected_town_halls:
+        missing = sorted(expected_town_halls - seen_town_halls)
+        extra = sorted(seen_town_halls - expected_town_halls)
+        errors.append(f"Town Hall presets do not cover TH2-TH{max_town_hall}: missing={missing}, extra={extra}")
 
     # Rough Win32 tab metrics: about 7px a character plus 12px of padding per tab. The strip is
     # multiline and the design reserves two caption rows, so the budget is two rows of 430px.
@@ -283,6 +625,7 @@ def main() -> int:
         "sections": len(sections),
         "settings": len(seen_settings),
         "engine_bindings": len(bindings),
+        "presets": len(preset_items),
         "errors": errors,
         "warnings": warnings,
     }

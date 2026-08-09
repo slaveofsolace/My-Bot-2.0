@@ -1,4 +1,16 @@
-* v8.2.0 **
+* My Bot 2.0 v2.0.0 **
+* Added the local Control Center and Run Planner.
+* Added TH2-TH18 planner presets with explicit script preview and one-run selection.
+* Restored the official retired forum-login behavior so Start never requests credentials.
+* Kept the exact pinned MyBot.run v8.2 Mini GUI visible as the native safety controller.
+* Made the modern `/ng` backend and browser Control Center the primary run path.
+* Added side-by-side Mini GUI and exact BlueStacks placement without reparenting.
+* Restored the required empty `MyBot.run.txt` compatibility marker.
+* Documented upstream non-endorsement and the separate ImgLoc redistribution boundary.
+* Updated launcher, browser Control Center, and auxiliary utility branding.
+* Preserved MyBot.run v8.2.0 engine compatibility.
+
+* Upstream engine v8.2.0 **
 * Excluded TH7- from HiddenSlotstatus().
 * Added support for BB Defensive Layout obstructed window.
 * Improved Helpers recurrence detection.

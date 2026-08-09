@@ -636,7 +636,7 @@ Func DisableGUI_AfterLoadNewProfile()
 EndFunc   ;==>DisableGUI_AfterLoadNewProfile
 
 Func aquireSwitchAccountMutex($iSwitchAccountGroup = $g_iCmbSwitchAcc, $bReturnOnlyMutex = False, $bShowMsgBox = False)
-	Local $sMsg = GetTranslatedFileIni("MBR GUI Design Child Bot - Profiles", "Msg_SwitchAccounts_InUse", "My Bot with Switch Accounts Group %s is already in use or active.", $iSwitchAccountGroup)
+	Local $sMsg = GetTranslatedFileIni("MBR GUI Design Child Bot - Profiles", "Msg_SwitchAccounts_InUse", $g_sProductName & " with Switch Accounts Group %s is already in use or active.", $iSwitchAccountGroup)
 	If $iSwitchAccountGroup Then
 		Local $hMutex_Profile = 0
 		If $g_ahMutex_SwitchAccountsGroup[0] = $iSwitchAccountGroup And $g_ahMutex_SwitchAccountsGroup[1] Then

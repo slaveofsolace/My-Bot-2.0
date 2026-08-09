@@ -17,10 +17,16 @@ Global $g_bLibMyBotInitialized = False
 Global $g_bMBRFuncEngineAvailable = True
 Global $g_sMBRFuncEngineProbeState = "not-run"
 Global $g_sMBRFuncEngineError = ""
+Global Const $g_sMBRFuncEngineMarkerName = "MyBot.run.txt"
 
 Func MBRFunc($Start = True, $bInitialize = True)
 	Switch $Start
 		Case True
+			Local $sMarkerError = ""
+			If Not MBRFuncValidateEngineMarker($sMarkerError) Then
+				SetLog($sMarkerError, $COLOR_ERROR)
+				Return False
+			EndIf
 			RemoveZoneIdentifiers()
 			$g_hLibMyBot = DllOpen($g_sLibMyBotPath)
 			If $g_hLibMyBot = -1 Then
@@ -41,6 +47,8 @@ EndFunc   ;==>MBRFunc
 ; GUI startup: on affected Windows machines an antivirus/filter-driver stall would otherwise leave
 ; both the splash and main window permanently unresponsive. BotStart calls this explicit boundary.
 Func MBRFuncInitialize()
+	Local $sMarkerError = ""
+	If Not MBRFuncValidateEngineMarker($sMarkerError) Then Return False
 	If $g_bLibMyBotInitialized Then Return True
 	If $g_hLibMyBot = 0 Or $g_hLibMyBot = -1 Then Return False
 
@@ -68,13 +76,45 @@ Func MBRFuncMarkUnavailable($sReason)
 	$g_bMBRFuncEngineAvailable = False
 	$g_sMBRFuncEngineProbeState = "failed"
 	$g_sMBRFuncEngineError = $sReason
-	If IsFunc("RunEventLogEngineUnavailable") Then Call("RunEventLogEngineUnavailable", $sReason)
+	; Mini GUI includes the engine wrapper without the run-event layer. Build the optional callback
+	; name at runtime so Au3Check does not require that full-only function in reduced entry points.
+	Local $sEventCallback = "RunEventLogEngine" & "Unavailable"
+	If IsFunc($sEventCallback) Then Call($sEventCallback, $sReason)
 EndFunc   ;==>MBRFuncMarkUnavailable
+
+; MyBot.run.dll validates this upstream release marker when its managed image exports start.
+; Reject a damaged checkout before starting the isolated helper or invoking any export so the
+; protected engine cannot fail later with a misleading image-location/copycat error.
+Func MBRFuncValidateEngineMarker(ByRef $sError)
+	Local $sMarkerPath = @ScriptDir & "\" & $g_sMBRFuncEngineMarkerName
+	$sError = ""
+	If Not FileExists($sMarkerPath) Then
+		$sError = "Managed image engine unavailable: " & $g_sMBRFuncEngineMarkerName & " is missing; restore the empty release marker and restart My Bot 2.0"
+		MBRFuncMarkUnavailable($sError)
+		Return False
+	EndIf
+
+	Local $sMarkerAttributes = FileGetAttrib($sMarkerPath)
+	If @error Or StringInStr($sMarkerAttributes, "D") > 0 Then
+		$sError = "Managed image engine unavailable: " & $g_sMBRFuncEngineMarkerName & " must be a zero-byte file; restore the release marker and restart My Bot 2.0"
+		MBRFuncMarkUnavailable($sError)
+		Return False
+	EndIf
+
+	Local $iMarkerSize = FileGetSize($sMarkerPath)
+	If @error Or $iMarkerSize <> 0 Then
+		$sError = "Managed image engine unavailable: " & $g_sMBRFuncEngineMarkerName & " must be a zero-byte file; restore the release marker and restart My Bot 2.0"
+		MBRFuncMarkUnavailable($sError)
+		Return False
+	EndIf
+	Return True
+EndFunc   ;==>MBRFuncValidateEngineMarker
 
 ; Starts the mixed-mode DLL in an isolated x86 helper first. A filter-driver or CLR stall can then
 ; freeze only the helper, which is terminated at the bounded deadline while the GUI keeps pumping.
 Func MBRFuncProbeEngine(ByRef $sError, $iTimeoutMs = 15000)
 	$sError = ""
+	If Not MBRFuncValidateEngineMarker($sError) Then Return False
 	If $g_sMBRFuncEngineProbeState = "passed" Then Return True
 	If Not $g_bMBRFuncEngineAvailable Then
 		$sError = $g_sMBRFuncEngineError
@@ -88,8 +128,16 @@ Func MBRFuncProbeEngine(ByRef $sError, $iTimeoutMs = 15000)
 		Return False
 	EndIf
 
-	Local $sToken = @ScriptDir & "\config\engine-probe-" & @AutoItPID & ".ok"
-	FileDelete($sToken)
+	; A per-attempt nonce prevents a locked token from a recycled PID from satisfying this probe.
+	Local $sToken = @ScriptDir & "\config\engine-probe-" & @AutoItPID & "-" & @YEAR & @MON & @MDAY & @HOUR & @MIN & @SEC & @MSEC & "-" & Random(100000, 999999, 1) & ".ok"
+	If FileExists($sToken) Then
+		FileDelete($sToken)
+		If FileExists($sToken) Then
+			$sError = "Managed engine probe token could not be prepared"
+			MBRFuncMarkUnavailable($sError)
+			Return False
+		EndIf
+	EndIf
 	$g_sMBRFuncEngineProbeState = "running"
 	Local $iProbePid = Run('"' & $sHelper & '" "' & $sToken & '"', @ScriptDir, @SW_HIDE)
 	If @error Or $iProbePid <= 0 Then
@@ -104,6 +152,17 @@ Func MBRFuncProbeEngine(ByRef $sError, $iTimeoutMs = 15000)
 		If FileExists($sToken) Then
 			Local $sResult = StringStripWS(FileRead($sToken), $STR_STRIPALL)
 			FileDelete($sToken)
+			; Never accept a probe token that cannot be consumed. A locked token would otherwise
+			; survive this attempt and could be mistaken for fresh evidence by later code.
+			If FileExists($sToken) Then
+				If ProcessExists($iProbePid) Then
+					ProcessClose($iProbePid)
+					ProcessWaitClose($iProbePid, 2)
+				EndIf
+				$sError = "Managed engine probe token could not be cleared"
+				MBRFuncMarkUnavailable($sError)
+				Return False
+			EndIf
 			If $sResult = "ok" Then
 				$g_bMBRFuncEngineAvailable = True
 				$g_sMBRFuncEngineProbeState = "passed"
@@ -119,6 +178,11 @@ Func MBRFuncProbeEngine(ByRef $sError, $iTimeoutMs = 15000)
 			ProcessClose($iProbePid)
 			ProcessWaitClose($iProbePid, 2)
 			FileDelete($sToken)
+			If FileExists($sToken) Then
+				$sError = "Managed engine probe token could not be cleared after cancellation"
+				MBRFuncMarkUnavailable($sError)
+				Return False
+			EndIf
 			$sError = "Engine start was cancelled"
 			$g_sMBRFuncEngineProbeState = "not-run"
 			Return False
@@ -131,6 +195,11 @@ Func MBRFuncProbeEngine(ByRef $sError, $iTimeoutMs = 15000)
 		ProcessWaitClose($iProbePid, 2)
 	EndIf
 	FileDelete($sToken)
+	If FileExists($sToken) Then
+		$sError = "Managed engine probe token could not be cleared after failure"
+		MBRFuncMarkUnavailable($sError)
+		Return False
+	EndIf
 	If $bProbeExited Then
 		$sError = "Managed engine startup failed; check Windows Security and .NET health, then restart My Bot 2.0"
 	Else
@@ -269,33 +338,38 @@ Func SetBotGuiPID($pid = $g_iGuiPID)
 EndFunc   ;==>SetBotGuiPID
 
 Func CheckForumAuthentication()
-	If $g_hLibMyBot = -1 Then Return False ; Bot didn't finish launch yet
+	If $g_hLibMyBot = -1 Then Return -1 ; Bot didn't finish launch yet
 	Local $result = DllCall($g_hLibMyBot, "str", "CheckForumAuthentication")
-	If @error Then
-		_logErrorDLLCall($g_sLibMyBotPath & ", CheckForumAuthentication:", @error)
-		Return SetError(@error)
+	Local $iCallError = @error
+	If $iCallError Then
+		_logErrorDLLCall($g_sLibMyBotPath & ", CheckForumAuthentication:", $iCallError)
+		Return SetError($iCallError, 0, -1)
 	EndIf
-	;dll return string including access_token
-	Local $iAuthenticated = 0 ; 0 = not authenticated (username or password incorrect), 1 = authenticated, -1 = not authenticated (unknown error)
-	If IsArray($result) Then
-		If StringInStr($result[0], '"access_token"') > 0 Then
-			SetLog(GetTranslatedFileIni("MBR Authentication", "BotIsAuthenticated", "MyBot.run is authenticated"), $COLOR_SUCCESS)
-			$iAuthenticated = 1
-		Else
-			SetLog(GetTranslatedFileIni("MBR Authentication", "BotIsNotAuthenticated", "Error authenticating Mybot.run"), $COLOR_ERROR)
-			If StringInStr($result[0], '"login_err_') > 0 Then
-				; username or password incorrect
-				$iAuthenticated = 0
-			Else
-				; unknown error
-				$iAuthenticated = -1
-			EndIf
-		EndIf
+
+	; 0 is deliberately reserved for an explicit upstream credential rejection.
+	; Missing, malformed, or unexpected results are transient/unknown and must fail closed as -1.
+	Local $iAuthenticated = _ForumAuthenticationStatusFromDllCall($result, $iCallError, True)
+	If $iAuthenticated = 1 Then
+		SetLog(GetTranslatedFileIni("MBR Authentication", "BotIsAuthenticated", "Upstream engine authenticated"), $COLOR_SUCCESS)
 	Else
-		SetDebugLog($g_sMBRLib & " not found.", $COLOR_ERROR)
+		SetLog(GetTranslatedFileIni("MBR Authentication", "BotIsNotAuthenticated", "Unable to authenticate the upstream image engine"), $COLOR_ERROR)
+		If $iAuthenticated = -1 Then SetDebugLog("Forum authentication returned no usable status.", $COLOR_ERROR)
 	EndIf
 	Return $iAuthenticated
 EndFunc   ;==>CheckForumAuthentication
+
+Func _ForumAuthenticationStatusFromDllCall(ByRef $vResult, $iDllError, $bLibraryAvailable = True)
+	If Not $bLibraryAvailable Or $iDllError <> 0 Or Not IsArray($vResult) Then Return -1
+	If UBound($vResult, 0) <> 1 Or UBound($vResult) < 1 Then Return -1
+	Return _ForumAuthenticationResponseStatus($vResult[0])
+EndFunc   ;==>_ForumAuthenticationStatusFromDllCall
+
+Func _ForumAuthenticationResponseStatus($vResponse)
+	If Not IsString($vResponse) Then Return -1
+	If StringInStr($vResponse, '"access_token"', 1) > 0 Then Return 1
+	If StringInStr($vResponse, '"login_err_', 1) > 0 Then Return 0
+	Return -1
+EndFunc   ;==>_ForumAuthenticationResponseStatus
 
 Func ForumLogin($sUsername, $sPassword)
 	If $g_hLibMyBot = -1 Then Return False ; Bot didn't finish launch yet
@@ -306,13 +380,15 @@ Func ForumLogin($sUsername, $sPassword)
 	EndIf
 	;dll return string including access_token
 	If IsArray($result) Then
-		If StringInStr($result[0], '"access_token"') > 0 Then
+		Local $iLoginStatus = _ForumAuthenticationResponseStatus($result[0])
+		If $iLoginStatus = 1 Then
 			SetDebugLog("Forum login successful, message length: " & StringLen($result[0]))
-			Return $result[0]
+		ElseIf $iLoginStatus = 0 Then
+			SetDebugLog("Forum login rejected by the upstream engine.")
 		Else
-			SetDebugLog("Forum login failed, message: " & $result[0])
-			Return $result[0]
+			SetDebugLog("Forum login failed with an unexpected response (message length: " & StringLen($result[0]) & ").")
 		EndIf
+		Return $result[0]
 	Else
 		SetDebugLog($g_sMBRLib & " not found.", $COLOR_ERROR)
 	EndIf

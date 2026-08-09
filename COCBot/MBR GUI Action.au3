@@ -13,22 +13,28 @@
 ; Example .......: No
 ; ===============================================================================================================================
 
+Func _BotStartReject($sReason)
+	If $sReason = "" Then $sReason = "Start cancelled"
+	RunExecutionCancelPrepared($sReason)
+	If $g_iBotAction <> $eBotClose Then btnStop()
+	RunControlReportStartOutcome(False, $sReason)
+	Return False
+EndFunc   ;==>_BotStartReject
+
 Func BotStart($bAutostartDelay = 0)
 	FuncEnter(BotStart)
+	RunControlBeginStart()
 
 	Local $sStartError = ""
 	If Not RunExecutionPrepareStart($sStartError) Then
 		SetLog("Run Planner cannot start: " & $sStartError, $COLOR_ERROR)
-		RunControlReportStartOutcome(False, $sStartError)
-		Return False
+		Return FuncReturn(_BotStartReject($sStartError))
 	EndIf
 
 	If Not MBRFuncProbeEngine($sStartError) Then
 		SetLog("Engine unavailable: " & $sStartError, $COLOR_ERROR)
 		GUICtrlSetState($g_hBtnStart, $GUI_DISABLE)
-		RunExecutionCancelPrepared($sStartError)
-		RunControlReportStartOutcome(False, $sStartError)
-		Return False
+		Return FuncReturn(_BotStartReject($sStartError))
 	EndIf
 
 	If Not MBRFuncInitialize() Then
@@ -36,10 +42,15 @@ Func BotStart($bAutostartDelay = 0)
 		MBRFuncMarkUnavailable($sStartError)
 		SetLog($sStartError, $COLOR_ERROR)
 		GUICtrlSetState($g_hBtnStart, $GUI_DISABLE)
-		RunExecutionCancelPrepared($sStartError)
-		RunControlReportStartOutcome(False, $sStartError)
-		Return False
+		Return FuncReturn(_BotStartReject($sStartError))
 	EndIf
+
+	If Not ForumAuthentication() Then
+		$sStartError = "Upstream engine authorization was cancelled or rejected"
+		SetLog($sStartError, $COLOR_ERROR)
+		Return FuncReturn(_BotStartReject($sStartError))
+	EndIf
+	RunControlWriteStatus(True)
 
 	If Not $g_bSearchMode Then
 		If $g_hLogFile = 0 Then CreateLogFile() ; only create new log file when doesn't exist yet
@@ -55,6 +66,9 @@ Func BotStart($bAutostartDelay = 0)
 	;CalCostSiege()
 	sldAdditionalClickDelay(True)
 
+	; Readiness belongs to this Start attempt. A previous run may have left the
+	; main-screen flag true even though the current emulator view has changed.
+	$g_bMainWindowOk = False
 	$g_bRunState = True
 	$g_bTogglePauseAllowed = True
 	$g_bSkipFirstZoomout = False
@@ -76,14 +90,10 @@ Func BotStart($bAutostartDelay = 0)
 	SaveConfig()
 	readConfig()
 	applyConfig(False) ; bot window redraw stays disabled!
-	If Not RunExecutionBegin($sStartError) Then
-		SetLog("Run Planner cannot begin: " & $sStartError, $COLOR_ERROR)
-		RunExecutionCancelPrepared($sStartError)
-		RunControlReportStartOutcome(False, $sStartError)
-		btnStop()
-		Return False
+	If Not RunExecutionApplyPrepared($sStartError) Then
+		SetLog("Run Planner cannot apply: " & $sStartError, $COLOR_ERROR)
+		Return FuncReturn(_BotStartReject($sStartError))
 	EndIf
-	RunControlReportStartOutcome(True, RunExecutionMessage())
 	CreaTableDB()
 
 	; Initial ObjEvents for the Autoit objects errors
@@ -119,11 +129,6 @@ Func BotStart($bAutostartDelay = 0)
 	DisableGuiControls()
 
 	SetRedrawBotWindow(True, Default, Default, Default, "BotStart")
-
-	If Not ForumAuthentication() Then
-		btnStop()
-		Return FuncReturn()
-	EndIf
 
 	If $bAutostartDelay Then
 		SetLog("Bot Auto Starting in " & Round($bAutostartDelay / 1000, 0) & " seconds", $COLOR_ERROR)
@@ -164,7 +169,7 @@ Func BotStart($bAutostartDelay = 0)
 
 	; wait for slot
 	LockBotSlot(True)
-	If $g_bRunState = False Then Return FuncReturn()
+	If $g_bRunState = False Then Return FuncReturn(_BotStartReject("Start cancelled while waiting for the bot slot"))
 
 	Local $Result = False
 	If WinGetAndroidHandle() = 0 Then
@@ -172,17 +177,17 @@ Func BotStart($bAutostartDelay = 0)
 	EndIf
 	SetDebugLog("Android Window Handle: " & WinGetAndroidHandle())
 	If $g_hAndroidWindow <> 0 Then ;Is Android open?
-		If Not $g_bRunState Then Return FuncReturn()
+		If Not $g_bRunState Then Return FuncReturn(_BotStartReject("Start cancelled while opening Android"))
 		If $g_bAndroidBackgroundLaunched = True Or AndroidControlAvailable() Then ; Really?
 			If Not $Result Then
 				$Result = InitiateLayout()
 			EndIf
 		Else
 			; Not really
-			SetLog("Current " & $g_sAndroidEmulator & " Window not supported by MyBot", $COLOR_ERROR)
+			SetLog("Current " & $g_sAndroidEmulator & " Window not supported by " & $g_sProductName, $COLOR_ERROR)
 			$Result = RebootAndroid(False)
 		EndIf
-		If Not $g_bRunState Then Return FuncReturn()
+		If Not $g_bRunState Then Return FuncReturn(_BotStartReject("Start cancelled while initializing Android"))
 		Local $hWndActive = $g_hAndroidWindow
 		; check if window can be activated
 		If $g_bNoFocusTampering = False And $g_bAndroidBackgroundLaunched = False And $g_bAndroidEmbedded = False Then
@@ -194,18 +199,24 @@ Func BotStart($bAutostartDelay = 0)
 			WEnd
 			WinActivate($activeHWnD) ; restore current active window
 		EndIf
-		If Not $g_bRunState Then Return FuncReturn()
+		If Not $g_bRunState Then Return FuncReturn(_BotStartReject("Start cancelled while activating Android"))
 		If $hWndActive = $g_hAndroidWindow And ($g_bAndroidBackgroundLaunched = True Or AndroidControlAvailable()) Then  ; Really?
-			Initiate() ; Initiate and run bot
+			If Not Initiate($sStartError) Then
+				If $sStartError = "" Then $sStartError = "Android and Clash of Clans initialization did not complete"
+				SetLog("Bot cannot start: " & $sStartError, $COLOR_ERROR)
+				Return FuncReturn(_BotStartReject($sStartError))
+			EndIf
 		Else
-			SetLog("Cannot use " & $g_sAndroidEmulator & ", please check log", $COLOR_ERROR)
-			btnStop()
+			$sStartError = "Cannot use " & $g_sAndroidEmulator & "; check the Android log"
+			SetLog($sStartError, $COLOR_ERROR)
+			Return FuncReturn(_BotStartReject($sStartError))
 		EndIf
 	Else
-		SetLog("Cannot start " & $g_sAndroidEmulator & ", please check log", $COLOR_ERROR)
-		btnStop()
+		$sStartError = "Cannot start " & $g_sAndroidEmulator & "; check the Android log"
+		SetLog($sStartError, $COLOR_ERROR)
+		Return FuncReturn(_BotStartReject($sStartError))
 	EndIf
-	FuncReturn()
+	Return FuncReturn(True)
 EndFunc   ;==>BotStart
 
 Func BotStop()
@@ -223,7 +234,6 @@ Func BotStop()
 	$g_bBotPaused = False
 	$g_bTogglePauseAllowed = True
 	$g_bRestart = False
-	RunExecutionComplete("stopped")
 
 	;WinSetState($g_hFrmBotBottom, "", @SW_DISABLE)
 	Local $aCtrlState
@@ -238,6 +248,9 @@ Func BotStop()
 		AndroidAdbTerminateShellInstance() ; terminate shell instance
 	EndIf
 	AndroidShield("btnStop", Default)
+	; Keep an explicit one-run emulator selected until its stop/shield callbacks have completed,
+	; then restore the exact captured profile fields.
+	RunExecutionComplete("stopped")
 
 	EnableControls($g_hFrmBotBottom, Default, $g_aFrmBotBottomCtrlState)
 
@@ -294,6 +307,8 @@ Func BotStop()
 	__ObjEventEnds()
 
 	ReduceBotMemory()
+	If $g_iBotAction <> $eBotClose Then $g_iBotAction = $eBotNoAction
+	RunControlReportStopComplete()
 	FuncReturn()
 EndFunc   ;==>BotStop
 

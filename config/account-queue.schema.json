@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.invalid/my-bot-2.0/account-queue.schema.json",
-  "title": "My Bot account queue",
+  "title": "My Bot 2.0 account queue",
   "description": "Ordered profile references for authorized test sessions. Authentication material is outside this schema.",
   "type": "object",
   "additionalProperties": false,

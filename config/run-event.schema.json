@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.invalid/my-bot-2.0/run-event.schema.json",
-  "title": "My Bot run event",
+  "title": "My Bot 2.0 run event",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -18,7 +18,9 @@
     "gold",
     "elixir",
     "dark_elixir",
-    "failure_count"
+    "failure_count",
+    "verification_state",
+    "surface_id"
   ],
   "properties": {
     "schema_version": {"const": 1},
@@ -32,11 +34,16 @@
         "session.failed",
         "route.blocked",
         "route.ready",
+        "route.diagnostic",
         "account.changed",
         "battle.started",
         "battle.completed",
         "battle.failed",
         "loot.updated",
+        "quota.observed",
+        "quota.exhausted",
+        "pacing.rest.started",
+        "pacing.rest.ended",
         "warning",
         "error"
       ]
@@ -51,6 +58,8 @@
     "gold": {"type": "integer", "minimum": 0},
     "elixir": {"type": "integer", "minimum": 0},
     "dark_elixir": {"type": "integer", "minimum": 0},
-    "failure_count": {"type": "integer", "minimum": 0}
+    "failure_count": {"type": "integer", "minimum": 0},
+    "verification_state": {"enum": ["verified", "unverified-diagnostic"]},
+    "surface_id": {"type": "string", "maxLength": 64}
   }
 }

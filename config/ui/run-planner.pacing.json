@@ -1,0 +1,89 @@
+{
+  "id": "pacing",
+  "tab_label": "Pacing",
+  "order": 28,
+  "title": "Pacing",
+  "description": "How hard the run drives the emulator. Every value here trades throughput for fewer misread screens, and the defaults are the point where that trade stops paying.",
+  "settings": [
+    {
+      "id": "pacing.action_delay_ms",
+      "type": "integer",
+      "label": "Gap between actions",
+      "summary": "Shortest wait between two taps. Zero drives the emulator as fast as it answers.",
+      "description": "The bot can issue taps faster than an emulator redraws, and an action sent into a screen that has not finished changing lands on whatever was underneath it. This sets a floor on the gap between one action and the next. The wait is only taken when the previous action finished more recently than this, so a slow step costs nothing extra.",
+      "default": 120,
+      "required": false,
+      "engine_binding": "RunPacing.action_delay_ms",
+      "unit": "milliseconds",
+      "validation": {
+        "minimum": 0,
+        "maximum": 5000,
+        "step": 10
+      }
+    },
+    {
+      "id": "pacing.settle_ms",
+      "type": "integer",
+      "label": "Screen settle wait",
+      "summary": "How long to let a screen finish changing before reading it.",
+      "description": "Applies after anything that starts an animation: opening a menu, dismissing a dialog, returning from a battle. Reading pixels while the frame is still moving is the largest single source of misidentified screens, and waiting here costs far less than acting on a wrong one.",
+      "default": 400,
+      "required": false,
+      "engine_binding": "RunPacing.settle_ms",
+      "unit": "milliseconds",
+      "validation": {
+        "minimum": 0,
+        "maximum": 10000,
+        "step": 50
+      }
+    },
+    {
+      "id": "pacing.retry_attempts",
+      "type": "integer",
+      "label": "Retries per action",
+      "summary": "Reserved for handlers that can prove a tap changed nothing.",
+      "description": "Generic retries are unsafe without a visual-change observer: repeating a successful destructive tap can do the wrong thing twice. Keep this at zero until a screen-specific handler can prove the first action was dropped; Start rejects nonzero values instead of guessing.",
+      "default": 0,
+      "required": false,
+      "engine_binding": "RunPacing.retry_attempts",
+      "unit": "attempts",
+      "validation": {
+        "minimum": 0,
+        "maximum": 10,
+        "step": 1
+      }
+    },
+    {
+      "id": "pacing.break_every_minutes",
+      "type": "integer",
+      "label": "Rest after",
+      "summary": "Pause the run once it has been going this long. Zero never pauses.",
+      "description": "Hours of unbroken emulator load is where thermal throttling and memory growth start showing up as misread screens. This schedules a pause so the machine gets a gap. The run resumes by itself afterwards; nothing is closed and no progress is lost.",
+      "default": 0,
+      "required": false,
+      "engine_binding": "RunPacing.break_every_minutes",
+      "unit": "minutes",
+      "validation": {
+        "minimum": 0,
+        "maximum": 1440,
+        "step": 5
+      }
+    },
+    {
+      "id": "pacing.break_minutes",
+      "type": "integer",
+      "label": "Rest for",
+      "summary": "How long each scheduled pause lasts. Ignored when rests are off.",
+      "description": "The run stops issuing actions for this long and then picks up where it left off. Time spent resting still counts against the run duration limit, so a long rest on a short run can end it before the next battle.",
+      "default": 5,
+      "required": false,
+      "engine_binding": "RunPacing.break_minutes",
+      "unit": "minutes",
+      "validation": {
+        "minimum": 1,
+        "maximum": 240,
+        "step": 1
+      }
+    }
+  ]
+}

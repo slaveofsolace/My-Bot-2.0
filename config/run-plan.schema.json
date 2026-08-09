@@ -1,13 +1,14 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.invalid/my-bot-2.0/run-plan.schema.json",
-  "title": "My Bot run plan",
+  "title": "My Bot 2.0 run plan",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "schema_version",
     "mode",
     "strategy",
+    "attack_script",
     "duration_minutes",
     "max_battles",
     "stop_on_star_bonus",
@@ -22,6 +23,12 @@
     "schema_version": {"const": 1},
     "mode": {"enum": ["home", "builder", "regular", "ranked", "legend"]},
     "strategy": {"type": "string", "minLength": 1, "maxLength": 64},
+    "attack_script": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80,
+      "pattern": "^[^\\\\/:*?\"<>|]+$"
+    },
     "duration_minutes": {"type": "integer", "minimum": 0, "maximum": 10080},
     "max_battles": {"type": "integer", "minimum": 0, "maximum": 100000},
     "stop_on_star_bonus": {"type": "boolean"},

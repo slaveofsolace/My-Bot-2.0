@@ -1099,7 +1099,9 @@ EndFunc   ;==>BotGuiModeToggleRequest
 
 Func BotGuiModeToggle()
 	Static $bIsActive = False
-	If $g_iBotAction = $eBotClose Or $g_iGuiMode = 0 Or $bIsActive Or IsConfigActive() Or DllCallMyBotIsActive() Then Return False
+	; Switching Normal/Mini destroys or recreates controls and performs a GUI-to-global save.
+	; Defer it until one-run overrides have been restored so the active plan cannot be replaced by stale controls.
+	If $g_iBotAction = $eBotClose Or $g_iGuiMode = 0 Or $bIsActive Or RunProfileOverridesActive() Or IsConfigActive() Or DllCallMyBotIsActive() Then Return False
 	$bIsActive = True
 	$g_bBotGuiModeToggleRequested = False
 
@@ -1300,6 +1302,9 @@ Func BotCloseRequestProcessed()
 EndFunc   ;==>BotCloseRequestProcessed
 
 Func BotClose($SaveConfig = Default, $bExit = True)
+	; Complete or unwind a one-run plan before any close-time profile serialization.
+	; RunExecutionComplete is idempotent after it clears the prepared flag.
+	RunExecutionComplete("closed")
 	If $SaveConfig = Default Then $SaveConfig = IsBotLaunched()
 	$g_bRunState = False
 	$g_bBotPaused = False
@@ -1337,6 +1342,8 @@ Func BotClose($SaveConfig = Default, $bExit = True)
 	_Crypt_Shutdown()
 	_GUICtrlRichEdit_Destroy($g_hTxtLog)
 	_GUICtrlRichEdit_Destroy($g_hTxtAtkLog)
+	RunControlShutdown() ; release the per-checkout Control Center ownership and heartbeat
+	RunPlannerStopOwnedService() ; close only the Control Center process launched by this bot
 	TCPShutdown() ; Close the TCP service.
 
 	_WinAPI_DeregisterShellHookWindow($g_hFrmBot)

@@ -45,7 +45,6 @@ Func GetTranslated($iSection = -1, $iKey = -1, $sText = "", $var1 = Default, $va
 		EndIf
 
 		If $sDefaultText <> $sText Then
-			IniWrite($g_sDirLanguages & $g_sDefaultLanguage & ".ini", $iSection, $iKey, $sText) ; Rewrite Default English.ini with new text value
 			$sText = GetTranslatedParsedText($sText, $var1, $var2, $var3)
 			$aLanguage[$iSection][$iKey] = $sText
 			Return $sText
@@ -71,7 +70,6 @@ Func GetTranslated($iSection = -1, $iKey = -1, $sText = "", $var1 = Default, $va
 		EndIf
 
 		If $g_sLanguageText = "-3" Then
-			IniWrite($g_sDirLanguages & $g_sLanguage & ".ini", $iSection, $iKey, $sText) ; Rewrite Language.ini with new untranslated Default text value
 			$sText = GetTranslatedParsedText($sText, $var1, $var2, $var3)
 			$aLanguage[$iSection][$iKey] = $sText
 			Return $sText
@@ -1034,169 +1032,112 @@ Func DetectLanguage()
 
 EndFunc   ;==>DetectLanguage
 
-Func GetTranslatedFileIni($iSection = -1, $iKey = -1, $sText = "", $var1 = Default, $var2 = Default, $var3 = Default)
-	Static $aNewLanguage[1][2] ;undimmed language array
-	$sText = StringReplace($sText, @CRLF, "\r\n")
+Func _LanguageCacheEnsure()
+	If Not IsObj($g_oLanguageFileCache) Then $g_oLanguageFileCache = ObjCreate("Scripting.Dictionary")
+	If Not IsObj($g_oLanguageFileCacheLoaded) Then $g_oLanguageFileCacheLoaded = ObjCreate("Scripting.Dictionary")
+	Return IsObj($g_oLanguageFileCache) And IsObj($g_oLanguageFileCacheLoaded)
+EndFunc   ;==>_LanguageCacheEnsure
 
-	Local $sDefaultText, $g_sLanguageText
-	Local $SearchInLanguage = $iSection & "§" & $iKey
-	Local $result = _ArraySearch($aNewLanguage, $SearchInLanguage, 0, 0, 0, 0, 0)
-	If $result <> -1 Then
-		Return GetTranslatedParsedText($aNewLanguage[$result][1], $var1, $var2, $var3)
+Func _LanguageCacheKey($sLanguage, $iSection, $iKey)
+	; INI section and key lookup is case-insensitive. Normalizing also lets the
+	; dictionaries keep their default binary comparison mode.
+	Return StringLower(String($sLanguage)) & Chr(30) & StringLower(String($iSection)) & Chr(30) & StringLower(String($iKey))
+EndFunc   ;==>_LanguageCacheKey
+
+Func _LanguageCacheLoadFile($sLanguage)
+	If Not _LanguageCacheEnsure() Then Return False
+
+	Local $sFileKey = StringLower(String($sLanguage))
+	If $g_oLanguageFileCacheLoaded.Exists($sFileKey) Then Return $g_oLanguageFileCacheLoaded.Item($sFileKey)
+
+	Local $sIniFile = $g_sDirLanguages & $sLanguage & ".ini"
+	Local $bLoaded = FileExists($sIniFile)
+	; Remember absent or unreadable files as well, so a missing translation does
+	; not turn every GUI label into another filesystem probe.
+	$g_oLanguageFileCacheLoaded.Add($sFileKey, $bLoaded)
+	If Not $bLoaded Then Return False
+
+	Local $aSections = IniReadSectionNames($sIniFile)
+	If @error Or Not IsArray($aSections) Then Return False
+	For $i = 1 To $aSections[0]
+		Local $aKeys = IniReadSection($sIniFile, $aSections[$i])
+		If Not IsArray($aKeys) Then ContinueLoop
+		For $j = 1 To $aKeys[0][0]
+			Local $sCacheKey = _LanguageCacheKey($sLanguage, $aSections[$i], $aKeys[$j][0])
+			; Match the previous preload behavior: the first duplicate key wins.
+			If Not $g_oLanguageFileCache.Exists($sCacheKey) Then $g_oLanguageFileCache.Add($sCacheKey, $aKeys[$j][1])
+		Next
+	Next
+	Return True
+EndFunc   ;==>_LanguageCacheLoadFile
+
+Func _LanguageCacheRead($sLanguage, $iSection, $iKey, $sDefault = "-3")
+	If Not _LanguageCacheEnsure() Then
+		; Scripting.Dictionary is a standard Windows component, but retain a
+		; bounded read-only fallback if COM creation ever fails.
+		Return IniRead($g_sDirLanguages & $sLanguage & ".ini", $iSection, $iKey, $sDefault)
 	EndIf
 
+	_LanguageCacheLoadFile($sLanguage)
+	Local $sCacheKey = _LanguageCacheKey($sLanguage, $iSection, $iKey)
+	If $g_oLanguageFileCache.Exists($sCacheKey) Then Return $g_oLanguageFileCache.Item($sCacheKey)
+	Return $sDefault
+EndFunc   ;==>_LanguageCacheRead
+
+Func _TranslationSourceTextRequired($iSection, $iKey, $sText)
+	If $sText = "" Or $sText = "-1" Then Return False
+	; Product-name literals must not fall back to pre-2.0 catalog branding.
+	If StringInStr($sText, $g_sProductName, 0) > 0 Then Return True
+	; These messages describe a fail-closed security boundary. Older locale files
+	; promised different behavior, so keep the reviewed source copy authoritative.
+	If StringLower(String($iSection)) <> "mbr authentication" Then Return False
+	Local $sSourceKeys = "|logpleaseenter|logpasswordissave|youneedtologin|welcome|loginfailedunknown|authenticationfailed1|authenticationfailed2|botisauthenticated|botisnotauthenticated|"
+	Return StringInStr($sSourceKeys, "|" & StringLower(String($iKey)) & "|", 2) > 0
+EndFunc   ;==>_TranslationSourceTextRequired
+
+Func GetTranslatedFileIni($iSection = -1, $iKey = -1, $sText = "", $var1 = Default, $var2 = Default, $var3 = Default)
+	$sText = StringReplace($sText, @CRLF, "\r\n")
+	; English source text is authoritative. Avoid a catalog/COM lookup for every
+	; literal GUI label; repeated-text sentinels still resolve through the cache.
+	If $g_sLanguage = $g_sDefaultLanguage And $sText <> "" And $sText <> "-1" Then Return GetTranslatedParsedText($sText, $var1, $var2, $var3)
+	If _TranslationSourceTextRequired($iSection, $iKey, $sText) Then Return GetTranslatedParsedText($sText, $var1, $var2, $var3)
+
+	Local $sDefaultText, $sLanguageText
 	If $g_sLanguage = $g_sDefaultLanguage Then ; default English
-
-		$sDefaultText = IniRead($g_sDirLanguages & $g_sDefaultLanguage & ".ini", $iSection, $iKey, "-3")
-
-		If $sText = "-1" Then  ; check for "-1" if text repeated
-			If $sDefaultText <> "-3" Then  ; check if text exists inside file
-				$sDefaultText = GetTranslatedParsedText($sDefaultText, $var1, $var2, $var3)
-				Local $result = _ArraySearch($aNewLanguage, $SearchInLanguage, 0, 0, 0, 0, 0)
-				If $result <> -1 Then
-					$aNewLanguage[UBound($aNewLanguage, $UBOUND_ROWS) - 1][0] = $SearchInLanguage
-					$aNewLanguage[UBound($aNewLanguage, $UBOUND_ROWS) - 1][1] = $sDefaultText
-					ReDim $aNewLanguage[UBound($aNewLanguage, $UBOUND_ROWS) + 1][2]
-				EndIf
-				Return $sDefaultText ; will also return "-1" as debug if english.ini does not contain the correct section/key
-			Else
-				Return "-3"  ; Show -3 error code in GUI to show read error and no text in file
-			EndIf
-		EndIf
-
-		If $sDefaultText <> $sText Then
-			Local $ini_file = $g_sDirLanguages & $g_sDefaultLanguage & ".ini"
-			Local $aSection[1][2] = [[$iKey, $sText]]
-			Local $Count = 1
-			Local $aKey = IniReadSection($ini_file, $iSection)
-			 If IsArray($aKey) Then
-				For $i = 1 To $aKey[0][0]
-					If _ArraySearch($aSection, $aKey[$i][0], 0, 0, 0, 0, 1, 0) = -1 Then
-						; add only unique keys
-						$Count += 1
-						ReDim $aSection[$Count][2]
-						$aSection[$Count - 1][0] = $aKey[$i][0]
-						$aSection[$Count - 1][1] = $aKey[$i][1]
-					EndIf
-				Next
-			EndIf
-			_ArraySort($aSection, 0, 0, 0, 0)
-			IniWriteSection($ini_file, $iSection, $aSection, 0)
-			$sText = GetTranslatedParsedText($sText, $var1, $var2, $var3)
-			Local $result = _ArraySearch($aNewLanguage, $SearchInLanguage, 0, 0, 0, 0, 0)
-			If $result <> -1 Then
-				$aNewLanguage[UBound($aNewLanguage, $UBOUND_ROWS) - 1][0] = $SearchInLanguage
-				$aNewLanguage[UBound($aNewLanguage, $UBOUND_ROWS) - 1][1] = $sText
-				ReDim $aNewLanguage[UBound($aNewLanguage, $UBOUND_ROWS) + 1][2]
-			Else
-				; $aNewLanguage[$result][1] = $sText
-			EndIf
-			Return $sText
-		Else
-			$sDefaultText = GetTranslatedParsedText($sDefaultText, $var1, $var2, $var3)
-			Local $result = _ArraySearch($aNewLanguage, $SearchInLanguage, 0, 0, 0, 0, 0)
-			If $result <> -1 Then
-				$aNewLanguage[UBound($aNewLanguage, $UBOUND_ROWS) - 1][0] = $SearchInLanguage
-				$aNewLanguage[UBound($aNewLanguage, $UBOUND_ROWS) - 1][1] = $sDefaultText
-				ReDim $aNewLanguage[UBound($aNewLanguage, $UBOUND_ROWS) + 1][2]
-			Else
-				; $aNewLanguage[$result][1] = $sDefaultText
-			EndIf
-			Return $sDefaultText
-		EndIf
-	Else ; translated language
-		$g_sLanguageText = IniRead($g_sDirLanguages & $g_sLanguage & ".ini", $iSection, $iKey, "-3")
+		$sDefaultText = _LanguageCacheRead($g_sDefaultLanguage, $iSection, $iKey, "-3")
 
 		If $sText = "-1" Then
-			If $g_sLanguageText = "-3" Then
-				$sDefaultText = IniRead($g_sDirLanguages & $g_sDefaultLanguage & ".ini", $iSection, $iKey, $sText)
-				$sDefaultText = GetTranslatedParsedText($sDefaultText, $var1, $var2, $var3)
-				Local $result = _ArraySearch($aNewLanguage, $SearchInLanguage, 0, 0, 0, 0, 0)
-				If $result <> -1 Then
-					$aNewLanguage[UBound($aNewLanguage, $UBOUND_ROWS) - 1][0] = $SearchInLanguage
-					$aNewLanguage[UBound($aNewLanguage, $UBOUND_ROWS) - 1][1] = $sDefaultText
-					ReDim $aNewLanguage[UBound($aNewLanguage, $UBOUND_ROWS) + 1][2]
-				Else
-					; $aNewLanguage[$result][1] = $sDefaultText
-				EndIf
-				Return $sDefaultText ; will also return "-1" as debug if english.ini does not contain the correct section/key
-			Else
-				$g_sLanguageText = GetTranslatedParsedText($g_sLanguageText, $var1, $var2, $var3)
-				Local $result = _ArraySearch($aNewLanguage, $SearchInLanguage, 0, 0, 0, 0, 0)
-				If $result <> -1 Then
-					$aNewLanguage[UBound($aNewLanguage, $UBOUND_ROWS) - 1][0] = $SearchInLanguage
-					$aNewLanguage[UBound($aNewLanguage, $UBOUND_ROWS) - 1][1] = $g_sLanguageText
-					ReDim $aNewLanguage[UBound($aNewLanguage, $UBOUND_ROWS) + 1][2]
-				Else
-					; $aNewLanguage[$result][1] = $g_sLanguageText
-				EndIf
-				Return $g_sLanguageText
-			EndIf
+			If $sDefaultText = "-3" Then Return "-3"
+			Return GetTranslatedParsedText($sDefaultText, $var1, $var2, $var3)
 		EndIf
 
-		If $g_sLanguageText = "-3" Then
-			Local $ini_file = $g_sDirLanguages & $g_sLanguage & ".ini"
-			Local $aSection[1][2] = [[$iKey, $sText]]
-			Local $Count = 1
-			Local $aKey = IniReadSection($ini_file, $iSection)
-			 If IsArray($aKey) Then
-				For $i = 1 To $aKey[0][0]
-					If _ArraySearch($aSection, $aKey[$i][0], 0, 0, 0, 0, 1, 0) = -1 Then
-						; add only unique keys
-						$Count += 1
-						ReDim $aSection[$Count][2]
-						$aSection[$Count - 1][0] = $aKey[$i][0]
-						$aSection[$Count - 1][1] = $aKey[$i][1]
-					EndIf
-				Next
-			EndIf
-			_ArraySort($aSection, 0, 0, 0, 0)
-			IniWriteSection($ini_file, $iSection, $aSection, 0)
-			$sText = GetTranslatedParsedText($sText, $var1, $var2, $var3)
-			Local $result = _ArraySearch($aNewLanguage, $SearchInLanguage, 0, 0, 0, 0, 0)
-			If $result <> -1 Then
-				$aNewLanguage[UBound($aNewLanguage, $UBOUND_ROWS) - 1][0] = $SearchInLanguage
-				$aNewLanguage[UBound($aNewLanguage, $UBOUND_ROWS) - 1][1] = $sText
-				ReDim $aNewLanguage[UBound($aNewLanguage, $UBOUND_ROWS) + 1][2]
-			Else
-				; $aNewLanguage[$result][1] = $sText
-			EndIf
-			Return $sText
-		EndIf
-		$g_sLanguageText = GetTranslatedParsedText($g_sLanguageText, $var1, $var2, $var3)
-			Local $result = _ArraySearch($aNewLanguage, $SearchInLanguage, 0, 0, 0, 0, 0)
-			If $result <> -1 Then
-				$aNewLanguage[UBound($aNewLanguage, $UBOUND_ROWS) - 1][0] = $SearchInLanguage
-				$aNewLanguage[UBound($aNewLanguage, $UBOUND_ROWS) - 1][1] = $g_sLanguageText
-				ReDim $aNewLanguage[UBound($aNewLanguage, $UBOUND_ROWS) + 1][2]
-			Else
-				; $aNewLanguage[$result][1] = $g_sLanguageText
-			EndIf
-		Return $g_sLanguageText
+		; Source text remains authoritative when the catalog is stale, but normal
+		; runtime never mutates a shipped language file. Catalog reconciliation is
+		; a build-time validation task.
+		If $sDefaultText <> $sText Then Return GetTranslatedParsedText($sText, $var1, $var2, $var3)
+		Return GetTranslatedParsedText($sDefaultText, $var1, $var2, $var3)
 	EndIf
+
+	$sLanguageText = _LanguageCacheRead($g_sLanguage, $iSection, $iKey, "-3")
+	If $sText = "-1" Then
+		If $sLanguageText = "-3" Then
+			$sDefaultText = _LanguageCacheRead($g_sDefaultLanguage, $iSection, $iKey, $sText)
+			Return GetTranslatedParsedText($sDefaultText, $var1, $var2, $var3)
+		EndIf
+		Return GetTranslatedParsedText($sLanguageText, $var1, $var2, $var3)
+	EndIf
+
+	If $sLanguageText = "-3" Then Return GetTranslatedParsedText($sText, $var1, $var2, $var3)
+	Return GetTranslatedParsedText($sLanguageText, $var1, $var2, $var3)
 EndFunc   ;==>GetTranslatedFileIni
 
 Func _ReadFullIni()
-	Local $ini_file = $g_sDirLanguages & $g_sDefaultLanguage & ".ini"
-	Static $aNewLanguage[1][2] ;undimmed language array
-	Local $Count = 1 ; Initialisation compteur
-	Local $aSection = IniReadSectionNames($ini_file) ; Lecture des sections
-	For $i = 1 To UBound($aSection) - 1 ; Boucle de lecture
-		Local $aKey = IniReadSection($ini_file, $aSection[$i]) ; Lecture des clés de la section en cours
-		If IsArray($aKey) Then ; Si la section n'est pas vide
-			ReDim $aNewLanguage[$Count + UBound($aKey) - 1][2] ; On redimentionne le tableau en ajoutant le nombre d'éléments de la section en cours
-			For $j = 1 To Ubound($aKey) - 1 ; Boucle de lecture
-				If _ArraySearch($aNewLanguage, $aSection[$i] & "§" & $aKey[$j][0], 0, 0, 0, 0, 1, 0) = -1 Then
-					; add only unique keys
-					$aNewLanguage[$Count][0] = $aSection[$i] & "§" & $aKey[$j][0]; On stocke le nom de la section
-					$aNewLanguage[$Count][1] = $aKey[$j][1]; On stocke le nom de la clé
-					$Count += 1 ; On incrémente le compteur
-				EndIf
-			Next
-		Else ; Si la section est vide
-			ReDim $aNewLanguage[$Count + 1][2] ; On redimentionne le tableau de une ligne
-			$aNewLanguage[$Count][0] = $aSection[$i] ; On stocke le nom de la section
-			$Count += 1 ; On incrémente le compteur
-		EndIf
-	Next
+	If Not _LanguageCacheEnsure() Then Return False
+	$g_oLanguageFileCache.RemoveAll
+	$g_oLanguageFileCacheLoaded.RemoveAll
+
+	Local $bDefaultLoaded = _LanguageCacheLoadFile($g_sDefaultLanguage)
+	Local $bSelectedLoaded = True
+	If StringLower($g_sLanguage) <> StringLower($g_sDefaultLanguage) Then $bSelectedLoaded = _LanguageCacheLoadFile($g_sLanguage)
+	Return $bDefaultLoaded And $bSelectedLoaded
 EndFunc   ;==>_ReadFullIni

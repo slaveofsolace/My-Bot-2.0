@@ -196,7 +196,7 @@ Func CreateAttackSearchDeadBaseAttack()
 
 	$x += 46
 	$g_hPicDBReviveSpell = _GUICtrlCreateIcon($g_sLibIconPath, $eIcnReviveSpell, $x, $y, 24, 24)
-	$sTxtTip = GetTranslatedFileIni("MBR GUI Design Child Attack - Attack", "Chk-Use-Recall_Info_01", "Use your Revive Spells when Attacking")
+	$sTxtTip = GetTranslatedFileIni("MBR GUI Design Child Attack - Attack", "Chk-Use-Revive_Info_01", "Use your Revive Spells when Attacking")
 	_GUICtrlSetTip(-1, $sTxtTip)
 	$g_hChkDBReviveSpell = GUICtrlCreateCheckbox("", $x + 27, $y, 17, 17)
 	_GUICtrlSetTip(-1, $sTxtTip)

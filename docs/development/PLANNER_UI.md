@@ -6,6 +6,14 @@ engine, recovery surface, and in-window fallback.
 
 There are also two front-ends for the same run planner. Both read the same generated metadata.
 The product is My Bot 2.0 v2.0.0; MyBot.run v8.2.0 is the upstream engine compatibility version.
+The compiled native host retains the upstream MyBot.run v8.2.0 resource identity because the
+combined engine validates that identity before enabling image recognition. Visible native and
+browser titles continue to use the My Bot 2.0 product name and version.
+
+The official MyBot.run engine retired its forum-login prerequisite in v7.8.1, and v8.2.0 retains that
+behavior. My Bot 2.0 therefore never asks for forum credentials or creates a local forum token. The
+managed-engine probe, emulator attachment, ADB connection, and game-screen proof remain fail-closed
+Start prerequisites.
 
 Both read the **same** generated metadata (`config/ui/run-planner.settings.json`), so they always
 offer the same settings, options, defaults and disabled reasons. Neither can drift from the other,
@@ -16,7 +24,8 @@ both.
 
 ## Running it
 
-Normal My Bot 2.0 startup launches the loopback service and opens the browser automatically. The
+Normal My Bot 2.0 startup begins with `My Bot 2.0.exe`, which elevates and minimizes the native
+compatibility host. That host owns the loopback service and opens the browser automatically. The
 command below is the standalone development entry point.
 
 ```bash
@@ -24,6 +33,14 @@ python tools/planner_ui.py
 ```
 
 It serves on `http://127.0.0.1:8765` and opens your browser. `Ctrl-C` stops it.
+
+The four-step health rail separates Control Center readiness, the native heartbeat, managed-engine
+probe readiness, and the emulator path. The last step distinguishes a found
+window, a ready ADB connection, and a recognized game screen instead of treating them as equivalent.
+**Export diagnostics** downloads a redacted JSON support
+bundle containing only allowlisted operational state, recent event summaries, and executable
+hashes. It never includes plan values, credentials, screenshots, or game data, and it does not query
+Windows Security or system event logs.
 
 - `--port N` — use a different port.
 - `--no-browser` — start the server without opening a browser.
@@ -36,6 +53,10 @@ The page shell, stylesheet and script are separate files: `ui/planner.html`, `ui
 inline blocks are intentionally absent. Requests also require a local Host/Origin, JSON writes are
 limited to 256 KB, and plan replacement is atomic.
 
+Pacing controls live in `config/ui/run-planner.pacing.json`; game-derived choices still come from
+the catalogs. `python tools/generate_run_planner_settings.py --check` verifies that the committed
+browser metadata matches both sources without rewriting it.
+
 ---
 
 ## What it does
@@ -44,6 +65,9 @@ limited to 256 KB, and plan replacement is atomic.
   with Start, Pause, Resume, and Stop enabled only when the current state permits them.
 - **Native acknowledgement**: distinguishes a queued request from the engine accepting, rejecting,
   or treating it as a no-op.
+- **Town Hall presets**: one compatibility-first starting point for TH2 through TH18. Selecting one
+  changes only its preview; **Apply preset** loads fields into the unsaved form, and **Apply plan**
+  remains a separate write. Emulator choice and diagnostic acknowledgement are always preserved.
 
 - **Left**: one entry per section — Battle, Heroes, Emulator, Army, Search, Pacing, Limits, Loot,
   Donate, Events, Upkeep, Notify, Debug. The chosen section lives in the URL, so a refresh keeps
@@ -54,6 +78,15 @@ limited to 256 KB, and plan replacement is atomic.
 - **Right**: a detail panel that expands on the focused control, and a live activity feed that
   tails the run's event log.
 - **Bottom**: Apply writes the plan; Reset returns every control to its default.
+
+The preset preview separates two kinds of evidence. **Script-declared** means the selected bundled
+CSV names that Town Hall in its own header or source table. The adapter selects the deployment file
+only; it does not import that CSV's training table, so the active profile army must already match.
+**Engine fallback** means no shipped CSV makes that claim, so the preset uses the wired Standard
+deployment and the active profile army. Neither label claims a current competitive meta or
+current-client runtime proof. Named recipes are not wired. Scripted presets choose Heroes only from
+current Town Hall unlocks that also have CSV DROP actions; fallback presets preserve the visible
+Hero selection.
 
 The diagnostic banner across the top says, for the selected surface, whether the bot has actually
 been shown working on the current client.
@@ -77,7 +110,7 @@ config/run-plan.local.json   <-- the engine reads this to run
         |
         +--> RunPlanFile.au3 --> flat JSON parser --> tab synchronization
                                       |
-                                      +--> exact 42-key validator --> prepared RunIntent
+                                      +--> exact 43-key validator --> prepared RunIntent
 ```
 
 - **`config/run-plan.local.json`** is what the UI writes and the engine reads. It is local to each
@@ -90,7 +123,11 @@ The lifecycle bridge uses two other git-ignored files:
 - `config/control-command.local.json` is an atomic, single-use command envelope. A pending command
   is never overwritten.
 - `config/control-status.local.json` is the native heartbeat and last-command acknowledgement. The
-  service marks stale status offline instead of presenting old state as live.
+  service marks stale status offline instead of presenting old state as live. The
+  `authorization_ready` field remains in the v1 status schema for client compatibility and is
+  always `true`, matching the official MyBot.run v8.2.0 behavior after forum login was retired.
+  A run cannot become active until engine probing, emulator attachment, ADB setup, and game-screen
+  recognition all succeed.
 
 `POST /api/control/command` queues `start`, `stop`, `pause`, or `resume`. `GET /api/control/status`
 returns the current native state. Applying a plan and starting a run remain separate explicit acts.
@@ -106,7 +143,7 @@ A submitted plan is checked before anything reaches disk, and the two outcomes a
 
 The AutoIt file layer has two deliberate stages. The parser accepts any flat JSON object made from
 strings, numbers, booleans, nulls and scalar lists. The constructor is strict: before it prepares a
-`RunIntent`, the document must contain exactly the 42 metadata keys and every value must satisfy the
+`RunIntent`, the document must contain exactly the 43 metadata keys and every value must satisfy the
 engine contract. Parsing remains reusable while an incomplete or mixed-version plan cannot reach the
 engine.
 
@@ -145,15 +182,19 @@ A value the tab cannot represent costs that one control during synchronization:
 - **a setting this build does not have** — ignored by the visual synchronization pass
 
 Preparing an intent is stricter. **Load saved plan** and **Apply plan** reread the document through
-the composed parser and validator, require all 42 keys exactly once, validate types and engine
+the composed parser and validator, require all 43 keys exactly once, validate types and engine
 bounds, construct the Hero loadout, and attach pacing. Any unknown, missing or malformed setting
 rejects the complete intent rather than preparing a partial run.
 
 Reset is still yours. It puts the controls back to their defaults and the file does not immediately
 undo it; the file re-asserts itself the next time it actually changes.
 
+The browser also saves its complete visible plan before it queues **Start**. This makes the first run
+with untouched defaults explicit and prevents a stale tab or missing plan file from silently falling
+back to legacy-profile behavior.
+
 `tools/check_plan_bridge.py` keeps the two halves honest. It checks that the plan uses shapes the
-parser accepts, every key names a control, the AutoIt constructor's required-key list matches all 42
+parser accepts, every key names a control, the AutoIt constructor's required-key list matches all 43
 metadata settings in both directions, every setting type has an apply branch, and the pacing bounds
 match the engine. CI runs it on every push; Windows additionally executes the AutoIt contract tests.
 
@@ -168,7 +209,7 @@ fewer misread screens.
 |---|---|---|
 | Gap between actions | 120 ms | Floor on the wait between two taps. Only taken when the previous action finished more recently than this |
 | Screen settle wait | 400 ms | How long to let an animation finish before reading pixels. The largest single source of wrong decisions is reading a frame that is still moving |
-| Retries per action | 2 | A tap that produced no visible change is usually a dropped input; repeating it is cheaper than abandoning the step |
+| Retries per action | 0 | Reserved until a screen-specific handler can prove the first action was dropped; generic repeats are unsafe |
 | Rest after | off | Pause the run once it has been going this long |
 | Rest for | 5 min | How long each pause lasts. Nothing is closed and no progress is lost |
 

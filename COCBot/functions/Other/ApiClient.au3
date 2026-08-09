@@ -12,7 +12,42 @@
 ; ===============================================================================================================================
 
 Global $g_ahManagedMyBotHosts[0] ; Contains array of registered MyBot.run host Window Handle and TimerHandle of last communication
+Global $g_iManagedMyBotControllerPID = 0 ; First verified live Mini GUI process owns state-changing commands
+Global $g_hManagedMyBotController = 0
 GUIRegisterMsg($WM_MYBOTRUN_API, "WM_MYBOTRUN_API_CLIENT")
+
+Func _ApiClientControllerPID($hWindow)
+	If Not IsHWnd($hWindow) Then Return 0
+	Local $iPID = WinGetProcess($hWindow)
+	If @error Or $iPID <= 0 Or Not ProcessExists($iPID) Then Return 0
+	Return $iPID
+EndFunc   ;==>_ApiClientControllerPID
+
+Func _ApiClientControllerIsLive()
+	If $g_iManagedMyBotControllerPID <= 0 Or Not ProcessExists($g_iManagedMyBotControllerPID) Then Return False
+	If Not IsHWnd($g_hManagedMyBotController) Then Return False
+	Return _ApiClientControllerPID($g_hManagedMyBotController) = $g_iManagedMyBotControllerPID
+EndFunc   ;==>_ApiClientControllerIsLive
+
+Func _ApiClientClaimController($hWindow, ByRef $iPID)
+	$iPID = _ApiClientControllerPID($hWindow)
+	If $iPID <= 0 Then Return False
+
+	If Not _ApiClientControllerIsLive() Then
+		$g_iManagedMyBotControllerPID = $iPID
+		$g_hManagedMyBotController = $hWindow
+		Return True
+	EndIf
+
+	If $iPID <> $g_iManagedMyBotControllerPID Then Return False
+	$g_hManagedMyBotController = $hWindow
+	Return True
+EndFunc   ;==>_ApiClientClaimController
+
+Func _ApiClientControllerOwns($hWindow)
+	If Not _ApiClientControllerIsLive() Then Return False
+	Return _ApiClientControllerPID($hWindow) = $g_iManagedMyBotControllerPID
+EndFunc   ;==>_ApiClientControllerOwns
 
 Func WM_MYBOTRUN_API_CLIENT($hWind, $iMsg, $wParam, $lParam)
 
@@ -28,6 +63,12 @@ Func WM_MYBOTRUN_API_CLIENT($hWind, $iMsg, $wParam, $lParam)
 
 	Local $wParamLo = BitAND($wParam, 0xFFFF)
 	Local $bRegisterHost = True
+	; Queries remain open for normal discovery. Once the Mini GUI identifies itself with 0x1060,
+	; only that live process may send state-changing controller commands.
+	If $wParamLo >= 0x1000 And $wParamLo <= 0x1050 And Not _ApiClientControllerOwns($hWind) Then
+		SetDebugLog("Ignored controller command from an unclaimed Mini GUI process")
+		Return 1
+	EndIf
 
 	; Handle incoming message and post Message back to Manage Farm App
 	Switch $wParamLo
@@ -85,10 +126,13 @@ Func WM_MYBOTRUN_API_CLIENT($hWind, $iMsg, $wParam, $lParam)
 		Case 0x1010 ; stop bot
 			$lParam = $g_hFrmBot
 			$wParam = $wParamLo + 1
-			If $g_bRunState = True Then
+			Local $bStartInProgress = IsDeclared("g_bRunControlStartInProgress") And Eval("g_bRunControlStartInProgress")
+			Local $bStartPending = ($g_iBotAction = $eBotStart Or $bStartInProgress)
+			If $g_bRunState = True Or $bStartPending Then
 				$wParamHi = 0
 				;If $g_bBotPaused = True Then $wParamHi += 2
 				If IsBotLaunched() Then $wParamHi += 4 ; bot launched
+				If $bStartPending Then Assign("g_bRunControlStopRequested", True, $ASSIGN_FORCEGLOBAL)
 				btnStop()
 			EndIf
 			$wParam += BitShift($wParamHi, -16)
@@ -148,10 +192,16 @@ Func WM_MYBOTRUN_API_CLIENT($hWind, $iMsg, $wParam, $lParam)
 			If $g_bRunState = True Then $wParamHi += 1
 			If $g_bBotPaused = True Then $wParamHi += 2
 			If IsBotLaunched() Then $wParamHi += 4 ; bot launched
-			Local $pid = WinGetProcess($hWind)
-			If $pid <> 0 And $pid <> -1 Then
+			Local $pid = 0
+			If _ApiClientClaimController($hWind, $pid) Then
 				$g_iGuiPID = $pid
-				SetBotGuiPID($pid)
+				; MBRFuncInitialize owns the first managed export. A later controller re-link may
+				; update the initialized engine without re-entering CLR setup before Start.
+				If $g_bLibMyBotInitialized Then SetBotGuiPID($pid)
+			Else
+				SetDebugLog("Ignored replacement Mini GUI while controller PID " & $g_iManagedMyBotControllerPID & " is live")
+				$bRegisterHost = False
+				$hWind = 0
 			EndIf
 			$wParam += BitShift($wParamHi, -16)
 

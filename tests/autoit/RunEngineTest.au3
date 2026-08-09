@@ -8,6 +8,7 @@
 #include "..\..\COCBot\functions\Run\RunIntent.au3"
 #include "..\..\COCBot\functions\Run\RunPlanFile.au3"
 #include "..\..\COCBot\functions\Run\RunExecutionContract.au3"
+#include "..\..\COCBot\functions\Run\RunProfileWriteGuard.au3"
 
 Global $g_iAssertions = 0
 
@@ -19,7 +20,46 @@ Func AssertTrue($bCondition, $sMessage)
 	EndIf
 EndFunc   ;==>AssertTrue
 
+Func AttemptGuardedProfileWrite($sPath, $sValue)
+	If Not RunProfileRegularConfigSerializationAllowed() Then Return False
+	Return IniWrite($sPath, "attack", "ScriptDB", $sValue) <> 0
+EndFunc   ;==>AttemptGuardedProfileWrite
+
 Local $sError = "", $sReason = ""
+
+; A planner run mutates live globals, but inherited runtime paths call SaveConfig while the bot is
+; active. The shared guard must leave the on-disk profile byte-for-byte unchanged until restore.
+Local $sGuardProfile = @TempDir & "\my-bot-run-profile-guard-" & @AutoItPID & ".ini"
+FileDelete($sGuardProfile)
+AssertTrue(IniWrite($sGuardProfile, "attack", "ScriptDB", "profile-script") <> 0, "profile guard fixture is written")
+AssertTrue(IniWrite($sGuardProfile, "attack", "DBAtkAlgorithm", "0") <> 0, "profile guard algorithm fixture is written")
+Local $sGuardBefore = FileRead($sGuardProfile)
+Local $sLiveScript = "profile-script", $iLiveAlgorithm = 0
+Local $sSnapshotScript = $sLiveScript, $iSnapshotAlgorithm = $iLiveAlgorithm
+AssertTrue(RunProfileOverrideBegin(True, True, True), "profile override guard begins with captured serializer values")
+$sLiveScript = "one-run-script"
+$iLiveAlgorithm = 1
+Local $aGuardGuiModes[2] = [1, 2]
+For $iGuardGuiMode In $aGuardGuiModes
+	AssertTrue(Not RunProfileRegularConfigSerializationAllowed(), "regular config is blocked with GUI mode " & $iGuardGuiMode)
+Next
+AssertTrue(Not AttemptGuardedProfileWrite($sGuardProfile, "one-run-script"), "profile serialization is refused while overrides are active")
+AssertTrue($sLiveScript = "one-run-script" And $iLiveAlgorithm = 1, "routine save leaves active one-run values intact")
+AssertTrue(FileRead($sGuardProfile) = $sGuardBefore, "refused save leaves the profile byte-for-byte unchanged")
+AssertTrue(IniRead($sGuardProfile, "attack", "ScriptDB", "") = "profile-script", "refused save retains the original script key")
+AssertTrue(RunProfileClanGamesEnabledForSerialization(False), "Clan Games serialization uses the captured profile value")
+AssertTrue(RunProfileAutoLabUpgradeEnabledForSerialization(False), "building serialization uses the captured laboratory value")
+AssertTrue(RunProfileDonateLikeCrazyForSerialization(False), "switch-account serialization uses the captured donation value")
+$sLiveScript = $sSnapshotScript
+$iLiveAlgorithm = $iSnapshotAlgorithm
+AssertTrue(RunProfileOverrideEnd(), "profile override guard ends")
+AssertTrue($sLiveScript = "profile-script" And $iLiveAlgorithm = 0, "completion restores the exact pre-run values")
+AssertTrue(RunProfileRegularConfigSerializationAllowed(), "regular config serialization resumes after restore")
+AssertTrue(Not RunProfileClanGamesEnabledForSerialization(False), "Clan Games serialization resumes using the current value")
+AssertTrue(Not RunProfileAutoLabUpgradeEnabledForSerialization(False), "building serialization resumes using the current laboratory value")
+AssertTrue(Not RunProfileDonateLikeCrazyForSerialization(False), "switch-account serialization resumes using the current donation value")
+AssertTrue(FileRead($sGuardProfile) = $sGuardBefore, "restoring write permission does not mutate the profile")
+FileDelete($sGuardProfile)
 
 ; ---------------------------------------------------------------------------------------------------------------
 ; Hero loadout: six Heroes exist, four may be active, Town Hall gates membership.
@@ -94,6 +134,7 @@ Local $oSavedPlan = Json_ObjCreate()
 Local $aSavedHeroes = ["barbarian-king", "archer-queen"]
 Json_ObjPut($oSavedPlan, "run.surface", "regular")
 Json_ObjPut($oSavedPlan, "run.strategy", "legacy.csv")
+Json_ObjPut($oSavedPlan, "run.attack_script", "Barch four fingers")
 Json_ObjPut($oSavedPlan, "run.heroes", $aSavedHeroes)
 Json_ObjPut($oSavedPlan, "runtime.emulator", "auto")
 Json_ObjPut($oSavedPlan, "runtime.instance", "")
@@ -142,6 +183,7 @@ AssertTrue(IsObj($oSavedIntent), "saved planner document becomes a run intent: "
 Local $oSavedEnginePlan = $oSavedIntent.Item("plan")
 AssertTrue($oSavedEnginePlan.Item("search_max_seconds") = 120, "saved search limit reaches RunPlan")
 AssertTrue($oSavedEnginePlan.Item("army_recipe_name") = "farm", "saved army recipe reaches RunPlan")
+AssertTrue($oSavedEnginePlan.Item("attack_script") = "Barch four fingers", "saved attack script reaches RunPlan")
 Local $oSavedLoadout = $oSavedIntent.Item("loadout")
 AssertTrue(HeroLoadoutCount($oSavedLoadout) = 2, "saved Hero list reaches the loadout")
 Local $oSavedPacing = $oSavedIntent.Item("pacing")
@@ -159,6 +201,20 @@ $oSavedEnginePlan.Item("notify_channel") = "windows-toast"
 AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "unwired notification channels are rejected")
 $oSavedEnginePlan.Item("notify_channel") = "log-only"
 AssertTrue(RunExecutionContractValidate($oSavedIntent, $sError), "restoring supported values clears the adapter gate: " & $sError)
+$oSavedEnginePlan.Item("strategy") = "legacy.standard"
+AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "a named CSV script cannot be paired with Standard deployment")
+$oSavedEnginePlan.Item("strategy") = "legacy.csv"
+AssertTrue(RunExecutionContractValidate($oSavedIntent, $sError), "restoring Scripted accepts the named bundled-script contract: " & $sError)
+FileDelete($sSavedPlanPath)
+
+; The immediately preceding planner contract had 42 keys. Its absence of a script override means
+; preserve the profile script, so it can be upgraded without guessing or losing intent.
+$oSavedPlan.Remove("run.attack_script")
+AssertTrue(FileWrite($sSavedPlanPath, Json_Encode($oSavedPlan)) > 0, "legacy 42-key planner fixture is written")
+Local $oLegacyIntent = RunPlanFileLoadIntent($sSavedPlanPath, $sError)
+AssertTrue(IsObj($oLegacyIntent), "legacy 42-key plan is upgraded losslessly: " & $sError)
+Local $oLegacyPlan = $oLegacyIntent.Item("plan")
+AssertTrue($oLegacyPlan.Item("attack_script") = "profile-current", "legacy plan preserves the active profile script")
 FileDelete($sSavedPlanPath)
 
 ; Undemonstrated surfaces are blocked by default, which is what makes the diagnostic opt-in meaningful.

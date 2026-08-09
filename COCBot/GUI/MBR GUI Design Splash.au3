@@ -32,7 +32,8 @@ Func CreateSplashScreen($iSteps = Default)
 	Local $bCustomWindow = IsString($iSteps)
 
 	If $iSteps = Default Then
-		$g_iSplashTotalSteps = 10
+		; Full GUI now includes the Run Planner surface as its own loading step.
+		$g_iSplashTotalSteps = 11
 	Else
 		$iGuiState = @SW_SHOW
 		$bDisableSplash = False

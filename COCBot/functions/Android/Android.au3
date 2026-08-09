@@ -232,6 +232,13 @@ Func GetAndroidControlClass($bCheck = False, $bInit = False)
 	Local $hAndroidWin = GetCurrentAndroidHWnD()
 	If IsHWnd($hAndroidWin) Then
 		; ok, Android Window exists
+		; Current BlueStacks 5 uses a Qt top-level surface without the inherited child control.
+		; ADB remains the capture/input boundary, so the visible shell itself is the stable control.
+		If $g_sAndroidEmulator = "BlueStacks5" And StringRegExp(_WinAPI_GetClassName($hAndroidWin), "^Qt[0-9]+QWindowIcon$") Then
+			$g_sAppClassInstance = $hAndroidWin
+			$g_hAndroidControl = $hAndroidWin
+			Return SetError(0, 0, $g_sAppClassInstance)
+		EndIf
 		Local $hCtrl = ControlGetHandle2($hAndroidWin, $g_sAppPaneName, $g_sAppClassInstance, 100, 100)
 		If $hCtrl = 0 Then
 			Return SetError(1, 0, $g_sAppClassInstance)
@@ -448,6 +455,22 @@ Func _WinGetAndroidHandle($bFindByTitle = False)
 	Local $hWin = WinGetHandle($g_hAndroidWindow)
 	If $hWin > 0 And $hWin = $g_hAndroidWindow Then Return $g_hAndroidWindow
 
+	; Prefer the exact modern BlueStacks instance before legacy title/control and WMI discovery.
+	; The old title path can return early, while current BlueStacks uses a Qt top-level window and
+	; may withhold its command line from WMI.
+	If $g_sAndroidEmulator = "BlueStacks5" Then
+		Local $hModernBlueStacks = FindBlueStacks5WindowFallback()
+		If IsHWnd($hModernBlueStacks) Then
+			SetDebugLog("Found BlueStacks5 modern player window '" & WinGetTitle($hModernBlueStacks) & "' (" & $hModernBlueStacks & ")")
+			If UpdateHWnD($hModernBlueStacks) Then
+				$g_sAndroidTitle = UpdateAndroidWindowTitle($g_hAndroidWindow, WinGetTitle($hModernBlueStacks))
+				AndroidEmbed(False, False)
+				setAndroidPID(GetAndroidPid())
+				Return $hModernBlueStacks
+			EndIf
+		EndIf
+	EndIf
+
 	; Window not found, reset $g_sAppClassInstance as it might have replaced with handle
 	If $g_sAppClassInstance <> $g_avAndroidAppConfig[$g_iAndroidConfig][3] Then
 		SetDebugLog("Restore $g_sAppClassInstance to: " & $g_avAndroidAppConfig[$g_iAndroidConfig][3])
@@ -598,7 +621,6 @@ Func _WinGetAndroidHandle($bFindByTitle = False)
 			SetDebugLog($g_sAndroidEmulator & ($g_sAndroidInstance = "" ? "" : " (" & $g_sAndroidInstance & ")") & " Window not found for PID " & $pid)
 		EndIf
 	EndIf
-
 	SetDebugLog($g_sAndroidEmulator & ($g_sAndroidInstance = "" ? "" : " (" & $g_sAndroidInstance & ")") & " Window not found in list")
 	If $ReInitAndroid = True Then $g_bInitAndroid = True ; no window anymore, re-initialize Android config
 	UpdateHWnD(0)
@@ -806,39 +828,39 @@ Func FindPreferredAdbPath()
 				If FileExists($sBootDirPath & "HD-Adb.exe") = 0 Then
 					If FileCopy($sBootPathAdb, $sBootDirPath & "HD-Adb.exe", $FC_CREATEPATH) = 1 Then
 						$sAdbPath = $sBootDirPath & "HD-Adb.exe"
-						SetDebugLog("Replaced " & $g_sAndroidEmulator & " Adb From MyBotRun", $COLOR_SUCCESS)
+						SetDebugLog("Replaced " & $g_sAndroidEmulator & " ADB with " & $g_sProductName, $COLOR_SUCCESS)
 					Else
-						SetDebugLog("Cannot replace " & $g_sAndroidEmulator & " ADB with MyBotRun", $COLOR_ERROR)
+						SetDebugLog("Cannot replace " & $g_sAndroidEmulator & " ADB with " & $g_sProductName, $COLOR_ERROR)
 					EndIf
 				Else
 					$sAdbPath = $sBootDirPath & "HD-Adb.exe"
-					SetDebugLog("Using " & $g_sAndroidEmulator & " Adb From MyBotRun", $COLOR_SUCCESS)
+					SetDebugLog("Using " & $g_sAndroidEmulator & " ADB from " & $g_sProductName, $COLOR_SUCCESS)
 				EndIf
 			Case "MEmu"
 				; Check if File exist
 				If FileExists($sBootDirPath & "adb.exe") = 0 Then
 					If FileCopy($sBootPathAdb, $sBootDirPath & "adb.exe", $FC_CREATEPATH) = 1 Then
 						$sAdbPath = $sBootDirPath & "adb.exe"
-						SetDebugLog("Replaced " & $g_sAndroidEmulator & " Adb From MyBotRun", $COLOR_SUCCESS)
+						SetDebugLog("Replaced " & $g_sAndroidEmulator & " ADB with " & $g_sProductName, $COLOR_SUCCESS)
 					Else
-						SetDebugLog("Cannot replace " & $g_sAndroidEmulator & " ADB with MyBotRun", $COLOR_ERROR)
+						SetDebugLog("Cannot replace " & $g_sAndroidEmulator & " ADB with " & $g_sProductName, $COLOR_ERROR)
 					EndIf
 				Else
 					$sAdbPath = $sBootDirPath & "adb.exe"
-					SetDebugLog("Using " & $g_sAndroidEmulator & " Adb From MyBotRun", $COLOR_SUCCESS)
+					SetDebugLog("Using " & $g_sAndroidEmulator & " ADB from " & $g_sProductName, $COLOR_SUCCESS)
 				EndIf
 			Case "Nox"
 				; Check if File exist
 				If FileExists($sBootDirPath & "nox_adb.exe") = 0 Then
 					If FileCopy($sBootPathAdb, $sBootDirPath & "nox_adb.exe", $FC_CREATEPATH) = 1 Then
 						$sAdbPath = $sBootDirPath & "nox_adb.exe"
-						SetDebugLog("Replaced " & $g_sAndroidEmulator & " Adb From MyBotRun", $COLOR_SUCCESS)
+						SetDebugLog("Replaced " & $g_sAndroidEmulator & " ADB with " & $g_sProductName, $COLOR_SUCCESS)
 					Else
-						SetDebugLog("Cannot replace " & $g_sAndroidEmulator & " ADB with MyBotRun", $COLOR_ERROR)
+						SetDebugLog("Cannot replace " & $g_sAndroidEmulator & " ADB with " & $g_sProductName, $COLOR_ERROR)
 					EndIf
 				Else
 					$sAdbPath = $sBootDirPath & "nox_adb.exe"
-					SetDebugLog("Using " & $g_sAndroidEmulator & " Adb From MyBotRun", $COLOR_SUCCESS)
+					SetDebugLog("Using " & $g_sAndroidEmulator & " ADB from " & $g_sProductName, $COLOR_SUCCESS)
 				EndIf
 		EndSwitch
 
@@ -1743,7 +1765,7 @@ Func CheckScreenAndroid($ClientWidth, $ClientHeight, $bSetLog = True)
 
 	Local $ok = ($ClientWidth = $g_iAndroidClientWidth) And ($ClientHeight = $g_iAndroidClientHeight)
 	If Not $ok Then
-		If $bSetLog Then SetLog("MyBot doesn't work with " & $g_sAndroidEmulator & " screen resolution of " & $ClientWidth & " x " & $ClientHeight & "!", $COLOR_ERROR)
+		If $bSetLog Then SetLog($g_sProductName & " doesn't work with " & $g_sAndroidEmulator & " screen resolution of " & $ClientWidth & " x " & $ClientHeight & "!", $COLOR_ERROR)
 		SetDebugLog("CheckScreenAndroid: " & $ClientWidth & " x " & $ClientHeight & " <> " & $g_iAndroidClientWidth & " x " & $g_iAndroidClientHeight)
 		Return False
 	EndIf
@@ -1770,7 +1792,7 @@ Func CheckScreenAndroid($ClientWidth, $ClientHeight, $bSetLog = True)
 	If $font_scale > 0 Then
 		SetDebugLog($g_sAndroidEmulator & " font_scale = " & $font_scale)
 		If $font_scale <> 1 Then
-			SetLog("MyBot doesn't work with Display Font Scale of " & $font_scale, $COLOR_ERROR)
+			SetLog($g_sProductName & " doesn't work with Display Font Scale of " & $font_scale, $COLOR_ERROR)
 			Return False
 		EndIf
 	Else

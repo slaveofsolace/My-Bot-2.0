@@ -33,11 +33,11 @@ Func CheckVersion()
 		EndIf
 		Local $version = GetLastVersion($Temp)
 		$g_sBotGitVersion = StringReplace($version[0], "MBR_v", "")
-		SetDebugLog("Last GitHub version is " & $g_sBotGitVersion)
-		SetDebugLog("Your version is " & $g_iBotVersionN)
+		SetDebugLog("Latest upstream engine version is " & $g_sBotGitVersion)
+		SetDebugLog("Bundled upstream engine version is " & $g_iBotVersionN)
 
 		If _VersionCompare($g_iBotVersionN, $g_sBotGitVersion) = -1 Then
-			SetLog("WARNING, YOUR VERSION (" & $g_iBotVersionN & ") IS OUT OF DATE.", $COLOR_INFO)
+			SetLog("UPSTREAM ENGINE " & $g_iBotVersionN & " IS OUT OF DATE; UPDATE MY BOT 2.0.", $COLOR_INFO)
 			Local $ChangelogTXT = GetLastChangeLog($Temp)
 			Local $Changelog = StringSplit($ChangelogTXT[0], '\r\n', $STR_ENTIRESPLIT + $STR_NOCOUNT)
 			For $i = 0 To UBound($Changelog) - 1
@@ -45,9 +45,9 @@ Func CheckVersion()
 			Next
 			PushMsg("Update")
 		ElseIf _VersionCompare($g_iBotVersionN, $g_sBotGitVersion) = 0 Then
-			SetLog("WELCOME CHIEF, YOU HAVE THE LATEST MYBOT VERSION", $COLOR_SUCCESS)
+			SetLog("My Bot 2.0 includes the current upstream engine (" & $g_iBotVersionN & ").", $COLOR_SUCCESS)
 		Else
-			SetLog("YOU ARE USING A FUTURE VERSION CHIEF!", $COLOR_ACTION)
+			SetLog("My Bot 2.0 includes a newer upstream engine build (" & $g_iBotVersionN & ").", $COLOR_ACTION)
 		EndIf
 	Else
 		SetDebugLog($Temp)

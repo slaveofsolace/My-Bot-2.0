@@ -241,7 +241,7 @@ Func aquireProfileMutex($sProfile = Default, $bReturnOnlyMutex = Default, $bShow
 		Return $hMutex_Profile
 	EndIf
 
-	Local $sMsg = StringRegExpReplace(GetTranslatedFileIni("MBR GUI Design - Loading", "Msg_Android_instance_02", "My Bot with Profile %s is already in use.\r\n\r\n", $sProfile), "[\r\n]", "")
+	Local $sMsg = StringRegExpReplace(GetTranslatedFileIni("MBR GUI Design - Loading", "Msg_Android_instance_02", $g_sProductName & " with Profile %s is already in use.\r\n\r\n", $sProfile), "[\r\n]", "")
 
 	If $hMutex_Profile = 0 Then
 		; mutex already in use

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.invalid/my-bot-2.0/run-session.schema.json",
-  "title": "My Bot run session snapshot",
+  "title": "My Bot 2.0 run session snapshot",
   "type": "object",
   "additionalProperties": false,
   "required": [

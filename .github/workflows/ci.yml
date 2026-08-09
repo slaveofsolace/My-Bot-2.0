@@ -11,6 +11,7 @@ on:
       - "ui/**"
       - "refactor/**"
       - "build/**"
+      - "sol/**"
   pull_request:
   workflow_dispatch:
 
@@ -30,6 +31,9 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          filter: blob:none
 
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -42,6 +46,12 @@ jobs:
       # Structural AutoIt checks that would otherwise wait for the Windows job.
       - name: Lint AutoIt sources
         run: python tools/lint_autoit.py --all --json autoit-lint.json
+
+      - name: Validate translation keys
+        run: python tools/validate_translation_keys.py --json translation-validation.json
+
+      - name: Validate translation cache contract
+        run: python tools/check_translation_cache.py
 
       - name: Validate sourced game catalogs
         run: python tools/validate_game_catalog.py --json game-catalog-validation.json
@@ -60,6 +70,9 @@ jobs:
 
       - name: Validate run-planner metadata
         run: python tools/validate_ui_metadata.py --json ui-metadata-validation.json
+
+      - name: Check Town Hall preset contract
+        run: python tools/check_town_hall_presets.py
 
       # Replays the GUI's own layout arithmetic: catches controls that overflow the window,
       # overlap each other, or carry text too wide for the control that holds it.
@@ -96,6 +109,7 @@ jobs:
           name: validation-${{ github.run_id }}
           path: |
             autoit-lint.json
+            translation-validation.json
             game-catalog-validation.json
             current-game-verification.json
             current-client-verification.json

@@ -84,9 +84,11 @@ $testScripts = @(
 Push-Location $repositoryRoot
 try {
     $entryPoints = @(
+        "My Bot 2.0.au3",
         "MyBot.run.au3",
         "MyBot.run.MiniGui.au3",
         "MyBot.run.Watchdog.au3",
+        "MyBot.run.Wmi.au3",
         "MyBot.run.EngineProbe.au3"
     ) + $testScripts
 

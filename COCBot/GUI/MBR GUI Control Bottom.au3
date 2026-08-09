@@ -16,15 +16,19 @@
 
 Global $g_aFrmBotBottomCtrlState, $g_hFrmBotEmbeddedShield = 0, $g_hFrmBotEmbeddedMouse = 0, $g_hFrmBotEmbeddedGraphics = 0
 
-Func Initiate()
+Func Initiate(ByRef $sStartError)
+	$sStartError = ""
 	WinGetAndroidHandle()
 	If $g_hAndroidWindow <> 0 And ($g_bAndroidBackgroundLaunched = True Or AndroidControlAvailable()) Then
-		SetLogCentered(" " & $g_sBotTitle & " Powered by MyBot.run ", "~", $COLOR_DEBUG)
+		SetLogCentered(" " & $g_sProductName & " " & $g_sProductVersion & " | Upstream engine: MyBot.run " & $g_sEngineVersion & " ", "~", $COLOR_DEBUG)
 
 		Local $Compiled = @ScriptName & (@Compiled ? " Executable" : " Script")
 		SetLog($Compiled & " running on " & @OSVersion & " " & @OSServicePack & " " & @OSArch)
 
-		If _Sleep($DELAYRESPOND) Then Return
+		If _Sleep($DELAYRESPOND) Then
+			$sStartError = "Start cancelled"
+			Return False
+		EndIf
 		If StringInStr(@OSVersion, "WIN_11", $STR_NOCASESENSEBASIC) Or _
 				StringInStr(@OSVersion, "WIN_2019", $STR_NOCASESENSEBASIC) Or _
 				StringInStr(@OSVersion, "WIN_2022", $STR_NOCASESENSEBASIC) Then
@@ -35,12 +39,6 @@ Func Initiate()
 		Local $sGameVersion = GetCoCAppVersion()
 		If Not @error Then SetLog(">>  CoC Game App Version = " & $sGameVersion, $COLOR_DEBUG)
 
-		If Not $g_bSearchMode Then
-			SetLogCentered(" Bot Start ", Default, $COLOR_SUCCESS)
-		Else
-			SetLogCentered(" Search Mode Start ", Default, $COLOR_SUCCESS)
-		EndIf
-		SetLogCentered("  Current Profile: " & $g_sProfileCurrentName & " ", "-", $COLOR_INFO)
 		If $g_bDebugSetLog Or $g_bDebugOcr Or $g_bDebugRedArea Or $g_bDevMode Or $g_bDebugImageSave Or $g_bDebugBuildingPos Or $g_bDebugOCRdonate Or $g_bDebugAttackCSV Or $g_bDebugAndroid Then
 			SetLogCentered(" Warning Debug Mode Enabled! ", "-", $COLOR_ERROR)
 			SetLog("      SetLog : " & $g_bDebugSetLog, $COLOR_ERROR, "Lucida Console", 8)
@@ -64,12 +62,32 @@ Func Initiate()
 
 ;~ 		If $g_bNotifyDeleteAllPushesOnStart Then _DeletePush()
 
-		If Not $g_bSearchMode Then
-			$g_hTimerSinceStarted = __TimerInit()
+		AndroidShield("Initiate", True)
+		If Not checkMainScreen() Then
+			$sStartError = "Clash of Clans main screen could not be detected"
+			Return False
+		EndIf
+		$g_bMainWindowOk = True
+		If Not $g_bRunState Then
+			$sStartError = "Start cancelled"
+			Return False
 		EndIf
 
-		AndroidBotStartEvent() ; signal android that bot is now running
-		If Not $g_bRunState Then Return
+		AndroidBotStartEvent() ; signal android only after the CoC main screen is ready
+		If Not $g_bRunState Then
+			$sStartError = "Start cancelled during Android initialization"
+			Return False
+		EndIf
+		If Not RunExecutionBegin($sStartError) Then Return False
+		RunControlReportStartOutcome(True, RunExecutionMessage())
+
+		If Not $g_bSearchMode Then
+			SetLogCentered(" Bot Start ", Default, $COLOR_SUCCESS)
+			$g_hTimerSinceStarted = __TimerInit()
+		Else
+			SetLogCentered(" Search Mode Start ", Default, $COLOR_SUCCESS)
+		EndIf
+		SetLogCentered("  Current Profile: " & $g_sProfileCurrentName & " ", "-", $COLOR_INFO)
 
 		If Not $g_bSearchMode Then
 			If $g_bRestarted Then
@@ -78,28 +96,25 @@ Func Initiate()
 				PushMsg("Restarted")
 			EndIf
 		EndIf
-		If Not $g_bRunState Then Return
-
-		AndroidShield("Initiate", True)
-		checkMainScreen()
-		If Not $g_bRunState Then Return
+		If Not $g_bRunState Then Return True
 
 		ZoomOut()
-		If Not $g_bRunState Then Return
+		If Not $g_bRunState Then Return True
 
 		If Not $g_bSearchMode Then
 			BotDetectFirstTime()
-			If Not $g_bRunState Then Return
+			If Not $g_bRunState Then Return True
 
 			If $g_bCheckGameLanguage Then TestLanguage()
-			If Not $g_bRunState Then Return
+			If Not $g_bRunState Then Return True
 
 			runBot()
 		EndIf
+		Return True
 	Else
 		SetLog("Not in Game!", $COLOR_ERROR)
-		;		$g_bRunState = True
-		btnStop()
+		$sStartError = "Android window or control channel is unavailable"
+		Return False
 	EndIf
 EndFunc   ;==>Initiate
 
@@ -155,6 +170,13 @@ Func chkBackground()
 EndFunc   ;==>chkBackground
 
 Func UpdateChkBackground()
+	; The supported Mini/controller architecture runs this backend with /ng. There is no native
+	; checkbox in that process, so GUICtrlRead(0) must not erase the profile's Background setting.
+	; Preserve the loaded value; InitAndroidConfig can then select its verified ADB screencap path.
+	If $g_iGuiMode = 0 Or $g_hChkBackgroundMode <= 0 Then
+		SetDebugLog("Background mode UI sync skipped for remote GUI; preserving profile value")
+		Return
+	EndIf
 	If GUICtrlRead($g_hChkBackgroundMode) = $GUI_CHECKED Then
 		$g_bChkBackgroundMode = True
 		updateBtnHideState($GUI_ENABLE)
@@ -168,6 +190,11 @@ Func UpdateChkBackground()
 EndFunc   ;==>UpdateChkBackground
 
 Func btnStart()
+	Local $bStartInProgress = IsDeclared("g_bRunControlStartInProgress") And Eval("g_bRunControlStartInProgress")
+	If $bStartInProgress Or $g_iBotAction = $eBotStart Then
+		SetDebugLog("Start request ignored because startup is already in progress")
+		Return
+	EndIf
 	; decide when to run
 	EnableControls($g_hFrmBotBottom, False, $g_aFrmBotBottomCtrlState)
 	Local $bRunNow = $g_iBotAction <> $eBotNoAction

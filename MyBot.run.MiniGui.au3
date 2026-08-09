@@ -19,14 +19,20 @@
 #Au3Stripper_Parameters=/rsln /MI=3
 ;/SV=0
 ;#pragma compile(Console, true)
+#pragma compile(FileDescription, My Bot 2.0 Mini Console)
+#pragma compile(ProductVersion, 2.0.0)
+#pragma compile(FileVersion, 2.0.0)
+#pragma compile(LegalCopyright, My Bot 2.0 contributors - based on MyBot.run)
 #include "MyBot.run.version.au3"
 #pragma compile(ProductName, My Bot 2.0 Mini Console)
-#pragma compile(Out, MyBot.run.MiniGui.exe) ; Required
+; The shipped MyBot.run.MiniGui.exe is the exact pinned upstream v8.2 controller required by the
+; inherited image engine. Local experiments must not overwrite that provenance-locked artifact.
+#pragma compile(Out, MyBot.run.MiniGui.dev.exe)
 
 ; Enforce variable declarations
 Opt("MustDeclareVars", 1)
 
-Global $g_sBotTitle = "" ;~ Don't assign any title here, use Func UpdateBotTitle()
+Global $g_sBotTitle = $g_sProductName & " Mini " & $g_sProductVersion
 Global $g_hFrmBot = 0 ; The main GUI window
 
 #include <APIErrorsConstants.au3>
@@ -75,8 +81,6 @@ Global $hTimeoutAutoClose = 0 ; Timer Handle for $iTimeoutAutoClose
 Global $g_iMainLoopSleep = 50 ;
 ;Global $g_bBotLaunchOption_NoBotSlot = True
 
-Global $g_sBotTitle = $g_sProductName & " Mini " & $g_sProductVersion & " " ;~ Don't use any non file name supported characters like \ / : * ? " < > |
-Global $g_hFrmBot = 0
 Global $g_hFrmBotBackend = 0
 Global $g_bBotLaunched = False
 Global $g_iBotBackendFindTimeout = 3000
@@ -130,8 +134,15 @@ Func _SleepMicro($iMicroSec)
 	;$hStruct_SleepMicro = 0
 EndFunc   ;==>_SleepMicro
 
-Func UpdateBotTitle($sTitle = "My Bot " & $g_sBotVersion)
-	$sTitle = StringReplace($sTitle, "My Bot", "My Bot Mini")
+Func UpdateBotTitle($sTitle = $g_sProductName & " " & $g_sProductVersion)
+	Local $sMiniPrefix = $g_sProductName & " Mini"
+	If StringLeft($sTitle, StringLen($sMiniPrefix)) <> $sMiniPrefix Then
+		If StringLeft($sTitle, StringLen($g_sProductName)) = $g_sProductName Then
+			$sTitle = $sMiniPrefix & StringTrimLeft($sTitle, StringLen($g_sProductName))
+		Else
+			$sTitle = $sMiniPrefix & " " & $g_sProductVersion
+		EndIf
+	EndIf
 	If $g_sBotTitle = $sTitle Then Return
 	$g_sBotTitle = $sTitle
 	If $g_hFrmBot <> 0 Then

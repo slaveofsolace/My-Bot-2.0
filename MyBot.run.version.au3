@@ -13,10 +13,12 @@
 ; AutoIt version pragmas
 #Au3Stripper_Off
 #pragma compile(Icon, "Images\MyBot.ico")
-#pragma compile(FileDescription, My Bot 2.0 - Local Clash of Clans automation control center)
-#pragma compile(ProductVersion, 2.0.0)
-#pragma compile(FileVersion, 2.0.0)
-#pragma compile(LegalCopyright, My Bot 2.0 contributors; based on MyBot.run)
+; MyBot.run.dll validates these native-host resources before enabling image recognition.
+; Product branding remains separate below and in the native/browser window titles.
+#pragma compile(FileDescription, Clash of Clans Bot - A Free Clash of Clans bot - https://mybot.run)
+#pragma compile(ProductVersion, 8.2.0)
+#pragma compile(FileVersion, 8.2.0)
+#pragma compile(LegalCopyright, © https://mybot.run)
 #Au3Stripper_On
 
 Global Const $g_sProductName = "My Bot 2.0"

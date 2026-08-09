@@ -7,15 +7,24 @@ drift from the catalog it is meant to describe. Run this after changing a catalo
 
 from __future__ import annotations
 
+import argparse
 import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "config/ui/run-planner.settings.json"
+PACING_SECTION = ROOT / "config/ui/run-planner.pacing.json"
+PRESETS_SOURCE = ROOT / "config/ui/run-planner.presets.json"
+ATTACK_SCRIPTS = ROOT / "CSV/Attack"
+HIDDEN_SCRIPT_TOKENS = ("human-like",)
 
 
 def load(name: str) -> dict:
     return json.loads((ROOT / "config/game" / name).read_text(encoding="utf-8-sig"))
+
+
+def load_document(path: Path) -> dict:
+    return json.loads(path.read_text(encoding="utf-8-sig"))
 
 
 SURFACE_PROSE = {
@@ -144,9 +153,71 @@ def build_hero_options(heroes: dict) -> list[dict]:
     return options
 
 
+def build_attack_script_options() -> list[dict]:
+    options = [option(
+        value="profile-current",
+        label="Use profile selection",
+        summary="Keeps the script already selected in the active profile.",
+        description=(
+            "Does not replace the active profile's script for this run. Use this with Standard deployment, or when "
+            "the profile already names the exact CSV deployment you want."
+        ),
+        availability="available",
+        capability_ids=[],
+        prerequisites=[],
+        recommended=True,
+    )]
+    for path in sorted(ATTACK_SCRIPTS.glob("*.csv"), key=lambda item: item.stem.casefold()):
+        # One inherited filename makes a prohibited behaviour claim. The file remains available to the
+        # compatibility host, but the modern planner does not repeat or endorse that wording.
+        if any(token in path.stem.casefold() for token in HIDDEN_SCRIPT_TOKENS):
+            continue
+        options.append(option(
+            value=path.stem,
+            label=path.stem,
+            summary="Selects this exact bundled CSV for the current run only.",
+            description=(
+                f"Loads CSV/Attack/{path.name} as a one-run deployment override. The file's presence proves engine "
+                "compatibility, not that its army is suitable for every Town Hall or current game layout."
+            ),
+            availability="available",
+            capability_ids=[],
+            prerequisites=["The active profile army matches the script"],
+        ))
+    return options
+
+
+def build_presets(source: dict) -> dict:
+    common = source.get("common_values", {})
+    items = []
+    for preset in source.get("presets", []):
+        values = dict(common)
+        values.update(preset.get("values", {}))
+        items.append({
+            "id": preset["id"],
+            "town_hall": preset["town_hall"],
+            "label": preset["label"],
+            "summary": preset["summary"],
+            "description": preset["description"],
+            "compatibility": preset["compatibility"],
+            "source_note": preset["source_note"],
+            "values": values,
+        })
+    return {
+        "title": source["title"],
+        "description": source["description"],
+        "preserved_settings": list(source.get("preserved_settings", [])),
+        "items": items,
+    }
+
+
 def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--check", action="store_true", help="fail if the generated metadata would change")
+    args = parser.parse_args()
     surfaces = load("battle-surfaces.json")
     heroes = load("heroes.json")
+    presets = build_presets(load_document(PRESETS_SOURCE))
 
     settings = {
         "schema_version": 1,
@@ -156,6 +227,7 @@ def main() -> int:
             "Describes one run: where it attacks, when it stops, and what it does in between. Every control says "
             "whether the bot has actually been shown working."
         ),
+        "presets": presets,
         "sections": [
             {
                 "id": "destination",
@@ -222,6 +294,21 @@ def main() -> int:
                                    disabled_reason="Not implemented for the current Builder Base layout."),
                         ],
                     },
+                    {
+                        "id": "run.attack_script",
+                        "type": "select",
+                        "label": "Attack script",
+                        "summary": "The exact bundled CSV deployment used for this run.",
+                        "description": (
+                            "A named script overrides both dead-base and live-base CSV selection in memory for one "
+                            "run, then the saved profile selection is restored. Choosing a file never changes the "
+                            "profile and never starts the bot."
+                        ),
+                        "default": "profile-current",
+                        "required": True,
+                        "engine_binding": "RunPlan.attack_script",
+                        "options": build_attack_script_options(),
+                    },
                 ],
             },
             {
@@ -247,6 +334,7 @@ def main() -> int:
                         "required": False,
                         "engine_binding": "HeroLoadout.hero_ids",
                         "options": build_hero_options(heroes),
+                        "max_selected": heroes["max_active_slots"],
                     },
                 ],
             },
@@ -974,9 +1062,26 @@ def main() -> int:
         ],
     }
 
-    OUT.write_text(json.dumps(settings, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    settings["sections"].append(json.loads(PACING_SECTION.read_text(encoding="utf-8-sig")))
+    settings["sections"].sort(key=lambda section: section["order"])
+    payload = json.dumps(settings, indent=2, ensure_ascii=False) + "\n"
     total = sum(len(section["settings"]) for section in settings["sections"])
-    print(f"Wrote {OUT.relative_to(ROOT)} with {len(settings['sections'])} sections and {total} settings")
+    preset_total = len(settings["presets"]["items"])
+    if args.check:
+        current = OUT.read_text(encoding="utf-8-sig") if OUT.exists() else ""
+        if current != payload:
+            print(f"{OUT.relative_to(ROOT)} is out of date; run {Path(__file__).name}")
+            return 1
+        print(
+            f"{OUT.relative_to(ROOT)} is up to date "
+            f"({len(settings['sections'])} sections, {total} settings, {preset_total} presets)"
+        )
+        return 0
+    OUT.write_text(payload, encoding="utf-8")
+    print(
+        f"Wrote {OUT.relative_to(ROOT)} with {len(settings['sections'])} sections, "
+        f"{total} settings and {preset_total} presets"
+    )
     return 0
 
 

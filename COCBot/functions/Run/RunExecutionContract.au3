@@ -28,6 +28,11 @@ Func RunExecutionContractValidate(ByRef $oIntent, ByRef $sError)
 		$sError = "Attack strategy " & $sStrategy & " has no exact legacy-engine adapter"
 		Return SetError(4, 0, False)
 	EndIf
+	Local $sAttackScript = StringStripWS(String($oPlan.Item("attack_script")), $STR_STRIPLEADING + $STR_STRIPTRAILING)
+	If $sStrategy <> "legacy.csv" And StringLower($sAttackScript) <> "profile-current" Then
+		$sError = "A named CSV attack script requires the Scripted strategy"
+		Return SetError(4, 1, False)
+	EndIf
 
 	If StringLower(StringStripWS(String($oPlan.Item("army_source")), $STR_STRIPALL)) <> "recipe" Or _
 			StringStripWS(String($oPlan.Item("army_recipe_name")), $STR_STRIPALL) <> "" Then

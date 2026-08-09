@@ -16,9 +16,11 @@ Merge note (cloud base + Windows hardening):
 from __future__ import annotations
 
 import argparse
+import hashlib
 import http.client
 import json
 import os
+import re
 import tempfile
 import threading
 import uuid
@@ -30,11 +32,20 @@ from unittest import mock
 from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
+SERVICE_NAME = "my-bot-control-center"
+BRIDGE_PROTOCOL = "autoit-control-file-v1"
+HEALTH_PROTOCOL = "my-bot-control-center-health-v2"
+SERVICE_REPO_ROOT = str(ROOT.resolve())
+# Capture the loaded service build once. If this file is replaced while an older process is still
+# listening, its health response keeps the old digest and the native client refuses to reuse it.
+SERVICE_BUILD_SHA256 = hashlib.sha256(Path(__file__).resolve().read_bytes()).hexdigest()
+SERVICE_OWNER_TOKEN = ""
 METADATA = ROOT / "config/ui/run-planner.settings.json"
 CAPABILITIES = ROOT / "config/current-client-capabilities.json"
 UI_HTML = ROOT / "ui/planner.html"
 UI_CSS = ROOT / "ui/planner.css"
 UI_JS = ROOT / "ui/planner.js"
+UI_FAVICON = ROOT / "ui/favicon.svg"
 
 PLAN_PATH = ROOT / "config/run-plan.local.json"
 EVENTS_PATH = ROOT / "logs/run-events.jsonl"
@@ -47,6 +58,18 @@ CONTROL_STATUS_MAX_AGE_SECONDS = 4.0
 CONTROL_ACTIONS = {"start", "stop", "pause", "resume"}
 CONTROL_LOCK = threading.Lock()
 LOCAL_HOSTS = {"127.0.0.1", "localhost"}
+DIAGNOSTIC_ARTIFACTS = {
+    "native_app": ROOT / "MyBot.run.exe",
+    "engine_probe": ROOT / "MyBot.run.EngineProbe.exe",
+    "managed_engine": ROOT / "lib/MyBot.run.dll",
+}
+DIAGNOSTIC_ENGINE_FIELDS = {
+    "connected", "state", "authorization_ready", "engine_available", "engine_probe_state", "product_name",
+    "product_version", "engine_version", "plan_active", "plan_message", "session_id",
+    "emulator", "emulator_attached", "window_attached", "adb_ready", "game_ready", "bot_pid", "last_command", "last_outcome", "last_command_message",
+    "message", "last_seen_at", "age_seconds",
+}
+DIAGNOSTIC_EVENT_FIELDS = {"timestamp_ms", "type", "severity", "message", "surface_id", "verification_state"}
 
 
 def read_json(path: Path, default):
@@ -271,7 +294,12 @@ def control_status() -> dict:
     """
     offline = {
         "connected": False,
+        "authorization_ready": False,
         "engine_available": False,
+        "emulator_attached": False,
+        "window_attached": False,
+        "adb_ready": False,
+        "game_ready": False,
         "state": "offline",
         "message": "Native engine is not connected",
         "last_seen_at": None,
@@ -335,12 +363,103 @@ def health_payload() -> dict:
     settings = [setting for section in metadata.get("sections", []) for setting in section.get("settings", [])]
     return {
         "ok": True,
-        "service": "my-bot-control-center",
-        "bridge": "autoit-control-file-v1",
+        "service": SERVICE_NAME,
+        "bridge": BRIDGE_PROTOCOL,
+        "protocol": HEALTH_PROTOCOL,
+        "repo_root": SERVICE_REPO_ROOT,
+        "build_sha256": SERVICE_BUILD_SHA256,
+        "service_pid": os.getpid(),
+        "owner_token": SERVICE_OWNER_TOKEN,
         "sections": len(metadata.get("sections", [])),
         "settings": len(settings),
         "plan": plan_status(),
         "engine": control_status(),
+    }
+
+
+def redact_diagnostic_text(value, limit: int = 800):
+    """Keep useful operator text while removing common credential and user-path shapes."""
+    if not isinstance(value, str):
+        return value
+    text = value[:limit]
+    text = re.sub(r"(?i)\b(bearer)\s+\S+", r"\1 [redacted]", text)
+    text = re.sub(
+        r"(?i)\b(password|passwd|token|secret|api[_-]?key|authorization)\b\s*[:=]\s*[^\s,;]+",
+        r"\1=[redacted]",
+        text,
+    )
+    text = re.sub(r"(?i)\bC:\\Users\\[^\\\s]+", lambda _: r"C:\Users\[user]", text)
+    return text
+
+
+def diagnostic_artifact(path: Path) -> dict:
+    result = {"path": displayed_path(path), "exists": False, "size_bytes": None, "sha256": None}
+    try:
+        digest = hashlib.sha256()
+        with path.open("rb") as stream:
+            for block in iter(lambda: stream.read(1024 * 1024), b""):
+                digest.update(block)
+        result.update(exists=True, size_bytes=path.stat().st_size, sha256=digest.hexdigest())
+    except OSError:
+        pass
+    return result
+
+
+def diagnostics_payload() -> dict:
+    """Build a bounded, allowlisted support bundle without collecting secrets or game data."""
+    metadata = metadata_document()
+    known_settings = set(settings_index())
+    raw_plan = read_json(PLAN_PATH, None) if PLAN_PATH.exists() else None
+    plan_validation = {
+        "readable": isinstance(raw_plan, dict),
+        "exact_setting_set": False,
+        "adjustment_count": 0,
+        "rejected_setting_count": 0,
+        "valid": False,
+    }
+    if isinstance(raw_plan, dict):
+        _, adjustments, rejected = validate_plan(raw_plan)
+        exact = set(raw_plan) == known_settings
+        plan_validation.update(
+            exact_setting_set=exact,
+            adjustment_count=len(adjustments),
+            rejected_setting_count=len(rejected),
+            valid=exact and not adjustments and not rejected,
+        )
+
+    engine = {
+        key: redact_diagnostic_text(value)
+        for key, value in control_status().items()
+        if key in DIAGNOSTIC_ENGINE_FIELDS
+    }
+    events = []
+    for event in tail_events(50):
+        events.append({
+            key: redact_diagnostic_text(value)
+            for key, value in event.items()
+            if key in DIAGNOSTIC_EVENT_FIELDS
+        })
+
+    return {
+        "schema_version": 1,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "privacy": "Allowlisted operational state only; no credentials, plan values, screenshots, or game data.",
+        "service": SERVICE_NAME,
+        "bridge": BRIDGE_PROTOCOL,
+        "planner": {
+            "title": metadata.get("title", "Run Planner"),
+            "section_count": len(metadata.get("sections", [])),
+            "setting_count": len(known_settings),
+            "plan": plan_status(),
+            "saved_plan_validation": plan_validation,
+        },
+        "engine": engine,
+        "recent_events": events,
+        "artifacts": {name: diagnostic_artifact(path) for name, path in DIAGNOSTIC_ARTIFACTS.items()},
+        "host_diagnostics": {
+            "collected": False,
+            "note": "Windows Security and system event logs are not queried by the Control Center.",
+        },
     }
 
 
@@ -368,7 +487,7 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass
 
-    def _send(self, code: int, body: bytes, content_type: str):
+    def _send(self, code: int, body: bytes, content_type: str, extra_headers: dict | None = None):
         self.send_response(code)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
@@ -377,6 +496,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-Frame-Options", "DENY")
+        for name, value in (extra_headers or {}).items():
+            self.send_header(name, value)
         self.end_headers()
         self.wfile.write(body)
 
@@ -397,6 +518,7 @@ class Handler(BaseHTTPRequestHandler):
             "/index.html": (UI_HTML, "text/html; charset=utf-8"),
             "/planner.css": (UI_CSS, "text/css; charset=utf-8"),
             "/planner.js": (UI_JS, "text/javascript; charset=utf-8"),
+            "/favicon.svg": (UI_FAVICON, "image/svg+xml"),
         }
         if self.path in assets:
             path, content_type = assets[self.path]
@@ -414,6 +536,12 @@ class Handler(BaseHTTPRequestHandler):
             self._json({"events": tail_events()})
         elif self.path == "/api/control/status":
             self._json(control_status())
+        elif self.path == "/api/diagnostics":
+            body = json.dumps(diagnostics_payload(), indent=2).encode("utf-8")
+            stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+            self._send(200, body, "application/json; charset=utf-8", {
+                "Content-Disposition": f'attachment; filename="my-bot-diagnostics-{stamp}.json"'
+            })
         else:
             self._send(404, b"not found", "text/plain; charset=utf-8")
 
@@ -491,6 +619,26 @@ def selftest() -> int:
     setting_ids = set(settings_index())
     check(set(plan) == setting_ids, "default plan covers every setting exactly")
     check(isinstance(plan["run.heroes"], list), "multi-select defaults use a stable list shape")
+    check(plan.get("run.attack_script") == "profile-current", "the default preserves the active profile script")
+
+    preset_contract = metadata_document().get("presets", {})
+    presets = preset_contract.get("items", [])
+    check([preset.get("town_hall") for preset in presets] == list(range(2, 19)), "Town Hall presets cover TH2 through TH18 in order")
+    preserved = set(preset_contract.get("preserved_settings", []))
+    check(
+        preserved == {"runtime.emulator", "runtime.instance", "run.diagnostic_mode", "run.diagnostic_note"},
+        "presets preserve machine selection and diagnostic acknowledgement",
+    )
+    for preset in presets:
+        values = preset.get("values", {})
+        candidate = dict(plan)
+        candidate.update(values)
+        clean_preset, adjusted_preset, rejected_preset = validate_plan(candidate)
+        check(
+            not adjusted_preset and not rejected_preset and clean_preset == candidate,
+            f"{preset.get('id', 'unknown')} is already normalized",
+        )
+        check(not (set(values) & preserved), f"{preset.get('id', 'unknown')} does not overwrite preserved settings")
 
     clean, adjustments, rejected = validate_plan({"run.max_failures": 9999})
     check(clean["run.max_failures"] == 100 and any("clamped" in item for item in adjustments), "integer maximum is enforced")
@@ -528,14 +676,28 @@ def selftest() -> int:
         check(read_json(target, {}) == {"sentinel": True}, "interrupted replacement preserves the previous plan")
         check(not list(target.parent.glob(".*.tmp")), "failed writes leave no temporary plan behind")
 
-    global PLAN_PATH, EVENTS_PATH, CONTROL_COMMAND_PATH, CONTROL_STATUS_PATH
+    global PLAN_PATH, EVENTS_PATH, CONTROL_COMMAND_PATH, CONTROL_STATUS_PATH, SERVICE_OWNER_TOKEN
     original_plan, original_events = PLAN_PATH, EVENTS_PATH
     original_control_command, original_control_status = CONTROL_COMMAND_PATH, CONTROL_STATUS_PATH
+    original_service_owner_token = SERVICE_OWNER_TOKEN
     with tempfile.TemporaryDirectory() as folder:
         PLAN_PATH = Path(folder) / "plan.json"
         EVENTS_PATH = Path(folder) / "events.jsonl"
         CONTROL_COMMAND_PATH = Path(folder) / "control-command.json"
         CONTROL_STATUS_PATH = Path(folder) / "control-status.json"
+        SERVICE_OWNER_TOKEN = "selftest-owner"
+        EVENTS_PATH.write_text(
+            json.dumps({
+                "timestamp_ms": 1234,
+                "type": "session.ready",
+                "severity": "info",
+                "message": "ready",
+                "surface_id": "regular",
+                "verification_state": "verified",
+                "account_profile_id": "must-not-export",
+            }) + "\n",
+            encoding="utf-8",
+        )
 
         # A corrupt plan file must not be reported as saved, because AutoIt would refuse it.
         PLAN_PATH.write_text("{ this is not json", encoding="utf-8")
@@ -550,12 +712,46 @@ def selftest() -> int:
             connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
             connection.request("GET", "/api/health")
             response = connection.getresponse()
-            check(response.status == 200 and json.loads(response.read())["bridge"] == "autoit-control-file-v1", "health endpoint reports the native control bridge")
+            health = json.loads(response.read())
+            check(response.status == 200 and health["bridge"] == BRIDGE_PROTOCOL, "health endpoint reports the native control bridge")
+            check(health["protocol"] == HEALTH_PROTOCOL, "health endpoint reports the exact health protocol")
+            check(health["repo_root"] == str(ROOT.resolve()), "health endpoint identifies this repository root")
+            check(
+                health["build_sha256"] == hashlib.sha256(Path(__file__).resolve().read_bytes()).hexdigest(),
+                "health endpoint identifies the loaded service build",
+            )
+            check(health["service_pid"] == os.getpid(), "health endpoint reports the serving process id")
+            check(health["owner_token"] == "selftest-owner", "health endpoint carries the launch ownership token")
 
             connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
             connection.request("GET", "/api/health")
             headers = connection.getresponse().headers
-            check(headers.get("Content-Security-Policy") is not None and headers.get("X-Content-Type-Options") == "nosniff", "security headers are present")
+            check(
+                headers.get("Content-Security-Policy") is not None
+                and headers.get("X-Content-Type-Options") == "nosniff"
+                and headers.get("Cache-Control") == "no-store",
+                "security and no-cache headers are present",
+            )
+
+            connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
+            connection.request("GET", "/api/diagnostics")
+            response = connection.getresponse()
+            diagnostic = json.loads(response.read())
+            check(response.status == 200 and diagnostic["schema_version"] == 1, "diagnostic bundle is available")
+            check("attachment" in response.headers.get("Content-Disposition", ""), "diagnostic bundle downloads as a file")
+            check("run.diagnostic_mode" not in json.dumps(diagnostic), "diagnostic bundle excludes plan values and setting ids")
+            check(set(diagnostic["engine"]) <= DIAGNOSTIC_ENGINE_FIELDS, "diagnostic engine state is allowlisted")
+            check(
+                diagnostic["recent_events"] == [{
+                    "timestamp_ms": 1234,
+                    "type": "session.ready",
+                    "severity": "info",
+                    "message": "ready",
+                    "surface_id": "regular",
+                    "verification_state": "verified",
+                }],
+                "diagnostic events preserve the native allowlisted field names only",
+            )
 
             connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
             connection.putrequest("GET", "/api/health", skip_host=True)
@@ -610,7 +806,16 @@ def selftest() -> int:
             payload = json.loads(response.read())
             check(response.status == 409 and "timed out" in payload["problems"][0], "Start is refused when the native engine reports unavailable")
 
-            write_json_atomic({"state": "idle", "message": "Native engine is ready", "bot_pid": 123, "engine_available": True}, CONTROL_STATUS_PATH)
+            write_json_atomic({"state": "idle", "message": "Native engine is ready", "bot_pid": 123, "engine_available": True, "authorization_ready": False}, CONTROL_STATUS_PATH)
+            connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
+            connection.request("POST", "/api/control/command", body=body, headers={"Content-Type": "application/json"})
+            response = connection.getresponse()
+            payload = json.loads(response.read())
+            check(response.status == 202 and payload["ok"], "retired authorization field does not gate Start")
+            check(CONTROL_COMMAND_PATH.exists(), "compatibility-status Start is queued for the native engine")
+            CONTROL_COMMAND_PATH.unlink(missing_ok=True)
+
+            write_json_atomic({"state": "idle", "message": "Native engine is ready", "bot_pid": 123, "engine_available": True, "authorization_ready": True}, CONTROL_STATUS_PATH)
             connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
             connection.request("GET", "/api/control/status")
             response = connection.getresponse()
@@ -637,20 +842,28 @@ def selftest() -> int:
             thread.join(timeout=3)
     PLAN_PATH, EVENTS_PATH = original_plan, original_events
     CONTROL_COMMAND_PATH, CONTROL_STATUS_PATH = original_control_command, original_control_status
+    SERVICE_OWNER_TOKEN = original_service_owner_token
 
     print(f"\n{'selftest passed' if not failures else str(len(failures)) + ' check(s) failed'}")
     return 1 if failures else 0
 
 
 def main() -> int:
+    global SERVICE_OWNER_TOKEN
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--no-browser", action="store_true")
+    parser.add_argument("--owner-token", default="", help=argparse.SUPPRESS)
     parser.add_argument("--selftest", action="store_true", help="check the complete local server contract")
     args = parser.parse_args()
 
     if args.selftest:
         return selftest()
+    owner_token = args.owner_token.strip()
+    if len(owner_token) > 128 or not re.fullmatch(r"[A-Za-z0-9._-]*", owner_token):
+        print("invalid owner token")
+        return 2
+    SERVICE_OWNER_TOKEN = owner_token
     if not METADATA.exists():
         print(f"missing {METADATA.relative_to(ROOT)}; run tools/generate_run_planner_settings.py first")
         return 2
@@ -664,6 +877,8 @@ def main() -> int:
     print(f"  plan file   {PLAN_PATH.relative_to(ROOT)}")
     print(f"  event feed  {EVENTS_PATH.relative_to(ROOT)}")
     print(f"  engine link {CONTROL_STATUS_PATH.relative_to(ROOT)}")
+    print(f"  service pid {os.getpid()}")
+    print(f"  build       {SERVICE_BUILD_SHA256[:16]}")
     print("  ctrl-c to stop")
     if not args.no_browser:
         try:

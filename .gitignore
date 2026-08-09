@@ -174,6 +174,9 @@ build/au3Stripper/Au3Stripper.Log
 __pycache__/
 *.py[cod]
 
+# Local validation reports
+/artifacts/
+
 # Run Planner UI runtime files (local to each machine)
 config/run-plan.local.json
 config/control-command.local.json

@@ -5,6 +5,7 @@
 ;                  RunIntent and reports what the engine says about it. This file is part of My Bot, distributed under the GNU GPL.
 ; ===============================================================================================================================
 #include-once
+#include <Crypt.au3>
 #include "MBR GUI Design Run Planner.au3"
 #include "..\functions\Run\RunIntent.au3"
 #include "..\functions\Run\RunPlanFile.au3"
@@ -20,8 +21,13 @@ Global Const $RUN_PLANNER_HEALTH_URL = "http://127.0.0.1:8765/api/health"
 ; with a healthy service running in front of it.
 Global Const $RUN_PLANNER_SERVICE_NAME = "my-bot-control-center"
 Global Const $RUN_PLANNER_BRIDGE_VERSION = "autoit-control-file-v1"
+Global Const $RUN_PLANNER_HEALTH_PROTOCOL = "my-bot-control-center-health-v2"
 Global $g_oRunPlannerIntent = 0
 Global $g_sRunPlannerHeroIds = ""
+Global $g_iRunPlannerObservedServicePid = 0
+Global $g_sRunPlannerObservedOwnerToken = ""
+Global $g_iRunPlannerOwnedServicePid = 0
+Global $g_sRunPlannerOwnedServiceToken = ""
 
 ; Change token of the plan file as of the last time it was read into the controls. Empty means never read, or no file.
 Global $g_sRunPlannerPlanFileStamp = ""
@@ -30,23 +36,61 @@ Global $g_sRunPlannerPlanFileNote = ""
 ; The payload is parsed rather than pattern-matched. Substring checks made this depend on the exact
 ; spacing json.dumps happens to emit: switching the server to compact separators, or adding an indent,
 ; would silently report a perfectly healthy service as unavailable with nothing to show why.
-Func _RunPlannerServiceHealthy()
+Func _RunPlannerNormalizeRoot($sRoot)
+	Local $sNormalized = StringLower(StringReplace(StringStripWS(String($sRoot), $STR_STRIPLEADING + $STR_STRIPTRAILING), "/", "\"))
+	While StringLen($sNormalized) > 3 And StringRight($sNormalized, 1) = "\"
+		$sNormalized = StringTrimRight($sNormalized, 1)
+	WEnd
+	Return $sNormalized
+EndFunc   ;==>_RunPlannerNormalizeRoot
+
+Func _RunPlannerScriptBuildHash()
+	Local $sScript = @ScriptDir & "\tools\planner_ui.py"
+	If Not FileExists($sScript) Then Return ""
+	Local $vHash = _Crypt_HashFile($sScript, $CALG_SHA_256)
+	If @error Or Not IsBinary($vHash) Then Return ""
+	Return StringLower(StringTrimLeft(String($vHash), 2))
+EndFunc   ;==>_RunPlannerScriptBuildHash
+
+Func _RunPlannerReadHealth(ByRef $oPayload)
+	$oPayload = 0
 	Local $bPayload = InetRead($RUN_PLANNER_HEALTH_URL, 1)
 	If @error Then Return False
 
 	Local $sPayload = BinaryToString($bPayload, 4)
 	If StringStripWS($sPayload, $STR_STRIPALL) = "" Then Return False
 
-	Local $oPayload = Json_Decode($sPayload)
-	If @error Or Not IsObj($oPayload) Then Return False
+	Local $oDecoded = Json_Decode($sPayload)
+	If @error Or Not IsObj($oDecoded) Then Return False
+	$oPayload = $oDecoded
+	Return True
+EndFunc   ;==>_RunPlannerReadHealth
+
+Func _RunPlannerServiceHealthy()
+	$g_iRunPlannerObservedServicePid = 0
+	$g_sRunPlannerObservedOwnerToken = ""
+	Local $oPayload = 0
+	If Not _RunPlannerReadHealth($oPayload) Then Return False
 
 	; A service that answers but reports itself unhealthy is not healthy, so ok has to be the boolean
 	; true rather than merely present.
 	If Json_ObjGet($oPayload, "ok") <> True Then Return False
 	If Json_ObjGet($oPayload, "service") <> $RUN_PLANNER_SERVICE_NAME Then Return False
 	If Json_ObjGet($oPayload, "bridge") <> $RUN_PLANNER_BRIDGE_VERSION Then Return False
+	If Json_ObjGet($oPayload, "protocol") <> $RUN_PLANNER_HEALTH_PROTOCOL Then Return False
+	If _RunPlannerNormalizeRoot(Json_ObjGet($oPayload, "repo_root")) <> _RunPlannerNormalizeRoot(@ScriptDir) Then Return False
+	Local $sExpectedBuild = _RunPlannerScriptBuildHash()
+	If $sExpectedBuild = "" Or StringLower(String(Json_ObjGet($oPayload, "build_sha256"))) <> $sExpectedBuild Then Return False
+	Local $iServicePid = Int(Json_ObjGet($oPayload, "service_pid"))
+	If $iServicePid <= 0 Or Not ProcessExists($iServicePid) Then Return False
+	$g_iRunPlannerObservedServicePid = $iServicePid
+	$g_sRunPlannerObservedOwnerToken = String(Json_ObjGet($oPayload, "owner_token"))
 	Return True
 EndFunc   ;==>_RunPlannerServiceHealthy
+
+Func _RunPlannerNewOwnerToken()
+	Return StringLower(Hex(@AutoItPID, 8) & "-" & Hex(Random(0, 0x7FFFFFFF, 1), 8) & "-" & @YEAR & @MON & @MDAY & @HOUR & @MIN & @SEC & @MSEC)
+EndFunc   ;==>_RunPlannerNewOwnerToken
 
 Func _RunPlannerPythonExecutable()
 	Local $aCandidates = [ _
@@ -69,18 +113,67 @@ Func _RunPlannerStartService(ByRef $sError)
 		Return False
 	EndIf
 	Local $sPython = _RunPlannerPythonExecutable()
-	Local $iPid = Run('"' & $sPython & '" "' & $sScript & '" --no-browser', @ScriptDir, @SW_HIDE)
+	Local $sOwnerToken = _RunPlannerNewOwnerToken()
+	Local $iPid = Run('"' & $sPython & '" "' & $sScript & '" --no-browser --owner-token "' & $sOwnerToken & '"', @ScriptDir, @SW_HIDE)
 	If $iPid = 0 Then
 		$sError = "Python could not start the planner service"
 		Return False
 	EndIf
 	For $i = 1 To 25
 		Sleep(200)
-		If _RunPlannerServiceHealthy() Then Return True
+		If _RunPlannerServiceHealthy() Then
+			If $g_iRunPlannerObservedServicePid = $iPid And $g_sRunPlannerObservedOwnerToken = $sOwnerToken Then
+				$g_iRunPlannerOwnedServicePid = $iPid
+				$g_sRunPlannerOwnedServiceToken = $sOwnerToken
+				Return True
+			EndIf
+			; Another exact service won the port race. The process returned by Run is ours, but it is not
+			; the serving process, so close only that launch and safely reuse the verified service.
+			If ProcessExists($iPid) Then ProcessClose($iPid)
+			Return True
+		EndIf
+		If Not ProcessExists($iPid) Then ExitLoop
 	Next
-	$sError = "Planner service did not become healthy"
+	If ProcessExists($iPid) Then ProcessClose($iPid)
+	Local $oConflict = 0
+	If _RunPlannerReadHealth($oConflict) Then
+		$sError = "Planner service belongs to a different checkout or build"
+	Else
+		$sError = "Planner service did not become healthy"
+	EndIf
 	Return False
 EndFunc   ;==>_RunPlannerStartService
+
+; This file has no application-exit hook. The owner should call this bounded helper from the native
+; shutdown path. It refuses to close a reused service or a PID whose launch token/root no longer
+; prove that this process created it.
+Func RunPlannerStopOwnedService()
+	Local $iPid = $g_iRunPlannerOwnedServicePid
+	Local $sOwnerToken = $g_sRunPlannerOwnedServiceToken
+	If $iPid <= 0 Or $sOwnerToken = "" Then Return True
+	If Not ProcessExists($iPid) Then
+		$g_iRunPlannerOwnedServicePid = 0
+		$g_sRunPlannerOwnedServiceToken = ""
+		Return True
+	EndIf
+
+	Local $oPayload = 0
+	If Not _RunPlannerReadHealth($oPayload) Then Return False
+	If Json_ObjGet($oPayload, "service") <> $RUN_PLANNER_SERVICE_NAME Then Return False
+	If _RunPlannerNormalizeRoot(Json_ObjGet($oPayload, "repo_root")) <> _RunPlannerNormalizeRoot(@ScriptDir) Then Return False
+	If Int(Json_ObjGet($oPayload, "service_pid")) <> $iPid Then Return False
+	If String(Json_ObjGet($oPayload, "owner_token")) <> $sOwnerToken Then Return False
+
+	If Not ProcessClose($iPid) Then Return False
+	For $i = 1 To 20
+		If Not ProcessExists($iPid) Then ExitLoop
+		Sleep(50)
+	Next
+	If ProcessExists($iPid) Then Return False
+	$g_iRunPlannerOwnedServicePid = 0
+	$g_sRunPlannerOwnedServiceToken = ""
+	Return True
+EndFunc   ;==>RunPlannerStopOwnedService
 
 Func _RunPlannerSetLabel($hControl, $sText, $iColor)
 	If $hControl = 0 Then Return
@@ -373,8 +466,10 @@ Func RunPlannerBuildIntent(ByRef $sError)
 
 	Local $sStrategy = RunPlannerSelectedValue("run.strategy")
 	If $sStrategy = "" Then $sStrategy = "legacy.csv"
+	Local $sAttackScript = RunPlannerSelectedValue("run.attack_script")
+	If $sAttackScript = "" Then $sAttackScript = "profile-current"
 
-	Local $oPlan = RunPlanCreateDefault($sMode, $sStrategy)
+	Local $oPlan = RunPlanCreateDefault($sMode, $sStrategy, $sAttackScript)
 	If Not IsObj($oPlan) Then
 		$sError = "Unable to create a run plan"
 		Return SetError(3, 0, 0)

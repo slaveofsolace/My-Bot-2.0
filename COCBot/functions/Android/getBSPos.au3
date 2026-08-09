@@ -39,10 +39,10 @@ Func getBSPos()
 		If Not $g_bRunState Then Return
 		If @error = 1 Then
 			_ExtMsgBoxSet(1 + 64, $SS_CENTER, 0x004080, 0xFFFF00, 12, "Comic Sans MS", 600)
-			Local $stext = @CRLF & GetTranslatedFileIni("MBR Popups", "sText_01", "MyBot has experienced a serious error") & @CRLF & @CRLF & _
-					GetTranslatedFileIni("MBR Popups", "sText_02", "Unable to find or start up ") & $g_sAndroidEmulator & @CRLF & @CRLF & GetTranslatedFileIni("MBR Popups", "sText_03", "Reboot PC and try again,") & _
+			Local $stext = @CRLF & GetTranslatedFileIni("MBR Popups", "sText_01", $g_sProductName & " has experienced a serious error") & @CRLF & @CRLF & _
+					GetTranslatedFileIni("MBR Popups", "sText_02", "Unable to find or start up") & " " & $g_sAndroidEmulator & @CRLF & @CRLF & GetTranslatedFileIni("MBR Popups", "sText_03", "Reboot PC and try again,") & _
 					GetTranslatedFileIni("MBR Popups", "sText_04", "and search www.mybot.run forums for more help") & @CRLF
-			Local $MsgBox = _ExtMsgBox(0, GetTranslatedFileIni("MBR Popups", "sText_05", "Close MyBot!"), GetTranslatedFileIni("MBR Popups", "sText_06", "Okay - Must Exit Program"), $stext, 15, $g_hFrmBot)
+			Local $MsgBox = _ExtMsgBox(0, GetTranslatedFileIni("MBR Popups", "sText_05", "Close " & $g_sProductName & "!"), GetTranslatedFileIni("MBR Popups", "sText_06", "Okay - Must Exit Program"), $stext, 15, $g_hFrmBot)
 			If $MsgBox = 1 Then
 				BotClose()
 			EndIf
@@ -79,10 +79,10 @@ Func getBSPos()
 		If Not $g_bRunState Then Return
 		If @error = 1 Then
 			_ExtMsgBoxSet(1 + 64, $SS_CENTER, 0x004080, 0xFFFF00, 12, "Comic Sans MS", 600)
-			$stext = @CRLF & GetTranslatedFileIni("MBR Popups", "sText_01", "MyBot has experienced a serious error") & @CRLF & @CRLF & _
+			$stext = @CRLF & GetTranslatedFileIni("MBR Popups", "sText_01", $g_sProductName & " has experienced a serious error") & @CRLF & @CRLF & _
 					GetTranslatedFileIni("MBR Popups", "sText_02", "Unable to find or start up") & " " & $g_sAndroidEmulator & @CRLF & @CRLF & GetTranslatedFileIni("MBR Popups", "sText_03", "Reboot PC and try again,") & _
 					GetTranslatedFileIni("MBR Popups", "sText_04", "and search www.mybot.run forums for more help") & @CRLF
-			$MsgBox = _ExtMsgBox(0, GetTranslatedFileIni("MBR Popups", "sText_05", "Close MyBot!"), GetTranslatedFileIni("MBR Popups", "sText_06", "Okay - Must Exit Program"), $stext, 15, $g_hFrmBot)
+			$MsgBox = _ExtMsgBox(0, GetTranslatedFileIni("MBR Popups", "sText_05", "Close " & $g_sProductName & "!"), GetTranslatedFileIni("MBR Popups", "sText_06", "Okay - Must Exit Program"), $stext, 15, $g_hFrmBot)
 			If $MsgBox = 1 Then
 				BotClose()
 				Return
@@ -136,6 +136,8 @@ EndFunc   ;==>getBSPos
 
 Func getAndroidPos($FastCheck = False, $RetryCount1 = 0, $RetryCount2 = 0, $bWidthFirst = Default)
 	Static $asControlSize[6][4]
+	Local $aModernAdbSurface = GetBlueStacks5ModernAdbSurfacePosition()
+	If IsArray($aModernAdbSurface) Then Return $aModernAdbSurface
 	If $g_bAndroidControlUseParentPos Then
 		; If true, control pos is used from parent control (only used to fix docking for Nox in DirectX mode)
 		Local $hCtrl = ControlGetHandle(GetCurrentAndroidHWnD(), $g_sAppPaneName, GetAndroidControlClass(True))
@@ -343,9 +345,9 @@ Func getAndroidPos($FastCheck = False, $RetryCount1 = 0, $RetryCount2 = 0, $bWid
 	If $bResizedOk Then
 		;RedrawAndroidWindow()
 		If $g_bDebugSetLog Then
-			SetDebugLog($sPre & $g_sAndroidEmulator & " window resized to work with MyBot", $COLOR_SUCCESS)
+			SetDebugLog($sPre & $g_sAndroidEmulator & " window resized to work with " & $g_sProductName, $COLOR_SUCCESS)
 		Else
-			SetLog($g_sAndroidEmulator & " window resized to work with MyBot", $COLOR_SUCCESS)
+			SetLog($g_sAndroidEmulator & " window resized to work with " & $g_sProductName, $COLOR_SUCCESS)
 		EndIf
 		#cs
 		Local $hCtrl = ControlGetHandle($g_hAndroidWindow, $g_sAppPaneName, $g_sAppClassInstance)
@@ -360,7 +362,7 @@ Func getAndroidPos($FastCheck = False, $RetryCount1 = 0, $RetryCount2 = 0, $bWid
 			;WinMove2($hCtrl, "", -1, -1, $aControlSize[2] - 1, $aControlSize[3] - 1, $HWND_BOTTOM)
 			;WinMove2($hCtrl, "", -1, -1, $aControlSize[2], $aControlSize[3], 0, 0, False)
 			;WinMove2($hCtrlTarget, "", -1, -1, $aCtrlTargetPos[2], $aCtrlTargetPos[3], 0, 0, False)
-			SetLog($sPre & $g_sAndroidEmulator & " window resized to work with MyBot", $COLOR_SUCCESS)
+			SetLog($sPre & $g_sAndroidEmulator & " window resized to work with " & $g_sProductName, $COLOR_SUCCESS)
 		Else
 			SetDebugLog($sPre & "WARNING: Cannot resize " & $g_sAndroidEmulator & " window, control is not available", $COLOR_ERROR)
 		EndIf

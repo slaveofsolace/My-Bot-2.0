@@ -17,6 +17,10 @@
 #Au3Stripper_Parameters=/rsln
 #AutoIt3Wrapper_Change2CUI=y
 ;#pragma compile(Console, true)
+#pragma compile(FileDescription, My Bot 2.0 Watchdog)
+#pragma compile(ProductVersion, 2.0.0)
+#pragma compile(FileVersion, 2.0.0)
+#pragma compile(LegalCopyright, My Bot 2.0 contributors - based on MyBot.run)
 #include "MyBot.run.version.au3"
 #pragma compile(ProductName, My Bot 2.0 Watchdog)
 #pragma compile(Out, MyBot.run.Watchdog.exe) ; Required

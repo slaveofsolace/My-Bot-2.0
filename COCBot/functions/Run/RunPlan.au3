@@ -5,13 +5,14 @@
 ; ===============================================================================================================================
 #include-once
 
-Func RunPlanCreateDefault($sMode = "home", $sStrategy = "auto")
+Func RunPlanCreateDefault($sMode = "home", $sStrategy = "auto", $sAttackScript = "profile-current")
 	Local $oPlan = ObjCreate("Scripting.Dictionary")
 	If Not IsObj($oPlan) Then Return SetError(1, 0, 0)
 	$oPlan.CompareMode = 1
 	$oPlan.Add("schema_version", 1)
 	$oPlan.Add("mode", StringLower($sMode))
 	$oPlan.Add("strategy", $sStrategy)
+	$oPlan.Add("attack_script", $sAttackScript)
 	$oPlan.Add("duration_minutes", 0)
 	$oPlan.Add("max_battles", 0)
 	$oPlan.Add("stop_on_star_bonus", False)
@@ -53,7 +54,7 @@ Func RunPlanValidate(ByRef $oPlan, ByRef $sError)
 		Return SetError(1, 0, False)
 	EndIf
 
-	Local $aRequired = ["schema_version", "mode", "strategy", "duration_minutes", "max_battles", "stop_on_star_bonus", "max_failures", "target_gold", "target_elixir", "target_dark_elixir", "upgrade_policy", "account_queue_id", _
+	Local $aRequired = ["schema_version", "mode", "strategy", "attack_script", "duration_minutes", "max_battles", "stop_on_star_bonus", "max_failures", "target_gold", "target_elixir", "target_dark_elixir", "upgrade_policy", "account_queue_id", _
 		"emulator", "emulator_instance", "army_source", "army_recipe_name", "army_wait_for_full", "army_train_spells", "army_train_sieges", "search_min_gold", "search_min_elixir", "search_min_dark", "search_max_seconds", "search_town_hall_filter", _
 		"donate_mode", "donate_keep_army", "donate_max_per_run", "donate_request_when_short", "events_clan_games", "events_clan_games_point_cap", "events_laboratory", "events_collect_resources", "notify_on_stop", "notify_on_error", "notify_channel"]
 	For $i = 0 To UBound($aRequired) - 1
@@ -73,6 +74,14 @@ Func RunPlanValidate(ByRef $oPlan, ByRef $sError)
 	If StringStripWS($oPlan.Item("strategy"), $STR_STRIPALL) = "" Then
 		$sError = "Strategy cannot be empty"
 		Return SetError(4, 0, False)
+	EndIf
+	Local $sAttackScript = StringStripWS(String($oPlan.Item("attack_script")), $STR_STRIPLEADING + $STR_STRIPTRAILING)
+	If $sAttackScript = "" Or StringLen($sAttackScript) > 80 Or StringInStr($sAttackScript, "\") Or _
+			StringInStr($sAttackScript, "/") Or StringInStr($sAttackScript, ":") Or StringInStr($sAttackScript, "*") Or _
+			StringInStr($sAttackScript, "?") Or StringInStr($sAttackScript, Chr(34)) Or StringInStr($sAttackScript, "<") Or _
+			StringInStr($sAttackScript, ">") Or StringInStr($sAttackScript, "|") Or StringInStr($sAttackScript, "..") Then
+		$sError = "Attack script must be a safe bundled filename without an extension"
+		Return SetError(4, 1, False)
 	EndIf
 
 	Local $aNonNegative = ["duration_minutes", "max_battles", "max_failures", "target_gold", "target_elixir", "target_dark_elixir", "search_min_gold", "search_min_elixir", "search_min_dark", "search_max_seconds", "donate_max_per_run", "events_clan_games_point_cap"]
@@ -189,6 +198,7 @@ Func RunPlanDescribe(ByRef $oPlan)
 	Local $sError
 	If Not RunPlanValidate($oPlan, $sError) Then Return SetError(1, 0, $sError)
 	Local $sDescription = StringUpper($oPlan.Item("mode")) & " / " & $oPlan.Item("strategy")
+	If StringLower($oPlan.Item("attack_script")) <> "profile-current" Then $sDescription &= " / " & $oPlan.Item("attack_script")
 	If Int($oPlan.Item("duration_minutes")) > 0 Then $sDescription &= " / " & Int($oPlan.Item("duration_minutes")) & " min"
 	If Int($oPlan.Item("max_battles")) > 0 Then $sDescription &= " / " & Int($oPlan.Item("max_battles")) & " battles"
 	If $oPlan.Item("stop_on_star_bonus") Then $sDescription &= " / star bonus"

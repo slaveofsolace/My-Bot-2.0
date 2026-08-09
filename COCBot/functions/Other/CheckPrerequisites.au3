@@ -149,6 +149,6 @@ EndFunc   ;==>checkAutoitVersion
 
 Func CheckIsAdmin($bSilent = False)
 	If IsAdmin() Then Return True
-	If Not $bSilent Then SetLog("My Bot running without admin privileges", $COLOR_ERROR)
+	If Not $bSilent Then SetLog($g_sProductName & " is running without admin privileges", $COLOR_ERROR)
 	Return False
 EndFunc   ;==>checkIsAdmin

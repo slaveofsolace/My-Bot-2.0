@@ -364,9 +364,9 @@ Func CheckScreenNox($bSetLog = True)
 		If $Value <> $aValues[$i][1] Then
 			If $iErrCnt = 0 Then
 				If $bSetLog Then
-					SetLog("MyBot doesn't work with " & $g_sAndroidEmulator & " screen configuration!", $COLOR_ERROR)
+					SetLog($g_sProductName & " doesn't work with " & $g_sAndroidEmulator & " screen configuration!", $COLOR_ERROR)
 				Else
-					SetDebugLog("MyBot doesn't work with " & $g_sAndroidEmulator & " screen configuration!", $COLOR_ERROR)
+					SetDebugLog($g_sProductName & " doesn't work with " & $g_sAndroidEmulator & " screen configuration!", $COLOR_ERROR)
 				EndIf
 			EndIf
 			If $bSetLog Then

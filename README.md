@@ -7,6 +7,10 @@
 My Bot 2.0 v2.0.0: a local browser control center backed by the
 MyBot.run v8.2.0 native automation engine.
 
+The GPL notice covers the source code described below. The inherited compiled ImgLoc component has
+separate, unclear or restrictive terms and is not represented here as GPL-licensed or open source;
+see [Licence](#licence).
+
 [![CI](https://github.com/slaveofsolace/My-Bot-2.0/actions/workflows/ci.yml/badge.svg)](https://github.com/slaveofsolace/My-Bot-2.0/actions/workflows/ci.yml)
 [![Windows AutoIt](https://github.com/slaveofsolace/My-Bot-2.0/actions/workflows/windows-autoit.yml/badge.svg)](https://github.com/slaveofsolace/My-Bot-2.0/actions/workflows/windows-autoit.yml)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](License.txt)
@@ -42,9 +46,11 @@ MyBot.run v8.2.0 native automation engine.
 
 ## What this is
 
-The starting point is [MyBot.run](https://github.com/MyBotRun/MyBot) v8.2.0, a long-running open
-source Clash of Clans bot written in AutoIt. It does a lot well, and it carries years of
-accumulated screen-recognition work.
+The source starting point is [MyBot.run](https://github.com/MyBotRun/MyBot) v8.2.0, a long-running
+GPL-licensed Clash of Clans bot written in AutoIt. It does a lot well, and its AutoIt source carries
+years of accumulated automation work. The inherited compiled ImgLoc component used by screen
+recognition is a separate dependency; recording its origin and hash does not establish
+redistribution rights.
 
 What it never had was a clear description of *what a run should do*. Settings are scattered across
 a dozen tabs, and the bot's idea of "attack" is whatever code path happens to get reached. This
@@ -125,6 +131,11 @@ The tab renders from a generated descriptor rather than a hand-written layout, s
 surface or changing a disabled reason is a catalog edit. CI validates the metadata against the game
 catalogs, so the planner cannot quietly drift away from the engine.
 
+The Control Center also offers TH2-TH18 compatibility presets. A preset is only a reviewed starting
+point: select it to see the exact script, Heroes, limits, and evidence note, then press **Apply
+preset** to load the visible form. It does not save or start anything. The active profile still owns
+the trained army, and the preview says when a bundled script requires that army to match.
+
 </details>
 
 ---
@@ -135,6 +146,7 @@ catalogs, so the planner cannot quietly drift away from the engine.
 |---|---|
 | Run engine — plan, intent, session, quota, loadout, events | Written, contract-tested |
 | Run Planner tab | Written, renders from generated metadata |
+| My Bot 2.0 launcher and local Control Center | Built, x86-validated |
 | Windows compile — Au3Check, both AutoIt versions | Green |
 | Game model through July 2026 | Catalogued from official sources |
 | LDPlayer 9 and MuMu Player 12 adapters | Written, **never run on real hardware** |
@@ -210,9 +222,9 @@ python tools/repo_audit.py
 python tools/lint_autoit.py --all
 ```
 
-You will see **one warning** about inherited binary artifacts — the `.exe` and `.dll` files carried
-over from upstream. That warning is deliberate: their provenance has not been established, and it
-stays visible until it is.
+The audit also verifies every shipped executable, DLL, and archive against
+[`config/binary-provenance.json`](config/binary-provenance.json). Missing records, byte-size drift,
+and SHA-256 mismatches are release-blocking errors.
 
 Anything reported as an *error* means the clone is incomplete or something is genuinely broken.
 
@@ -223,10 +235,27 @@ Anything reported as an *error* means the clone is incomplete or something is ge
 
 <br>
 
-Right-click `MyBot.run.au3` and choose **Run Script (x86)**.
+For the built application, double-click **`My Bot 2.0.exe`**. It starts the exact pinned MyBot.run
+v8.2 **`MyBot.run.MiniGui.exe`** with the required administrator permission and opens the local
+Control Center in your browser. The Mini GUI remains visible and functional as the native safety
+controller for Start, Stop, Pause and Resume. It launches the modern **`MyBot.run.exe`** backend in
+`/ng` mode with `/guipid` set to that exact Mini GUI process. The browser Control Center remains the
+primary planner while the backend performs the automation work.
+
+The launcher snaps the Mini GUI beside the selected exact BlueStacks top-level window. This is a
+side-by-side layout of two independent windows: it does not embed, reparent or rename BlueStacks.
+
+For source development, right-click `MyBot.run.au3` and choose **Run Script (x86)**.
 
 > Use the **32-bit** option. The bot refuses to start under x64 and will tell you so, but it saves
 > a confusing minute to get it right the first time.
+
+The built launcher, exact pinned `MyBot.run.MiniGui.exe`, `MyBot.run.exe`,
+`MyBot.run.exe.config`, and empty `MyBot.run.txt` compatibility marker must remain beside each
+other. The marker is required and must remain zero bytes. The Mini GUI and backend keep their
+upstream filenames and resource identities because the inherited image engine validates them; the
+configuration loads managed dependencies from `lib`. These are internal compatibility details,
+not the product name.
 
 On first launch the bot creates a profile and writes its configuration under your Windows user
 profile. Nothing is written outside that and the repository directory.
@@ -272,6 +301,15 @@ The **Run Planner** is the last tab in the main window. Thirteen focused section
 | **Resource targets** | Stop once a Gold, Elixir, or Dark Elixir total is collected |
 | **Between battles** | Supported upgrade policy and account-rotation settings |
 | **Diagnostics** | Whether unverified surfaces are allowed to run |
+
+Above those sections, the Town Hall dropdown covers TH2 through TH18 and always opens on **Custom**.
+TH6-TH15 recommendations use shipped scripts only where the script declares that Town Hall. Levels
+without a declared script use the engine's Standard deployment and retain the active profile army;
+they are compatibility fallbacks, not claims about the current attack meta. A scripted preset selects
+deployment only: it does not import the CSV training table, so the active profile army must match.
+Fallbacks preserve the visible Hero selection. Selecting a preset only updates the preview. **Apply
+preset** loads an unsaved plan, and **Apply plan** is still required to write it. Emulator selection
+and diagnostic consent are never supplied by a preset.
 
 Set what you want, press **Apply plan**, and you get one of three answers:
 
@@ -360,9 +398,11 @@ Everything in `tools/` is standard-library Python 3.11+, so it runs anywhere:
 | Command | Checks |
 |---|---|
 | `python tools/lint_autoit.py --all` | Block balance, `ByRef` misuse, parameter order, duplicate functions, undeclared globals, unresolved includes and calls |
-| `python tools/repo_audit.py` | Required files, include resolution, secret patterns, upstream pins |
+| `python tools/validate_translation_keys.py` | Conflicting translation defaults and duplicate English catalog keys |
+| `python tools/repo_audit.py` | Required files, include resolution, secret patterns, upstream pins, binary provenance and hashes |
 | `python tools/validate_game_catalog.py` | Game catalogs against their schemas |
 | `python tools/validate_ui_metadata.py` | Planner metadata against the game catalogs |
+| `python tools/check_town_hall_presets.py` | TH2-TH18 coverage, source-backed script choices, Hero gates, and explicit two-step apply |
 | `python tools/verify_current_game_model.py` | That the generated catalog is actually wired into the runtime |
 | `python tools/generate_game_catalog_autoit.py --check` | Generated catalog drift |
 | `python tools/generate_run_planner_autoit.py --check` | Generated planner drift |
@@ -374,7 +414,7 @@ and functions a build calls but never includes.
 
 It resolves each entry point's include graph the way AutoIt does — case-insensitively, skipping
 `#cs`/`#ce` regions, handling `_` line continuations — which is how it catches a module that
-compiles in one build and not another. It parses all 369 AutoIt files in the tree cleanly.
+compiles in one build and not another. It parses the complete AutoIt source tree cleanly.
 
 To change what the planner offers, edit the catalogs and regenerate:
 
@@ -382,6 +422,7 @@ To change what the planner offers, edit the catalogs and regenerate:
 python tools/generate_run_planner_settings.py
 python tools/generate_run_planner_autoit.py
 python tools/validate_ui_metadata.py
+python tools/check_town_hall_presets.py
 ```
 
 ---
@@ -444,8 +485,15 @@ upgrade data; the current Army Recipe and Cookbook structures.
 
 <br>
 
-The 17 inherited binary artifacts need provenance established and hashes recorded before any
-release is published. Reproducible compilation and a signed release manifest are not set up.
+All shipped executables, DLLs and archives are recorded in
+[`config/binary-provenance.json`](config/binary-provenance.json) with exact SHA-256 hashes, sizes,
+and either their repository-introduction commit or local AutoIt build chain. The repository audit
+fails if a publishable binary is missing from that manifest or changes without review. Reproducible
+compilation and a signed release manifest are still not set up.
+
+Integrity records are not redistribution permission. Public binary redistribution remains on hold
+for the inherited ImgLoc component until written permission is obtained from its rights holder or it
+is replaced with a clearly licensed open implementation and the replacement is revalidated.
 
 </details>
 
@@ -462,6 +510,10 @@ and import policy.
 | [xbebenk/MBR_xbebenkMod](https://github.com/xbebenk/MBR_xbebenkMod) | Recent community compatibility work, adapted change by change. |
 | [muratcandegirmenci78-lab/canmurat](https://github.com/muratcandegirmenci78-lab/canmurat) | Pinned for lineage comparison. No unique changes adopted. |
 | [clashautoloot/Clash-AutoLoot](https://github.com/clashautoloot/Clash-AutoLoot) | Behaviour reference only. |
+
+This is an independent downstream project. Listing an upstream source documents lineage and does
+not imply endorsement, sponsorship, affiliation, support, or approval by that project or its
+contributors.
 
 Two of those need explaining:
 
@@ -497,7 +549,15 @@ requests along those lines will be declined. See [`SECURITY.md`](SECURITY.md) fo
 
 ## Licence
 
-[GNU General Public License v3](License.txt), inherited from MyBot.run.
+[GNU General Public License v3](License.txt) applies to the source code derived from MyBot.run.
+
+That statement does not cover every compiled file in this repository. In particular, the inherited
+compiled ImgLoc component has no accompanying source or licence here that establishes GPL status,
+open-source status, or public redistribution rights. Treat that component as separately governed
+with unresolved or restrictive redistribution terms; do not describe the complete binary bundle as
+wholly GPL-licensed or open source. Before publicly redistributing it, obtain written permission
+from the rights holder or replace it with a clearly licensed open implementation and revalidate the
+result.
 
 The upstream project is the work of a large group of contributors over many years, and the
 recognition code in particular represents an enormous amount of accumulated effort. Credits are in

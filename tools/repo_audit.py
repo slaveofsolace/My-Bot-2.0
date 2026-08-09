@@ -8,12 +8,15 @@ GitHub Actions without installing project dependencies.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import os
 import re
+import subprocess
 import sys
 from collections import Counter
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Iterable
 
@@ -48,10 +51,16 @@ BINARY_SUFFIXES = {
     ".zip",
 }
 
+BINARY_PROVENANCE_PATH = "config/binary-provenance.json"
+
 REQUIRED_PATHS = (
     "README.md",
     "License.txt",
+    "My Bot 2.0.au3",
+    "My Bot 2.0.exe",
     "MyBot.run.au3",
+    "MyBot.run.exe.config",
+    "MyBot.run.txt",
     "MyBot.run.version.au3",
     "upstreams.lock.json",
     "CONTRIBUTING.md",
@@ -63,9 +72,17 @@ REQUIRED_PATHS = (
     "docs/development/MERGE_PLAYBOOK.md",
     "docs/ui/UI_HANDOFF.md",
     "docs/INSTALL.md",
+    BINARY_PROVENANCE_PATH,
+    "config/ui/run-planner.presets.json",
+    "tools/check_town_hall_presets.py",
+    "tools/validate_translation_keys.py",
     "ui/planner.html",
     ".github/workflows/ci.yml",
     ".github/workflows/windows-autoit.yml",
+)
+
+REQUIRED_EMPTY_PATHS = (
+    "MyBot.run.txt",
 )
 
 REQUIRED_UPSTREAM_IDS = {
@@ -76,7 +93,8 @@ REQUIRED_UPSTREAM_IDS = {
 }
 
 INCLUDE_RE = re.compile(r'^\s*#include\s+"([^"]+)"', re.IGNORECASE)
-VERSION_RE = re.compile(r'Global\s+\$g_sBotVersion\s*=\s*"([^"]+)"')
+PRODUCT_VERSION_RE = re.compile(r'Global\s+Const\s+\$g_sProductVersion\s*=\s*"([^"]+)"')
+ENGINE_VERSION_RE = re.compile(r'Global\s+Const\s+\$g_sEngineVersion\s*=\s*"([^"]+)"')
 
 SECRET_PATTERNS = (
     (
@@ -118,13 +136,41 @@ def parse_args() -> argparse.Namespace:
 
 
 def repository_files(root: Path) -> list[Path]:
-    files: list[Path] = []
-    for path in root.rglob("*"):
-        if ".git" in path.parts:
-            continue
+    """Return files that could be published, excluding ignored local state.
+
+    Git owns the repository's include/exclude rules.  Asking it for tracked and
+    untracked non-ignored paths keeps profiles, screenshots, dependency installs,
+    and temporary binaries out of both metrics and secret scanning.  Required
+    packaged artifacts are added explicitly because the inherited ``*.exe``
+    ignore rule deliberately hides locally rebuilt deliverables.
+    """
+
+    files: set[Path] = set()
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(root), "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+            check=True,
+            capture_output=True,
+        )
+        for raw_path in result.stdout.split(b"\0"):
+            if not raw_path:
+                continue
+            path = root / Path(os.fsdecode(raw_path))
+            if path.is_file():
+                files.add(path)
+    except (OSError, subprocess.CalledProcessError):
+        # Source archives have no Git metadata and normally contain only files
+        # selected for publication, so retain a bounded archive-compatible path.
+        for path in root.rglob("*"):
+            if ".git" not in path.parts and path.is_file():
+                files.add(path)
+
+    for required in REQUIRED_PATHS:
+        path = root / required
         if path.is_file():
-            files.append(path)
-    return files
+            files.add(path)
+
+    return sorted(files, key=lambda item: relative_path(root, item).casefold())
 
 
 def relative_path(root: Path, path: Path) -> str:
@@ -179,6 +225,18 @@ def check_required_paths(root: Path, findings: list[Finding]) -> None:
                     "error",
                     "required-path-missing",
                     f"Required project file is missing: {required}",
+                    required,
+                )
+            )
+
+    for required in REQUIRED_EMPTY_PATHS:
+        path = root / required
+        if path.is_file() and path.stat().st_size != 0:
+            findings.append(
+                Finding(
+                    "error",
+                    "required-empty-path-modified",
+                    f"Compatibility marker must remain empty: {required}",
                     required,
                 )
             )
@@ -299,6 +357,429 @@ def check_upstream_lock(root: Path, findings: list[Finding], metrics: dict[str, 
     metrics["upstreamSources"] = len(sources)
 
 
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _is_iso_date(value: object) -> bool:
+    if not isinstance(value, str) or re.fullmatch(r"\d{4}-\d{2}-\d{2}", value) is None:
+        return False
+    try:
+        date.fromisoformat(value)
+    except ValueError:
+        return False
+    return True
+
+
+def _git_commit_exists(root: Path, commit: str) -> bool | None:
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(root), "cat-file", "-e", f"{commit}^{{commit}}"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except OSError:
+        return None
+    return result.returncode == 0
+
+
+def _git_object_exists(root: Path, object_spec: str) -> bool | None:
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(root), "cat-file", "-e", object_spec],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except OSError:
+        return None
+    return result.returncode == 0
+
+
+def _git_is_ancestor(root: Path, ancestor: str, descendant: str) -> bool | None:
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(root), "merge-base", "--is-ancestor", ancestor, descendant],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except OSError:
+        return None
+    return result.returncode == 0
+
+
+def check_binary_provenance(
+    root: Path, files: list[Path], findings: list[Finding], metrics: dict[str, object]
+) -> None:
+    manifest_path = root / BINARY_PROVENANCE_PATH
+    if not manifest_path.is_file():
+        return
+
+    try:
+        data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        findings.append(
+            Finding(
+                "error",
+                "binary-provenance-invalid",
+                f"Binary provenance manifest cannot be parsed: {exc}",
+                BINARY_PROVENANCE_PATH,
+            )
+        )
+        return
+
+    if not isinstance(data, dict):
+        findings.append(
+            Finding(
+                "error",
+                "binary-provenance-shape",
+                "Binary provenance manifest must be a JSON object.",
+                BINARY_PROVENANCE_PATH,
+            )
+        )
+        return
+
+    if data.get("schema_version") != 1:
+        findings.append(
+            Finding(
+                "error",
+                "binary-provenance-schema",
+                "Binary provenance manifest must use schema_version 1.",
+                BINARY_PROVENANCE_PATH,
+            )
+        )
+
+    reviewed_at = data.get("reviewed_at")
+    if not _is_iso_date(reviewed_at):
+        findings.append(
+            Finding(
+                "error",
+                "binary-provenance-reviewed-date",
+                "Binary provenance manifest must have a valid reviewed_at date.",
+                BINARY_PROVENANCE_PATH,
+            )
+        )
+
+    entries = data.get("artifacts")
+    if not isinstance(entries, list):
+        findings.append(
+            Finding(
+                "error",
+                "binary-provenance-shape",
+                "Binary provenance manifest must contain an artifacts array.",
+                BINARY_PROVENANCE_PATH,
+            )
+        )
+        return
+
+    actual = {
+        relative_path(root, path)
+        for path in files
+        if path.suffix.casefold() in BINARY_SUFFIXES
+    }
+    publishable = {relative_path(root, path) for path in files}
+    declared: dict[str, int] = {}
+    valid: set[str] = set()
+    commit_checks: dict[str, bool | None] = {}
+    commit_path_checks: dict[tuple[str, str], bool | None] = {}
+    ancestry_checks: dict[tuple[str, str], bool | None] = {}
+    locked_commits: dict[str, str] = {}
+    try:
+        lock_data = json.loads((root / "upstreams.lock.json").read_text(encoding="utf-8"))
+        for source in lock_data.get("sources", []):
+            if isinstance(source, dict) and isinstance(source.get("id"), str) and isinstance(source.get("commit"), str):
+                locked_commits[source["id"]] = source["commit"]
+    except (OSError, json.JSONDecodeError, AttributeError):
+        pass
+
+    for index, entry in enumerate(entries):
+        entry_valid = True
+        if not isinstance(entry, dict):
+            findings.append(
+                Finding(
+                    "error",
+                    "binary-provenance-entry-shape",
+                    f"Binary provenance entry {index} is not an object.",
+                    BINARY_PROVENANCE_PATH,
+                )
+            )
+            continue
+
+        raw_path = entry.get("path")
+        if not isinstance(raw_path, str) or not raw_path:
+            findings.append(
+                Finding(
+                    "error",
+                    "binary-provenance-path",
+                    f"Binary provenance entry {index} has no path.",
+                    BINARY_PROVENANCE_PATH,
+                )
+            )
+            continue
+
+        candidate = Path(raw_path)
+        if candidate.is_absolute() or ".." in candidate.parts or candidate.as_posix() != raw_path:
+            findings.append(
+                Finding(
+                    "error",
+                    "binary-provenance-path",
+                    f"Binary provenance path must be a normalized repository-relative path: {raw_path}",
+                    BINARY_PROVENANCE_PATH,
+                )
+            )
+            continue
+
+        if raw_path in declared:
+            findings.append(
+                Finding(
+                    "error",
+                    "binary-provenance-duplicate",
+                    f"Binary provenance path is duplicated: {raw_path}",
+                    BINARY_PROVENANCE_PATH,
+                )
+            )
+            continue
+        declared[raw_path] = index
+
+        artifact_path = root / candidate
+        expected_hash = entry.get("sha256")
+        expected_bytes = entry.get("bytes")
+        hash_valid = isinstance(expected_hash, str) and re.fullmatch(r"[0-9a-f]{64}", expected_hash) is not None
+        if not hash_valid:
+            findings.append(
+                Finding(
+                    "error",
+                    "binary-provenance-hash-shape",
+                    f"Binary provenance entry has an invalid SHA-256: {raw_path}",
+                    BINARY_PROVENANCE_PATH,
+                )
+            )
+            entry_valid = False
+        if not isinstance(expected_bytes, int) or isinstance(expected_bytes, bool) or expected_bytes < 0:
+            findings.append(
+                Finding(
+                    "error",
+                    "binary-provenance-size-shape",
+                    f"Binary provenance entry has an invalid byte size: {raw_path}",
+                    BINARY_PROVENANCE_PATH,
+                )
+            )
+            entry_valid = False
+
+        if not artifact_path.is_file():
+            findings.append(
+                Finding(
+                    "error",
+                    "binary-provenance-file-missing",
+                    f"Provenanced artifact is missing: {raw_path}",
+                    raw_path,
+                )
+            )
+            entry_valid = False
+        else:
+            if isinstance(expected_bytes, int) and not isinstance(expected_bytes, bool):
+                if artifact_path.stat().st_size != expected_bytes:
+                    findings.append(
+                        Finding(
+                            "error",
+                            "binary-provenance-size-mismatch",
+                            f"Provenanced artifact size changed: {raw_path}",
+                            raw_path,
+                        )
+                    )
+                    entry_valid = False
+            if hash_valid:
+                try:
+                    actual_hash = _sha256(artifact_path)
+                except OSError as exc:
+                    findings.append(
+                        Finding(
+                            "error",
+                            "binary-provenance-read-failed",
+                            f"Could not hash {raw_path}: {exc}",
+                            raw_path,
+                        )
+                    )
+                    entry_valid = False
+                else:
+                    if actual_hash != expected_hash:
+                        findings.append(
+                            Finding(
+                                "error",
+                                "binary-provenance-hash-mismatch",
+                                f"Provenanced artifact hash changed: {raw_path}",
+                                raw_path,
+                            )
+                        )
+                        entry_valid = False
+
+        provenance = entry.get("provenance")
+        if not isinstance(provenance, dict):
+            findings.append(
+                Finding(
+                    "error",
+                    "binary-provenance-origin-shape",
+                    f"Binary provenance origin is missing: {raw_path}",
+                    BINARY_PROVENANCE_PATH,
+                )
+            )
+            entry_valid = False
+        else:
+            kind = provenance.get("kind")
+            if kind == "inherited-repository":
+                source_id = provenance.get("source_id")
+                if not isinstance(source_id, str) or source_id != "mybotrun-v8":
+                    findings.append(
+                        Finding(
+                            "error",
+                            "binary-provenance-source",
+                            f"Inherited baseline artifact must use source_id mybotrun-v8: {raw_path}",
+                            BINARY_PROVENANCE_PATH,
+                        )
+                    )
+                    entry_valid = False
+                introduced_commit = provenance.get("introduced_commit")
+                commit_valid = (
+                    isinstance(introduced_commit, str)
+                    and re.fullmatch(r"[0-9a-f]{40}", introduced_commit) is not None
+                )
+                if not commit_valid:
+                    findings.append(
+                        Finding(
+                            "error",
+                            "binary-provenance-introduced-commit",
+                            f"Inherited artifact has no full introduced_commit: {raw_path}",
+                            BINARY_PROVENANCE_PATH,
+                        )
+                    )
+                    entry_valid = False
+                else:
+                    if introduced_commit not in commit_checks:
+                        commit_checks[introduced_commit] = _git_commit_exists(root, introduced_commit)
+                    if commit_checks[introduced_commit] is False:
+                        findings.append(
+                            Finding(
+                                "error",
+                                "binary-provenance-commit-missing",
+                                f"Introduced commit is not present in repository history: {raw_path}",
+                                BINARY_PROVENANCE_PATH,
+                            )
+                        )
+                        entry_valid = False
+                    path_key = (introduced_commit, raw_path)
+                    if path_key not in commit_path_checks:
+                        commit_path_checks[path_key] = _git_object_exists(root, f"{introduced_commit}:{raw_path}")
+                    if commit_path_checks[path_key] is False:
+                        findings.append(
+                            Finding(
+                                "error",
+                                "binary-provenance-path-history",
+                                f"Artifact path did not exist at its introduced commit: {raw_path}",
+                                BINARY_PROVENANCE_PATH,
+                            )
+                        )
+                        entry_valid = False
+                    locked_commit = locked_commits.get(source_id) if isinstance(source_id, str) else None
+                    if isinstance(locked_commit, str) and re.fullmatch(r"[0-9a-f]{40}", locked_commit):
+                        ancestry_key = (introduced_commit, locked_commit)
+                        if ancestry_key not in ancestry_checks:
+                            ancestry_checks[ancestry_key] = _git_is_ancestor(root, introduced_commit, locked_commit)
+                        if ancestry_checks[ancestry_key] is False:
+                            findings.append(
+                                Finding(
+                                    "error",
+                                    "binary-provenance-history",
+                                    f"Introduced commit is outside the locked upstream history: {raw_path}",
+                                    BINARY_PROVENANCE_PATH,
+                                )
+                            )
+                            entry_valid = False
+            elif kind == "local-build":
+                source = provenance.get("source")
+                source_path = Path(source) if isinstance(source, str) else None
+                expected_source = candidate.with_suffix(".au3").as_posix()
+                if (
+                    source_path is None
+                    or not source
+                    or source_path.is_absolute()
+                    or ".." in source_path.parts
+                    or source_path.as_posix() != source
+                    or source != expected_source
+                    or source not in publishable
+                    or not (root / source_path).is_file()
+                ):
+                    findings.append(
+                        Finding(
+                            "error",
+                            "binary-provenance-build-source",
+                            f"Local build source is missing: {raw_path}",
+                            BINARY_PROVENANCE_PATH,
+                        )
+                    )
+                    entry_valid = False
+                for field in ("toolchain", "tool_version", "tool_signer"):
+                    if not isinstance(provenance.get(field), str) or not provenance[field].strip():
+                        findings.append(
+                            Finding(
+                                "error",
+                                "binary-provenance-toolchain",
+                                f"Local build is missing {field}: {raw_path}",
+                                BINARY_PROVENANCE_PATH,
+                            )
+                        )
+                        entry_valid = False
+                built_at = provenance.get("built_at")
+                if not _is_iso_date(built_at):
+                    findings.append(
+                        Finding(
+                            "error",
+                            "binary-provenance-build-date",
+                            f"Local build has an invalid built_at date: {raw_path}",
+                            BINARY_PROVENANCE_PATH,
+                        )
+                    )
+                    entry_valid = False
+            else:
+                findings.append(
+                    Finding(
+                        "error",
+                        "binary-provenance-kind",
+                        f"Binary provenance kind is unsupported for {raw_path}: {kind!r}",
+                        BINARY_PROVENANCE_PATH,
+                    )
+                )
+                entry_valid = False
+
+        if entry_valid:
+            valid.add(raw_path)
+
+    missing = sorted(actual.difference(declared))
+    extra = sorted(set(declared).difference(actual))
+    if missing:
+        findings.append(
+            Finding(
+                "error",
+                "binary-provenance-missing",
+                f"Binary artifacts lack provenance: {', '.join(missing)}",
+                BINARY_PROVENANCE_PATH,
+            )
+        )
+    if extra:
+        findings.append(
+            Finding(
+                "error",
+                "binary-provenance-extra",
+                f"Provenance records do not match publishable artifacts: {', '.join(extra)}",
+                BINARY_PROVENANCE_PATH,
+            )
+        )
+
+    metrics["provenancedBinaryArtifacts"] = len(valid.intersection(actual))
+
+
 def check_autoit_includes(
     root: Path,
     files: list[Path],
@@ -375,29 +856,22 @@ def collect_metrics(
 
     binaries = [path for path in files if path.suffix.casefold() in BINARY_SUFFIXES]
     metrics["binaryArtifacts"] = len(binaries)
-    if binaries:
-        sample = ", ".join(relative_path(root, path) for path in binaries[:8])
-        suffix = "" if len(binaries) <= 8 else f", and {len(binaries) - 8} more"
-        findings.append(
-            Finding(
-                "warning",
-                "binary-artifacts-present",
-                f"Repository contains {len(binaries)} binary/archive artifacts: {sample}{suffix}. Track provenance before publishing new releases.",
-            )
-        )
 
     version_path = root / "MyBot.run.version.au3"
     version_text = read_text(version_path) if version_path.is_file() else None
     if version_text:
-        version_match = VERSION_RE.search(version_text)
-        if version_match:
-            metrics["botVersion"] = version_match.group(1)
-        else:
+        product_match = PRODUCT_VERSION_RE.search(version_text)
+        engine_match = ENGINE_VERSION_RE.search(version_text)
+        if product_match:
+            metrics["productVersion"] = product_match.group(1)
+        if engine_match:
+            metrics["engineVersion"] = engine_match.group(1)
+        if not product_match or not engine_match:
             findings.append(
                 Finding(
                     "warning",
-                    "bot-version-unreadable",
-                    "Could not read g_sBotVersion from MyBot.run.version.au3.",
+                    "version-unreadable",
+                    "Could not read the product and engine versions from MyBot.run.version.au3.",
                     "MyBot.run.version.au3",
                 )
             )
@@ -414,6 +888,7 @@ def build_report(root: Path) -> dict[str, object]:
     check_autoit_includes(root, files, path_index, findings, metrics)
     check_secrets(root, files, findings)
     collect_metrics(root, files, findings, metrics)
+    check_binary_provenance(root, files, findings, metrics)
 
     severity_order = {"error": 0, "warning": 1, "info": 2}
     findings.sort(
@@ -448,8 +923,11 @@ def print_report(report: dict[str, object]) -> None:
     print(f"  Local includes: {metrics.get('localAutoItIncludes', 0)}")
     print(f"  Missing includes: {metrics.get('missingAutoItIncludes', 0)}")
     print(f"  Binary/archive artifacts: {metrics.get('binaryArtifacts', 0)}")
-    if "botVersion" in metrics:
-        print(f"  Bot version: {metrics['botVersion']}")
+    print(f"  Provenanced binaries: {metrics.get('provenancedBinaryArtifacts', 0)}")
+    if "productVersion" in metrics:
+        print(f"  Product version: {metrics['productVersion']}")
+    if "engineVersion" in metrics:
+        print(f"  Engine version: {metrics['engineVersion']}")
     print(
         "  Findings: "
         f"{summary['errors']} error(s), {summary['warnings']} warning(s), "

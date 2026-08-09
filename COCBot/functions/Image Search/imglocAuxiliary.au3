@@ -110,6 +110,7 @@ EndFunc   ;==>RetrieveImglocProperty
 
 Func checkImglocError(ByRef $imglocvalue, $funcName, $sTileSource = "", $sImageArea = "")
 	;Return true if there is an error in imgloc return string
+	Static $bCriticalErrorReported = False
 	If IsArray($imglocvalue) Then ;despite beeing a string, AutoIt receives a array[0]
 		If $imglocvalue[0] = "0" Or $imglocvalue[0] = "" Then
 			If $g_bDebugSetLog Then SetDebugLog($funcName & " imgloc search returned no results" & ($sImageArea ? " in " & $sImageArea : "") & ($sTileSource ? " for '" & $sTileSource & "' !" : "!"), $COLOR_WARNING)
@@ -118,14 +119,16 @@ Func checkImglocError(ByRef $imglocvalue, $funcName, $sTileSource = "", $sImageA
 			If $g_bDebugSetLog Then SetDebugLog($funcName & " - Imgloc DLL Error: " & $imglocvalue[0], $COLOR_ERROR)
 			Return True
 		ElseIf StringLeft($imglocvalue[0], 2) = "-2" Then ;critical error
-			SetLog($funcName & " - Imgloc DLL Critical Error", $COLOR_RED)
-			SetLog(StringMid($imglocvalue[0], 4), $COLOR_RED)
-			;BotStop() ; stop bot on critical errors
-			; Restart Bot on critical errors
-			SetLog("Restart bot in 3 Minutes...", $COLOR_GREEN)
-			If _SleepStatus(180000) = False Then
-				RestartBot(False, True)
+			Local $sCriticalMessage = StringStripWS(StringMid($imglocvalue[0], 4), $STR_STRIPLEADING + $STR_STRIPTRAILING)
+			If $sCriticalMessage = "" Then $sCriticalMessage = "The image-location engine reported an unspecified critical error"
+			If Not $bCriticalErrorReported Then
+				SetLog($funcName & " - Imgloc DLL Critical Error", $COLOR_RED)
+				SetLog($sCriticalMessage, $COLOR_RED)
+				SetLog("Bot stopped. Resolve the image engine error before starting again.", $COLOR_RED)
+				MBRFuncMarkUnavailable($sCriticalMessage)
+				$bCriticalErrorReported = True
 			EndIf
+			btnStop()
 			Return True
 		Else
 			Return False

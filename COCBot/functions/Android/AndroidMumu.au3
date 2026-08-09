@@ -230,7 +230,7 @@ EndFunc   ;==>CloseMumu
 Func CloseUnsupportedMumu()
 	Local $aPos = ControlGetPos($g_sAndroidTitle, "", "")
 	If IsArray($aPos) Then
-		SetLog("Let My Bot configure and start the selected MuMu instance", $COLOR_INFO)
+		SetLog("Let " & $g_sProductName & " configure and start the selected MuMu instance", $COLOR_INFO)
 		RebootMumuSetScreen(False)
 		Return True
 	EndIf
