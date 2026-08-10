@@ -43,6 +43,9 @@ jobs:
       - name: Check tooling syntax
         run: python -m compileall -q tools
 
+      - name: Test runtime evidence trust contract
+        run: python -m unittest discover -s tests/python -p "test_*.py" -v
+
       # Structural AutoIt checks that would otherwise wait for the Windows job.
       - name: Lint AutoIt sources
         run: python tools/lint_autoit.py --all --json autoit-lint.json

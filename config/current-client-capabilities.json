@@ -14,6 +14,156 @@
     "fixture-required": "Recognition cannot be claimed until dated, approved screenshots are available.",
     "supported": "Automated fixtures and controlled runtime evidence both pass and the promotion was reviewed."
   },
+  "runtime_evidence_policy": {
+    "max_age_days": 30,
+    "clock_skew_minutes": 5,
+    "required_environment_fields": ["os", "os_version", "autoit_version", "emulator", "emulator_version", "game_version"],
+    "environment_patterns": {
+      "os": "(?i)^windows(?:\\s|$)"
+    },
+    "require_commit_ancestor": true,
+    "require_binary_provenance": true,
+    "require_tracked_artifacts": true,
+    "capabilities": {
+      "emulator.ldplayer9": {
+        "environment_patterns": {"emulator": "(?i)ldplayer\\s*9"},
+        "required_tests": [
+          {"test_type": "emulator-smoke", "required_checks": ["emulator.detected", "adb.connected", "game.ready"]}
+        ]
+      },
+      "emulator.mumu": {
+        "environment_patterns": {"emulator": "(?i)mumu"},
+        "required_tests": [
+          {"test_type": "emulator-smoke", "required_checks": ["emulator.detected", "adb.connected", "game.ready"]}
+        ]
+      },
+      "orchestration.run-plan": {
+        "required_tests": [
+          {"test_type": "end-to-end", "required_checks": ["plan.accepted", "run.started", "game.ready", "run.stopped"]}
+        ]
+      },
+      "orchestration.account-queue": {
+        "required_tests": [
+          {"test_type": "end-to-end", "required_checks": ["queue.loaded", "account.selected", "queue.advanced"]}
+        ]
+      },
+      "orchestration.battle-route": {
+        "required_tests": [
+          {"test_type": "route-execution", "required_checks": ["route.selected", "route.executed", "route.completed"]}
+        ]
+      },
+      "orchestration.run-session": {
+        "required_tests": [
+          {"test_type": "end-to-end", "required_checks": ["session.started", "session.correlated", "session.completed"]}
+        ]
+      },
+      "orchestration.run-event": {
+        "required_tests": [
+          {"test_type": "end-to-end", "required_checks": ["event.session-correlated", "event.sequence-monotonic", "event.completed"]}
+        ]
+      },
+      "model.current-game": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["catalog.loaded", "home.recognized", "unknown.safe"]}
+        ]
+      },
+      "model.screen-state-registry": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["registry.loaded", "screen.recognized", "unknown.safe"]}
+        ]
+      },
+      "army.recipes": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["recipes.recognized", "safe-region.confirmed"]},
+          {"test_type": "end-to-end", "required_checks": ["recipes.prepared", "home.restored"]}
+        ]
+      },
+      "army.cookbook": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["cookbook.recognized", "safe-region.confirmed"]},
+          {"test_type": "end-to-end", "required_checks": ["cookbook.selected", "home.restored"]}
+        ]
+      },
+      "defense.crafted": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["crafted-defense.recognized", "safe-region.confirmed"]},
+          {"test_type": "end-to-end", "required_checks": ["crafted-defense.managed", "home.restored"]}
+        ]
+      },
+      "battle.regular-ranked-split": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["regular-route.recognized", "ranked-route.recognized"]},
+          {"test_type": "route-execution", "required_checks": ["route-isolation.confirmed", "battle.completed"]}
+        ]
+      },
+      "battle.revenge": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["revenge-route.recognized", "safe-region.confirmed"]},
+          {"test_type": "route-execution", "required_checks": ["revenge-route.executed", "home.restored"]}
+        ]
+      },
+      "village.town-hall-18": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["town-hall-18.recognized", "village-state.confirmed"]},
+          {"test_type": "end-to-end", "required_checks": ["town-hall-18.profiled", "home.restored"]}
+        ]
+      },
+      "village.guardians": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["guardians.recognized", "village-state.confirmed"]},
+          {"test_type": "end-to-end", "required_checks": ["guardians.profiled", "home.restored"]}
+        ]
+      },
+      "heroes.dragon-duke": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["dragon-duke.recognized", "hero-state.confirmed"]},
+          {"test_type": "end-to-end", "required_checks": ["dragon-duke.routed", "home.restored"]}
+        ]
+      },
+      "heroes.six-slot-layout": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["six-slot-layout.recognized", "hero-state.confirmed"]},
+          {"test_type": "end-to-end", "required_checks": ["six-slot-layout.routed", "home.restored"]}
+        ]
+      },
+      "battle.legend-tiers": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["legend-tier.recognized", "attack-budget.confirmed"]},
+          {"test_type": "route-execution", "required_checks": ["legend-tier.enforced", "battle.completed"]}
+        ]
+      },
+      "builder-base.additional-builder": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["builder-count.recognized", "upgrade-list.recognized"]},
+          {"test_type": "end-to-end", "required_checks": ["additional-builder.routed", "builder-home.restored"]}
+        ]
+      },
+      "heroes.hero-journey": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["hero-journey.recognized", "safe-region.confirmed"]},
+          {"test_type": "end-to-end", "required_checks": ["hero-journey.handled", "home.restored"]}
+        ]
+      },
+      "chat.global-chat": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["global-chat.recognized", "chat-state.confirmed"]},
+          {"test_type": "end-to-end", "required_checks": ["global-chat.handled", "home.restored"]}
+        ]
+      },
+      "battle.fast-forward": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["fast-forward.recognized", "battle-state.confirmed"]},
+          {"test_type": "route-execution", "required_checks": ["fast-forward.executed", "battle.completed"]}
+        ]
+      },
+      "shop.chain-offers": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["chain-offers.recognized", "safe-region.confirmed"]},
+          {"test_type": "end-to-end", "required_checks": ["chain-offers.closed", "home.restored"]}
+        ]
+      }
+    }
+  },
   "capabilities": [
     {"id":"emulator.ldplayer9","introduced":"2026-08-06","status":"adapter-added","implementation":"COCBot/functions/Android/AndroidLDPlayer9.au3","verification":["static-dispatch","adb-port-formula","resolution-contract","windows-au3check"],"runtime_evidence":"required"},
     {"id":"emulator.mumu","introduced":"2026-08-06","status":"adapter-added","implementation":"COCBot/functions/Android/AndroidMumu.au3","verification":["static-dispatch","instance-config-adb","resolution-contract","windows-au3check"],"runtime_evidence":"required"},
@@ -22,8 +172,8 @@
     {"id":"orchestration.battle-route","introduced":"2026-08-06","status":"engine-added","implementation":"COCBot/functions/Run/BattleRoute.au3","schema":"config/battle-route.schema.json","default_readiness":"closed","runtime_evidence":"required"},
     {"id":"orchestration.run-session","introduced":"2026-08-06","status":"engine-added","implementation":"COCBot/functions/Run/RunSession.au3","schema":"config/run-session.schema.json","tests":"tests/autoit/RunContractsTest.au3","runtime_evidence":"required"},
     {"id":"orchestration.run-event","introduced":"2026-08-06","status":"engine-added","implementation":"COCBot/functions/Run/RunEvent.au3","schema":"config/run-event.schema.json","tests":"tests/autoit/RunContractsTest.au3","runtime_evidence":"required"},
-    {"id":"model.current-game","introduced":"2026-08-06","status":"engine-added","implementation":"COCBot/functions/Game/GameCatalog.au3","schema":"config/game/current-client.schema.json","runtime_evidence":"required"},
-    {"id":"model.screen-state-registry","introduced":"2026-08-06","status":"engine-added","implementation":"COCBot/functions/Game/ScreenStateRegistry.au3","schema":"config/game/screen-states.schema.json","runtime_evidence":"required"},
+    {"id":"model.current-game","introduced":"2026-08-06","status":"engine-added","implementation":"COCBot/functions/Game/GameCatalog.au3","schema":"config/game/current-client.schema.json","fixture_status":"required","runtime_evidence":"required"},
+    {"id":"model.screen-state-registry","introduced":"2026-08-06","status":"engine-added","implementation":"COCBot/functions/Game/ScreenStateRegistry.au3","schema":"config/game/screen-states.schema.json","fixture_status":"required","runtime_evidence":"required"},
     {"id":"army.recipes","official_change_date":"2025-03-24","status":"catalogued","affected_areas":["army-preparation","timers","quick-train","donations","navigation"],"fixture_status":"required","runtime_evidence":"required"},
     {"id":"army.cookbook","official_change_date":"2025-06-16","status":"catalogued","affected_areas":["army-tabs","recipe-selection","navigation","profiles"],"fixture_status":"required","runtime_evidence":"required"},
     {"id":"defense.crafted","official_change_date":"2025-06-16","status":"catalogued","affected_areas":["defense-catalog","crafting-station","attack-analysis","profiles"],"fixture_status":"required","runtime_evidence":"required"},

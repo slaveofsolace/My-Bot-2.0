@@ -29,11 +29,10 @@ Func Initiate(ByRef $sStartError)
 			$sStartError = "Start cancelled"
 			Return False
 		EndIf
-		If StringInStr(@OSVersion, "WIN_11", $STR_NOCASESENSEBASIC) Or _
-				StringInStr(@OSVersion, "WIN_2019", $STR_NOCASESENSEBASIC) Or _
+		If StringInStr(@OSVersion, "WIN_2019", $STR_NOCASESENSEBASIC) Or _
 				StringInStr(@OSVersion, "WIN_2022", $STR_NOCASESENSEBASIC) Then
-			SetLog(" Unsupported Windows 11 OS detected!!", $COLOR_ERROR)
-			SetLog(" See MBR forum for more information", $COLOR_ERROR)
+			SetLog(" Unsupported Windows Server edition detected (" & @OSVersion & ")", $COLOR_ERROR)
+			SetLog(" Windows 10/11 desktop is supported; Windows Server 2019/2022 is outside the supported target", $COLOR_ERROR)
 		EndIf
 
 		Local $sGameVersion = GetCoCAppVersion()

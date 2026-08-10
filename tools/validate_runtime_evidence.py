@@ -1,25 +1,79 @@
 #!/usr/bin/env python3
-"""Validate redacted runtime evidence records without external dependencies."""
+"""Validate redacted runtime evidence and its repository provenance.
+
+The module intentionally has no third-party dependencies.  The readiness
+evaluator imports :func:`validate_registry`, which keeps invalid records from
+being interpreted differently by the two command-line tools.
+"""
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
-from datetime import datetime
-from pathlib import Path
-from typing import Any
+import subprocess
+from datetime import datetime, timedelta, timezone
+from pathlib import Path, PurePosixPath
+from typing import Any, Iterable
 
 ROOT = Path(__file__).resolve().parents[1]
 EVIDENCE_DIR = ROOT / "tests/evidence/runtime"
 CAPABILITIES_PATH = ROOT / "config/current-client-capabilities.json"
+BINARY_PROVENANCE_PATH = "config/binary-provenance.json"
+
 ID_PATTERN = re.compile(r"^[a-z0-9]+(?:[.-][a-z0-9]+)*$")
 SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
-ALLOWED_TEST_TYPES = {"windows-static", "emulator-smoke", "game-surface-recognition", "route-execution", "end-to-end"}
+SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
+ALLOWED_TEST_TYPES = {
+    "windows-static",
+    "emulator-smoke",
+    "game-surface-recognition",
+    "route-execution",
+    "end-to-end",
+}
 ALLOWED_RESULTS = {"passed", "failed", "blocked"}
+ENVIRONMENT_FIELDS = {
+    "os",
+    "os_version",
+    "autoit_version",
+    "emulator",
+    "emulator_version",
+    "instance_index",
+    "instance_name",
+    "game_version",
+}
+BASE_ENVIRONMENT_FIELDS = ENVIRONMENT_FIELDS - {"instance_name"}
+REQUIRED_RECORD_FIELDS = {
+    "schema_version",
+    "evidence_id",
+    "capability_id",
+    "test_type",
+    "result",
+    "captured_at",
+    "commit_sha",
+    "redacted",
+    "environment",
+    "checks",
+    "reviewer",
+    "artifact_refs",
+    "notes",
+}
+ALLOWED_RECORD_FIELDS = REQUIRED_RECORD_FIELDS | {"binary"}
 PROHIBITED_KEYS = {
-    "password", "token", "secret", "email", "player_id", "supercell_id", "account_id",
-    "machine_name", "computer_name", "username", "serial_number", "ip_address", "chat_text",
+    "password",
+    "token",
+    "secret",
+    "email",
+    "player_id",
+    "supercell_id",
+    "account_id",
+    "machine_name",
+    "computer_name",
+    "username",
+    "serial_number",
+    "ip_address",
+    "chat_text",
 }
 
 
@@ -37,62 +91,365 @@ def walk_keys(value: Any, prefix: str = "") -> list[str]:
             findings.extend(walk_keys(child, f"{prefix}{key}."))
     elif isinstance(value, list):
         for index, child in enumerate(value):
-            findings.extend(walk_keys(child, f"{prefix}{index}."))
+            findings.extend(walk_keys(child, f"{prefix}{index}.") )
     return findings
 
 
-def parse_utc(value: str) -> bool:
+def parse_utc(value: Any) -> datetime | None:
     if not isinstance(value, str) or not value.endswith("Z"):
-        return False
+        return None
     try:
-        datetime.fromisoformat(value[:-1] + "+00:00")
-        return True
+        parsed = datetime.fromisoformat(value[:-1] + "+00:00")
     except ValueError:
-        return False
+        return None
+    return parsed.astimezone(timezone.utc)
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--json", dest="json_path", type=Path)
-    parser.add_argument("--require-capability", action="append", default=[])
-    args = parser.parse_args()
+def _run_git(root: Path, *args: str) -> subprocess.CompletedProcess[bytes]:
+    return subprocess.run(
+        ["git", *args],
+        cwd=root,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
 
-    capabilities = load(CAPABILITIES_PATH)
-    capability_ids = {item["id"] for item in capabilities.get("capabilities", [])}
+
+def _git_text(root: Path, *args: str) -> str | None:
+    result = _run_git(root, *args)
+    if result.returncode:
+        return None
+    return result.stdout.decode("utf-8", errors="strict").strip()
+
+
+def _git_blob(root: Path, commit_sha: str, relative_path: str) -> bytes | None:
+    result = _run_git(root, "show", f"{commit_sha}:{relative_path}")
+    return result.stdout if result.returncode == 0 else None
+
+
+def _is_commit(root: Path, commit_sha: str) -> bool:
+    return _run_git(root, "cat-file", "-e", f"{commit_sha}^{{commit}}").returncode == 0
+
+
+def _is_ancestor_of_head(root: Path, commit_sha: str) -> bool:
+    return _run_git(root, "merge-base", "--is-ancestor", commit_sha, "HEAD").returncode == 0
+
+
+def _matches_head(root: Path, relative_path: str) -> bool:
+    """Honor Git text filters while detecting staged or unstaged changes."""
+    return _run_git(root, "diff", "--quiet", "HEAD", "--", relative_path).returncode == 0
+
+
+def _sha256(value: bytes) -> str:
+    return hashlib.sha256(value).hexdigest()
+
+
+def _safe_relative_path(root: Path, raw_path: Any) -> tuple[str | None, Path | None]:
+    if not isinstance(raw_path, str) or not raw_path.strip() or "\x00" in raw_path:
+        return None, None
+    normalized = raw_path.strip().replace("\\", "/")
+    pure = PurePosixPath(normalized)
+    if pure.is_absolute() or re.match(r"^[A-Za-z]:", normalized):
+        return None, None
+    if any(part in {"", ".", ".."} for part in pure.parts):
+        return None, None
+    relative = pure.as_posix()
+    candidate = (root / Path(*pure.parts)).resolve()
+    try:
+        candidate.relative_to(root.resolve())
+    except ValueError:
+        return None, None
+    return relative, candidate
+
+
+def _policy_errors(catalog: Any) -> tuple[list[str], dict[str, Any], dict[str, dict[str, Any]]]:
+    errors: list[str] = []
+    if not isinstance(catalog, dict):
+        return ["capability catalog must be an object"], {}, {}
+    capabilities = catalog.get("capabilities")
+    if not isinstance(capabilities, list):
+        return ["capability catalog must contain a capabilities list"], {}, {}
+    capability_ids = {
+        item.get("id") for item in capabilities
+        if isinstance(item, dict) and isinstance(item.get("id"), str)
+    }
+    if len(capability_ids) != len(capabilities):
+        errors.append("capability ids must be present and unique")
+
+    policy = catalog.get("runtime_evidence_policy")
+    if not isinstance(policy, dict):
+        return errors + ["runtime_evidence_policy must be an object"], {}, {}
+    max_age = policy.get("max_age_days")
+    if isinstance(max_age, bool) or not isinstance(max_age, int) or max_age < 1:
+        errors.append("runtime_evidence_policy.max_age_days must be a positive integer")
+    clock_skew = policy.get("clock_skew_minutes")
+    if isinstance(clock_skew, bool) or not isinstance(clock_skew, int) or not 0 <= clock_skew <= 60:
+        errors.append("runtime_evidence_policy.clock_skew_minutes must be between 0 and 60")
+    required_environment = policy.get("required_environment_fields")
+    if (
+        not isinstance(required_environment, list)
+        or not required_environment
+        or len(required_environment) != len(set(required_environment))
+        or not set(required_environment) <= ENVIRONMENT_FIELDS
+    ):
+        errors.append("runtime_evidence_policy.required_environment_fields is invalid")
+    for flag in ("require_commit_ancestor", "require_binary_provenance", "require_tracked_artifacts"):
+        if policy.get(flag) is not True:
+            errors.append(f"runtime_evidence_policy.{flag} must be true")
+
+    for field, pattern in (policy.get("environment_patterns") or {}).items():
+        if field not in ENVIRONMENT_FIELDS or not isinstance(pattern, str):
+            errors.append(f"runtime_evidence_policy.environment_patterns.{field} is invalid")
+            continue
+        try:
+            re.compile(pattern)
+        except re.error as exc:
+            errors.append(f"runtime_evidence_policy.environment_patterns.{field} is invalid: {exc}")
+
+    capability_policies = policy.get("capabilities")
+    if not isinstance(capability_policies, dict):
+        return errors + ["runtime_evidence_policy.capabilities must be an object"], policy, {}
+    missing = sorted(capability_ids - set(capability_policies))
+    extra = sorted(set(capability_policies) - capability_ids)
+    if missing:
+        errors.append("runtime evidence policy missing capabilities: " + ", ".join(missing))
+    if extra:
+        errors.append("runtime evidence policy has unknown capabilities: " + ", ".join(extra))
+
+    for capability_id, capability_policy in capability_policies.items():
+        prefix = f"runtime_evidence_policy.capabilities.{capability_id}"
+        if not isinstance(capability_policy, dict):
+            errors.append(f"{prefix} must be an object")
+            continue
+        tests = capability_policy.get("required_tests")
+        if not isinstance(tests, list) or not tests:
+            errors.append(f"{prefix}.required_tests must be a non-empty list")
+            continue
+        seen_test_types: set[str] = set()
+        for index, requirement in enumerate(tests):
+            if not isinstance(requirement, dict) or set(requirement) != {"test_type", "required_checks"}:
+                errors.append(f"{prefix}.required_tests[{index}] fields do not match the contract")
+                continue
+            test_type = requirement.get("test_type")
+            checks = requirement.get("required_checks")
+            if test_type not in ALLOWED_TEST_TYPES:
+                errors.append(f"{prefix}.required_tests[{index}] has unsupported test_type")
+            elif test_type in seen_test_types:
+                errors.append(f"{prefix} repeats test_type {test_type}")
+            seen_test_types.add(test_type)
+            if (
+                not isinstance(checks, list)
+                or not checks
+                or len(checks) != len(set(checks))
+                or not all(isinstance(item, str) and ID_PATTERN.fullmatch(item) for item in checks)
+            ):
+                errors.append(f"{prefix}.required_tests[{index}].required_checks is invalid")
+        for field, pattern in (capability_policy.get("environment_patterns") or {}).items():
+            if field not in ENVIRONMENT_FIELDS or not isinstance(pattern, str):
+                errors.append(f"{prefix}.environment_patterns.{field} is invalid")
+                continue
+            try:
+                re.compile(pattern)
+            except re.error as exc:
+                errors.append(f"{prefix}.environment_patterns.{field} is invalid: {exc}")
+    return errors, policy, capability_policies
+
+
+def _integrity_object_errors(
+    value: Any,
+    *,
+    prefix: str,
+    require_kind: bool,
+) -> tuple[list[str], str | None, str | None, int | None]:
+    errors: list[str] = []
+    expected_fields = {"path", "sha256", "bytes"} | ({"kind"} if require_kind else set())
+    if not isinstance(value, dict) or set(value) != expected_fields:
+        return [f"{prefix} fields do not match the integrity contract"], None, None, None
+    if require_kind and value.get("kind") != "repository":
+        errors.append(f"{prefix}.kind must be repository")
+    raw_path = value.get("path")
+    digest = value.get("sha256")
+    byte_count = value.get("bytes")
+    if not isinstance(raw_path, str) or not raw_path.strip():
+        errors.append(f"{prefix}.path must be non-empty")
+    if not isinstance(digest, str) or not SHA256_PATTERN.fullmatch(digest):
+        errors.append(f"{prefix}.sha256 must be 64 lowercase hexadecimal characters")
+    if isinstance(byte_count, bool) or not isinstance(byte_count, int) or byte_count < 1:
+        errors.append(f"{prefix}.bytes must be a positive integer")
+    return errors, raw_path if isinstance(raw_path, str) else None, digest if isinstance(digest, str) else None, byte_count if isinstance(byte_count, int) and not isinstance(byte_count, bool) else None
+
+
+def _verify_repository_artifact(root: Path, value: Any, prefix: str) -> list[str]:
+    errors, raw_path, digest, byte_count = _integrity_object_errors(value, prefix=prefix, require_kind=True)
+    if errors or raw_path is None or digest is None or byte_count is None:
+        return errors
+    relative, resolved = _safe_relative_path(root, raw_path)
+    if relative is None or resolved is None:
+        return [f"{prefix}.path must stay inside the repository"]
+    if not resolved.is_file():
+        return [f"{prefix}.path is missing: {relative}"]
+    committed = _git_blob(root, "HEAD", relative)
+    if committed is None:
+        return [f"{prefix}.path is not committed at HEAD: {relative}"]
+    if not _matches_head(root, relative):
+        errors.append(f"{prefix}.path has uncommitted changes: {relative}")
+    if len(committed) != byte_count:
+        errors.append(f"{prefix}.bytes does not match {relative}")
+    if _sha256(committed) != digest:
+        errors.append(f"{prefix}.sha256 does not match {relative}")
+    return errors
+
+
+def _verify_binary_at_commit(root: Path, value: Any, commit_sha: str) -> list[str]:
+    errors, raw_path, digest, byte_count = _integrity_object_errors(value, prefix="binary", require_kind=False)
+    if errors or raw_path is None or digest is None or byte_count is None:
+        return errors
+    relative, _ = _safe_relative_path(root, raw_path)
+    if relative is None:
+        return ["binary.path must stay inside the repository"]
+    blob = _git_blob(root, commit_sha, relative)
+    if blob is None:
+        return [f"binary.path is not tracked at commit {commit_sha}: {relative}"]
+    if len(blob) != byte_count:
+        errors.append(f"binary.bytes does not match {relative} at commit {commit_sha}")
+    if _sha256(blob) != digest:
+        errors.append(f"binary.sha256 does not match {relative} at commit {commit_sha}")
+
+    provenance_blob = _git_blob(root, commit_sha, BINARY_PROVENANCE_PATH)
+    if provenance_blob is None:
+        errors.append(f"binary provenance is missing at commit {commit_sha}")
+        return errors
+    try:
+        provenance = json.loads(provenance_blob.decode("utf-8-sig"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        errors.append(f"binary provenance is invalid at commit {commit_sha}")
+        return errors
+    matches = [
+        item for item in provenance.get("artifacts", [])
+        if isinstance(item, dict) and str(item.get("path", "")).replace("\\", "/") == relative
+    ]
+    if len(matches) != 1:
+        errors.append(f"binary.path has no unique provenance record at commit {commit_sha}: {relative}")
+    elif matches[0].get("sha256") != digest or matches[0].get("bytes") != byte_count:
+        errors.append(f"binary integrity does not match provenance at commit {commit_sha}: {relative}")
+    return errors
+
+
+def _required_test_map(capability_policy: dict[str, Any]) -> dict[str, set[str]]:
+    return {
+        item["test_type"]: set(item["required_checks"])
+        for item in capability_policy.get("required_tests", [])
+        if isinstance(item, dict)
+        and item.get("test_type") in ALLOWED_TEST_TYPES
+        and isinstance(item.get("required_checks"), list)
+    }
+
+
+def validate_registry(
+    *,
+    root: Path = ROOT,
+    evidence_dir: Path | None = None,
+    capabilities_path: Path | None = None,
+    now: datetime | None = None,
+    require_capabilities: Iterable[str] = (),
+) -> dict[str, Any]:
+    """Return a complete validation report; only trusted records count as passes."""
+
+    root = root.resolve()
+    evidence_dir = (evidence_dir or root / "tests/evidence/runtime").resolve()
+    capabilities_path = (capabilities_path or root / "config/current-client-capabilities.json").resolve()
+    now = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
     errors: list[str] = []
     warnings: list[str] = []
     records: list[dict[str, Any]] = []
     passed_by_capability: dict[str, int] = {}
 
-    for path in sorted(EVIDENCE_DIR.glob("*.json")):
+    try:
+        catalog = load(capabilities_path)
+    except (OSError, json.JSONDecodeError) as exc:
+        catalog = {}
+        errors.append(f"capability catalog is invalid: {exc}")
+    policy_errors, policy, capability_policies = _policy_errors(catalog)
+    errors.extend(policy_errors)
+    capability_ids = {
+        item.get("id") for item in catalog.get("capabilities", [])
+        if isinstance(item, dict) and isinstance(item.get("id"), str)
+    }
+    max_age_days = policy.get("max_age_days", 0) if isinstance(policy, dict) else 0
+    clock_skew_minutes = policy.get("clock_skew_minutes", 0) if isinstance(policy, dict) else 0
+    required_environment = set(policy.get("required_environment_fields", [])) if isinstance(policy, dict) else set()
+    global_environment_patterns = policy.get("environment_patterns", {}) if isinstance(policy, dict) else {}
+    seen_evidence_ids: set[str] = set()
+
+    if not evidence_dir.is_dir():
+        errors.append(f"runtime evidence directory is missing: {evidence_dir}")
+        evidence_paths: list[Path] = []
+    else:
+        evidence_paths = sorted(evidence_dir.glob("*.json"))
+
+    for path in evidence_paths:
         try:
             record = load(path)
         except (OSError, json.JSONDecodeError) as exc:
             errors.append(f"{path.name}: invalid JSON: {exc}")
+            records.append({
+                "file": path.name,
+                "evidence_id": "",
+                "capability_id": None,
+                "test_type": None,
+                "result": None,
+                "valid": False,
+                "trusted_for_readiness": False,
+                "errors": [f"invalid JSON: {exc}"],
+            })
             continue
 
-        evidence_id = record.get("evidence_id", "")
+        evidence_id = record.get("evidence_id", "") if isinstance(record, dict) else ""
         prefix = evidence_id or path.stem
         record_errors: list[str] = []
+        if not isinstance(record, dict):
+            record_errors.append("record must be an object")
+            record = {}
+        relative_record, _ = _safe_relative_path(root, str(path.relative_to(root)).replace("\\", "/"))
+        committed_record = _git_blob(root, "HEAD", relative_record) if relative_record is not None else None
+        if committed_record is None:
+            record_errors.append("evidence file must be committed at HEAD")
+        elif not _matches_head(root, relative_record):
+            record_errors.append("evidence file must match committed HEAD contents")
+        missing_fields = sorted(REQUIRED_RECORD_FIELDS - set(record))
+        extra_fields = sorted(set(record) - ALLOWED_RECORD_FIELDS)
+        if missing_fields:
+            record_errors.append("missing fields: " + ", ".join(missing_fields))
+        if extra_fields:
+            record_errors.append("unexpected fields: " + ", ".join(extra_fields))
         if record.get("schema_version") != 1:
             record_errors.append("schema_version must be 1")
         if not isinstance(evidence_id, str) or not ID_PATTERN.fullmatch(evidence_id):
             record_errors.append("invalid evidence_id")
         elif path.name != f"{evidence_id}.json":
             record_errors.append("file name must match evidence_id")
+        elif evidence_id in seen_evidence_ids:
+            record_errors.append("evidence_id must be unique")
+        seen_evidence_ids.add(evidence_id)
 
         capability_id = record.get("capability_id")
+        capability_policy = capability_policies.get(capability_id, {})
         if capability_id not in capability_ids:
             record_errors.append(f"unknown capability_id {capability_id!r}")
         test_type = record.get("test_type")
         if test_type not in ALLOWED_TEST_TYPES:
             record_errors.append(f"unsupported test_type {test_type!r}")
+        required_tests = _required_test_map(capability_policy)
+        if capability_id in capability_ids and test_type in ALLOWED_TEST_TYPES and test_type not in required_tests:
+            record_errors.append(f"test_type {test_type!r} is not accepted for {capability_id}")
         result = record.get("result")
         if result not in ALLOWED_RESULTS:
             record_errors.append(f"unsupported result {result!r}")
-        if not parse_utc(record.get("captured_at")):
+        captured_at = parse_utc(record.get("captured_at"))
+        if captured_at is None:
             record_errors.append("captured_at must be an ISO-8601 UTC timestamp ending in Z")
-        if not isinstance(record.get("commit_sha"), str) or not SHA_PATTERN.fullmatch(record["commit_sha"]):
+        commit_sha = record.get("commit_sha")
+        if not isinstance(commit_sha, str) or not SHA_PATTERN.fullmatch(commit_sha):
             record_errors.append("commit_sha must be 40 lowercase hexadecimal characters")
         if record.get("redacted") is not True:
             record_errors.append("redacted must be true")
@@ -102,20 +459,48 @@ def main() -> int:
             record_errors.append("prohibited fields: " + ", ".join(prohibited))
 
         environment = record.get("environment")
-        environment_fields = {"os", "os_version", "autoit_version", "emulator", "emulator_version", "instance_index", "game_version"}
         if not isinstance(environment, dict):
             record_errors.append("environment must be an object")
+            environment = {}
         else:
-            if set(environment) != environment_fields:
-                record_errors.append("environment fields do not match the evidence contract")
-            if not isinstance(environment.get("instance_index"), int) or environment.get("instance_index", -1) < 0:
-                record_errors.append("environment.instance_index must be a non-negative integer")
+            missing_environment = sorted(BASE_ENVIRONMENT_FIELDS - set(environment))
+            extra_environment = sorted(set(environment) - ENVIRONMENT_FIELDS)
+            if missing_environment:
+                record_errors.append("environment missing fields: " + ", ".join(missing_environment))
+            if extra_environment:
+                record_errors.append("environment has unexpected fields: " + ", ".join(extra_environment))
+            instance_index = environment.get("instance_index")
+            if isinstance(instance_index, bool) or not isinstance(instance_index, int) or not 0 <= instance_index <= 1000:
+                record_errors.append("environment.instance_index must be an integer between 0 and 1000")
+            if "instance_name" in environment and (
+                not isinstance(environment["instance_name"], str)
+                or not 1 <= len(environment["instance_name"].strip()) <= 80
+            ):
+                record_errors.append("environment.instance_name must be a non-empty string up to 80 characters")
+            for field in BASE_ENVIRONMENT_FIELDS - {"instance_index"}:
+                value = environment.get(field)
+                if not isinstance(value, str) or len(value.strip()) > 80:
+                    record_errors.append(f"environment.{field} must be a string up to 80 characters")
+            if result == "passed":
+                for field in sorted(required_environment):
+                    value = environment.get(field)
+                    if not isinstance(value, str) or not value.strip():
+                        record_errors.append(f"passed evidence requires environment.{field}")
+                patterns = dict(global_environment_patterns) if isinstance(global_environment_patterns, dict) else {}
+                capability_patterns = capability_policy.get("environment_patterns", {}) if isinstance(capability_policy, dict) else {}
+                if isinstance(capability_patterns, dict):
+                    patterns.update(capability_patterns)
+                for field, pattern in patterns.items():
+                    value = environment.get(field)
+                    if isinstance(pattern, str) and (not isinstance(value, str) or re.search(pattern, value) is None):
+                        record_errors.append(f"environment.{field} does not satisfy the {capability_id} policy")
 
         checks = record.get("checks")
         if not isinstance(checks, list) or not checks:
             record_errors.append("checks must be a non-empty list")
             checks = []
         seen_checks: set[str] = set()
+        passed_checks: set[str] = set()
         for index, check in enumerate(checks):
             if not isinstance(check, dict) or set(check) != {"id", "result", "details"}:
                 record_errors.append(f"check[{index}] fields do not match the contract")
@@ -128,57 +513,123 @@ def main() -> int:
             seen_checks.add(check_id)
             if check.get("result") not in ALLOWED_RESULTS:
                 record_errors.append(f"check[{index}] has invalid result")
-            if len(str(check.get("details", "")).strip()) < 5:
-                record_errors.append(f"check[{index}] details are missing or too short")
+            elif check.get("result") == "passed" and isinstance(check_id, str):
+                passed_checks.add(check_id)
+            if not isinstance(check.get("details"), str) or not 5 <= len(check["details"].strip()) <= 2000:
+                record_errors.append(f"check[{index}] details must contain 5 to 2000 characters")
 
         reviewer = record.get("reviewer")
         if not isinstance(reviewer, dict) or set(reviewer) != {"name", "reviewed_at"}:
             record_errors.append("reviewer fields do not match the contract")
             reviewer = {}
+        reviewed_at = parse_utc(reviewer.get("reviewed_at"))
+        if reviewer and (not isinstance(reviewer.get("name"), str) or len(reviewer["name"].strip()) > 128):
+            record_errors.append("reviewer.name must be a string up to 128 characters")
+
         artifact_refs = record.get("artifact_refs")
-        if not isinstance(artifact_refs, list) or not all(isinstance(item, str) and len(item.strip()) >= 3 for item in artifact_refs):
-            record_errors.append("artifact_refs must be a list of non-empty references")
+        if not isinstance(artifact_refs, list):
+            record_errors.append("artifact_refs must be a list")
             artifact_refs = []
-        if len(artifact_refs) != len(set(artifact_refs)):
+        canonical_refs = [json.dumps(item, sort_keys=True) for item in artifact_refs]
+        if len(canonical_refs) != len(set(canonical_refs)):
             record_errors.append("artifact_refs must be unique")
+        for index, artifact in enumerate(artifact_refs):
+            if isinstance(artifact, str):
+                if len(artifact.strip()) < 3:
+                    record_errors.append(f"artifact_refs[{index}] is too short")
+                if result == "passed":
+                    record_errors.append(f"artifact_refs[{index}] is a legacy reference without verifiable integrity")
+            else:
+                record_errors.extend(_verify_repository_artifact(root, artifact, f"artifact_refs[{index}]"))
 
         if result == "passed":
+            skew = timedelta(minutes=clock_skew_minutes)
+            if captured_at is not None:
+                if captured_at > now + skew:
+                    record_errors.append("captured_at is in the future")
+                elif isinstance(max_age_days, int) and max_age_days > 0 and now - captured_at > timedelta(days=max_age_days):
+                    record_errors.append(f"evidence is older than {max_age_days} days")
             if any(check.get("result") != "passed" for check in checks if isinstance(check, dict)):
                 record_errors.append("passed evidence requires every check to pass")
-            if not str(reviewer.get("name", "")).strip() or not parse_utc(reviewer.get("reviewed_at", "")):
+            required_checks = required_tests.get(test_type, set())
+            missing_checks = sorted(required_checks - passed_checks)
+            if missing_checks:
+                record_errors.append("missing required passed checks: " + ", ".join(missing_checks))
+            if not isinstance(reviewer.get("name"), str) or not reviewer["name"].strip() or reviewed_at is None:
                 record_errors.append("passed evidence requires reviewer name and UTC reviewed_at")
+            elif captured_at is not None and reviewed_at < captured_at:
+                record_errors.append("reviewer.reviewed_at cannot precede captured_at")
+            elif reviewed_at > now + skew:
+                record_errors.append("reviewer.reviewed_at is in the future")
             if not artifact_refs:
                 record_errors.append("passed evidence requires at least one artifact reference")
+            if isinstance(commit_sha, str) and SHA_PATTERN.fullmatch(commit_sha):
+                if not _is_commit(root, commit_sha):
+                    record_errors.append(f"commit_sha does not resolve to a local commit: {commit_sha}")
+                elif policy.get("require_commit_ancestor") is True and not _is_ancestor_of_head(root, commit_sha):
+                    record_errors.append(f"commit_sha is not an ancestor of HEAD: {commit_sha}")
+                elif policy.get("require_binary_provenance") is True:
+                    record_errors.extend(_verify_binary_at_commit(root, record.get("binary"), commit_sha))
+            elif policy.get("require_binary_provenance") is True:
+                record_errors.append("passed evidence requires a verifiable binary")
 
+        valid = not record_errors and not policy_errors
+        trusted = valid and result == "passed"
         if record_errors:
             errors.extend(f"{prefix}: {message}" for message in record_errors)
-        elif result == "passed":
+        if trusted:
             passed_by_capability[capability_id] = passed_by_capability.get(capability_id, 0) + 1
+        records.append({
+            "file": path.name,
+            "evidence_id": evidence_id,
+            "capability_id": capability_id,
+            "test_type": test_type,
+            "result": result,
+            "valid": valid,
+            "trusted_for_readiness": trusted,
+            "errors": record_errors,
+        })
 
-        records.append({"file": path.name, "evidence_id": evidence_id, "capability_id": capability_id, "result": result, "errors": record_errors})
-
-    for capability_id in args.require_capability:
+    for capability_id in require_capabilities:
         if capability_id not in capability_ids:
             errors.append(f"required capability does not exist: {capability_id}")
         elif passed_by_capability.get(capability_id, 0) < 1:
-            errors.append(f"no passing runtime evidence exists for required capability: {capability_id}")
+            errors.append(f"no trusted passing runtime evidence exists for required capability: {capability_id}")
 
     if not records:
         warnings.append("no runtime evidence records are committed yet")
 
-    report = {
-        "schema_version": 1,
+    return {
+        "schema_version": 2,
         "records": len(records),
         "passing_capabilities": passed_by_capability,
         "errors": errors,
         "warnings": warnings,
         "evidence": records,
     }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--json", dest="json_path", type=Path)
+    parser.add_argument("--require-capability", action="append", default=[])
+    parser.add_argument(
+        "--as-of",
+        help="validation clock as an ISO-8601 UTC timestamp ending in Z (for deterministic audits)",
+    )
+    args = parser.parse_args()
+
+    now = None
+    if args.as_of:
+        now = parse_utc(args.as_of)
+        if now is None:
+            parser.error("--as-of must be an ISO-8601 UTC timestamp ending in Z")
+    report = validate_registry(now=now, require_capabilities=args.require_capability)
     rendered = json.dumps(report, indent=2, sort_keys=True) + "\n"
     print(rendered, end="")
     if args.json_path:
         args.json_path.write_text(rendered, encoding="utf-8")
-    return 1 if errors else 0
+    return 1 if report["errors"] else 0
 
 
 if __name__ == "__main__":

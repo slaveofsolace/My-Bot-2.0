@@ -635,6 +635,13 @@ Func CheckAllObstacles($bDebugImageSave = $g_bDebugImageSave, $MinType = 0, $Max
 				ExitLoop
 			EndIf
 
+			; The BlueStacks5 Vulkan/OpenGL bridge can crash HD-Player while Clash reloads this
+			; screen. Restart only the game process instead of driving the renderer transition.
+			If $g_sAndroidEmulator = "BlueStacks5" And ($i = 0 Or $i = 1) Then
+				SetLog("BlueStacks5 reload screen detected; restarting Clash of Clans safely", $COLOR_INFO)
+				Return checkObstacles_ReloadCoC($bRecursive)
+			EndIf
+
 			If _Sleep(100) Then Return
 
 			SetDebugLog("Searching for Button ...", $COLOR_INFO)

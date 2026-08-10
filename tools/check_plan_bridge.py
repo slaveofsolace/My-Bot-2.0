@@ -273,6 +273,13 @@ def main() -> int:
     main_ready_offset = initiate_body.find("$g_bMainWindowOk = True")
     if main_ready_offset < ready_offsets[0] or main_ready_offset > ready_offsets[-1]:
         errors.append("Initiate no longer publishes game readiness between the successful main-screen proof and terminal Start outcome")
+    if 'StringInStr(@OSVersion, "WIN_11"' in initiate_body:
+        errors.append("Initiate still classifies supported Windows 11 desktop as an unsupported operating system")
+    for server_version in ("WIN_2019", "WIN_2022"):
+        if f'StringInStr(@OSVersion, "{server_version}"' not in initiate_body:
+            errors.append(f"Initiate no longer identifies unsupported Windows Server target {server_version}")
+    if "Windows 10/11 desktop is supported; Windows Server 2019/2022 is outside the supported target" not in initiate_body:
+        errors.append("Initiate no longer explains the Windows desktop and Server support boundary accurately")
     bot_stop = action_source.split("Func BotStop(", 1)
     bot_stop_body = bot_stop[1].split("EndFunc", 1)[0] if len(bot_stop) > 1 else ""
     if "RunExecutionComplete" not in bot_stop_body:

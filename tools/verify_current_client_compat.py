@@ -16,6 +16,7 @@ AUTOIT_CONTRACT_FILES = [
     "COCBot/functions/Android/AndroidLDPlayer9.au3",
     "COCBot/functions/Android/AndroidMumu.au3",
     "COCBot/functions/Android/ZoomOut.au3",
+    "COCBot/functions/Main Screen/checkObstacles.au3",
     "COCBot/functions/Village/GetVillageSize.au3",
     "COCBot/functions/Run/RunPlan.au3",
     "COCBot/functions/Run/AccountQueue.au3",
@@ -35,6 +36,7 @@ REQUIRED_FILES = AUTOIT_CONTRACT_FILES + [
     "config/ui/settings.schema.json",
     "config/ui/run-planner.settings.json",
     "tests/autoit/RunContractsTest.au3",
+    "tests/python/test_runtime_evidence.py",
     "tests/fixtures/current-client/manifest.json",
     "tests/evidence/runtime/README.md",
     "tools/Test-AutoIt.ps1",
@@ -101,6 +103,20 @@ def main() -> int:
 
     android = text("COCBot/functions/Android/Android.au3")
     require("Current client emulator ADB paths" in android, "generic ADB resolution includes new adapters", findings)
+
+    obstacles = text("COCBot/functions/Main Screen/checkObstacles.au3")
+    safe_reload = re.search(
+        r'If \$g_sAndroidEmulator = "BlueStacks5" And \(\$i = 0 Or \$i = 1\) Then\s+'
+        r'SetLog\("BlueStacks5 reload screen detected; restarting Clash of Clans safely", \$COLOR_INFO\)\s+'
+        r'Return checkObstacles_ReloadCoC\(\$bRecursive\)\s+'
+        r'EndIf',
+        obstacles,
+    )
+    require(
+        safe_reload is not None and obstacles.index("BlueStacks5 reload screen detected") < obstacles.index("PureClickP($aiButtonType[$Ref][0])"),
+        "BlueStacks5 restarts only Clash of Clans before the unstable reload button path for obstacle types 0/1",
+        findings,
+    )
 
     village_size = text("COCBot/functions/Village/GetVillageSize.au3")
     require(
@@ -176,6 +192,30 @@ def main() -> int:
         require(capability_id in capability_ids, f"capability catalog contains {capability_id}", findings)
 
     require(all(item.get("runtime_evidence") == "required" for item in capabilities["capabilities"]), "every documented capability requires runtime evidence", findings)
+    evidence_policy = capabilities.get("runtime_evidence_policy", {})
+    require(
+        set(evidence_policy.get("capabilities", {})) == capability_ids,
+        "every documented capability has a runtime evidence policy",
+        findings,
+    )
+    require(
+        evidence_policy.get("require_commit_ancestor") is True
+        and evidence_policy.get("require_binary_provenance") is True
+        and evidence_policy.get("require_tracked_artifacts") is True,
+        "runtime evidence policy fails closed on commit, binary, and artifact integrity",
+        findings,
+    )
+    require(
+        all(item.get("required_tests") for item in evidence_policy["capabilities"].values()),
+        "every capability policy names required test types and checks",
+        findings,
+    )
+    capabilities_by_id = {item["id"]: item for item in capabilities["capabilities"]}
+    require(
+        all(capabilities_by_id[item].get("fixture_status") == "required" for item in ("model.current-game", "model.screen-state-registry")),
+        "runtime game models require an explicit fixture mapping",
+        findings,
+    )
 
     run_schema = json.loads(text("config/run-plan.schema.json"))
     required_run_fields = set(run_schema["required"])
@@ -218,6 +258,22 @@ def main() -> int:
     evidence_schema = json.loads(text("config/runtime-evidence.schema.json"))
     require(evidence_schema["properties"]["redacted"].get("const") is True, "runtime evidence requires redaction", findings)
     require(evidence_schema["properties"]["commit_sha"]["pattern"] == "^[0-9a-f]{40}$", "runtime evidence is pinned to an exact commit", findings)
+    require("instance_name" in evidence_schema["properties"]["environment"]["properties"], "runtime evidence supports named emulator instances", findings)
+    require("binary" in evidence_schema["properties"] and "integrityArtifact" in evidence_schema["$defs"], "passed runtime evidence carries binary and artifact integrity", findings)
+
+    evidence_validator = text("tools/validate_runtime_evidence.py")
+    require(
+        all(token in evidence_validator for token in ("_is_ancestor_of_head", "_verify_binary_at_commit", "_verify_repository_artifact", "evidence file must match committed HEAD contents")),
+        "runtime evidence validator verifies commit ancestry, binary provenance, and committed evidence artifacts",
+        findings,
+    )
+    readiness_evaluator = text("tools/evaluate_support_readiness.py")
+    require(
+        "validate_registry" in readiness_evaluator and "trusted_for_readiness" in readiness_evaluator,
+        "support readiness imports validation and trusts only validated evidence",
+        findings,
+    )
+    require("required fixture mapping missing" in readiness_evaluator, "support readiness fails closed when a required fixture mapping is absent", findings)
 
     fixture_manifest = json.loads(text("tests/fixtures/current-client/manifest.json"))
     require(len(fixture_manifest["required_fixtures"]) >= 10, "current-client fixture inventory is populated", findings)
@@ -232,6 +288,7 @@ def main() -> int:
     ci_workflow = text(".github/workflows/ci.yml")
     for report_name in ("fixture-validation.json", "ui-metadata-validation.json", "runtime-evidence-validation.json", "support-readiness.json"):
         require(report_name in ci_workflow, f"CI retains {report_name}", findings)
+    require("test_runtime_evidence.py" in ci_workflow or "tests/python" in ci_workflow, "CI runs the runtime evidence trust-contract tests", findings)
 
     payload = {"schema_version": 1, "checks": len(findings), "findings": findings}
     rendered = json.dumps(payload, indent=2, sort_keys=True) + "\n"

@@ -25,27 +25,61 @@ EndFunc   ;==>GetBlueStacks5ProgramParameter
 ; instance ID; require that exact title and exactly one candidate so HWND input and ADB cannot bind
 ; to different accounts.
 Func FindBlueStacks5WindowFallback()
+	Static $iTrustedPid = 0
+	Static $sTrustedInstance = ""
+	If $sTrustedInstance <> $g_sAndroidInstance Then
+		$iTrustedPid = 0
+		$sTrustedInstance = $g_sAndroidInstance
+	EndIf
 	; Include hidden/off-screen windows: the product launcher intentionally minimizes the native
 	; surfaces while leaving the exact emulator instance running for browser control.
 	Local $aWindows = _WinAPI_EnumWindows(False)
 	Local $hFound = 0
 	Local $iFound = 0
+	Local $iQtCandidates = 0
+	Local $iTitleMatches = 0
+	Local $iInvalidGeometry = 0
+	Local $iUndersized = 0
 	If Not IsArray($aWindows) Then Return 0
 	For $i = 1 To $aWindows[0][0]
 		Local $hWindow = $aWindows[$i][0]
 		If Not StringRegExp(_WinAPI_GetClassName($hWindow), "^Qt[0-9]+QWindowIcon$") Then ContinueLoop
+		$iQtCandidates += 1
 		Local $sTitle = WinGetTitle($hWindow)
 		If $g_sAndroidInstance = "" Or StringCompare($sTitle, "BlueStacks5-" & $g_sAndroidInstance, 0) <> 0 Then ContinueLoop
+		$iTitleMatches += 1
 		Local $aPosition = WinGetPos($hWindow)
-		If Not IsArray($aPosition) Then ContinueLoop
+		If Not IsArray($aPosition) Then
+			$iInvalidGeometry += 1
+			ContinueLoop
+		EndIf
 		; A minimized Qt window reports a tiny placeholder rectangle. Exact class/title/instance and
 		; uniqueness remain authoritative while ADB supplies both capture and input coordinates.
-		If BitAND(WinGetState($hWindow), 16) = 0 And ($aPosition[2] < 400 Or $aPosition[3] < 400) Then ContinueLoop
+		If BitAND(WinGetState($hWindow), 16) = 0 And ($aPosition[2] < 400 Or $aPosition[3] < 400) Then
+			$iUndersized += 1
+			ContinueLoop
+		EndIf
 		$hFound = $hWindow
 		$iFound += 1
 	Next
-	If $iFound = 1 Then Return $hFound
-	If $iFound > 1 Then SetDebugLog("BlueStacks5 modern-window fallback refused: multiple exact player windows were found", $COLOR_ERROR)
+	If $iFound = 1 Then
+		Local $iFoundPid = WinGetProcess($hFound)
+		If $iFoundPid > 0 Then
+			$iTrustedPid = $iFoundPid
+			$sTrustedInstance = $g_sAndroidInstance
+		EndIf
+		Return $hFound
+	EndIf
+	Local $sTrustedPid = ($iTrustedPid > 0 ? String($iTrustedPid) : "none")
+	Local $sTrustedPidAlive = ($iTrustedPid > 0 ? String(ProcessExists2($iTrustedPid) = $iTrustedPid) : "unknown")
+	Local $sFallbackDiagnostic = "BlueStacks5 modern-window fallback rejected: expected_title='BlueStacks5-" & $g_sAndroidInstance & _
+		"', qt_candidates=" & $iQtCandidates & ", title_matches=" & $iTitleMatches & ", invalid_geometry=" & $iInvalidGeometry & _
+		", undersized=" & $iUndersized & ", accepted=" & $iFound & ", trusted_pid=" & $sTrustedPid & ", trusted_pid_alive=" & $sTrustedPidAlive
+	If $iFound > 1 Then
+		SetDebugLog($sFallbackDiagnostic & ", reason=multiple exact player windows", $COLOR_ERROR)
+	Else
+		SetDebugLog($sFallbackDiagnostic & ", reason=no exact player window")
+	EndIf
 	Return 0
 EndFunc   ;==>FindBlueStacks5WindowFallback
 

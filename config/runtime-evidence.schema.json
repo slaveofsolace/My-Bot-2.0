@@ -4,6 +4,20 @@
   "title": "My Bot 2.0 runtime evidence",
   "type": "object",
   "additionalProperties": false,
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "integrityArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "path", "sha256", "bytes"],
+      "properties": {
+        "kind": {"const": "repository"},
+        "path": {"type": "string", "minLength": 3, "maxLength": 260},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "bytes": {"type": "integer", "minimum": 1}
+      }
+    }
+  },
   "required": [
     "schema_version",
     "evidence_id",
@@ -39,7 +53,18 @@
         "emulator": {"type": "string", "maxLength": 80},
         "emulator_version": {"type": "string", "maxLength": 80},
         "instance_index": {"type": "integer", "minimum": 0, "maximum": 1000},
+        "instance_name": {"type": "string", "minLength": 1, "maxLength": 80},
         "game_version": {"type": "string", "maxLength": 80}
+      }
+    },
+    "binary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "bytes"],
+      "properties": {
+        "path": {"type": "string", "minLength": 3, "maxLength": 260},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "bytes": {"type": "integer", "minimum": 1}
       }
     },
     "checks": {
@@ -67,9 +92,28 @@
     },
     "artifact_refs": {
       "type": "array",
-      "items": {"type": "string", "minLength": 3, "maxLength": 300},
+      "items": {
+        "oneOf": [
+          {"type": "string", "minLength": 3, "maxLength": 300},
+          {"$ref": "#/$defs/integrityArtifact"}
+        ]
+      },
       "uniqueItems": true
     },
     "notes": {"type": "string", "maxLength": 4000}
-  }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"result": {"const": "passed"}}, "required": ["result"]},
+      "then": {
+        "required": ["binary"],
+        "properties": {
+          "artifact_refs": {
+            "minItems": 1,
+            "items": {"$ref": "#/$defs/integrityArtifact"}
+          }
+        }
+      }
+    }
+  ]
 }

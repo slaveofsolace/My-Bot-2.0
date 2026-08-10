@@ -6,7 +6,7 @@ This guide sets up the current source baseline for development and controlled co
 
 | Item | Current status |
 | --- | --- |
-| Operating system | Windows 10/11 is the development target. Older Windows versions in the inherited README are not part of the new support plan. |
+| Operating system | Windows 10/11 desktop is the development target. Windows Server editions, including Server 2019 and 2022, and older Windows versions in the inherited README are outside the support plan. |
 | Source language | AutoIt 3.3.16.1 and 3.3.18.0 are checked by the Windows CI matrix. |
 | Elevation | The main script contains `#RequireAdmin` and will request elevation. |
 | BlueStacks 5 | Present in the v8.2.0 source. Current-version smoke test still required. |
