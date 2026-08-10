@@ -58,6 +58,7 @@ MAX_TAIL_BYTES = 512 * 1024
 CONTROL_STATUS_MAX_AGE_SECONDS = 4.0
 CONTROL_STATUS_BUSY_MAX_AGE_SECONDS = 45.0
 CONTROL_STATUS_READ_RETRY_SECONDS = 0.02
+CONTROL_STATUS_READ_ATTEMPTS = 5
 CONTROL_BUSY_STATES = {"starting", "stopping", "closing"}
 CONTROL_ACTIONS = {"start", "stop", "pause", "resume"}
 CONTROL_LOCK = threading.Lock()
@@ -309,24 +310,27 @@ def control_status() -> dict:
         "last_seen_at": None,
         "age_seconds": None,
     }
-    if not CONTROL_STATUS_PATH.exists():
-        return offline
-    try:
-        modified = CONTROL_STATUS_PATH.stat().st_mtime
-        age = max(0.0, datetime.now(timezone.utc).timestamp() - modified)
-        document = read_json(CONTROL_STATUS_PATH, None)
-        if not isinstance(document, dict):
-            # AutoIt replaces the status file atomically. A reader can still land in the tiny
-            # remove/replace window on Windows, so retry once before showing a false error state.
-            time.sleep(CONTROL_STATUS_READ_RETRY_SECONDS)
+    modified = None
+    document = None
+    for attempt in range(CONTROL_STATUS_READ_ATTEMPTS):
+        try:
             modified = CONTROL_STATUS_PATH.stat().st_mtime
-            age = max(0.0, datetime.now(timezone.utc).timestamp() - modified)
             document = read_json(CONTROL_STATUS_PATH, None)
-    except OSError:
+            if isinstance(document, dict):
+                break
+        except OSError:
+            modified = None
+            document = None
+        # FileMove on Windows can expose a short remove/replace window. Retry the complete
+        # existence/stat/read sequence so that gap never masquerades as a dead native engine.
+        if attempt + 1 < CONTROL_STATUS_READ_ATTEMPTS:
+            time.sleep(CONTROL_STATUS_READ_RETRY_SECONDS)
+    if modified is None:
         return offline
     if not isinstance(document, dict):
         return {**offline, "state": "error", "message": "Native status file is unreadable"}
 
+    age = max(0.0, datetime.now(timezone.utc).timestamp() - modified)
     document = dict(document)
     document["last_seen_at"] = datetime.fromtimestamp(modified, timezone.utc).isoformat()
     document["age_seconds"] = round(age, 2)
