@@ -1,0 +1,118 @@
+{
+  "schema_version": 1,
+  "artifact_id": "start-ready-stop.pie64.20260810",
+  "captured_at": "2026-08-10T00:42:03.7188621Z",
+  "commit_sha": "feb2f6dc9581fc3c9bb298a879a90fc31e6d5c5d",
+  "redacted": true,
+  "scope": "Controlled diagnostic Start-to-ready-to-Stop acceptance; no battle execution or gameplay-support claim.",
+  "environment": {
+    "os": "Windows 11",
+    "os_version": "10.0.26200",
+    "autoit_version": "3.3.16.1",
+    "emulator": "BlueStacks5",
+    "emulator_version": "5.22.252.1008",
+    "instance_index": 0,
+    "instance_name": "Pie64",
+    "game_version": "18.400.9"
+  },
+  "binary": {
+    "path": "MyBot.run.exe",
+    "sha256": "cb2b36f3b5f0711584f438d21cbe0d3aac6f94dba46f52322cda1ac0896557b8",
+    "bytes": 3211776
+  },
+  "plan": {
+    "before_sha256": "fc7464632834d9b765907ab4d2196c0fd8722be8cba9e09207821db7ed98353a",
+    "after_sha256": "fc7464632834d9b765907ab4d2196c0fd8722be8cba9e09207821db7ed98353a",
+    "preserved": true,
+    "validation": {
+      "readable": true,
+      "exact_setting_set": true,
+      "adjustment_count": 0,
+      "rejected_setting_count": 0,
+      "valid": true
+    },
+    "bounded_controls": {
+      "mode": "regular",
+      "strategy": "legacy.csv",
+      "duration_minutes": 1,
+      "max_battles": 1,
+      "max_failures": 1,
+      "heroes_selected": 0,
+      "surface_quota": "unlimited",
+      "action_delay_ms": 5000,
+      "settle_ms": 10000,
+      "diagnostic_mode": true
+    }
+  },
+  "commands": [
+    {
+      "action": "start",
+      "http_status": 202,
+      "accepted": true
+    },
+    {
+      "action": "stop",
+      "http_status": 202,
+      "accepted": true
+    }
+  ],
+  "run_window": {
+    "started_at": "2026-08-10T00:41:16.2075058Z",
+    "completed_at": "2026-08-10T00:42:03.7188621Z"
+  },
+  "observations": {
+    "running": {
+      "state": "running",
+      "session_ref": "session-1",
+      "plan_active": true,
+      "engine_probe_state": "passed",
+      "emulator": "BlueStacks5",
+      "instance_name": "Pie64",
+      "emulator_attached": true,
+      "window_attached": true,
+      "adb_ready": true,
+      "game_ready": true
+    },
+    "final": {
+      "state": "idle",
+      "session_cleared": true,
+      "plan_active": false,
+      "last_outcome": "stopped"
+    }
+  },
+  "events": [
+    {
+      "sequence": 1,
+      "type": "session.started",
+      "timestamp_ms": 0,
+      "session_ref": "session-1",
+      "verification_state": "unverified-diagnostic"
+    },
+    {
+      "sequence": 2,
+      "type": "session.stopping",
+      "timestamp_ms": 629,
+      "session_ref": "session-1",
+      "verification_state": "unverified-diagnostic"
+    },
+    {
+      "sequence": 3,
+      "type": "session.completed",
+      "timestamp_ms": 634,
+      "session_ref": "session-1",
+      "verification_state": "unverified-diagnostic"
+    }
+  ],
+  "assertions": {
+    "plan_preserved": true,
+    "session_correlated": true,
+    "event_sequence_strictly_increasing": true,
+    "emulator_process_stable": true,
+    "new_emulator_crash_events": 0,
+    "transient_offline_or_error_samples": 0,
+    "battle_events": 0,
+    "loot_events": 0,
+    "account_events": 0
+  },
+  "privacy": "Only allowlisted operational state is retained. Native session, request, process, profile, path, player, account, chat, payment, machine, and operator identifiers are omitted."
+}
