@@ -23,6 +23,7 @@ import os
 import re
 import tempfile
 import threading
+import time
 import uuid
 import webbrowser
 from datetime import datetime, timezone
@@ -55,6 +56,9 @@ CONTROL_STATUS_PATH = ROOT / "config/control-status.local.json"
 MAX_REQUEST_BYTES = 256 * 1024
 MAX_TAIL_BYTES = 512 * 1024
 CONTROL_STATUS_MAX_AGE_SECONDS = 4.0
+CONTROL_STATUS_BUSY_MAX_AGE_SECONDS = 45.0
+CONTROL_STATUS_READ_RETRY_SECONDS = 0.02
+CONTROL_BUSY_STATES = {"starting", "stopping", "closing"}
 CONTROL_ACTIONS = {"start", "stop", "pause", "resume"}
 CONTROL_LOCK = threading.Lock()
 LOCAL_HOSTS = {"127.0.0.1", "localhost"}
@@ -311,6 +315,13 @@ def control_status() -> dict:
         modified = CONTROL_STATUS_PATH.stat().st_mtime
         age = max(0.0, datetime.now(timezone.utc).timestamp() - modified)
         document = read_json(CONTROL_STATUS_PATH, None)
+        if not isinstance(document, dict):
+            # AutoIt replaces the status file atomically. A reader can still land in the tiny
+            # remove/replace window on Windows, so retry once before showing a false error state.
+            time.sleep(CONTROL_STATUS_READ_RETRY_SECONDS)
+            modified = CONTROL_STATUS_PATH.stat().st_mtime
+            age = max(0.0, datetime.now(timezone.utc).timestamp() - modified)
+            document = read_json(CONTROL_STATUS_PATH, None)
     except OSError:
         return offline
     if not isinstance(document, dict):
@@ -319,7 +330,8 @@ def control_status() -> dict:
     document = dict(document)
     document["last_seen_at"] = datetime.fromtimestamp(modified, timezone.utc).isoformat()
     document["age_seconds"] = round(age, 2)
-    document["connected"] = age <= CONTROL_STATUS_MAX_AGE_SECONDS
+    max_age = CONTROL_STATUS_BUSY_MAX_AGE_SECONDS if document.get("state") in CONTROL_BUSY_STATES else CONTROL_STATUS_MAX_AGE_SECONDS
+    document["connected"] = age <= max_age
     if not document["connected"]:
         document["state"] = "offline"
         document["message"] = "Native engine heartbeat is stale"
@@ -821,6 +833,28 @@ def selftest() -> int:
             response = connection.getresponse()
             payload = json.loads(response.read())
             check(response.status == 200 and payload["connected"] and payload["state"] == "idle", "fresh native heartbeat is reported online")
+
+            write_json_atomic({"state": "starting", "message": "Preparing the run", "bot_pid": 123}, CONTROL_STATUS_PATH)
+            stale_busy_time = datetime.now(timezone.utc).timestamp() - (CONTROL_STATUS_MAX_AGE_SECONDS + 2)
+            os.utime(CONTROL_STATUS_PATH, (stale_busy_time, stale_busy_time))
+            connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
+            connection.request("GET", "/api/control/status")
+            response = connection.getresponse()
+            payload = json.loads(response.read())
+            check(response.status == 200 and payload["connected"] and payload["state"] == "starting", "busy startup keeps a bounded heartbeat grace")
+
+            write_json_atomic({"state": "idle", "message": "Native engine is ready", "bot_pid": 123}, CONTROL_STATUS_PATH)
+            os.utime(CONTROL_STATUS_PATH, (stale_busy_time, stale_busy_time))
+            connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
+            connection.request("GET", "/api/control/status")
+            response = connection.getresponse()
+            payload = json.loads(response.read())
+            check(response.status == 200 and not payload["connected"] and payload["state"] == "offline", "idle heartbeat still fails closed at the normal threshold")
+
+            write_json_atomic({"state": "starting", "message": "Preparing the run", "bot_pid": 123}, CONTROL_STATUS_PATH)
+            with mock.patch(f"{__name__}.read_json", side_effect=[None, {"state": "starting", "message": "Preparing the run", "bot_pid": 123}]) as status_read:
+                payload = control_status()
+            check(payload["connected"] and payload["state"] == "starting" and status_read.call_count == 2, "status replacement race is retried once")
 
             connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
             body = json.dumps({"action": "start"}).encode()
