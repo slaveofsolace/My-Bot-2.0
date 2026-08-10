@@ -323,6 +323,7 @@ AssertTrue(RunPacingRestIsDue($oPacing, 0, 100 * 60000), "the next rest falls du
 ; An intent always carries pacing, so nothing downstream has to check whether it is there.
 Local $oPacingLoadout = HeroLoadoutCreate(18)
 Local $oPacingPlan = RunPlanCreateDefault("regular", "fixture-strategy")
+AssertTrue(RunPlanSetStopConditions($oPacingPlan, 1, 1, False, 1), "intent fixture receives bounded stop conditions")
 Local $oPacingIntent = RunIntentCreate($oPacingPlan, "regular", $oPacingLoadout, $sError)
 AssertTrue(IsObj($oPacingIntent), "intent is created for the pacing check: " & $sError)
 AssertTrue($oPacingIntent.Exists("pacing"), "every intent carries pacing")
@@ -332,6 +333,8 @@ AssertTrue(RunPacingSettleMilliseconds($oAttached) = 500, "the intent holds the 
 AssertTrue(Not RunIntentSetPacing($oPacingIntent, 200, 500, 1, 30, 0, $sError), "the intent refuses out-of-range pacing")
 AssertTrue(RunPacingSettleMilliseconds($oAttached) = 500, "a refused change leaves the intent's pacing alone")
 AssertTrue(StringInStr(RunIntentDescribe($oPacingIntent), "500ms settle") > 0, "the intent describes its pacing")
+AssertTrue(StringInStr(RunIntentDescribe($oPacingIntent), "Plan: REGULAR / fixture-strategy / 1 min / 1 battle / 1 failure max") > 0, "the intent describes its actual run limits")
+AssertTrue(StringInStr(RunIntentDescribe($oPacingIntent), "Surface quota: Unlimited attacks") > 0, "the intent labels the separate surface quota")
 
 ; An intent with pacing stripped out must not validate, or the required-field list is decorative.
 $oPacingIntent.Remove("pacing")

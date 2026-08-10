@@ -631,10 +631,28 @@ def main() -> int:
             errors.append("cancelled prepared runs can strand the Activity logger on a dead session id")
         complete_body = execution_source.split("Func RunExecutionComplete", 1)
         complete_body = complete_body[1].split("EndFunc", 1)[0] if len(complete_body) > 1 else ""
+        stop_transition = complete_body.find("RunSessionRequestStop(")
+        stopping_event = complete_body.find("RunEventLogRunStopping(")
+        session_complete = complete_body.find("RunSessionComplete(")
         completed_event = complete_body.find("RunEventLogRunCompleted(")
-        completed_release = complete_body.find("RunEventLogReleaseSession(RunExecutionSessionId())")
-        if completed_event < 0 or completed_release < completed_event:
-            errors.append("completed planned runs do not release the Activity logger after the terminal event")
+        completed_release = complete_body.find("RunEventLogReleaseSession($sCompletedSessionId)")
+        session_reset = complete_body.find("$g_oRunExecutionSession = 0")
+        intent_reset = complete_body.find("$g_oRunExecutionIntent = 0")
+        prepared_reset = complete_body.find("$g_bRunExecutionPrepared = False")
+        active_reset = complete_body.find("$g_bRunExecutionActive = False")
+        pacing_reset = complete_body.find("RunPacingDeactivate()")
+        if min(stop_transition, stopping_event, session_complete, completed_event, completed_release) < 0 or not (
+            stop_transition < stopping_event < session_complete < completed_event < completed_release
+        ):
+            errors.append("manual planned-run Stop no longer transitions and emits stopping/completed before releasing the Activity session")
+        if "$bIntentReady = IsObj($g_oRunExecutionIntent)" not in complete_body or "If $bSessionCompleted And $bIntentReady Then" not in complete_body:
+            errors.append("planned-run completion can dereference a missing intent or publish completion after a failed state transition")
+        if min(session_reset, intent_reset, prepared_reset, active_reset, pacing_reset) < completed_release:
+            errors.append("completed planned runs keep a stale session or intent in idle Control Center status")
+        cancel_session_reset = cancel_body.find("$g_oRunExecutionSession = 0")
+        cancel_intent_reset = cancel_body.find("$g_oRunExecutionIntent = 0")
+        if cancel_session_reset < 0 or cancel_intent_reset < 0:
+            errors.append("cancelled prepared runs keep a stale session or intent in idle Control Center status")
         validator_block = event_source.split('Switch $oEvent.Item("type")', 1)[-1].split("EndSwitch", 1)[0]
         case_lines = "\n".join(re.findall(r"^\s*Case\s+(.+)$", validator_block, re.MULTILINE))
         accepted_types = set(re.findall(r'"([a-z]+(?:\.[a-z]+)*)"', case_lines))

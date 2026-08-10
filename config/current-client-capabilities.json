@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "as_of": "2026-08-06",
+  "as_of": "2026-08-09",
   "product_version": "v2.0.0",
   "core_baseline": {
     "engine_version": "v8.2.0",
@@ -25,6 +25,12 @@
     "require_binary_provenance": true,
     "require_tracked_artifacts": true,
     "capabilities": {
+      "emulator.bluestacks5": {
+        "environment_patterns": {"emulator": "(?i)^bluestacks\\s*5$"},
+        "required_tests": [
+          {"test_type": "emulator-smoke", "required_checks": ["emulator.detected", "adb.connected", "game.ready"]}
+        ]
+      },
       "emulator.ldplayer9": {
         "environment_patterns": {"emulator": "(?i)ldplayer\\s*9"},
         "required_tests": [
@@ -165,6 +171,7 @@
     }
   },
   "capabilities": [
+    {"id":"emulator.bluestacks5","introduced":"2026-08-09","status":"adapter-added","implementation":"COCBot/functions/Android/AndroidBluestacks5.au3","verification":["exact-instance-window","adb-capture-transport","windows-au3check"],"runtime_evidence":"required"},
     {"id":"emulator.ldplayer9","introduced":"2026-08-06","status":"adapter-added","implementation":"COCBot/functions/Android/AndroidLDPlayer9.au3","verification":["static-dispatch","adb-port-formula","resolution-contract","windows-au3check"],"runtime_evidence":"required"},
     {"id":"emulator.mumu","introduced":"2026-08-06","status":"adapter-added","implementation":"COCBot/functions/Android/AndroidMumu.au3","verification":["static-dispatch","instance-config-adb","resolution-contract","windows-au3check"],"runtime_evidence":"required"},
     {"id":"orchestration.run-plan","introduced":"2026-08-06","status":"engine-added","implementation":"COCBot/functions/Run/RunPlan.au3","schema":"config/run-plan.schema.json","runtime_evidence":"required"},

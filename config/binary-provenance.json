@@ -160,8 +160,8 @@
     },
     {
       "path": "MyBot.run.exe",
-      "sha256": "dc2412915f6b99b8605e190f967a18344eb09d734b1ae5d196b875649e3a16da",
-      "bytes": 3211264,
+      "sha256": "cb2b36f3b5f0711584f438d21cbe0d3aac6f94dba46f52322cda1ac0896557b8",
+      "bytes": 3211776,
       "provenance": {
         "kind": "local-build",
         "source": "MyBot.run.au3",

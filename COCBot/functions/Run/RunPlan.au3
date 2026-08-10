@@ -200,7 +200,16 @@ Func RunPlanDescribe(ByRef $oPlan)
 	Local $sDescription = StringUpper($oPlan.Item("mode")) & " / " & $oPlan.Item("strategy")
 	If StringLower($oPlan.Item("attack_script")) <> "profile-current" Then $sDescription &= " / " & $oPlan.Item("attack_script")
 	If Int($oPlan.Item("duration_minutes")) > 0 Then $sDescription &= " / " & Int($oPlan.Item("duration_minutes")) & " min"
-	If Int($oPlan.Item("max_battles")) > 0 Then $sDescription &= " / " & Int($oPlan.Item("max_battles")) & " battles"
+	If Int($oPlan.Item("max_battles")) = 1 Then
+		$sDescription &= " / 1 battle"
+	ElseIf Int($oPlan.Item("max_battles")) > 1 Then
+		$sDescription &= " / " & Int($oPlan.Item("max_battles")) & " battles"
+	EndIf
+	If Int($oPlan.Item("max_failures")) = 1 Then
+		$sDescription &= " / 1 failure max"
+	ElseIf Int($oPlan.Item("max_failures")) > 1 Then
+		$sDescription &= " / " & Int($oPlan.Item("max_failures")) & " failures max"
+	EndIf
 	If $oPlan.Item("stop_on_star_bonus") Then $sDescription &= " / star bonus"
 	Return $sDescription
 EndFunc   ;==>RunPlanDescribe

@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 AUTOIT_CONTRACT_FILES = [
     "COCBot/functions/Other/CurrentClientCompat.au3",
+    "COCBot/functions/Android/AndroidBluestacks5.au3",
     "COCBot/functions/Android/AndroidLDPlayer9.au3",
     "COCBot/functions/Android/AndroidMumu.au3",
     "COCBot/functions/Android/ZoomOut.au3",
@@ -175,9 +176,10 @@ def main() -> int:
         verify_autoit_balance(autoit_path, findings)
 
     capabilities = json.loads(text("config/current-client-capabilities.json"))
-    require(capabilities.get("as_of") == "2026-08-06", "capability catalog has a fixed audit date", findings)
+    require(capabilities.get("as_of") == "2026-08-09", "capability catalog has a fixed audit date", findings)
     capability_ids = {item["id"] for item in capabilities["capabilities"]}
     for capability_id in {
+        "emulator.bluestacks5",
         "emulator.ldplayer9",
         "emulator.mumu",
         "orchestration.run-plan",
@@ -211,6 +213,25 @@ def main() -> int:
         findings,
     )
     capabilities_by_id = {item["id"]: item for item in capabilities["capabilities"]}
+    bluestacks_capability = capabilities_by_id["emulator.bluestacks5"]
+    bluestacks_policy = evidence_policy["capabilities"]["emulator.bluestacks5"]
+    require(
+        bluestacks_capability.get("implementation") == "COCBot/functions/Android/AndroidBluestacks5.au3"
+        and bluestacks_capability.get("status") == "adapter-added",
+        "BlueStacks 5 capability points at the bounded native adapter",
+        findings,
+    )
+    require(
+        bluestacks_policy.get("environment_patterns", {}).get("emulator") == r"(?i)^bluestacks\s*5$"
+        and bluestacks_policy.get("required_tests") == [
+            {
+                "test_type": "emulator-smoke",
+                "required_checks": ["emulator.detected", "adb.connected", "game.ready"],
+            }
+        ],
+        "BlueStacks 5 evidence requires exact emulator, ADB, and game readiness",
+        findings,
+    )
     require(
         all(capabilities_by_id[item].get("fixture_status") == "required" for item in ("model.current-game", "model.screen-state-registry")),
         "runtime game models require an explicit fixture mapping",

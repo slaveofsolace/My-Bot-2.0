@@ -234,7 +234,9 @@ Func RunIntentDescribe(ByRef $oIntent)
 	Local $oQuota = $oIntent.Item("quota")
 	Local $oLoadout = $oIntent.Item("loadout")
 	Local $oPacing = $oIntent.Item("pacing")
-	Local $sDescription = $oIntent.Item("surface_label") & " / " & HeroLoadoutDescribe($oLoadout) & " / " & BattleQuotaDescribe($oQuota) & " / " & RunPacingDescribe($oPacing)
+	Local $oPlan = $oIntent.Item("plan")
+	Local $sDescription = $oIntent.Item("surface_label") & " / Plan: " & RunPlanDescribe($oPlan) & " / " & _
+		HeroLoadoutDescribe($oLoadout) & " / Surface quota: " & BattleQuotaDescribe($oQuota) & " / " & RunPacingDescribe($oPacing)
 	If RunIntentVerificationState($oIntent) = $RUN_VERIFICATION_DIAGNOSTIC Then $sDescription &= " / " & RunVerificationLabel($RUN_VERIFICATION_DIAGNOSTIC)
 	Return $sDescription
 EndFunc   ;==>RunIntentDescribe

@@ -50,6 +50,17 @@ AssertTrue($oSnapshot.Item("account_profile_id") = "profile-a", "snapshot contai
 AssertTrue($oSnapshot.Item("verification_state") = $RUN_VERIFICATION_VERIFIED, "snapshot contains verification state")
 AssertTrue($oSnapshot.Item("verification_reason") = "", "verified snapshot has no diagnostic reason")
 
+Local $oManualSession = RunSessionCreate($oPlan, "manual-stop")
+AssertTrue(IsObj($oManualSession) And RunSessionStart($oManualSession), "manual-stop session starts")
+AssertTrue(RunSessionRequestStop($oManualSession, "stopped"), "manual Stop requests the stopping transition")
+AssertTrue($oManualSession.Item("state") = "stopping" And $oManualSession.Item("stop_reason") = "stopped", "manual Stop records its state and reason")
+AssertTrue(RunSessionRequestStop($oManualSession, "second request"), "repeated Stop remains idempotent")
+AssertTrue($oManualSession.Item("stop_reason") = "stopped", "repeated Stop preserves the first terminal reason")
+AssertTrue(RunSessionComplete($oManualSession) And $oManualSession.Item("state") = "completed", "manual-stop session completes exactly once")
+AssertTrue(Not RunSessionComplete($oManualSession), "a completed session refuses a second completion")
+Local $oReadySession = RunSessionCreate($oPlan, "not-started")
+AssertTrue(Not RunSessionComplete($oReadySession) And $oReadySession.Item("state") = "ready", "a session cannot claim completion before it starts")
+
 Local $oQueue = AccountQueueCreate(False)
 AssertTrue(AccountQueueAdd($oQueue, "profile-a", "Alpha"), "first queue item is added")
 AssertTrue(AccountQueueAdd($oQueue, "profile-b", "Beta", False), "disabled queue item is added")

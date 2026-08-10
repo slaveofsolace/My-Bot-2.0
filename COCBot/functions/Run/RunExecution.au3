@@ -421,6 +421,7 @@ Func RunExecutionCancelPrepared($sReason)
 	$g_bRunExecutionPrepared = False
 	$g_bRunExecutionActive = False
 	$g_oRunExecutionSession = 0
+	$g_oRunExecutionIntent = 0
 	If $sCancelledSessionId <> "" Then RunEventLogReleaseSession($sCancelledSessionId)
 	RunPacingDeactivate()
 	$g_sRunExecutionMessage = $sReason
@@ -428,20 +429,33 @@ EndFunc   ;==>RunExecutionCancelPrepared
 
 Func RunExecutionComplete($sFallbackReason = "stopped")
 	If Not $g_bRunExecutionPrepared Then Return
+	Local $sCompletedSessionId = RunExecutionSessionId()
 	If $g_bRunExecutionActive And IsObj($g_oRunExecutionSession) Then
 		_RunExecutionSyncSession()
-		If $g_oRunExecutionSession.Item("state") = "running" Then RunSessionRequestStop($g_oRunExecutionSession, $sFallbackReason)
+		Local $bIntentReady = IsObj($g_oRunExecutionIntent)
+		Local $bStopRequested = False
+		If $g_oRunExecutionSession.Item("state") = "running" Then $bStopRequested = RunSessionRequestStop($g_oRunExecutionSession, $sFallbackReason)
 		Local $sReason = String($g_oRunExecutionSession.Item("stop_reason"))
 		If $sReason = "" Then $sReason = $sFallbackReason
-		RunSessionComplete($g_oRunExecutionSession)
-		RunEventLogRunCompleted($g_oRunExecutionIntent.Item("surface_id"), RunIntentVerificationState($g_oRunExecutionIntent), $sReason)
-		RunEventLogReleaseSession(RunExecutionSessionId())
-		Local $oPlan = $g_oRunExecutionIntent.Item("plan")
-		If $oPlan.Item("notify_on_stop") Then SetLog("Run notification: " & $sReason, $COLOR_SUCCESS)
-		$g_sRunExecutionMessage = "Completed: " & $sReason
+		If $bStopRequested And $bIntentReady Then RunEventLogRunStopping($g_oRunExecutionIntent.Item("surface_id"), RunIntentVerificationState($g_oRunExecutionIntent), $sReason)
+		Local $bSessionCompleted = RunSessionComplete($g_oRunExecutionSession)
+		If $bSessionCompleted And $bIntentReady Then
+			RunEventLogRunCompleted($g_oRunExecutionIntent.Item("surface_id"), RunIntentVerificationState($g_oRunExecutionIntent), $sReason)
+			Local $oPlan = $g_oRunExecutionIntent.Item("plan")
+			If $oPlan.Item("notify_on_stop") Then SetLog("Run notification: " & $sReason, $COLOR_SUCCESS)
+			$g_sRunExecutionMessage = "Completed: " & $sReason
+		Else
+			Local $sCompletionError = ($bIntentReady ? "Run session could not transition to completed" : "Run completion lost its execution intent")
+			RunEventLogWrite("error", "error", $sCompletionError, "", $RUN_VERIFICATION_DIAGNOSTIC)
+			SetLog("Run Planner: " & $sCompletionError, $COLOR_ERROR)
+			$g_sRunExecutionMessage = "Stopped with lifecycle error: " & $sCompletionError
+		EndIf
 	EndIf
+	If $sCompletedSessionId <> "" Then RunEventLogReleaseSession($sCompletedSessionId)
 	_RunExecutionRestoreProfile()
 	$g_bRunExecutionPrepared = False
 	$g_bRunExecutionActive = False
+	$g_oRunExecutionSession = 0
+	$g_oRunExecutionIntent = 0
 	RunPacingDeactivate()
 EndFunc   ;==>RunExecutionComplete
