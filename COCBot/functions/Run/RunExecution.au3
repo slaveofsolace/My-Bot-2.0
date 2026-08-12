@@ -159,12 +159,32 @@ Func RunExecutionPrepareEnemyDeploymentView()
 	EndIf
 
 	; Red-line detection is the same current-frame geometry consumed by SmartAttackStrategy and the
-	; inherited DropTroop routines. It is both much faster and more relevant than scenery anchors.
-	$g_sImglocRedline = ""
-	Local $sRedline = SearchRedLines($CocDiamondECD)
+	; inherited DropTroop routines. The inherited working path samples several frames because the
+	; perimeter can be absent for one render immediately after a pinch. Keep that resilience, but
+	; stop at the first proven frame and cap the work at three attempts. Use the DLL's full-diamond
+	; token here: $CocDiamondECD is rebuilt later by the original VillageSearch measurement path and
+	; can still contain own-village calibration when current-army mode intentionally skips that scan.
+	Local $sRedline = ""
 	Local $iRedlinePoints = 0
-	If IsString($sRedline) And $sRedline <> "" And $sRedline <> "ECD" Then _
-		$iRedlinePoints = UBound(StringSplit($sRedline, "|", $STR_NOCOUNT))
+	For $iRedlineAttempt = 1 To 3
+		If $iRedlineAttempt > 1 Then
+			If _Sleep(300) Then Return False
+			ForceCaptureRegion()
+			_CaptureRegions()
+			If Not IsAttackPage(False) Then
+				SetLog("Run Planner lost the attack page while refreshing red-line geometry; refusing to deploy troops", $COLOR_ERROR)
+				Return False
+			EndIf
+		EndIf
+
+		$g_sImglocRedline = ""
+		$sRedline = SearchRedLines("ECD")
+		$iRedlinePoints = 0
+		If IsString($sRedline) And $sRedline <> "" And $sRedline <> "ECD" Then _
+			$iRedlinePoints = UBound(StringSplit($sRedline, "|", $STR_NOCOUNT))
+		SetDebugLog("Run Planner: red-line proof attempt " & $iRedlineAttempt & "/3 returned " & $iRedlinePoints & " points")
+		If $iRedlinePoints >= 50 Then ExitLoop
+	Next
 	If $iRedlinePoints < 50 Then
 		SetLog("Run Planner could not prove deployable red-line geometry after zoom-out; refusing to click the base", $COLOR_ERROR)
 		Return False
