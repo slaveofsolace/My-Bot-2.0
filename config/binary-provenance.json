@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "reviewed_at": "2026-08-09",
+  "reviewed_at": "2026-08-12",
   "artifacts": [
     {
       "path": "lib/adb/adb.exe",
@@ -134,20 +134,23 @@
     },
     {
       "path": "My Bot 2.0.exe",
-      "sha256": "d3b4271e81921977562eee393ff77329985babc55c7c360443fcdb158f69d46d",
-      "bytes": 1073152,
+      "sha256": "5f1efb11e259f40609bfcf2a3fe544631cf85037dae08e091e25c8371a44aa57",
+      "bytes": 1091584,
       "provenance": {
         "kind": "local-build",
         "source": "My Bot 2.0.au3",
         "toolchain": "AutoIt Aut2Exe",
         "tool_version": "3.3.16.1",
         "tool_signer": "AutoIt Consulting Ltd",
-        "built_at": "2026-08-09"
+        "source_commit": "5bb397e233e128ad50628525358b7a23715d2946",
+        "compiler_sha256": "921e51d0d9f94c05c5ed10d2d2a80620c8ed930cc48d71e2ce0a5bab4a4f8158",
+        "compile_flags": ["/x86", "/gui", "/nopack", "/comp", "2"],
+        "built_at": "2026-08-12"
       }
     },
     {
       "path": "MyBot.run.EngineProbe.exe",
-      "sha256": "08d79e47001ee4849deac733dff5eb4af45e6f663f8a10f5ca2ed4192e5dd495",
+      "sha256": "b596de3567afd061572048eaf6d7ed7445e6f781048ffcf2855c7fefbf8ef3be",
       "bytes": 963584,
       "provenance": {
         "kind": "local-build",
@@ -155,20 +158,26 @@
         "toolchain": "AutoIt Aut2Exe",
         "tool_version": "3.3.16.1",
         "tool_signer": "AutoIt Consulting Ltd",
-        "built_at": "2026-08-09"
+        "source_commit": "5bb397e233e128ad50628525358b7a23715d2946",
+        "compiler_sha256": "921e51d0d9f94c05c5ed10d2d2a80620c8ed930cc48d71e2ce0a5bab4a4f8158",
+        "compile_flags": ["/x86", "/gui", "/nopack", "/comp", "2"],
+        "built_at": "2026-08-12"
       }
     },
     {
       "path": "MyBot.run.exe",
-      "sha256": "cb2b36f3b5f0711584f438d21cbe0d3aac6f94dba46f52322cda1ac0896557b8",
-      "bytes": 3211776,
+      "sha256": "340995645479f1417058b9e96fe48ab132b7f314d7367fa6d758e2c84984eb7f",
+      "bytes": 3259392,
       "provenance": {
         "kind": "local-build",
         "source": "MyBot.run.au3",
         "toolchain": "AutoIt Aut2Exe",
         "tool_version": "3.3.16.1",
         "tool_signer": "AutoIt Consulting Ltd",
-        "built_at": "2026-08-09"
+        "source_commit": "5bb397e233e128ad50628525358b7a23715d2946",
+        "compiler_sha256": "921e51d0d9f94c05c5ed10d2d2a80620c8ed930cc48d71e2ce0a5bab4a4f8158",
+        "compile_flags": ["/x86", "/gui", "/nopack", "/comp", "2"],
+        "built_at": "2026-08-12"
       }
     },
     {
@@ -183,7 +192,7 @@
     },
     {
       "path": "MyBot.run.Watchdog.exe",
-      "sha256": "fc90c1a5e9fbc1e1c7e8bc45b00c43deeec601011b33c1808edb77646776c5a1",
+      "sha256": "bae839a00dcbf6b31d1ae95a3bc101a91f1da764ac422cbc62099468bfc59ea0",
       "bytes": 1354240,
       "provenance": {
         "kind": "local-build",
@@ -191,12 +200,15 @@
         "toolchain": "AutoIt Aut2Exe",
         "tool_version": "3.3.16.1",
         "tool_signer": "AutoIt Consulting Ltd",
-        "built_at": "2026-08-09"
+        "source_commit": "5bb397e233e128ad50628525358b7a23715d2946",
+        "compiler_sha256": "921e51d0d9f94c05c5ed10d2d2a80620c8ed930cc48d71e2ce0a5bab4a4f8158",
+        "compile_flags": ["/x86", "/gui", "/nopack", "/comp", "2"],
+        "built_at": "2026-08-12"
       }
     },
     {
       "path": "MyBot.run.Wmi.exe",
-      "sha256": "d1ac8549e396bc7ff6fa747bcdd8d2f611f7734e63baadef16e182b94ae076af",
+      "sha256": "bd9f37486ae69340666e294007ef39486cb589c6f09b82d1438acba9818492d4",
       "bytes": 1350144,
       "provenance": {
         "kind": "local-build",
@@ -204,7 +216,10 @@
         "toolchain": "AutoIt Aut2Exe",
         "tool_version": "3.3.16.1",
         "tool_signer": "AutoIt Consulting Ltd",
-        "built_at": "2026-08-09"
+        "source_commit": "5bb397e233e128ad50628525358b7a23715d2946",
+        "compiler_sha256": "921e51d0d9f94c05c5ed10d2d2a80620c8ed930cc48d71e2ce0a5bab4a4f8158",
+        "compile_flags": ["/x86", "/console", "/nopack", "/comp", "2"],
+        "built_at": "2026-08-12"
       }
     }
   ]
