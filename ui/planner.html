@@ -54,11 +54,14 @@
   <span class="sr-only" id="controlAnnouncement" aria-live="polite" aria-atomic="true"></span>
 </header>
 
+<div class="app-shell">
 <nav class="view-nav" aria-label="Control center views">
   <button id="viewRunButton" type="button" data-view="run" aria-current="page" disabled>Run<span>Saved plan and controls</span></button>
   <button id="viewPlanButton" type="button" data-view="plan" disabled>Plan<span>Build and apply a plan</span></button>
   <button id="viewDiagnosticsButton" type="button" data-view="diagnostics" disabled>Diagnostics<span>Health, activity, and logs</span></button>
 </nav>
+
+<div class="app-stage">
 
 <section class="boot-shell" id="bootShell" role="status" aria-live="polite" aria-atomic="true">
   <div>
@@ -204,6 +207,8 @@
     </details>
   </section>
 </main>
+</div>
+</div>
 
 <script src="/planner.js" defer></script>
 </body>
