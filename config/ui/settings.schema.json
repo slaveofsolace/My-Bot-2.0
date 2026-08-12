@@ -87,6 +87,7 @@
         "summary",
         "description",
         "availability",
+        "runtime_verified",
         "capability_ids",
         "prerequisites",
         "disabled_reason",
@@ -99,6 +100,7 @@
         "summary": {"type": "string", "minLength": 10, "maxLength": 180},
         "description": {"type": "string", "minLength": 30, "maxLength": 800},
         "availability": {"enum": ["available", "gated", "planned", "unsupported"]},
+        "runtime_verified": {"type": "boolean"},
         "capability_ids": {
           "type": "array",
           "uniqueItems": true,
@@ -140,7 +142,7 @@
       ],
       "properties": {
         "id": {"type": "string", "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$"},
-        "type": {"enum": ["select", "multi-select", "instance-select", "integer", "boolean", "profile-queue"]},
+        "type": {"enum": ["select", "multi-select", "instance-select", "text", "integer", "boolean", "profile-queue"]},
         "label": {"type": "string", "minLength": 2, "maxLength": 100},
         "summary": {"type": "string", "minLength": 10, "maxLength": 180},
         "description": {"type": "string", "minLength": 30, "maxLength": 1000},
@@ -155,6 +157,8 @@
         "max_selected": {"type": "integer", "minimum": 1},
         "empty_state": {"type": "string", "minLength": 10, "maxLength": 300},
         "unit": {"type": "string", "minLength": 1, "maxLength": 40},
+        "native_fixed_value": {},
+        "native_fixed_reason": {"type": "string", "minLength": 20, "maxLength": 500},
         "validation": {"$ref": "#/$defs/validation"}
       },
       "allOf": [
@@ -165,6 +169,10 @@
         {
           "if": {"properties": {"type": {"const": "integer"}}},
           "then": {"required": ["validation"]}
+        },
+        {
+          "if": {"properties": {"type": {"enum": ["instance-select", "text", "profile-queue"]}}},
+          "then": {"properties": {"default": {"type": "string"}}}
         },
         {
           "if": {"properties": {"type": {"const": "multi-select"}}},

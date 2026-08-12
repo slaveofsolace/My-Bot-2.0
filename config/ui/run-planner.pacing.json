@@ -46,6 +46,8 @@
       "default": 0,
       "required": false,
       "engine_binding": "RunPacing.retry_attempts",
+      "native_fixed_value": 0,
+      "native_fixed_reason": "Generic retries have no visual-change observer in the native engine and must remain zero.",
       "unit": "attempts",
       "validation": {
         "minimum": 0,

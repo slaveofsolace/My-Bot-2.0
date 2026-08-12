@@ -23,7 +23,7 @@ Func dropCC($iX, $iY, $iCCSlot) ;Drop clan castle
 			Local $hour = StringSplit(_NowTime(4), ":", $STR_NOCOUNT)
 			If $g_abPlannedDropCCHours[$hour[0]] = False Then
 				SetLog("Drop CC not Planned, Skipped..", $COLOR_SUCCESS)
-				Return ; exit func if no planned donate checkmarks
+				Return False ; exit func if no planned donate checkmarks
 			EndIf
 		EndIf
 
@@ -36,6 +36,7 @@ Func dropCC($iX, $iY, $iCCSlot) ;Drop clan castle
 					SelectDropTroop($iCCSlot)
 					If _Sleep($DELAYDROPCC1) Then Return
 					AttackClick($iX, $iY, 1, 50, 0, "#0087")
+					Return True
 				Else
 					SetLog("No Dropping Siege/Clan Castle, donated  (" & $g_iTroopsDonated & ") / received (" & $g_iTroopsReceived & ") < " & $g_iCCDonated & "/" & $g_iCCReceived, $COLOR_INFO)
 				EndIf
@@ -45,6 +46,7 @@ Func dropCC($iX, $iY, $iCCSlot) ;Drop clan castle
 					SelectDropTroop($iCCSlot)
 					If _Sleep($DELAYDROPCC1) Then Return
 					AttackClick($iX, $iY, 1, 50, 0, "#0089")
+					Return True
 				Else
 					SetLog("No Dropping Siege/Clan Castle, donated  (" & $g_iTroopsDonated & ") / received (" & $g_iTroopsReceived & ") < " & $g_iCCDonated & "/" & $g_iCCReceived, $COLOR_INFO)
 				EndIf
@@ -54,7 +56,8 @@ Func dropCC($iX, $iY, $iCCSlot) ;Drop clan castle
 			SelectDropTroop($iCCSlot)
 			If _Sleep($DELAYDROPCC1) Then Return
 			AttackClick($iX, $iY, 1, 50, 0, "#0091")
+			Return True
 		EndIf
 	EndIf
-
+	Return False
 EndFunc   ;==>dropCC

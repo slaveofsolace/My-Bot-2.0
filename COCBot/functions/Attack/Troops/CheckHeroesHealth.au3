@@ -13,6 +13,13 @@
 ; Example .......: No
 ; ===============================================================================================================================
 Func CheckHeroesHealth()
+	; Smart Attack does not inherit the old "only when weak" behavior. Its selected Heroes are armed
+	; after live deployment proof and activated from deterministic time/damage milestones using fresh
+	; ability coordinates. Before that proof, no blind ability click is allowed.
+	If RunExecutionSmartAttackEnabled() Then
+		If $g_bSmartCombatActive Then SmartAttackCombatTickHeroes($g_iPercentageDamage)
+		Return
+	EndIf
 
 	If $g_bCheckKingPower Or $g_bCheckQueenPower Or $g_bCheckPrincePower Or $g_bCheckWardenPower Or $g_bCheckChampionPower Then
 		ForceCaptureRegion() ; ensure no screenshot caching kicks in

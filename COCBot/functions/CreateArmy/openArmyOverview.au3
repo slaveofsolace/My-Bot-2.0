@@ -12,7 +12,7 @@
 ; Link ..........: https://github.com/MyBotRun/MyBot/wiki
 ; Example .......: No
 ; ===============================================================================================================================
-Func OpenArmyOverview($bCheckMain = True, $sWhereFrom = "Undefined")
+Func OpenArmyOverview($bCheckMain = True, $sWhereFrom = "Undefined", $bCheckHeroOrder = True)
 
 	If $bCheckMain Then
 		If Not IsMainPage() Then ; check for main page, avoid random troop drop
@@ -22,16 +22,19 @@ Func OpenArmyOverview($bCheckMain = True, $sWhereFrom = "Undefined")
 		EndIf
 	EndIf
 
-	If WaitforPixel(23, 505 + $g_iBottomOffsetY, 53, 507 + $g_iBottomOffsetY, Hex(0xEEB344, 6), 20, 10) Then
-		If $g_bDebugSetLogTrain Then SetLog("Click $aArmyTrainButton" & " (Called from " & $sWhereFrom & ")", $COLOR_SUCCESS)
-		ClickP($aArmyTrainButton, 1, 120, "#0293") ; Button Army Overview
+	If Not WaitforPixel(23, 505 + $g_iBottomOffsetY, 53, 507 + $g_iBottomOffsetY, Hex(0xEEB344, 6), 20, 10) Then
+		SetLog("Cannot open Army Overview window: Army button was not detected", $COLOR_ERROR)
+		SetError(2)
+		Return False
 	EndIf
+	If $g_bDebugSetLogTrain Then SetLog("Click $aArmyTrainButton" & " (Called from " & $sWhereFrom & ")", $COLOR_SUCCESS)
+	ClickP($aArmyTrainButton, 1, 120, "#0293") ; Button Army Overview
 
 	If _Sleep($DELAYRUNBOT6) Then Return ; wait for window to open
 	If Not IsTrainPage() Then
 		SetError(1)
 		Return False ; exit if I'm not in train page
-	Else
+	ElseIf $bCheckHeroOrder Then
 		CheckHeroOrder()
 	EndIf
 	Return True

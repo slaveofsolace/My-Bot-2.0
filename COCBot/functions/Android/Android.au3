@@ -1221,14 +1221,14 @@ Func _OpenAndroid($bRestart = False, $bStartOnlyAndroid = False)
 	If $bRestart = False Then
 		waitMainScreenMini()
 		If Not $g_bRunState Then Return False
-		ZoomOut()
+		If Not RunExecutionSkipVillageZoomCalibration() Then ZoomOut()
 	Else
 		WaitMainScreenMini()
 		If Not $g_bRunState Then Return False
 		If @error = 1 Then
 			Return False
 		EndIf
-		ZoomOut()
+		If Not RunExecutionSkipVillageZoomCalibration() Then ZoomOut()
 	EndIf
 
 	If Not $g_bRunState Then Return False
@@ -3055,8 +3055,10 @@ Func _AndroidScreencap($iLeft, $iTop, $iWidth, $iHeight, $iRetryCount = 0)
 	Return $hHBitmap
 EndFunc   ;==>_AndroidScreencap
 
-Func AndroidZoomOut($loopCount = 0, $timeout = Default, $bMinitouch = Default, $wasRunState = Default)
-	If $g_bOnBuilderBaseEnemyVillage Then
+Func AndroidZoomOut($loopCount = 0, $timeout = Default, $bMinitouch = Default, $wasRunState = Default, $sForcedScript = "")
+	If $sForcedScript <> "" Then
+		Local $sScript = $sForcedScript
+	ElseIf $g_bOnBuilderBaseEnemyVillage Then
 		Local $iCounter = Random(0, 2, 1)
 		Local $sScript = "Small" & $iCounter
 	Else
@@ -3086,7 +3088,13 @@ Func AndroidAdbScript($scriptTag, $variablesArray = Default, $timeout = Default,
 	;	If $scriptFile = "" And FileExists($g_sAdbScriptsPath & "\" & $scriptTag & ".getevent") = 1 Then $scriptFile = $scriptTag & ".getevent"
 	If Not $bMinitouch And $scriptFile = "" And FileExists($g_sAdbScriptsPath & "\" & $scriptTag & ".minitouch") = 1 Then $scriptFile = $scriptTag & ".minitouch"
 	AndroidAdbSendShellCommandScript($scriptFile, $variablesArray, Default, $timeout, $wasRunState)
-	Return SetError(@error, @extended, (@error = 0 ? 1 : 0))
+	; Preserve the transport result before evaluating SetError arguments. Reading the volatile
+	; @error/@extended macros inside a ternary return expression produced a false numeric 0 after a
+	; successful script on the current AutoIt runtime, causing the verified zoom gate to surrender.
+	Local $iScriptError = @error
+	Local $iScriptExtended = @extended
+	If $iScriptError Then Return SetError($iScriptError, $iScriptExtended, 0)
+	Return SetError(0, $iScriptExtended, 1)
 EndFunc   ;==>AndroidAdbScript
 
 Func AndroidClickDrag($x1, $y1, $x2, $y2, $wasRunState = Default, $bSCIDSwitch = False)

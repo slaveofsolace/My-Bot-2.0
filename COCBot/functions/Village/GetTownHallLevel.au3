@@ -32,6 +32,11 @@ Func GetTownHallLevel($bFirstTime = False)
 
 	$g_iTownHallLevel = 0 ; Reset Townhall level
 	$aTHInfo = BuildingInfo(242, 475 + $g_iBottomOffsetY)
+	If Not IsArray($aTHInfo) Or UBound($aTHInfo) < 3 Then
+		SetLog("Town Hall identity could not be verified; location was not accepted", $COLOR_WARNING)
+		ClearScreen()
+		Return False
+	EndIf
 	SetDebugLog("$aTHInfo[0]=" & $aTHInfo[0] & ", $aTHInfo[1]=" & $aTHInfo[1] & ", $aTHInfo[2]=" & $aTHInfo[2], $COLOR_DEBUG)
 	If $aTHInfo[0] > 1 Then
 		If StringInStr($aTHInfo[1], "Town") = 0 Then

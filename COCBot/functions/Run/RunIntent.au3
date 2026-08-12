@@ -169,6 +169,15 @@ Func RunIntentSetProfile(ByRef $oIntent, $sProfileId)
 	Return True
 EndFunc   ;==>RunIntentSetProfile
 
+; Training management is part of the plan rather than the profile. Callers use this accessor so the
+; one-run current-army mode cannot accidentally be inferred from mutable legacy training globals.
+Func RunIntentManagesTraining(ByRef $oIntent)
+	Local $sError = ""
+	If Not RunIntentValidate($oIntent, $sError) Then Return SetError(1, 0, True)
+	Local $oPlan = $oIntent.Item("plan")
+	Return $oPlan.Item("army_manage_training")
+EndFunc   ;==>RunIntentManagesTraining
+
 ; Every gate an intent must clear before a session may open. Diagnostic mode relaxes the evidence gate only;
 ; the quota gate stays hard because attacking a surface with no attacks left is a client error, not a missing fixture.
 Func RunIntentCanStart(ByRef $oIntent, ByRef $sReason)

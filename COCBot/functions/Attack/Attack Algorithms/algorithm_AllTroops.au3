@@ -15,11 +15,16 @@
 
 Func algorithm_AllTroops() ;Attack Algorithm for all existing troops
 	If $g_bDebugSetLog Then SetDebugLog("algorithm_AllTroops()", $COLOR_DEBUG)
+	SmartAttackCombatReset()
 	SetSlotSpecialTroops()
+	If RunExecutionStandardDeploymentProofRequired() Then RunExecutionResetDeploymentProof(_AttackDeployableTroopCount())
 
 	If _Sleep($DELAYALGORITHM_ALLTROOPS1) Then Return
 
-	SmartAttackStrategy($g_iMatchMode) ; detect redarea first to drop any troops
+	If Not SmartAttackStrategy($g_iMatchMode) Then
+		SetLog("Attack geometry was not proven; no deployment clicks were sent", $COLOR_ERROR)
+		Return
+	EndIf
 
 	Local $nbSides = 0
 	Switch $g_aiAttackStdDropSides[$g_iMatchMode]
@@ -386,7 +391,7 @@ Func algorithm_AllTroops() ;Attack Algorithm for all existing troops
 	$g_aiDeployHeroesPosition[1] = -1
 
 	LaunchTroop2($listInfoDeploy, $g_iClanCastleSlot, $g_iKingSlot, $g_iQueenSlot, $g_iPrinceSlot, $g_iWardenSlot, $g_iChampionSlot)
-
+	If RunExecutionStandardDeploymentProofRequired() And Not _AttackEnsurePlannedActorsDeployed() Then Return
 	CheckHeroesHealth()
 
 	If _Sleep($DELAYALGORITHM_ALLTROOPS4) Then Return
@@ -406,8 +411,303 @@ Func algorithm_AllTroops() ;Attack Algorithm for all existing troops
 
 	CheckHeroesHealth()
 
+	; The old routine treated emitted click commands as success. On a wrong zoom those clicks can land
+	; on buildings while the troop bar remains full. Require two independent, valid live-bar captures
+	; after all bounded leftover passes; one OCR miss must never turn click logs into deployment proof.
+	If RunExecutionStandardDeploymentProofRequired() Then
+		If Not _AttackConfirmStandardDeploymentGone() Then Return
+	EndIf
+	; Smart clicks are allowed only after the final two-frame troop-bar proof. This keeps the entry
+	; Rage and ability scheduler from running while a failed deployment still leaves the army full.
+	If RunExecutionSmartAttackEnabled() Then
+		Local $iSmartEntryX = $g_aiDeployHeroesPosition[0]
+		Local $iSmartEntryY = $g_aiDeployHeroesPosition[1]
+		If $iSmartEntryX < 0 Or $iSmartEntryY < 0 Then
+			$iSmartEntryX = $g_aiDeployCCPosition[0]
+			$iSmartEntryY = $g_aiDeployCCPosition[1]
+		EndIf
+		If ($iSmartEntryX < 0 Or $iSmartEntryY < 0) And UBound($g_aaiEdgeDropPoints) > 0 And IsArray($g_aaiEdgeDropPoints[0][2]) Then
+			$iSmartEntryX = $g_aaiEdgeDropPoints[0][2][0]
+			$iSmartEntryY = $g_aaiEdgeDropPoints[0][2][1]
+		EndIf
+		SmartAttackCombatStart($iSmartEntryX, $iSmartEntryY)
+	EndIf
+
 	SetLog("Finished Attacking, waiting for the battle to end")
 EndFunc   ;==>algorithm_AllTroops
+
+Func _AttackDeployableTroopCount()
+	Local $iTotal = 0
+	For $iSlot = 0 To UBound($g_avAttackTroops) - 1
+		Local $iTroop = Int($g_avAttackTroops[$iSlot][0])
+		If $iTroop >= $eBarb And $iTroop <= $eFurn Then $iTotal += Int($g_avAttackTroops[$iSlot][1])
+	Next
+	Return $iTotal
+EndFunc   ;==>_AttackDeployableTroopCount
+
+Func _AttackReadLiveDeployableTroopCount(ByRef $bReadValid)
+	$bReadValid = False
+	If Not $g_bRunState Or Not IsAttackPage() Then
+		SetLog("Run Planner deployment verification failed: the live attack screen is no longer visible", $COLOR_ERROR)
+		Return -1
+	EndIf
+
+	; GetAttackBar(Remaining=True) reuses the slots proven by the initial attack-bar scan, but reads
+	; their current deployed-state pixels and quantities from this fresh framebuffer. A non-array is
+	; a recognition failure; it is never equivalent to a legitimately empty troop bar.
+	ForceCaptureRegion()
+	_CaptureRegion2()
+	Local $aLiveAttackBar = GetAttackBar(True, $g_iMatchMode)
+	If Not IsArray($aLiveAttackBar) Then
+		SetLog("Run Planner deployment verification failed: the live attack bar could not be read", $COLOR_ERROR)
+		Return -1
+	EndIf
+
+	Local $iTotal = 0
+	For $iSlot = 0 To UBound($aLiveAttackBar, 1) - 1
+		Local $iTroop = Int($aLiveAttackBar[$iSlot][0])
+		If $iTroop >= $eBarb And $iTroop <= $eFurn Then $iTotal += Int($aLiveAttackBar[$iSlot][2])
+	Next
+	$bReadValid = True
+	Return $iTotal
+EndFunc   ;==>_AttackReadLiveDeployableTroopCount
+
+Func _AttackConfirmStandardDeploymentGone()
+	For $iRead = 1 To 2
+		Local $bReadValid = False
+		Local $iDeployableAfter = _AttackReadLiveDeployableTroopCount($bReadValid)
+		If Not $bReadValid Or $iDeployableAfter <> 0 Then
+			RunExecutionRecordDeploymentProof($iDeployableAfter)
+			Return False
+		EndIf
+		SetDebugLog("Run Planner deployment proof: live attack bar read " & $iRead & "/2 contains zero deployable troops")
+		If $iRead = 1 And _Sleep(350) Then Return False
+	Next
+	Return RunExecutionRecordDeploymentProof(0)
+EndFunc   ;==>_AttackConfirmStandardDeploymentGone
+
+; The legacy smart dispatcher may mark its HEROES/CC wave handled even when no actor click was
+; accepted. A planned run treats the selected Hero mask and a present siege/CC slot as authority,
+; proves their live-bar state, retries them once at the same dynamic red-line point that accepted
+; the main army, then proves the live-bar state again. Emitted clicks are never deployment proof.
+Func _AttackEnsurePlannedActorsDeployed()
+	Local $iHeroMask = $g_aiAttackUseHeroes[$g_iMatchMode]
+	Local $iDropX = $g_aiDeployHeroesPosition[0]
+	Local $iDropY = $g_aiDeployHeroesPosition[1]
+	If $iDropX < 0 Or $iDropY < 0 Then
+		$iDropX = $g_aiDeployCCPosition[0]
+		$iDropY = $g_aiDeployCCPosition[1]
+	EndIf
+	If $iDropX < 0 Or $iDropY < 0 Then
+		Local $aSafePoint = $g_aaiEdgeDropPoints[0][2]
+		$iDropX = $aSafePoint[0]
+		$iDropY = $aSafePoint[1]
+	EndIf
+	SetLog("Run Planner actors: hero mask " & $iHeroMask & "; slots K=" & $g_iKingSlot & ", Q=" & $g_iQueenSlot & _
+			", P=" & $g_iPrinceSlot & ", W=" & $g_iWardenSlot & ", C=" & $g_iChampionSlot & ", CC=" & $g_iClanCastleSlot & _
+			"; red-line point=" & $iDropX & "," & $iDropY, $COLOR_INFO)
+
+	If (BitAND($iHeroMask, $eHeroKing) = $eHeroKing And $g_iKingSlot = -1) Or _
+			(BitAND($iHeroMask, $eHeroQueen) = $eHeroQueen And $g_iQueenSlot = -1) Or _
+			(BitAND($iHeroMask, $eHeroPrince) = $eHeroPrince And $g_iPrinceSlot = -1) Or _
+			(BitAND($iHeroMask, $eHeroWarden) = $eHeroWarden And $g_iWardenSlot = -1) Or _
+			(BitAND($iHeroMask, $eHeroChampion) = $eHeroChampion And $g_iChampionSlot = -1) Then
+		SetLog("Run Planner could not find every selected Hero on the live attack bar; refusing to claim deployment", $COLOR_ERROR)
+		Return False
+	EndIf
+
+	Local $bProofValid = False
+	Local $aActorBaseline = 0
+	If _AttackRefreshPlannedActorProof($iHeroMask, $bProofValid) Then Return True
+	If Not $bProofValid Then
+		SetLog("Run Planner could not read the live actor bar before its bounded retry", $COLOR_ERROR)
+		Return False
+	EndIf
+
+	If Not _AttackSelectedHeroesDropped($iHeroMask) Or ($g_iClanCastleSlot <> -1 And $g_abAttackDropCC[$g_iMatchMode] And Not $g_bIsCCDropped) Then
+		; Main troops disappear from the compact current-client bar after deployment. Slot indexes and
+		; inherited slot coordinates are therefore not authoritative for the remaining actors. Read the
+		; live bar again and select each requested actor by its freshly detected portrait coordinates.
+		$aActorBaseline = _AttackReadLiveActorBar(True)
+		If Not IsArray($aActorBaseline) Then
+			SetLog("Run Planner could not read fresh actor coordinates for its bounded deployment retry", $COLOR_ERROR)
+			Return False
+		EndIf
+		If Not _AttackSelectedHeroesDropped($iHeroMask) Then
+			SetLog("Run Planner: deploying the selected Heroes from fresh live-bar coordinates", $COLOR_ACTION)
+			If Not _AttackDeploySelectedHeroesAtPoint($aActorBaseline, $iHeroMask, $iDropX, $iDropY) Then Return False
+		EndIf
+		If $g_iClanCastleSlot <> -1 And $g_abAttackDropCC[$g_iMatchMode] And Not $g_bIsCCDropped Then
+			SetLog("Run Planner: deploying the detected siege/Clan Castle from its fresh live-bar coordinate", $COLOR_ACTION)
+			If Not _AttackDeployLiveSiegeAtPoint($aActorBaseline, $iDropX, $iDropY) Then Return False
+		EndIf
+	EndIf
+	If _Sleep(650) Then Return False
+
+	$bProofValid = False
+	If Not _AttackRefreshPlannedActorProof($iHeroMask, $bProofValid, $aActorBaseline) Then
+		SetLog("Run Planner failed live-bar proof for one or more selected Heroes or the siege/Clan Castle", $COLOR_ERROR)
+		Return False
+	EndIf
+	Return $bProofValid
+EndFunc   ;==>_AttackEnsurePlannedActorsDeployed
+
+Func _AttackDeploySelectedHeroesAtPoint(ByRef $aLiveActors, $iHeroMask, $iDropX, $iDropY)
+	; Current-army mode deliberately skips the Hero Hall/config scan. The plan mask is the authority,
+	; while the fresh live-bar image supplies the only safe portrait coordinates after the bar shifts.
+	; A deployed Hero remains visible as its ability button. Never click an already-proven active Hero,
+	; because that would spend the ability instead of repairing a missing deployment.
+	If BitAND($iHeroMask, $eHeroKing) = $eHeroKing And Not $g_bDropKing And Not _AttackDeployLiveActorAtPoint($aLiveActors, $eKing, "King", $iDropX, $iDropY) Then Return False
+	If BitAND($iHeroMask, $eHeroQueen) = $eHeroQueen And Not $g_bDropQueen And Not _AttackDeployLiveActorAtPoint($aLiveActors, $eQueen, "Queen", $iDropX, $iDropY) Then Return False
+	If BitAND($iHeroMask, $eHeroPrince) = $eHeroPrince And Not $g_bDropPrince And Not _AttackDeployLiveActorAtPoint($aLiveActors, $ePrince, "Minion Prince", $iDropX, $iDropY) Then Return False
+	If BitAND($iHeroMask, $eHeroWarden) = $eHeroWarden And Not $g_bDropWarden And Not _AttackDeployLiveActorAtPoint($aLiveActors, $eWarden, "Grand Warden", $iDropX, $iDropY) Then Return False
+	If BitAND($iHeroMask, $eHeroChampion) = $eHeroChampion And Not $g_bDropChampion And Not _AttackDeployLiveActorAtPoint($aLiveActors, $eChampion, "Royal Champion", $iDropX, $iDropY) Then Return False
+	Return True
+EndFunc   ;==>_AttackDeploySelectedHeroesAtPoint
+
+Func _AttackDeployLiveSiegeAtPoint(ByRef $aLiveActors, $iDropX, $iDropY)
+	For $i = 0 To UBound($aLiveActors, 1) - 1
+		Local $iTroop = Int($aLiveActors[$i][0])
+		If $iTroop = $eCastle Or $iTroop = $eWallW Or $iTroop = $eBattleB Or $iTroop = $eStoneS Or _
+				$iTroop = $eSiegeB Or $iTroop = $eLogL Or $iTroop = $eFlameF Or $iTroop = $eBattleD Or $iTroop = $eTroopL Then
+			Local $bDeployed = _AttackDeployLiveActorAtPoint($aLiveActors, $iTroop, "Siege/Clan Castle", $iDropX, $iDropY)
+			If $bDeployed Then $g_bIsCCDropped = True
+			Return $bDeployed
+		EndIf
+	Next
+	; The inherited dispatcher can deploy the siege before this bounded repair. A full fresh scan that
+	; no longer contains any siege/CC portrait is positive post-deployment evidence, not a retry error.
+	$g_bIsCCDropped = True
+	SetLog("Run Planner: siege/Clan Castle is absent from the fresh live bar; deployment proved", $COLOR_SUCCESS1)
+	Return True
+EndFunc   ;==>_AttackDeployLiveSiegeAtPoint
+
+Func _AttackDeployLiveActorAtPoint(ByRef $aLiveActors, $iActorType, $sActorName, $iDropX, $iDropY)
+	For $i = 0 To UBound($aLiveActors, 1) - 1
+		If Int($aLiveActors[$i][0]) <> $iActorType Or Int($aLiveActors[$i][2]) <= 0 Then ContinueLoop
+		Local $iPortraitX = Int($aLiveActors[$i][3])
+		Local $iPortraitY = Int($aLiveActors[$i][4])
+		If $iPortraitX <= 0 Or $iPortraitY <= 0 Then ExitLoop
+		SetLog("Dropping " & $sActorName & " from live portrait " & $iPortraitX & "," & $iPortraitY & " at " & $iDropX & "," & $iDropY, $COLOR_INFO)
+		Click($iPortraitX, $iPortraitY, 1, 120, "LiveActor-" & $sActorName)
+		If _Sleep($DELAYDROPHEROES2) Then Return False
+		AttackClick($iDropX, $iDropY, 1, 50, 0, "LiveActorDrop-" & $sActorName)
+		If _Sleep($DELAYDROPHEROES1) Then Return False
+		Return True
+	Next
+	SetLog("Run Planner could not find selected " & $sActorName & " on the fresh live attack bar", $COLOR_ERROR)
+	Return False
+EndFunc   ;==>_AttackDeployLiveActorAtPoint
+
+Func _AttackReadLiveActorBar($bFreshCoordinates = False)
+	If Not $g_bRunState Or Not IsAttackPage() Then Return
+	ForceCaptureRegion()
+	_CaptureRegion2()
+	; Remaining-mode intentionally reuses the initial attack-bar model to prove troops/siege gone.
+	; A deployment retry needs a new image search because the compact bar shifts after the army drops.
+	Return GetAttackBar(Not $bFreshCoordinates, $g_iMatchMode)
+EndFunc   ;==>_AttackReadLiveActorBar
+
+Func _AttackRefreshPlannedActorProof($iHeroMask, ByRef $bProofValid, $aActorBaseline = Default)
+	$bProofValid = False
+	; The final read is a fresh image search so the proof observes the current compact-bar geometry.
+	; The pre-retry read remains the inherited remaining-mode scan.
+	Local $bHasBaseline = IsArray($aActorBaseline)
+	Local $aLiveAttackBar = _AttackReadLiveActorBar($bHasBaseline)
+	If Not IsArray($aLiveAttackBar) Then Return False
+
+	; Current clients keep a Hero portrait on the bar after deployment so the portrait can activate
+	; that Hero's ability. The old AmountX/deployed-marker test therefore reports every deployed Hero
+	; as still available. Prove deployment from the Hero-specific battlefield health bar used by the
+	; inherited ability controller; that bar does not exist on an undeployed portrait.
+	Local $bKing = BitAND($iHeroMask, $eHeroKing) <> $eHeroKing Or _AttackProveActiveHero("King", $g_sImgKingBar, $aKingHealth)
+	Local $bQueen = BitAND($iHeroMask, $eHeroQueen) <> $eHeroQueen Or _AttackProveActiveHero("Queen", $g_sImgQueenBar, $aQueenHealth)
+	Local $bPrince = BitAND($iHeroMask, $eHeroPrince) <> $eHeroPrince Or _AttackProveActiveHero("Minion Prince", $g_sImgPrinceBar, $aPrinceHealth)
+	Local $bWarden = BitAND($iHeroMask, $eHeroWarden) <> $eHeroWarden Or _AttackProveActiveHero("Grand Warden", $g_sImgWardenBar, $aWardenHealth)
+	Local $bChampion = BitAND($iHeroMask, $eHeroChampion) <> $eHeroChampion Or _AttackProveActiveHero("Royal Champion", $g_sImgChampionBar, $aChampionHealth)
+	If $bHasBaseline Then
+		If Not $bKing Then $bKing = _AttackProveRaisedHero($aActorBaseline, $aLiveAttackBar, $eKing, "King")
+		If Not $bQueen Then $bQueen = _AttackProveRaisedHero($aActorBaseline, $aLiveAttackBar, $eQueen, "Queen")
+		If Not $bPrince Then $bPrince = _AttackProveRaisedHero($aActorBaseline, $aLiveAttackBar, $ePrince, "Minion Prince")
+		If Not $bWarden Then $bWarden = _AttackProveRaisedHero($aActorBaseline, $aLiveAttackBar, $eWarden, "Grand Warden")
+		If Not $bChampion Then $bChampion = _AttackProveRaisedHero($aActorBaseline, $aLiveAttackBar, $eChampion, "Royal Champion")
+	EndIf
+	Local $bCC = $g_bIsCCDropped Or $g_iClanCastleSlot = -1 Or Not $g_abAttackDropCC[$g_iMatchMode]
+	For $iSlot = 0 To UBound($aLiveAttackBar, 1) - 1
+		Local $iLiveTroop = Int($aLiveAttackBar[$iSlot][0])
+		Local $bGone = Int($aLiveAttackBar[$iSlot][2]) <= 0
+		Switch $iLiveTroop
+			Case $eCastle, $eWallW, $eBattleB, $eStoneS, $eSiegeB, $eLogL, $eFlameF, $eBattleD, $eTroopL
+				$bCC = $bGone
+		EndSwitch
+	Next
+
+	$g_bDropKing = $bKing
+	$g_bDropQueen = $bQueen
+	$g_bDropPrince = $bPrince
+	$g_bDropWarden = $bWarden
+	$g_bDropChampion = $bChampion
+	$g_bIsCCDropped = $bCC
+	$bProofValid = True
+	SetDebugLog("Run Planner live actor proof: K=" & $bKing & ", Q=" & $bQueen & ", P=" & $bPrince & ", W=" & $bWarden & ", C=" & $bChampion & ", CC=" & $bCC)
+	Return _AttackSelectedHeroesDropped($iHeroMask) And $bCC
+EndFunc   ;==>_AttackRefreshPlannedActorProof
+
+Func _AttackProveActiveHero($sHeroName, $sHeroImagePath, ByRef $aHealthTemplate)
+	Local $aHero = decodeSingleCoord(FindImageInPlace2($sHeroName & "Active", $sHeroImagePath, _
+			0, 570 + $g_iBottomOffsetY, 858, 638 + $g_iBottomOffsetY, True))
+	If Not IsArray($aHero) Or UBound($aHero) <> 2 Then
+		SetDebugLog("Run Planner active-Hero proof: " & $sHeroName & " portrait not found")
+		Return False
+	EndIf
+
+	Local $aHealth = $aHealthTemplate
+	$aHealth[0] = $aHero[0] - $aHealth[4]
+	Local $sHealthColor = _GetPixelColor($aHealth[0], $aHealth[1], False)
+	; Do not reuse the inherited Red+Blue mask here: with this DIB channel ordering that mask accepts
+	; a black undeployed background as 0x00D500. Exact all-channel tolerance is the deployment proof.
+	Local $bActive = _ColorCheck($sHealthColor, Hex($aHealth[2], 6), $aHealth[3])
+	SetDebugLog("Run Planner active-Hero proof: " & $sHeroName & " at " & $aHero[0] & "," & $aHero[1] & _
+			" health=" & $sHealthColor & ", active=" & $bActive)
+	Return $bActive
+EndFunc   ;==>_AttackProveActiveHero
+
+Func _AttackProveRaisedHero(ByRef $aBefore, ByRef $aAfter, $iHeroType, $sHeroName)
+	Local $iBeforeX = -1, $iBeforeY = -1, $iAfterX = -1, $iAfterY = -1
+	For $i = 0 To UBound($aBefore, 1) - 1
+		If Int($aBefore[$i][0]) = $iHeroType And Int($aBefore[$i][2]) > 0 Then
+			$iBeforeX = Int($aBefore[$i][3])
+			$iBeforeY = Int($aBefore[$i][4])
+			ExitLoop
+		EndIf
+	Next
+	For $i = 0 To UBound($aAfter, 1) - 1
+		If Int($aAfter[$i][0]) = $iHeroType And Int($aAfter[$i][2]) > 0 Then
+			$iAfterX = Int($aAfter[$i][3])
+			$iAfterY = Int($aAfter[$i][4])
+			ExitLoop
+		EndIf
+	Next
+	If $iBeforeX <= 0 Or $iBeforeY <= 0 Or $iAfterX <= 0 Or $iAfterY <= 0 Then Return False
+
+	; On the 860x732 current-client bar, a successfully deployed Hero becomes its raised ability
+	; button. Live evidence showed a stable 12-15px upward transition with unchanged X. Bound both
+	; axes so animation noise cannot turn an unrelated/misclassified portrait into deployment proof.
+	Local $iRise = $iBeforeY - $iAfterY
+	Local $bRaised = Abs($iAfterX - $iBeforeX) <= 12 And $iRise >= 8 And $iRise <= 30
+	SetDebugLog("Run Planner raised-Hero proof: " & $sHeroName & " before=" & $iBeforeX & "," & $iBeforeY & _
+			" after=" & $iAfterX & "," & $iAfterY & ", rise=" & $iRise & ", active=" & $bRaised)
+	Return $bRaised
+EndFunc   ;==>_AttackProveRaisedHero
+
+Func _AttackSelectedHeroesDropped($iHeroMask)
+	If BitAND($iHeroMask, $eHeroKing) = $eHeroKing And Not $g_bDropKing Then Return False
+	If BitAND($iHeroMask, $eHeroQueen) = $eHeroQueen And Not $g_bDropQueen Then Return False
+	If BitAND($iHeroMask, $eHeroPrince) = $eHeroPrince And Not $g_bDropPrince Then Return False
+	If BitAND($iHeroMask, $eHeroWarden) = $eHeroWarden And Not $g_bDropWarden Then Return False
+	If BitAND($iHeroMask, $eHeroChampion) = $eHeroChampion And Not $g_bDropChampion Then Return False
+	Return True
+EndFunc   ;==>_AttackSelectedHeroesDropped
 
 Func SetSlotSpecialTroops()
 	$g_iKingSlot = -1
@@ -465,11 +765,13 @@ EndFunc   ;==>CloseBattle
 
 
 Func SmartAttackStrategy($imode)
+	RunExecutionConfigureSmartAttackForMode($imode)
 	If ($g_abAttackStdSmartAttack[$imode]) Then
 		SetLog("Calculating Smart Attack Strategy", $COLOR_INFO)
 		Local $hTimer = __TimerInit()
-		_CaptureRegion2()
-		_GetRedArea()
+			_CaptureRegion2()
+			_GetRedArea()
+			If RunExecutionSmartAttackEnabled() And Not SmartAttackCombatSelectDeploymentSide() Then Return False
 
 		SetLog("Calculated  (in " & Round(__TimerDiff($hTimer) / 1000, 2) & " seconds) :")
 
@@ -512,4 +814,5 @@ Func SmartAttackStrategy($imode)
 		EndIf
 
 	EndIf
+	Return True
 EndFunc   ;==>SmartAttackStrategy

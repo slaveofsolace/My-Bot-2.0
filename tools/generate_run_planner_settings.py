@@ -75,7 +75,7 @@ HERO_PROSE = {
 
 
 def option(value, label, summary, description, availability, capability_ids, prerequisites,
-           recommended=False, warning="", disabled_reason=""):
+           recommended=False, warning="", disabled_reason="", runtime_verified=False):
     if availability != "available" and not disabled_reason:
         raise ValueError(f"{value}: an unavailable option needs a disabled reason")
     return {
@@ -84,6 +84,7 @@ def option(value, label, summary, description, availability, capability_ids, pre
         "summary": summary,
         "description": description,
         "availability": availability,
+        "runtime_verified": bool(runtime_verified),
         "disabled_reason": disabled_reason,
         "capability_ids": capability_ids,
         "prerequisites": prerequisites,
@@ -109,21 +110,24 @@ def build_surface_options(surfaces: dict) -> list[dict]:
         else:
             summary = "Attack count is reported by the client."
 
+        regular = sid == "regular"
         options.append(option(
             value=sid,
             label=surface["label"],
             summary=summary,
             description=prose,
-            availability="gated",
+            availability="available" if regular else "planned",
             disabled_reason=(
-                "No current-client capture has been recorded for this surface yet. You can still run it as a "
-                "diagnostic to see how it behaves."
+                ""
+            ) if regular else (
+                "The native execution contract has no adapter for this battle surface; selecting it cannot start a run."
             ),
             capability_ids=["battle.legend-tiers"] if sid.startswith("legend") else (
                 ["builder-base.additional-builder"] if sid == "builder" else (
                     ["battle.revenge"] if sid == "revenge" else ["battle.regular-ranked-split"])),
             prerequisites=prerequisites,
             recommended=(sid == "regular"),
+            runtime_verified=regular,
         ))
     return options
 
@@ -133,6 +137,7 @@ def build_hero_options(heroes: dict) -> list[dict]:
     for hero in heroes["heroes"]:
         hid = hero["id"]
         unlock = hero["unlock_town_hall"]
+        supported_by_inherited_engine = hid != "dragon-duke"
         options.append(option(
             value=hid,
             label=hero["label"],
@@ -141,10 +146,12 @@ def build_hero_options(heroes: dict) -> list[dict]:
                 f"{HERO_PROSE[hid]} Available from Town Hall {unlock}. The Hero Hall holds six Heroes but only "
                 f"{heroes['max_active_slots']} can be active at once, so selecting this Hero may require freeing a slot."
             ),
-            availability="gated",
+            availability="gated" if supported_by_inherited_engine else "planned",
             disabled_reason=(
                 "Hero Hall recognition has not been captured on the current client, so the bot cannot confirm which "
                 "Heroes are actually in your active slots."
+            ) if supported_by_inherited_engine else (
+                "Dragon Duke is not present in the inherited five-Hero deployment engine."
             ),
             capability_ids=["heroes.dragon-duke"] if hid == "dragon-duke" else ["heroes.six-slot-layout"],
             prerequisites=[f"Town Hall {unlock} or above"],
@@ -162,7 +169,11 @@ def build_attack_script_options() -> list[dict]:
             "Does not replace the active profile's script for this run. Use this with Standard deployment, or when "
             "the profile already names the exact CSV deployment you want."
         ),
-        availability="available",
+        availability="gated",
+        disabled_reason=(
+            "The profile selection is wired, but its resolved deployment has not completed supervised "
+            "current-client proof."
+        ),
         capability_ids=[],
         prerequisites=[],
         recommended=True,
@@ -180,7 +191,11 @@ def build_attack_script_options() -> list[dict]:
                 f"Loads CSV/Attack/{path.name} as a one-run deployment override. The file's presence proves engine "
                 "compatibility, not that its army is suitable for every Town Hall or current game layout."
             ),
-            availability="available",
+            availability="gated",
+            disabled_reason=(
+                "The file is wired as a one-run override, but this exact deployment has not completed supervised "
+                "current-client proof."
+            ),
             capability_ids=[],
             prerequisites=["The active profile army matches the script"],
         ))
@@ -272,20 +287,31 @@ def main() -> int:
                                    "Uses the CSV deployment scripts that ship with the bot. This is the most "
                                    "predictable option because the deployment order is written down rather than "
                                    "decided from the base layout.",
-                                   "available", [], ["At least one CSV strategy present"], recommended=True),
+                                   "gated", [], ["At least one CSV strategy present"], recommended=True,
+                                   disabled_reason="The CSV actuator is wired, but a complete current-client deployment has not passed supervised review."),
                             option("legacy.standard", "Standard deployment",
                                    "The built-in side and line deployment routine.",
-                                   "The inherited standard attack, which spreads troops along the chosen sides. It "
-                                   "depends on troop-bar recognition that has not been re-confirmed on the current "
-                                   "client.",
-                                   "gated", [], ["Troop bar recognition"],
-                                   disabled_reason="Troop bar recognition has not been captured on the current client."),
+                                   "A supervised run confirmed Standard could issue the trained-army and selected-"
+                                   "Hero deployment, observe an empty troop bar, and return home. That single "
+                                   "completion confirms the route and actuator, not strategy quality; it did not "
+                                   "exercise planned ability or spell actions.",
+                                   "available", [], ["A ready trained army"], runtime_verified=True),
+                            option("smart.local", "Smart Attack (research-guided)",
+                                   "Concentrates the current army using a Town Hall-aware local policy.",
+                                   "The deterministic Town Hall policy is versioned in config/game/smart-attack-"
+                                   "strategies.json and executed locally. Deployment, ability, and spell actions can "
+                                   "be planned and issued by the implementation, but the current deterministic "
+                                   "ability and spell policy has only static test evidence; a fresh supervised run "
+                                   "is still required to confirm it on the live client.",
+                                   "gated", [], ["A ready trained army", "A supervised diagnostic operator"],
+                                   warning="Live confirmation of deterministic ability and spell actions is pending.",
+                                   disabled_reason="Implemented for supervised diagnostics; live confirmation of the deterministic ability and spell policy is pending."),
                             option("legacy.smart-farm", "Smart farm",
                                    "Targets collectors and storages based on the base layout.",
                                    "Reads the base to choose where to drop, which needs current building recognition "
                                    "including the Town Hall 18 additions.",
-                                   "gated", ["village.town-hall-18"], ["Current building recognition"],
-                                   disabled_reason="Building recognition has not been re-confirmed for Town Hall 18."),
+                                   "planned", ["village.town-hall-18"], ["Current building recognition"],
+                                   disabled_reason="The native execution contract has no Smart farm adapter."),
                             option("builder.baby-dragon", "Builder Base routine",
                                    "Deployment routine for Builder Base battles.",
                                    "A Builder Base specific deployment. It is not implemented against the current "
@@ -328,7 +354,9 @@ def main() -> int:
                         "summary": "Up to four Heroes from the six in the Hero Hall.",
                         "description": (
                             "Heroes below your Town Hall level are released automatically rather than left selected, "
-                            "so the run never plans around a Hero you cannot field."
+                            "so the run never plans around a Hero you cannot field. In current-trained-army mode the "
+                            "selected Heroes are deployed when their attack-bar slots are present, but the bot does not "
+                            "open Hero Hall or wait for Hero training."
                         ),
                         "default": "barbarian-king",
                         "required": False,
@@ -369,10 +397,11 @@ def main() -> int:
                                    "available", [], [], recommended=True),
                             option("bluestacks5", "BlueStacks 5",
                                    "The inherited BlueStacks 5 backend.",
-                                   "Carried over from the upstream bot. It works against the versions the upstream "
-                                   "project supported, which are older than the current release.",
-                                   "gated", [], ["BlueStacks 5 installed"],
-                                   disabled_reason="Not re-tested against current BlueStacks 5 builds."),
+                                   "Verified on BlueStacks 5.22.252.1008/Pie64 through exact window binding, ADB "
+                                   "readiness, current-client game readiness, and bounded Start/Stop smoke tests. "
+                                   "This does not claim a completed attack.",
+                                   "available", ["emulator.bluestacks5"], ["BlueStacks 5 installed"],
+                                   runtime_verified=True),
                             option("memu", "MEmu",
                                    "The inherited MEmu backend.",
                                    "Carried over from the upstream bot and not re-tested against current MEmu builds.",
@@ -405,14 +434,14 @@ def main() -> int:
                         "label": "Instance",
                         "summary": "Which emulator instance to attach to.",
                         "description": (
-                            "Populated by asking the selected emulator what it has configured. Instance zero and the "
-                            "later instances are addressed differently, which is a common source of the bot attaching "
-                            "to the wrong window."
+                            "Choose the exact named instance shown by the attached emulator. BlueStacks 5 requires an "
+                            "explicit instance so capture, input, and the native controller dock cannot target "
+                            "different accounts."
                         ),
                         "default": "",
                         "required": False,
                         "engine_binding": "RunPlan.emulator_instance",
-                        "empty_state": "No instances found. Start the emulator once.",
+                        "empty_state": "Select the exact attached instance.",
                         "validation": {"max_length": 64},
                     },
                 ],
@@ -451,7 +480,7 @@ def main() -> int:
                             "Counts every battle the run starts, won or lost. On a surface with a limited attack "
                             "budget the remaining count still applies on top of this."
                         ),
-                        "default": 0,
+                        "default": 1,
                         "required": False,
                         "engine_binding": "RunPlan.max_battles",
                         "unit": "battles",
@@ -573,8 +602,8 @@ def main() -> int:
                                    "Follow the in-game suggested upgrade list.",
                                    "Uses the game's own suggestions, which requires reading the upgrade menu as it "
                                    "currently appears.",
-                                   "gated", ["builder-base.additional-builder"], ["Upgrade menu recognition"],
-                                   disabled_reason="Upgrade menu recognition has not been captured."),
+                                   "planned", ["builder-base.additional-builder"], ["Upgrade menu recognition"],
+                                   disabled_reason="The native execution contract has no suggested-upgrade adapter."),
                             option("all", "Everything",
                                    "Walls, buildings, laboratory, and Heroes.",
                                    "The full upgrade routine across every category. It depends on the six-Hero "
@@ -596,6 +625,8 @@ def main() -> int:
                         "default": "",
                         "required": False,
                         "engine_binding": "AccountQueue.profile_ids",
+                        "native_fixed_value": "",
+                        "native_fixed_reason": "Planner-driven account rotation has no native adapter; the current inspected account is pinned for the run.",
                         "empty_state": "No profiles queued. Stays on this profile.",
                         "validation": {"max_items": 32},
                     },
@@ -635,19 +666,19 @@ def main() -> int:
                                    "Use an entry from the Cookbook tab.",
                                    "The Cookbook holds shared and suggested armies. Selecting from it needs the third "
                                    "army tab to be recognised.",
-                                   "gated", ["army.cookbook"], ["Cookbook tab available"],
-                                   disabled_reason="Cookbook tab recognition has not been captured."),
+                                   "planned", ["army.cookbook"], ["Cookbook tab available"],
+                                   disabled_reason="The native execution contract has no Cookbook army adapter."),
                             option("legacy-list", "Fixed troop list",
                                    "The inherited per-troop composition.",
                                    "Trains a fixed list of troops the way the older bot did. Kept because it does not "
                                    "depend on recipe recognition, but it ignores anything the game has changed since.",
-                                   "gated", [], ["Troop training screen recognition"],
-                                   disabled_reason="Training screen recognition has not been re-confirmed."),
+                                   "planned", [], ["Troop training screen recognition"],
+                                   disabled_reason="The native execution contract has no fixed-list army-source adapter."),
                         ],
                     },
                     {
                         "id": "army.recipe_name",
-                        "type": "instance-select",
+                        "type": "text",
                         "label": "Recipe name",
                         "summary": "Which saved recipe to train.",
                         "description": (
@@ -657,7 +688,24 @@ def main() -> int:
                         "default": "",
                         "required": False,
                         "engine_binding": "RunPlan.army_recipe_name",
+                        "native_fixed_value": "",
+                        "native_fixed_reason": "Named Army Recipe selection is not wired; the run can only use the active profile army.",
                         "validation": {"max_length": 64},
+                    },
+                    {
+                        "id": "army.manage_training",
+                        "type": "boolean",
+                        "label": "Manage training",
+                        "summary": "Allow this run to change the training queue.",
+                        "description": (
+                            "Leave this off for one battle with the army already trained in game. The bot still "
+                            "checks whether that army is ready, but it will not boost Super Troops, inspect or edit "
+                            "Quick Train, remove troops, queue troops or spells, or build siege machines. Turn it on "
+                            "only when the active profile's army composition is current and this run should retrain."
+                        ),
+                        "default": False,
+                        "required": False,
+                        "engine_binding": "RunPlan.army_manage_training",
                     },
                     {
                         "id": "army.wait_for_full",
@@ -678,7 +726,7 @@ def main() -> int:
                         "label": "Train spells",
                         "summary": "Brew spells as well as troops.",
                         "description": "Includes the spell portion of the army. Turn off to save Elixir on cheap farming runs.",
-                        "default": True,
+                        "default": False,
                         "required": False,
                         "engine_binding": "RunPlan.army_train_spells",
                     },
@@ -755,6 +803,8 @@ def main() -> int:
                         "default": 0,
                         "required": False,
                         "engine_binding": "RunPlan.search_max_seconds",
+                        "native_fixed_value": 0,
+                        "native_fixed_reason": "The inherited search loop has no safe elapsed-time exit, so this value must remain zero.",
                         "unit": "seconds",
                         "validation": {"minimum": 0, "maximum": 3600, "step": 15},
                     },
@@ -779,13 +829,13 @@ def main() -> int:
                             option("lower-only", "Lower than mine",
                                    "Only bases below your Town Hall level.",
                                    "Prefers weaker defenders. Requires reading the defender Town Hall reliably.",
-                                   "gated", ["village.town-hall-18"], ["Search screen Town Hall recognition"],
-                                   disabled_reason="Town Hall recognition on the search screen has not been captured."),
+                                   "planned", ["village.town-hall-18"], ["Search screen Town Hall recognition"],
+                                   disabled_reason="The native execution contract currently accepts only Any Town Hall."),
                             option("same-or-lower", "Same or lower",
                                    "Bases at or below your Town Hall level.",
                                    "A looser version of the above, trading some safety for a shorter search.",
-                                   "gated", ["village.town-hall-18"], ["Search screen Town Hall recognition"],
-                                   disabled_reason="Town Hall recognition on the search screen has not been captured."),
+                                   "planned", ["village.town-hall-18"], ["Search screen Town Hall recognition"],
+                                   disabled_reason="The native execution contract currently accepts only Any Town Hall."),
                         ],
                     },
                 ],
@@ -845,6 +895,8 @@ def main() -> int:
                         "default": True,
                         "required": False,
                         "engine_binding": "RunPlan.donate_keep_army",
+                        "native_fixed_value": True,
+                        "native_fixed_reason": "The native planner always protects the attack army; allowing donations to consume it is not wired.",
                     },
                     {
                         "id": "donate.max_per_run",
@@ -855,6 +907,8 @@ def main() -> int:
                         "default": 0,
                         "required": False,
                         "engine_binding": "RunPlan.donate_max_per_run",
+                        "native_fixed_value": 0,
+                        "native_fixed_reason": "Per-run donation accounting is not wired, so the limit must remain zero.",
                         "unit": "donations",
                         "validation": {"minimum": 0, "maximum": 500, "step": 5},
                     },
@@ -905,6 +959,8 @@ def main() -> int:
                         "default": 0,
                         "required": False,
                         "engine_binding": "RunPlan.events_clan_games_point_cap",
+                        "native_fixed_value": 0,
+                        "native_fixed_reason": "Clan Games point accounting is not wired, so this cap must remain zero.",
                         "unit": "points",
                         "validation": {"minimum": 0, "maximum": 10000, "step": 100},
                     },
@@ -929,8 +985,8 @@ def main() -> int:
                                    "Always start the cheapest research.",
                                    "Keeps the lab permanently busy at the lowest cost. Needs the lab screen read "
                                    "accurately, including the Town Hall 18 additions.",
-                                   "gated", ["village.town-hall-18"], ["Laboratory screen recognition"],
-                                   disabled_reason="Laboratory recognition has not been captured for the current client."),
+                                   "planned", ["village.town-hall-18"], ["Laboratory screen recognition"],
+                                   disabled_reason="The native execution contract currently accepts only Laboratory off."),
                             option("priority-list", "Follow a priority list",
                                    "Work down a configured order.",
                                    "Researches in the order you specify, skipping anything unaffordable. Needs both "
@@ -948,7 +1004,7 @@ def main() -> int:
                             "Tapping collectors is low risk and adds up. It is skipped automatically when storages "
                             "are already full, so it costs nothing to leave on."
                         ),
-                        "default": True,
+                        "default": False,
                         "required": False,
                         "engine_binding": "RunPlan.events_collect_resources",
                     },
@@ -1006,8 +1062,8 @@ def main() -> int:
                                    "Send through the inherited Telegram integration.",
                                    "Uses the Telegram bot token configured in the bot's own settings. Carried over "
                                    "from upstream and not re-tested against the current Telegram API.",
-                                   "gated", [], ["Telegram token configured in bot settings"],
-                                   disabled_reason="Inherited integration, not re-tested."),
+                                   "planned", [], ["Telegram token configured in bot settings"],
+                                   disabled_reason="The native execution contract currently accepts only Bot log notifications."),
                             option("windows-toast", "Windows notification",
                                    "Raise a desktop notification.",
                                    "A local desktop notification. Only useful if you are at the machine, in which "
@@ -1044,7 +1100,7 @@ def main() -> int:
                     },
                     {
                         "id": "run.diagnostic_note",
-                        "type": "instance-select",
+                        "type": "text",
                         "label": "Diagnostic note",
                         "summary": "Who is watching this run, recorded with the results.",
                         "description": (

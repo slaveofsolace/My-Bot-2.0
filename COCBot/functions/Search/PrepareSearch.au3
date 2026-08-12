@@ -60,7 +60,11 @@ Func PrepareSearch($Mode = $DB) ;Click attack button and find match button, will
 	EndIf
 
 	If _Sleep($DELAYPREPARESEARCH1) Then Return
-	If Not IsWindowOpen($g_sImgGeneralCloseButton & "*", 10, 200, GetDiamondFromRect("716,1,860,179")) Then
+	; The current Multiplayer panel no longer exposes the legacy close-button image in this
+	; search area. Prove the visible Battle card first, then retain the inherited image gate as
+	; a compatibility fallback for older clients.
+	If Not _IsCurrentMultiplayerPanelOpen(True) And _
+			Not IsWindowOpen($g_sImgGeneralCloseButton & "*", 10, 200, GetDiamondFromRect("716,1,860,179")) Then
 		SetLog("Attack Window did not open!", $COLOR_ERROR)
 		AndroidPageError("PrepareSearch")
 		checkMainScreen()
@@ -181,19 +185,36 @@ Func PrepareSearch($Mode = $DB) ;Click attack button and find match button, will
 				Return
 			EndIf
 		Else
-			Local $g_iFindMatchButtonClassic = _PixelSearch(579, 439 + $g_iMidOffsetY, 581, 441 + $g_iMidOffsetY, Hex(0x838383, 6), 20)
-			Local $g_iFindMatchButtonLegend = _PixelSearch(579, 489 + $g_iMidOffsetY, 581, 491 + $g_iMidOffsetY, Hex(0x838383, 6), 20)
-			If IsArray($g_iFindMatchButtonClassic) Or IsArray($g_iFindMatchButtonLegend) Then
-				SetLog("Couldn't find the Attack Button : Grey Button!", $COLOR_ERROR)
-				$g_bRestart = True
-				CloseWindow2()
-				Return
+			Local $bCurrentClientMatchStarted = False
+			If _IsCurrentMultiplayerPanelOpen(True) Then
+				If $Mode <> $DT Or ($Mode = $DT And $g_bDropTrophyAtkDead) Then SuperchargeCheck()
+				Local $aCurrentFindMatch[2] = [Random(90, 240, 1), Random(450 + $g_iMidOffsetY, 480 + $g_iMidOffsetY, 1)]
+				; This coordinate is already protected by the exact current-panel proof above. Avoid the
+				; inherited pre-click problem detector: the following My Army transition is intentionally
+				; modal/gray and can otherwise latch $g_bRestart before matchmaking begins.
+				PureClickP($aCurrentFindMatch, 1, 120, "#0150-current")
+				SetLog("Current Multiplayer Battle panel: clicked Find a Match", $COLOR_ACTION)
+				; Current clients can insert a live-army confirmation after Find a Match.
+				; Observe that exact green Attack control and confirm it before cloud polling.
+				_ClickCurrentArmyConfirmationIfPresent()
+				$bCurrentClientMatchStarted = True
 			EndIf
-			If Number($g_aiCurrentLoot[$eLootTrophy]) >= Number($g_asLeagueDetails[21][4]) Then
-				SetLog("Couldn't find the Attack Button!", $COLOR_ERROR)
-				$g_bRestart = True
-				CloseWindow2()
-				Return
+
+			If Not $bCurrentClientMatchStarted Then
+				Local $g_iFindMatchButtonClassic = _PixelSearch(579, 439 + $g_iMidOffsetY, 581, 441 + $g_iMidOffsetY, Hex(0x838383, 6), 20)
+				Local $g_iFindMatchButtonLegend = _PixelSearch(579, 489 + $g_iMidOffsetY, 581, 491 + $g_iMidOffsetY, Hex(0x838383, 6), 20)
+				If IsArray($g_iFindMatchButtonClassic) Or IsArray($g_iFindMatchButtonLegend) Then
+					SetLog("Couldn't find the Attack Button : Grey Button!", $COLOR_ERROR)
+					$g_bRestart = True
+					CloseWindow2()
+					Return
+				EndIf
+				If Number($g_aiCurrentLoot[$eLootTrophy]) >= Number($g_asLeagueDetails[21][4]) Then
+					SetLog("Couldn't find the Attack Button!", $COLOR_ERROR)
+					$g_bRestart = True
+					CloseWindow2()
+					Return
+				EndIf
 			EndIf
 		EndIf
 	Until Not $bSignedUpLegendLeague
@@ -227,6 +248,62 @@ Func PrepareSearch($Mode = $DB) ;Click attack button and find match button, will
 	EndIf
 
 EndFunc   ;==>PrepareSearch
+
+; Current-client proof for the 860x732 Multiplayer Battle panel. The paired orange
+; button samples establish the control geometry and the light samples establish the
+; "Find a Match" label. This helper observes only; callers own every click.
+Func _IsCurrentMultiplayerPanelOpen($bNeedCapture = True)
+	If $bNeedCapture Then _CaptureRegion()
+
+	Local $bButton = _
+			_ColorCheck(_GetPixelColor(60, 450 + $g_iMidOffsetY, False), Hex(0xF9AD2D, 6), 25) And _
+			_ColorCheck(_GetPixelColor(260, 450 + $g_iMidOffsetY, False), Hex(0xF9AD2D, 6), 25) And _
+			_ColorCheck(_GetPixelColor(75, 470 + $g_iMidOffsetY, False), Hex(0xF9AD2C, 6), 25)
+	If Not $bButton Then Return False
+
+	Local $bFindMatchLabel = _
+			_ColorCheck(_GetPixelColor(102, 446 + $g_iMidOffsetY, False), Hex(0xFFFFFF, 6), 30) And _
+			_ColorCheck(_GetPixelColor(138, 446 + $g_iMidOffsetY, False), Hex(0xFFFFFF, 6), 30) And _
+			_ColorCheck(_GetPixelColor(169, 446 + $g_iMidOffsetY, False), Hex(0xFFFFFF, 6), 30) And _
+			_ColorCheck(_GetPixelColor(199, 446 + $g_iMidOffsetY, False), Hex(0xFFFFFF, 6), 30)
+
+	Return $bFindMatchLabel
+EndFunc   ;==>_IsCurrentMultiplayerPanelOpen
+
+; The current client can show My Army between the Multiplayer card and matchmaking.
+; This helper is bounded and proof-gated so older/direct-to-cloud clients remain unchanged.
+Func _ClickCurrentArmyConfirmationIfPresent()
+	For $iAttempt = 1 To 8
+		If _IsCurrentArmyConfirmationOpen(True) Then
+			Local $aCurrentArmyAttack[2] = [Random(685, 790, 1), Random(500 + $g_iMidOffsetY, 515 + $g_iMidOffsetY, 1)]
+			; The confirmation itself is a gray modal. Its exact four-pixel proof is the authority for
+			; this click; running the generic problem-screen preflight here can falsely restart the run.
+			PureClickP($aCurrentArmyAttack, 1, 120, "#0150-current-army")
+			SetLog("Current My Army confirmation: clicked Attack", $COLOR_ACTION)
+			Return True
+		EndIf
+		If _Sleep(250) Then Return False
+	Next
+
+	Return False
+EndFunc   ;==>_ClickCurrentArmyConfirmationIfPresent
+
+; Current-client proof for the green Attack button at the bottom right of My Army.
+; Paired highlight and body samples make this observation specific without image templates.
+Func _IsCurrentArmyConfirmationOpen($bNeedCapture = True)
+	If $bNeedCapture Then _CaptureRegion()
+
+	Local $bHighlight = _
+			_ColorCheck(_GetPixelColor(685, 500 + $g_iMidOffsetY, False), Hex(0xC8F496, 6), 20) And _
+			_ColorCheck(_GetPixelColor(790, 500 + $g_iMidOffsetY, False), Hex(0xC8F496, 6), 20)
+	If Not $bHighlight Then Return False
+
+	Local $bBody = _
+			_ColorCheck(_GetPixelColor(685, 515 + $g_iMidOffsetY, False), Hex(0x8CD242, 6), 20) And _
+			_ColorCheck(_GetPixelColor(790, 515 + $g_iMidOffsetY, False), Hex(0x8CD242, 6), 20)
+
+	Return $bBody
+EndFunc   ;==>_IsCurrentArmyConfirmationOpen
 
 Func OkayLegend()
 

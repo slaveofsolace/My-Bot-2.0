@@ -78,6 +78,13 @@ Func _LocatePetHouse($bCollect = True)
 			Return
 		EndIf
 		Local $sPetHouseInfo = BuildingInfo(242, 475 + $g_iBottomOffsetY)
+		If Not IsArray($sPetHouseInfo) Or UBound($sPetHouseInfo) < 3 Then
+			SetLog("Pet House identity could not be verified; location was not accepted", $COLOR_ERROR)
+			$g_aiPetHousePos[0] = -1
+			$g_aiPetHousePos[1] = -1
+			ClearScreen()
+			Return False
+		EndIf
 		If $sPetHouseInfo[0] > 1 Or $sPetHouseInfo[0] = "" Then
 			If StringInStr($sPetHouseInfo[1], "Pet") = 0 Then
 				Local $sLocMsg = ($sPetHouseInfo[0] = "" ? "Nothing" : $sPetHouseInfo[1])
@@ -97,9 +104,11 @@ Func _LocatePetHouse($bCollect = True)
 						$sErrorText = $sLocMsg & " ?!?!?!" & @CRLF & @CRLF & "Last Chance, DO NOT MAKE ME ANGRY, or" & @CRLF & "I will give ALL of your gold to Barbarian King," & @CRLF & "And ALL of your Gems to the Archer Queen!" & @CRLF
 						ContinueLoop
 					Case $iSilly > 4
-						SetLog("Ok, you really think that's a Pet House?" & @CRLF & "I don't care anymore, go ahead with it!", $COLOR_ERROR)
+						SetLog("Pet House identity was not verified; location was not accepted", $COLOR_ERROR)
+						$g_aiPetHousePos[0] = -1
+						$g_aiPetHousePos[1] = -1
 						ClearScreen()
-						ExitLoop
+						Return False
 				EndSelect
 			EndIf
 		Else
@@ -142,6 +151,14 @@ Func ImgLocatePetHouse()
 	If IsArray($aiPetHouseCoords) And UBound($aiPetHouseCoords, $UBOUND_ROWS) > 1 Then
 		$g_aiPetHousePos[0] = $aiPetHouseCoords[0]
 		$g_aiPetHousePos[1] = $aiPetHouseCoords[1]
+		; ImgLoc returns ADB framebuffer pixels while all stored building positions use the
+		; zoom-independent village coordinate space consumed by BuildingClickP.
+		ConvertFromVillagePos($g_aiPetHousePos[0], $g_aiPetHousePos[1])
+		If Not isInsideDiamond($g_aiPetHousePos) Then
+			$g_aiPetHousePos[0] = -1
+			$g_aiPetHousePos[1] = -1
+			Return False
+		EndIf
 		Return True
 	EndIf
 

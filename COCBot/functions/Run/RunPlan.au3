@@ -14,7 +14,9 @@ Func RunPlanCreateDefault($sMode = "home", $sStrategy = "auto", $sAttackScript =
 	$oPlan.Add("strategy", $sStrategy)
 	$oPlan.Add("attack_script", $sAttackScript)
 	$oPlan.Add("duration_minutes", 0)
-	$oPlan.Add("max_battles", 0)
+	; The safest default uses the already-trained army without changing its queue. Keep that default
+	; contract-valid and bounded to a single battle; users who enable training management may choose 0.
+	$oPlan.Add("max_battles", 1)
 	$oPlan.Add("stop_on_star_bonus", False)
 	$oPlan.Add("max_failures", 3)
 	$oPlan.Add("target_gold", 0)
@@ -26,8 +28,9 @@ Func RunPlanCreateDefault($sMode = "home", $sStrategy = "auto", $sAttackScript =
 	$oPlan.Add("emulator_instance", "")
 	$oPlan.Add("army_source", "recipe")
 	$oPlan.Add("army_recipe_name", "")
+	$oPlan.Add("army_manage_training", False)
 	$oPlan.Add("army_wait_for_full", True)
-	$oPlan.Add("army_train_spells", True)
+	$oPlan.Add("army_train_spells", False)
 	$oPlan.Add("army_train_sieges", False)
 	$oPlan.Add("search_min_gold", 0)
 	$oPlan.Add("search_min_elixir", 0)
@@ -41,7 +44,7 @@ Func RunPlanCreateDefault($sMode = "home", $sStrategy = "auto", $sAttackScript =
 	$oPlan.Add("events_clan_games", False)
 	$oPlan.Add("events_clan_games_point_cap", 0)
 	$oPlan.Add("events_laboratory", "off")
-	$oPlan.Add("events_collect_resources", True)
+	$oPlan.Add("events_collect_resources", False)
 	$oPlan.Add("notify_on_stop", False)
 	$oPlan.Add("notify_on_error", True)
 	$oPlan.Add("notify_channel", "log-only")
@@ -55,7 +58,7 @@ Func RunPlanValidate(ByRef $oPlan, ByRef $sError)
 	EndIf
 
 	Local $aRequired = ["schema_version", "mode", "strategy", "attack_script", "duration_minutes", "max_battles", "stop_on_star_bonus", "max_failures", "target_gold", "target_elixir", "target_dark_elixir", "upgrade_policy", "account_queue_id", _
-		"emulator", "emulator_instance", "army_source", "army_recipe_name", "army_wait_for_full", "army_train_spells", "army_train_sieges", "search_min_gold", "search_min_elixir", "search_min_dark", "search_max_seconds", "search_town_hall_filter", _
+		"emulator", "emulator_instance", "army_source", "army_recipe_name", "army_manage_training", "army_wait_for_full", "army_train_spells", "army_train_sieges", "search_min_gold", "search_min_elixir", "search_min_dark", "search_max_seconds", "search_town_hall_filter", _
 		"donate_mode", "donate_keep_army", "donate_max_per_run", "donate_request_when_short", "events_clan_games", "events_clan_games_point_cap", "events_laboratory", "events_collect_resources", "notify_on_stop", "notify_on_error", "notify_channel"]
 	For $i = 0 To UBound($aRequired) - 1
 		If Not $oPlan.Exists($aRequired[$i]) Then
@@ -92,7 +95,7 @@ Func RunPlanValidate(ByRef $oPlan, ByRef $sError)
 		EndIf
 	Next
 
-	Local $aBoolean = ["stop_on_star_bonus", "army_wait_for_full", "army_train_spells", "army_train_sieges", "donate_keep_army", "donate_request_when_short", "events_clan_games", "events_collect_resources", "notify_on_stop", "notify_on_error"]
+	Local $aBoolean = ["stop_on_star_bonus", "army_manage_training", "army_wait_for_full", "army_train_spells", "army_train_sieges", "donate_keep_army", "donate_request_when_short", "events_clan_games", "events_collect_resources", "notify_on_stop", "notify_on_error"]
 	For $i = 0 To UBound($aBoolean) - 1
 		If Not IsBool($oPlan.Item($aBoolean[$i])) Then
 			$sError = $aBoolean[$i] & " must be boolean"
@@ -211,5 +214,6 @@ Func RunPlanDescribe(ByRef $oPlan)
 		$sDescription &= " / " & Int($oPlan.Item("max_failures")) & " failures max"
 	EndIf
 	If $oPlan.Item("stop_on_star_bonus") Then $sDescription &= " / star bonus"
+	If Not $oPlan.Item("army_manage_training") Then $sDescription &= " / current trained army"
 	Return $sDescription
 EndFunc   ;==>RunPlanDescribe

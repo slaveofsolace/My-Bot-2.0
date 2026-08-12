@@ -26,7 +26,7 @@ HERO_DROP_NAMES = {
 }
 ID_PATTERN = re.compile(r"^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$")
 BINDING_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9]*(?:\.[A-Za-z_][A-Za-z0-9_]*)+$")
-ALLOWED_TYPES = {"select", "multi-select", "instance-select", "integer", "boolean", "profile-queue"}
+ALLOWED_TYPES = {"select", "multi-select", "instance-select", "text", "integer", "boolean", "profile-queue"}
 ALLOWED_AVAILABILITY = {"available", "gated", "planned", "unsupported"}
 # The planner describes timings in terms of what they are for - letting a screen finish drawing, not
 # driving the emulator faster than it answers. Wording that reframes them as disguise gets caught here,
@@ -270,6 +270,13 @@ def main() -> int:
             seen_settings.add(setting_id)
             settings_by_id[setting_id] = setting
 
+            has_fixed_value = "native_fixed_value" in setting
+            has_fixed_reason = bool(str(setting.get("native_fixed_reason", "")).strip())
+            if has_fixed_value != has_fixed_reason:
+                errors.append(f"{setting_id}: native_fixed_value and native_fixed_reason must be declared together")
+            if has_fixed_value and setting.get("native_fixed_value") != setting.get("default"):
+                errors.append(f"{setting_id}: native fixed value must equal the visible default")
+
             setting_type = setting.get("type")
             if setting_type not in ALLOWED_TYPES:
                 errors.append(f"{setting_id}: unsupported type {setting_type!r}")
@@ -306,6 +313,20 @@ def main() -> int:
             if setting_type == "boolean" and not isinstance(setting.get("default"), bool):
                 errors.append(f"{setting_id}: boolean default must be boolean")
 
+            if setting_type in {"instance-select", "text", "profile-queue"}:
+                default = setting.get("default")
+                if not isinstance(default, str):
+                    errors.append(f"{setting_id}: text default must be a string")
+                validation = setting.get("validation", {})
+                if not isinstance(validation, dict):
+                    errors.append(f"{setting_id}: validation must be an object")
+                else:
+                    maximum = validation.get("max_length")
+                    if maximum is not None and (isinstance(maximum, bool) or not isinstance(maximum, int) or maximum < 1):
+                        errors.append(f"{setting_id}: max_length must be a positive integer")
+                    elif isinstance(default, str) and isinstance(maximum, int) and len(default) > maximum:
+                        errors.append(f"{setting_id}: default exceeds max_length")
+
             if setting_type in ("select", "multi-select"):
                 options = setting.get("options")
                 if not isinstance(options, list) or not options:
@@ -334,6 +355,8 @@ def main() -> int:
                         errors.append(f"{option_prefix}: available option cannot have a disabled reason")
                     if availability != "available" and not disabled_reason:
                         errors.append(f"{option_prefix}: unavailable option requires a disabled reason")
+                    if not isinstance(option.get("runtime_verified"), bool):
+                        errors.append(f"{option_prefix}: runtime_verified must be an explicit boolean")
 
                     referenced = option.get("capability_ids")
                     if not isinstance(referenced, list):
@@ -395,6 +418,7 @@ def main() -> int:
         "target.dark_elixir",
         "upgrade.policy",
         "account.queue",
+        "army.manage_training",
     }
     missing_settings = sorted(expected_settings - seen_settings)
     if missing_settings:
@@ -420,6 +444,23 @@ def main() -> int:
     if select_values.get("upgrade.policy") != {"disabled", "walls", "suggested", "all"}:
         errors.append("upgrade.policy options do not match the run-plan contract")
 
+    expected_native_fixed = {
+        "account.queue": "",
+        "army.recipe_name": "",
+        "search.max_seconds": 0,
+        "donate.keep_army": True,
+        "donate.max_per_run": 0,
+        "events.clan_games_point_cap": 0,
+        "pacing.retry_attempts": 0,
+    }
+    actual_native_fixed = {
+        setting_id: setting.get("native_fixed_value")
+        for setting_id, setting in settings_by_id.items()
+        if "native_fixed_value" in setting
+    }
+    if actual_native_fixed != expected_native_fixed:
+        errors.append(f"native fixed-value controls drifted: {actual_native_fixed!r}")
+
     script_options = {"profile-current"} | {
         path.stem
         for path in ATTACK_SCRIPTS_PATH.glob("*.csv")
@@ -427,6 +468,38 @@ def main() -> int:
     }
     if select_values.get("run.attack_script") != script_options:
         errors.append("run.attack_script must offer profile-current and every bundled CSV attack script exactly")
+
+    def option_map(setting_id: str) -> dict[str, dict]:
+        return {item.get("value"): item for item in settings_by_id.get(setting_id, {}).get("options", [])}
+
+    surface_options = option_map("run.surface")
+    regular_option = surface_options.get("regular", {})
+    if regular_option.get("availability") != "available" or regular_option.get("runtime_verified") is not True:
+        errors.append("Regular Battles must expose the completed supervised current-client proof")
+    for surface_id, surface_option in surface_options.items():
+        if surface_id != "regular" and surface_option.get("availability") not in {"planned", "unsupported"}:
+            errors.append(f"{surface_id}: a surface with no native adapter must not remain selectable")
+
+    strategy_options = option_map("run.strategy")
+    csv_option = strategy_options.get("legacy.csv", {})
+    if csv_option.get("availability") != "gated" or csv_option.get("runtime_verified") is not False:
+        errors.append("legacy.csv: attack strategy must remain unverified until its supervised proof")
+    standard_option = strategy_options.get("legacy.standard", {})
+    if standard_option.get("availability") != "available" or standard_option.get("runtime_verified") is not True:
+        errors.append("legacy.standard must expose the completed supervised deployment proof")
+    smart_option = strategy_options.get("smart.local", {})
+    if smart_option.get("availability") != "gated" or smart_option.get("runtime_verified") is not False:
+        errors.append("smart.local must remain a selectable diagnostic option until its deterministic policy has fresh live proof")
+    for strategy_id in ("legacy.smart-farm", "builder.baby-dragon"):
+        if strategy_options.get(strategy_id, {}).get("availability") not in {"planned", "unsupported"}:
+            errors.append(f"{strategy_id}: strategy with no native adapter must not remain selectable")
+
+    for script_id, script_option in option_map("run.attack_script").items():
+        if script_option.get("availability") != "gated" or script_option.get("runtime_verified") is not False:
+            errors.append(f"{script_id}: attack script must not be labelled runtime verified without battle evidence")
+
+    if option_map("runtime.emulator").get("bluestacks5", {}).get("runtime_verified") is not True:
+        errors.append("BlueStacks 5 must retain its separately reviewed attachment/readiness evidence")
 
     presets = settings.get("presets")
     if not isinstance(presets, dict):
@@ -487,6 +560,11 @@ def main() -> int:
         overwritten = sorted(set(values) & preserved_set)
         if overwritten:
             errors.append(f"{prefix}: preset must preserve: {', '.join(overwritten)}")
+        missing_owned = sorted(seen_settings - preserved_set - set(values))
+        if missing_owned:
+            errors.append(f"{prefix}: preset silently preserves non-operator fields: {', '.join(missing_owned)}")
+        if "run.heroes" not in values:
+            errors.append(f"{prefix}: preset must explicitly select its complete Hero loadout")
 
         for setting_id, value in values.items():
             setting = settings_by_id.get(setting_id)
@@ -516,7 +594,7 @@ def main() -> int:
                     or not set(value).issubset(available)
                 ):
                     errors.append(f"{prefix}: {setting_id} violates its selection contract")
-            elif kind in {"instance-select", "profile-queue"} and not isinstance(value, str):
+            elif kind in {"instance-select", "text", "profile-queue"} and not isinstance(value, str):
                 errors.append(f"{prefix}: {setting_id} must be text")
 
         compatibility = preset.get("compatibility")
@@ -541,8 +619,6 @@ def main() -> int:
         elif compatibility == "engine-fallback":
             if strategy != "legacy.standard" or attack_script != "profile-current":
                 errors.append(f"{prefix}: engine fallback must use Standard and preserve the profile script")
-            if "run.heroes" in values:
-                errors.append(f"{prefix}: engine fallback must preserve the visible Hero selection")
             town_hall_token = re.compile(rf"(?<![A-Za-z0-9])TH0?{town_hall}(?!\d)", re.IGNORECASE)
             declaring_scripts = [
                 path.name
@@ -554,6 +630,11 @@ def main() -> int:
                     f"{prefix}: fallback source claim is stale; scripts now declare Town Hall {town_hall}: "
                     + ", ".join(sorted(declaring_scripts))
                 )
+        elif compatibility == "research-guided":
+            if strategy != "smart.local" or attack_script != "profile-current":
+                errors.append(f"{prefix}: research-guided preset must use Smart Attack with the current profile army")
+            if f"smart-attack-strategies.json TH{town_hall} policy" not in str(preset.get("source_note", "")):
+                errors.append(f"{prefix}: research-guided preset must cite its exact Town Hall policy")
         else:
             errors.append(f"{prefix}: unsupported compatibility classification {compatibility!r}")
 
@@ -577,7 +658,9 @@ def main() -> int:
         if values.get("upgrade.policy") not in {"disabled", "walls"}:
             errors.append(f"{prefix}: upgrade.policy has no exact legacy adapter")
         preset_heroes = set(values.get("run.heroes", []))
-        unsupported_preset_heroes = preset_heroes & {"minion-prince", "dragon-duke"}
+        unsupported_preset_heroes = preset_heroes & {"dragon-duke"}
+        if compatibility == "script-declared":
+            unsupported_preset_heroes |= preset_heroes & {"minion-prince"}
         if unsupported_preset_heroes:
             errors.append(
                 f"{prefix}: preset selects Heroes outside the source-proven CSV deployment set: "

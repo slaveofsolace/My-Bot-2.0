@@ -30,8 +30,14 @@ PARSER = ROOT / "COCBot/functions/Run/RunPlanFile.au3"
 APPLIER = ROOT / "COCBot/GUI/MBR GUI Control Run Planner.au3"
 PACING = ROOT / "COCBot/functions/Run/RunPacing.au3"
 EXECUTION = ROOT / "COCBot/functions/Run/RunExecution.au3"
+EXECUTION_CONTRACT = ROOT / "COCBot/functions/Run/RunExecutionContract.au3"
+TRAIN_SYSTEM = ROOT / "COCBot/functions/CreateArmy/TrainSystem.au3"
 ACTION = ROOT / "COCBot/MBR GUI Action.au3"
 BOTTOM = ROOT / "COCBot/GUI/MBR GUI Control Bottom.au3"
+CHECK_MAIN_SCREEN = ROOT / "COCBot/functions/Main Screen/checkMainScreen.au3"
+VILLAGE_READINESS = ROOT / "COCBot/functions/Run/RunVillageReadiness.au3"
+VILLAGE_DETECTOR = ROOT / "COCBot/functions/Village/BotDetectFirstTime.au3"
+TOWN_HALL_SEARCH = ROOT / "COCBot/functions/Image Search/imglocTHSearch.au3"
 CONTROL = ROOT / "COCBot/functions/Run/RunControlBridge.au3"
 API_CLIENT = ROOT / "COCBot/functions/Other/ApiClient.au3"
 MAIN = ROOT / "MyBot.run.au3"
@@ -146,6 +152,19 @@ def main() -> int:
         errors.append("a validated plan does not cover exactly the declared settings")
     if written.get("run.diagnostic_mode") is not False:
         errors.append("the writer would put a true diagnostic flag on disk for the string 'false'")
+    if planner_ui.engine_preflight(plan):
+        errors.append("the browser default plan is guaranteed to fail the native execution contract")
+    for setting_id, bad_value in (
+        ("run.surface", "builder"),
+        ("run.strategy", "legacy.smart-farm"),
+        ("search.max_seconds", 15),
+        ("pacing.retry_attempts", 1),
+        ("notify.channel", "telegram"),
+    ):
+        impossible = dict(plan)
+        impossible[setting_id] = bad_value
+        if not planner_ui.engine_preflight(impossible):
+            errors.append(f"browser preflight would save native-incompatible {setting_id}={bad_value}")
 
     serialized = json.dumps(written)
     reparsed = json.loads(serialized)
@@ -159,9 +178,8 @@ def main() -> int:
     branches = applied_types(applier_source)
     if not branches:
         errors.append("could not find _RunPlannerApplySetting; the bridge check is not seeing the real code")
-    # instance-select and profile-queue are plain text boxes and share the fallback branch, which is
-    # deliberate: they carry free text either way.
-    fallback = {"instance-select", "profile-queue"}
+    # Explicit text settings and the two legacy free-text metadata kinds share the native fallback.
+    fallback = {"instance-select", "profile-queue", "text"}
     for setting_id, setting in sorted(settings.items()):
         kind = setting["type"]
         if kind not in branches and kind not in fallback:
@@ -251,6 +269,82 @@ def main() -> int:
         if "RunPacingRestIfDue()" not in execution_source:
             errors.append("planned rests are not consumed by the execution loop")
 
+        for required in (
+            "$g_bRunExecutionManageTraining = RunIntentManagesTraining($g_oRunExecutionIntent)",
+            "Func RunExecutionShouldManageTraining()",
+            "Func RunExecutionSkipVillageZoomCalibration()",
+        ):
+            if required not in execution_source:
+                errors.append(f"one-run training management no longer reaches RunExecution via {required}")
+
+        skip_zoom = execution_source.split("Func RunExecutionSkipVillageZoomCalibration()", 1)
+        skip_zoom_body = skip_zoom[1].split("EndFunc", 1)[0] if len(skip_zoom) > 1 else ""
+        if "$g_bRunExecutionPrepared And Not $g_bRunExecutionManageTraining" not in skip_zoom_body:
+            errors.append("village zoom bypass is not limited to a prepared current-army run")
+
+        main_screen_source = CHECK_MAIN_SCREEN.read_text(encoding="utf-8-sig")
+        main_screen = main_screen_source.split("Func _checkMainScreen(", 1)
+        main_screen_body = main_screen[1].split("EndFunc", 1)[0] if len(main_screen) > 1 else ""
+        zoom_guard = main_screen_body.find("RunExecutionSkipVillageZoomCalibration()")
+        zoom_call = main_screen_body.find("ZoomOut()")
+        if zoom_guard < 0 or zoom_call < zoom_guard:
+            errors.append("checkMainScreen still requires unsupported scenery anchors in current-army mode")
+        notification_guard = (
+            'If RunExecutionSkipVillageZoomCalibration() Then\n'
+            '\t\tSetDebugLog("Run Planner current-army mode: skipped legacy pending notifications during screen proof")\n'
+            '\tElse\n'
+            '\t\tNotifyPendingActions()\n'
+            '\tEndIf'
+        )
+        if notification_guard not in main_screen_body:
+            errors.append("current-army screen proof can still invoke legacy pending notifications")
+        restore_training = execution_source.split("Func _RunExecutionRestoreProfile()", 1)
+        restore_training_body = restore_training[1].split("EndFunc", 1)[0] if len(restore_training) > 1 else ""
+        if restore_training_body.count("$g_bRunExecutionManageTraining = True") < 2:
+            errors.append("RunExecution restore does not clear current-army mode on both snapshot paths")
+
+    # Current-army mode must still inspect readiness, but it may not cross into any inherited path
+    # that can delete a mismatched troop or queue the stale profile army.
+    if not TRAIN_SYSTEM.is_file():
+        errors.append("TrainSystem.au3 is missing; current-army safety cannot be verified")
+    else:
+        train_source = TRAIN_SYSTEM.read_text(encoding="utf-8-sig")
+        train = train_source.split("Func TrainSystem()", 1)
+        train_body = train[1].split("EndFunc", 1)[0] if len(train) > 1 else ""
+        ordered_training_boundary = [
+            train_body.find("If Not RunExecutionShouldManageTraining() Then"),
+            train_body.find("CheckPassiveCurrentArmyReady()"),
+            train_body.find("EndGainCost(\"Train\")"),
+            train_body.find("Return", train_body.find("EndGainCost(\"Train\")")),
+            train_body.find("BoostSuperTroop()"),
+            train_body.find("CheckQuickTrainTroop()"),
+            train_body.find("QuickTrain()"),
+            train_body.find("TrainCustomArmy()"),
+            train_body.find("TrainSiege()"),
+        ]
+        if any(offset < 0 for offset in ordered_training_boundary) or ordered_training_boundary != sorted(ordered_training_boundary):
+            errors.append("current-army mode no longer returns after a passive readiness check and before every training mutation path")
+
+        passive = train_source.split("Func CheckPassiveCurrentArmyReady()", 1)
+        passive_body = passive[1].split("EndFunc", 1)[0] if len(passive) > 1 else ""
+        for required in (
+            'OpenArmyOverview(False, "CheckPassiveCurrentArmyReady()", False)',
+            "PassiveCurrentArmyCapacityProof(",
+            "$g_bIsFullArmywithHeroesAndSpells = True",
+        ):
+            if required not in passive_body:
+                errors.append(f"passive current-army observer no longer proves fresh readiness via {required}")
+        for forbidden in ("CheckArmyCamp(", "BuildingClick(", "BuildingClickP(", "HiddenSlotstatus(", "RemoveExtraTroops("):
+            if forbidden in passive_body:
+                errors.append(f"passive current-army observer reaches forbidden legacy work via {forbidden}")
+
+        readiness = train_source.split("Func CheckIfArmyIsReady(", 1)
+        readiness_body = readiness[1].split("EndFunc", 1)[0] if len(readiness) > 1 else ""
+        mutation_guard = readiness_body.find("If $bAllowArmyMutation And")
+        removal = readiness_body.find("RemoveExtraTroops(")
+        if mutation_guard < 0 or removal < mutation_guard:
+            errors.append("CheckIfArmyIsReady can remove mismatched troops during the passive current-army check")
+
     action_source = ACTION.read_text(encoding="utf-8-sig")
     bot_start = action_source.split("Func BotStart(", 1)
     bot_start_body = bot_start[1].split("EndFunc", 1)[0] if len(bot_start) > 1 else ""
@@ -280,6 +374,81 @@ def main() -> int:
             errors.append(f"Initiate no longer identifies unsupported Windows Server target {server_version}")
     if "Windows 10/11 desktop is supported; Windows Server 2019/2022 is outside the supported target" not in initiate_body:
         errors.append("Initiate no longer explains the Windows desktop and Server support boundary accurately")
+
+    # A current-army run deliberately skips legacy village zoom calibration. It must prove the
+    # current main-screen TH from raw framebuffer data, then bypass every coordinate conversion.
+    village_readiness_source = VILLAGE_READINESS.read_text(encoding="utf-8-sig")
+    village_detector_source = VILLAGE_DETECTOR.read_text(encoding="utf-8-sig")
+    town_hall_search_source = TOWN_HALL_SEARCH.read_text(encoding="utf-8-sig")
+    identity_detector = town_hall_search_source.split("Func imglocOwnVillageTownHallIdentity(", 1)
+    identity_detector_body = identity_detector[1].split("EndFunc", 1)[0] if len(identity_detector) > 1 else ""
+    for forbidden in (
+        "ResetTHsearch",
+        "ConvertFromVillagePos",
+        "_ObjPutValue",
+        "$g_iSearchTH",
+        "$g_iTHx",
+        "$g_iTHy",
+        "BuildingClick",
+        "SaveConfig",
+    ):
+        if forbidden in identity_detector_body:
+            errors.append(f"raw Town Hall identity detector crosses a forbidden legacy side effect: {forbidden}")
+    for required in ("findMultiple(", '"objectname,objectlevel,objectpoints"', "$g_iGAME_WIDTH", "$g_iGAME_HEIGHT"):
+        if required not in identity_detector_body:
+            errors.append(f"raw Town Hall identity detector no longer validates {required}")
+    for required in (
+        "$iExpectedTownHallLevel = 0",
+        "$iMinimumLevel = ($iExpectedLevel > 0 ? $iExpectedLevel : 2)",
+        "$iMaximumLevel = ($iExpectedLevel > 0 ? $iExpectedLevel : $g_iMaxTHLevel)",
+        "conflicting matches; identity was not accepted",
+    ):
+        if required not in town_hall_search_source:
+            errors.append(f"raw Town Hall identity detector no longer fails closed via {required}")
+
+    planned_detector = village_detector_source.split("Func BotDetectFirstTime(", 1)
+    planned_detector_body = planned_detector[1].split("EndFunc", 1)[0] if len(planned_detector) > 1 else ""
+    planned_detection_order = [
+        planned_detector_body.find("RunVillageReadinessResetIdentity()"),
+        planned_detector_body.find("imglocOwnVillageTownHallIdentity("),
+        planned_detector_body.find("RunVillageReadinessMarkIdentityVerified("),
+        planned_detector_body.find("If RunExecutionSkipVillageZoomCalibration() Then Return"),
+    ]
+    if any(offset < 0 for offset in planned_detection_order) or planned_detection_order != sorted(planned_detection_order):
+        errors.append("planned Town Hall detection no longer resets, proves, latches, and exits identity-only mode in order")
+    if "$g_iTownHallLevel) Then" not in planned_detector_body:
+        errors.append("planned Town Hall detection no longer constrains visual matching to a valid loaded profile level")
+    for required in (
+        "RunExecutionSkipVillageZoomCalibration()",
+        "RunVillageReadinessMarkMainScreenProfileAttested(",
+        "without building coordinates",
+    ):
+        if required not in planned_detector_body:
+            errors.append(f"current-army Town Hall fallback is no longer explicitly bounded by {required}")
+    fallback_attestation = planned_detector_body.find("RunVillageReadinessMarkMainScreenProfileAttested(")
+    strict_identity_failure = planned_detector_body.find("Own-village Town Hall identity could not be verified")
+    if fallback_attestation < 0 or strict_identity_failure < fallback_attestation:
+        errors.append("building-managing planned runs no longer fail closed after the bounded current-army TH fallback")
+
+    validator = village_readiness_source.split("Func RunVillageReadinessValidate(", 1)
+    validator_body = validator[1].split("EndFunc", 1)[0] if len(validator) > 1 else ""
+    for required in ("$bTownHallIdentityVerified", "If Not $bTownHallIdentityVerified Then", "$bTownHallCoordinatesRequired"):
+        if required not in validator_body:
+            errors.append(f"own-village readiness validator no longer fails closed via {required}")
+
+    planned_ready_order = [
+        initiate_body.find("BotDetectFirstTime(True)"),
+        initiate_body.find("$bTownHallIdentityVerified = RunVillageReadinessIdentityVerified("),
+        initiate_body.find("RunVillageReadinessValidate("),
+        initiate_body.find("AndroidBotStartEvent()"),
+        initiate_body.find("RunExecutionBegin("),
+        initiate_body.find("RunControlReportStartOutcome(True"),
+    ]
+    if any(offset < 0 for offset in planned_ready_order) or planned_ready_order != sorted(planned_ready_order):
+        errors.append("planned Start no longer proves fresh Town Hall identity before its readiness and running boundaries")
+    if "RunVillageReadinessValidate($g_iTownHallLevel, isInsideDiamond(" in initiate_body:
+        errors.append("planned Start eagerly evaluates legacy village coordinates in identity-only mode")
+
     bot_stop = action_source.split("Func BotStop(", 1)
     bot_stop_body = bot_stop[1].split("EndFunc", 1)[0] if len(bot_stop) > 1 else ""
     if "RunExecutionComplete" not in bot_stop_body:
@@ -295,7 +464,111 @@ def main() -> int:
     if "RunPlanFileLoadIntent($sPlanPath, $sError)" not in execution_source:
         errors.append("browser Start no longer reloads the saved plan at its execution boundary")
 
+    run_bot = main_source.split("Func runBot()", 1)
+    run_bot_body = run_bot[1].split("EndFunc", 1)[0] if len(run_bot) > 1 else ""
+    current_army_boundary = [
+        run_bot_body.find("If RunExecutionPlanActive() And Not RunExecutionShouldManageTraining() Then"),
+        run_bot_body.find("_RunExecutionRunCurrentArmyOneBattle()"),
+        run_bot_body.find("Return", run_bot_body.find("_RunExecutionRunCurrentArmyOneBattle()")),
+        run_bot_body.find("InitiateSwitchAcc()"),
+        run_bot_body.find("FirstCheck()"),
+        run_bot_body.find("While 1"),
+    ]
+    if any(offset < 0 for offset in current_army_boundary) or current_army_boundary != sorted(current_army_boundary):
+        errors.append("current-army one-shot no longer returns before account switching, FirstCheck, and the generic maintenance loop")
+
+    current_army = main_source.split("Func _RunExecutionRunCurrentArmyOneBattle()", 1)
+    current_army_body = current_army[1].split("EndFunc", 1)[0] if len(current_army) > 1 else ""
+    current_army_order = [
+        current_army_body.find("$g_bIsFullArmywithHeroesAndSpells = False"),
+        current_army_body.find("TrainSystem()"),
+        current_army_body.find("If Not $g_bIsFullArmywithHeroesAndSpells Then"),
+        current_army_body.find("current trained army is not ready"),
+        current_army_body.find("$g_bRestart = False"),
+        current_army_body.find("AttackMain(True)"),
+        current_army_body.find("RunExecutionCheckStop()"),
+        current_army_body.find("single attack attempt returned without completing the planned battle"),
+    ]
+    if any(offset < 0 for offset in current_army_order) or current_army_order != sorted(current_army_order):
+        errors.append("current-army terminal path no longer refreshes readiness, fails closed, attacks once, and checks its stop in order")
+    main_screen_proof = current_army_body.find("Local $bMainScreenReady = checkMainScreen(False)")
+    stop_after_proof = current_army_body.find("If $g_bRunControlStopRequested Or Not $g_bRunState Then Return False", main_screen_proof)
+    proof_failure = current_army_body.find("If Not $bMainScreenReady Then", stop_after_proof)
+    if min(main_screen_proof, stop_after_proof, proof_failure) < 0 or not (main_screen_proof < stop_after_proof < proof_failure):
+        errors.append("current-army screen proof can relabel an accepted Stop as a readiness failure")
+    if current_army_body.count("AttackMain(True)") != 1 or current_army_body.count("RunExecutionCheckStop()") != 1:
+        errors.append("current-army terminal path must contain exactly one AttackMain and one post-attack stop check")
+    if current_army_body.count("$g_bRestart = False") != 1:
+        errors.append("current-army terminal path no longer clears the inherited per-loop restart latch exactly once before attack")
+    for forbidden in (
+        "ZoomOut(",
+        "SearchZoomOut(",
+        "GetVillageSize(",
+        "BuildingClick(",
+        "BuildingClickP(",
+        "HiddenSlotstatus(",
+        "BotDetectFirstTime(",
+        "imglocTHSearch(",
+        "VillageReport(",
+        "_RunFunction(",
+        "Idle(",
+        "Unbreakable(",
+        "BuilderBase(",
+        "TakeWardenValues(",
+    ):
+        if forbidden in current_army_body:
+            errors.append(f"current-army terminal path reaches forbidden legacy work via {forbidden}")
+
+    attack_main = main_source.split("Func AttackMain(", 1)
+    attack_main_body = attack_main[1].split("EndFunc", 1)[0] if len(attack_main) > 1 else ""
+    planner_attack_offset = attack_main_body.find("If $bPlannerTerminalOneBattle Then")
+    legacy_schedule_offset = attack_main_body.find("If IsSearchAttackEnabled() Then")
+    if planner_attack_offset < 0 or legacy_schedule_offset < 0 or planner_attack_offset > legacy_schedule_offset:
+        errors.append("planner terminal attack no longer bypasses inherited schedules before the legacy branch")
+    else:
+        planner_attack_body = attack_main_body[planner_attack_offset:legacy_schedule_offset]
+        if "Return _AttackMainExecuteRegularBattle()" not in planner_attack_body:
+            errors.append("planner terminal attack does not enter the bounded regular-battle core")
+        for forbidden in ("SmartPause(", "IsSearchAttackEnabled(", "UniversalCloseWaitOpenCoC(", "_ClanGames(", "DropTrophy(", "ProfileReport(", "checkSwitchAcc("):
+            if forbidden in planner_attack_body:
+                errors.append(f"planner terminal attack can still execute inherited diversion: {forbidden}")
+
+    battle_core = main_source.split("Func _AttackMainExecuteRegularBattle()", 1)
+    battle_core_body = battle_core[1].split("EndFunc", 1)[0] if len(battle_core) > 1 else ""
+    battle_core_order = [
+        battle_core_body.find("PrepareSearch()"),
+        battle_core_body.find("VillageSearch()"),
+        battle_core_body.find("PrepareAttack($g_iMatchMode)"),
+        battle_core_body.find("Attack()"),
+        battle_core_body.find("ReturnHome($g_bTakeLootSnapShot)"),
+        battle_core_body.find("Return True"),
+    ]
+    if any(offset < 0 for offset in battle_core_order) or battle_core_order != sorted(battle_core_order):
+        errors.append("bounded regular-battle core no longer searches, attacks, returns home, and succeeds in order")
+    for forbidden in ("SmartPause(", "UniversalCloseWaitOpenCoC(", "_ClanGames(", "DropTrophy("):
+        if forbidden in battle_core_body:
+            errors.append(f"bounded regular-battle core contains inherited diversion: {forbidden}")
+
+    execution_contract_source = EXECUTION_CONTRACT.read_text(encoding="utf-8-sig")
+    passive_contract = execution_contract_source.split("If Not RunIntentManagesTraining($oIntent) Then", 1)
+    passive_contract_body = passive_contract[1].split('If Int($oPlan.Item("search_max_seconds"))', 1)[0] if len(passive_contract) > 1 else ""
+    for required in (
+        'If Not $oPlan.Item("army_wait_for_full") Then',
+        '$oPlan.Item("donate_request_when_short")',
+        '$oPlan.Item("events_clan_games") Or $oPlan.Item("events_collect_resources")',
+        '$oPlan.Item("events_laboratory")',
+        '$oPlan.Item("upgrade_policy")',
+    ):
+        if required not in passive_contract_body:
+            errors.append(f"current-army contract no longer rejects pre-battle side effects via {required}")
+
     control_source = CONTROL.read_text(encoding="utf-8-sig")
+    report_failure = control_source.split("Func RunControlReportRunFailure(", 1)
+    report_failure_body = report_failure[1].split("EndFunc", 1)[0] if len(report_failure) > 1 else ""
+    stop_guard_offset = report_failure_body.find("If $g_bRunControlStopRequested Then")
+    failure_outcome_offset = report_failure_body.find('$g_sRunControlLastOutcome = "failed"')
+    if stop_guard_offset < 0 or failure_outcome_offset < 0 or stop_guard_offset > failure_outcome_offset:
+        errors.append("run failures can overwrite an accepted Stop before BotStop completes")
     consume = control_source.split("Func _RunControlConsumeCommand()", 1)
     consume_body = consume[1].split("EndFunc", 1)[0] if len(consume) > 1 else ""
     claim_offset = consume_body.find("FileMove($sPath, $sClaimPath)")
@@ -462,7 +735,6 @@ def main() -> int:
             'Global Const $g_sControllerSha256 = "ae26c098ceb3c74e3d7f567834d9135257e094172e32140f4a5b615eaf90ceda"',
             'Global Const $g_iControllerBytes = 1634304',
             'Global Const $g_sControllerTitlePattern = "^My Bot Mini v8\\.2\\.0(?: \\(.+\\))?$"',
-            'Global Const $g_sBlueStacksTitle = "BlueStacks5-Pie64"',
             'Global Const $g_iDockGap = 8',
         ):
             if required not in launcher_source:
@@ -484,7 +756,7 @@ def main() -> int:
             "While ProcessExists($iControllerPid)",
             "_ControllerWindowMatches($hController, $iControllerPid)",
             "_FindControllerWindow($iControllerPid)",
-            "_FindBlueStacksWindow()",
+            "_FindBlueStacksWindow($hController)",
             "_WindowCanDock($hController)",
             "_WindowCanDock($hBlueStacks)",
             "_DockController($hController, $hBlueStacks, False)",
@@ -499,9 +771,21 @@ def main() -> int:
             if required not in controller_match_body:
                 errors.append(f"launcher no longer re-proves the Mini controller identity via {required}")
 
-        blue_stacks = launcher_source.split("Func _FindBlueStacksWindow()", 1)
+        controller_instance = launcher_source.split("Func _ControllerBlueStacksTitle($hController)", 1)
+        controller_instance_body = controller_instance[1].split("EndFunc", 1)[0] if len(controller_instance) > 1 else ""
+        for required in (
+            "WinGetTitle($hController)",
+            '"^My Bot Mini v8\\.2\\.0 \\(([A-Za-z0-9_. -]{1,64})\\)$"',
+            'Return "BlueStacks5-" & $aMatch[0]',
+        ):
+            if required not in controller_instance_body:
+                errors.append(f"launcher no longer derives the exact BlueStacks instance from the claimed controller via {required}")
+        if 'BlueStacks5-Pie64' in launcher_source:
+            errors.append("launcher docking is hard-coded to Pie64 instead of following the controller-bound instance")
+
+        blue_stacks = launcher_source.split("Func _FindBlueStacksWindow($hController)", 1)
         blue_stacks_body = blue_stacks[1].split("EndFunc", 1)[0] if len(blue_stacks) > 1 else ""
-        for required in ("$g_sBlueStacksTitle", '"^Qt[0-9]+QWindowIcon$"', '"\\\\hd-player\\.exe$"'):
+        for required in ("_ControllerBlueStacksTitle($hController)", "$sBlueStacksTitle", '"^Qt[0-9]+QWindowIcon$"', '"\\\\hd-player\\.exe$"'):
             if required not in blue_stacks_body:
                 errors.append(f"launcher no longer re-proves the BlueStacks shell identity via {required}")
 
@@ -616,9 +900,22 @@ def main() -> int:
             )
         if "RunEventAppendJsonLine" not in log_source:
             errors.append("RunEventLog.au3 never appends an event, so the Activity feed stays empty")
-        for required in ("RunEventLogBindSession", "RunEventLogReleaseSession", "$g_iRunEventSequence = 0"):
+        for required in (
+            "RunEventLogBindSession",
+            "RunEventLogReleaseSession",
+            "$g_iRunEventSequence = 0",
+            "Global $g_hRunEventClock = TimerInit()",
+            "$g_hRunEventClock = TimerInit()",
+            "TimerDiff($g_hRunEventClock)",
+        ):
             if required not in log_source:
                 errors.append(f"Activity events are no longer bounded to one canonical run session by {required}")
+        bind_body = log_source.split("Func RunEventLogBindSession", 1)
+        bind_body = bind_body[1].split("EndFunc", 1)[0] if len(bind_body) > 1 else ""
+        sequence_reset = bind_body.find("$g_iRunEventSequence = 0")
+        clock_reset = bind_body.find("$g_hRunEventClock = TimerInit()")
+        if sequence_reset < 0 or clock_reset < sequence_reset:
+            errors.append("binding a planned run no longer resets its event timestamp origin with its sequence")
         prepare_body = execution_source.split("Func RunExecutionPrepareStart", 1)
         prepare_body = prepare_body[1].split("EndFunc", 1)[0] if len(prepare_body) > 1 else ""
         session_assign = prepare_body.find("$g_oRunExecutionSession = $oSession")
@@ -655,8 +952,8 @@ def main() -> int:
             errors.append("cancelled prepared runs keep a stale session or intent in idle Control Center status")
         validator_block = event_source.split('Switch $oEvent.Item("type")', 1)[-1].split("EndSwitch", 1)[0]
         case_lines = "\n".join(re.findall(r"^\s*Case\s+(.+)$", validator_block, re.MULTILINE))
-        accepted_types = set(re.findall(r'"([a-z]+(?:\.[a-z]+)*)"', case_lines))
-        emitted_types = set(re.findall(r'RunEventLogWrite\("([a-z]+(?:\.[a-z]+)*)"', log_source))
+        accepted_types = set(re.findall(r'"([a-z]+(?:[._-][a-z]+)*)"', case_lines))
+        emitted_types = set(re.findall(r'RunEventLogWrite\("([a-z]+(?:[._-][a-z]+)*)"', log_source))
         schema_types = set(event_schema["properties"]["type"]["enum"])
         rejected_types = sorted(emitted_types - accepted_types)
         if rejected_types:
@@ -673,6 +970,22 @@ def main() -> int:
         errors.append("the plan file list separator is no longer a pipe; the Hero list would not split")
     if "$RUN_PLAN_FILE_LIST_SEPARATOR" not in applier_source:
         errors.append("the tab splits Hero lists on something other than the parser's separator")
+
+    execution_source = (ROOT / "COCBot/functions/Run/RunExecution.au3").read_text(encoding="utf-8-sig")
+    contract_source = (ROOT / "COCBot/functions/Run/RunExecutionContract.au3").read_text(encoding="utf-8-sig")
+    for required in (
+        "Func RunExecutionHeroWaitMask(",
+        "If Not $bWaitForFullArmy Or Not $bManageTraining Then Return 0",
+    ):
+        if required not in contract_source:
+            errors.append(f"Hero deployment/readiness separation lost contract invariant: {required}")
+    for required in (
+        "RunExecutionHeroWaitMask($iHeroMask, $bWaitForFull, $g_bRunExecutionManageTraining)",
+        "$g_aiAttackUseHeroes[$iMode] = $iHeroMask",
+        "$g_aiSearchHeroWaitEnable[$iMode] = $iHeroWaitMask",
+    ):
+        if required not in execution_source:
+            errors.append(f"selected Heroes are not independently bound for deploy/readiness: {required}")
 
     bridge_source = (ROOT / "COCBot/functions/Run/RunControlBridge.au3").read_text(encoding="utf-8-sig")
     if '"authorization_ready"' not in bridge_source or "ForumAuthorizationReady()" not in bridge_source:
@@ -714,15 +1027,13 @@ def main() -> int:
         errors.append("BotStart no longer resets cached game readiness before entering the current Start attempt")
 
     planner_js = (ROOT / "ui/planner.js").read_text(encoding="utf-8-sig")
-    saving_guard_order = [
-        planner_js.find("CONTROL_PENDING = savingStart;"),
-        planner_js.find("const saved = await savePlan();"),
-        planner_js.find("CONTROL_PENDING !== savingStart"),
-    ]
-    if any(offset < 0 for offset in saving_guard_order) or saving_guard_order != sorted(saving_guard_order):
-        errors.append("browser Start no longer locks before saving or rejects an invalidated asynchronous save")
-    if "if (!saved) {\n      CONTROL_PENDING = null;" not in planner_js:
-        errors.append("browser Start can strand its pending guard after a plan-save failure")
+    send_control = planner_js.split("async function sendControl(action)", 1)
+    send_control_body = send_control[1].split("async function pollEvents()", 1)[0] if len(send_control) > 1 else ""
+    if "savePlan()" in send_control_body:
+        errors.append("browser Start silently saves an unapplied draft instead of requiring Apply plan")
+    for required in ("allSettings().some(isUnsaved)", "!PLAN_WRITTEN", "Apply the visible plan before Start"):
+        if required not in send_control_body:
+            errors.append(f"browser Start lost its explicit Apply-plan gate via {required}")
 
     bluestacks_source = (ROOT / "COCBot/functions/Android/AndroidBluestacks5.au3").read_text(encoding="utf-8-sig")
     if "bstk/su root" in bluestacks_source:
@@ -730,6 +1041,11 @@ def main() -> int:
     if 'bst.enable_adb_access="1"' not in bluestacks_source:
         errors.append("BlueStacks 5 setup does not enable its required non-root ADB access setting")
     android_source = (ROOT / "COCBot/functions/Android/Android.au3").read_text(encoding="utf-8-sig")
+    open_android = android_source.split("Func _OpenAndroid(", 1)
+    open_android_body = open_android[1].split("EndFunc", 1)[0] if len(open_android) > 1 else ""
+    guarded_open_zoom = "If Not RunExecutionSkipVillageZoomCalibration() Then ZoomOut()"
+    if open_android_body.count(guarded_open_zoom) != 2 or re.search(r"(?m)^\s*ZoomOut\(\)\s*$", open_android_body):
+        errors.append("opening or recovering Android can still run legacy village zoom calibration in current-army mode")
     handle_body = android_source.split("Func _WinGetAndroidHandle", 1)[-1].split("EndFunc", 1)[0]
     fallback_offset = handle_body.find("FindBlueStacks5WindowFallback()")
     legacy_title_offset = handle_body.find("If $bFindByTitle = True Then")
@@ -763,12 +1079,61 @@ def main() -> int:
     ):
         if required not in surface_body:
             errors.append(f"modern BlueStacks framebuffer geometry is no longer guarded by {required}")
+    check_screen_body = bluestacks_source.split("Func CheckScreenBlueStacks5(", 1)
+    check_screen_body = check_screen_body[1].split("EndFunc", 1)[0] if len(check_screen_body) > 1 else ""
+    for required in (
+        "IsArray(GetBlueStacks5ModernAdbSurfacePosition())",
+        "$abSettingFound[3] = True",
+        "If $bModernAdbSurface And $iSearch = 3 Then ContinueLoop",
+        "fb_width",
+        "fb_height",
+        "dpi",
+        "display_name",
+        "bst.enable_adb_access",
+    ):
+        if required not in check_screen_body:
+            errors.append(f"modern BlueStacks screen validation lost required contract: {required}")
     position_source = (ROOT / "COCBot/functions/Android/getBSPos.au3").read_text(encoding="utf-8-sig")
     position_body = position_source.split("Func getAndroidPos(", 1)[-1].split("EndFunc", 1)[0]
     surface_offset = position_body.find("GetBlueStacks5ModernAdbSurfacePosition()")
     control_offset = position_body.find("ControlGetPos(")
     if surface_offset < 0 or control_offset < 0 or surface_offset > control_offset:
         errors.append("modern BlueStacks ADB geometry no longer bypasses generic shell resizing")
+
+    viewport_body = bluestacks_source.split("Func GetBlueStacks5ModernManualViewportPosition(", 1)
+    viewport_body = viewport_body[1].split("EndFunc", 1)[0] if len(viewport_body) > 1 else ""
+    mapping_source = (ROOT / "COCBot/functions/Other/ManualViewportMapping.au3").read_text(encoding="utf-8-sig")
+    discovery_body = mapping_source.split("Func ManualViewportFindBlueStacks5Surface(", 1)
+    discovery_body = discovery_body[1].split("EndFunc", 1)[0] if len(discovery_body) > 1 else ""
+    if "ManualViewportFindBlueStacks5Surface(" not in viewport_body:
+        errors.append("modern BlueStacks manual viewport no longer delegates to exact child-surface discovery")
+    for required in (
+        "_WinAPI_EnumChildWindows($hWindow, False)",
+        'StringCompare(_WinAPI_GetClassName($hChild), "BlueStacksApp", 0)',
+        "WinGetProcess($hChild) <> $iRootPid",
+        "BitAND(WinGetState($hChild), 2) = 0",
+        "Abs(($aCandidate[2] / $aCandidate[3]) - $fExpectedRatio) > 0.01",
+        "If $iFound <> 1 Then",
+    ):
+        if required not in discovery_body:
+            errors.append(f"modern BlueStacks manual viewport lost required proof: {required}")
+    find_pos_source = (ROOT / "COCBot/functions/Other/FindPos.au3").read_text(encoding="utf-8-sig")
+    find_pos_body = find_pos_source.split("Func FindPos(", 1)
+    find_pos_body = find_pos_body[1].split("EndFunc", 1)[0] if len(find_pos_body) > 1 else ""
+    mapping_body = mapping_source.split("Func ManualViewportMapToFramebuffer(", 1)
+    mapping_body = mapping_body[1].split("EndFunc", 1)[0] if len(mapping_body) > 1 else ""
+    for required in (
+        "$iViewportX < 0 Or $iViewportY < 0",
+        "$iViewportX >= $aViewport[2]",
+        "(($iViewportX + 0.5) * $iFramebufferWidth) / $aViewport[2]",
+        "(($iViewportY + 0.5) * $iFramebufferHeight) / $aViewport[3]",
+    ):
+        if required not in mapping_body:
+            errors.append(f"modern BlueStacks manual click mapping lost required contract: {required}")
+    mapping_offset = find_pos_body.find("ManualViewportMapToFramebuffer(")
+    village_offset = find_pos_body.find("ConvertFromVillagePos($Pos[0], $Pos[1])")
+    if mapping_offset < 0 or village_offset < 0 or mapping_offset > village_offset:
+        errors.append("manual BlueStacks viewport mapping no longer precedes village-coordinate conversion")
 
     bottom_controls = BOTTOM.read_text(encoding="utf-8-sig")
     background_sync = bottom_controls.split("Func UpdateChkBackground()", 1)

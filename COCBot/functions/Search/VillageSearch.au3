@@ -116,6 +116,16 @@ Func _VillageSearch() ;Control for searching a village that meets conditions
 
 		; ----------------- READ ENEMY VILLAGE RESOURCES  -----------------------------------
 		WaitForClouds() ; Wait for clouds to disappear
+		; The current client can open an opponent at a much closer zoom than the inherited deployment
+		; geometry expects. Planned current-army runs bypass own-village scenery calibration, so restore
+		; the original ADB zoom primitive here, on the exact screen where its result is required.
+		If Not RunExecutionPrepareEnemyDeploymentView() Then
+			SetLog("Run Planner: zoom/deployment view failed; surrendering the untouched battle", $COLOR_ERROR)
+			CloseBattle()
+			If $g_bRunState Then ReturnHome(False)
+			$g_bRestart = True
+			Return
+		EndIf
 		AttackRemainingTime(True) ; Timer for knowing when attack starts, in 30 Sec. attack automatically starts and lasts for 3 Minutes
 		If $g_bRestart Then Return ; exit func
 
@@ -162,7 +172,12 @@ Func _VillageSearch() ;Control for searching a village that meets conditions
 		Local $bAlwaysMeasure = $g_bVillageSearchAlwaysMeasure
 		For $i = 0 To $g_iModeCount - 1
 			If $match[$i] Or $bAlwaysMeasure Then
-				If Not CheckZoomOut("VillageSearch", True, False) Then
+				; Planned runs already performed an immediate bounded pinch and proved the exact current
+				; deployable red line above. Re-running the legacy scenery-anchor scan here can consume the
+				; attack countdown on current scenery and leave the later troop clicks with stale geometry.
+				If RunExecutionPlanActive() Then
+					SetDebugLog("Run Planner: using the post-zoom red-line proof instead of legacy scenery measurement")
+				ElseIf Not CheckZoomOut("VillageSearch", True, False) Then
 					SaveDebugImage("VillageSearchMeasureFailed", False) ; make clean snapshot as well
 					ExitLoop ; disable exiting search for December 2018 update due to zoomout issues
 					; check two more times, only required for snow theme (snow fall can make it easily fail), but don't hurt to keep it
@@ -186,7 +201,12 @@ Func _VillageSearch() ;Control for searching a village that meets conditions
 		; $g_iSearchTH name of level of townhall (return "-" if no th found)
 		; $g_iTHx and $g_iTHy coordinates of townhall
 		Local $THString = ""
-		If $match[$DB] Or $match[$LB] Then ; make sure resource conditions are met
+		; Smart needs a fresh enemy Town Hall result for side scoring and bounded spell targets even
+		; when the target filter is Any. FindTownHall(False) deliberately skips that work unless a
+		; legacy TH filter is enabled, so the named strategy must request it explicitly.
+		If RunExecutionSmartAttackEnabled() Then
+			$THString = FindTownhall(True, False)
+		ElseIf $match[$DB] Or $match[$LB] Then ; make sure resource conditions are met
 			$THString = FindTownhall(False, False) ;find TH, but only if TH condition is checked
 		ElseIf ($g_abFilterMeetOneConditionEnable[$DB] Or $g_abFilterMeetOneConditionEnable[$LB]) Then ; meet one then attack, do not need correct resources
 			$THString = FindTownhall(True, False)

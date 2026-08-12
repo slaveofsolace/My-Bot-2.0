@@ -25,6 +25,18 @@ Func TrainSystem()
 	$g_sTimeBeforeTrain = _NowCalc()
 	StartGainCost()
 
+	; A planned one-shot may deliberately use the army already trained in game. Keep the readiness
+	; observation, but do not enter any path that can boost, inspect/edit Quick Train, delete mismatched
+	; troops, queue troops or spells, or build siege machines. RunExecution restores this latch at Stop.
+	If Not RunExecutionShouldManageTraining() Then
+		SetLog("Run Planner: checking the current trained army without changing its training queue", $COLOR_ACTION)
+		CheckPassiveCurrentArmyReady()
+		CloseWindow()
+		If _Sleep(500) Then Return
+		EndGainCost("Train")
+		Return
+	EndIf
+
 	BoostSuperTroop()
 
 	If $g_bQuickTrainEnable Then CheckQuickTrainTroop() ; update values of $g_aiArmyComTroops, $g_aiArmyComSpells
@@ -47,6 +59,70 @@ Func TrainSystem()
 	EndGainCost("Train")
 
 EndFunc   ;==>TrainSystem
+
+; Passive current-army runs must observe only the army already present in game. This deliberately
+; avoids the legacy camp reader because that path can inspect Hero Hall/buildings and substitute a
+; forced profile capacity for the fresh OCR value.
+Func CheckPassiveCurrentArmyReady()
+	$g_bIsFullArmywithHeroesAndSpells = False
+	$g_bFullArmy = False
+	$g_bWaitForCCTroopSpell = False
+
+	If Not $g_bRunState Then Return False
+
+	Local $sError = ""
+	Local $iHeroWaitMask = BitOR($g_aiSearchHeroWaitEnable[$DB], $g_aiSearchHeroWaitEnable[$LB])
+	Local $bWaitForSpells = $g_abSearchSpellsWaitEnable[$DB] Or $g_abSearchSpellsWaitEnable[$LB]
+	Local $bWaitForSieges = $g_abSearchSiegeWaitEnable[$DB] Or $g_abSearchSiegeWaitEnable[$LB]
+	If Not PassiveCurrentArmyRequirementsSupported($iHeroWaitMask, $bWaitForSpells, $bWaitForSieges, $sError) Then
+		SetLog("Run Planner current-army readiness blocked: " & $sError, $COLOR_ERROR)
+		Return False
+	EndIf
+
+	; The caller has already proved the main screen. The final False suppresses legacy Hero-order
+	; inspection, whose fallback closes this window and enters village building location.
+	If Not OpenArmyOverview(False, "CheckPassiveCurrentArmyReady()", False) Then
+		SetLog("Run Planner current-army readiness blocked: Army Overview did not open", $COLOR_ERROR)
+		Return False
+	EndIf
+	If _Sleep(250) Then Return False
+
+	Local $sPreviousObservation = ""
+	Local $sLastError = "no valid capacity observation"
+	For $iAttempt = 1 To 8
+		If Not $g_bRunState Then Return False
+
+		; The True parameter captures the OCR rectangle on every attempt. No saved/forced camp capacity is read.
+		Local $sObservation = getArmyCampCap($aArmyCampSize[0], $aArmyCampSize[1], True)
+		Local $iCurrent = 0, $iTotal = 0
+
+		If $sPreviousObservation <> "" Then
+			If PassiveCurrentArmyCapacityProof($sPreviousObservation, $sObservation, $iCurrent, $iTotal, $sLastError) Then
+				$g_bFullArmy = True
+				$g_bIsFullArmywithHeroesAndSpells = True
+				SetLog("Run Planner current-army readiness proved from two fresh capacity reads: " & $iCurrent & "/" & $iTotal, $COLOR_SUCCESS)
+				Return True
+			EndIf
+			If StringInStr($sLastError, "not full") > 0 Then
+				SetLog("Run Planner current-army readiness: " & $sLastError, $COLOR_ACTION)
+				Return False
+			EndIf
+		EndIf
+
+		Local $sParseError = ""
+		If PassiveCurrentArmyCapacityParse($sObservation, $iCurrent, $iTotal, $sParseError) Then
+			$sPreviousObservation = $sObservation
+		Else
+			$sPreviousObservation = ""
+			$sLastError = $sParseError
+		EndIf
+
+		If _Sleep(250) Then Return False
+	Next
+
+	SetLog("Run Planner current-army readiness blocked: " & $sLastError, $COLOR_ERROR)
+	Return False
+EndFunc   ;==>CheckPassiveCurrentArmyReady
 
 Func TrainCustomArmy()
 	If Not $g_bRunState Then Return
@@ -75,7 +151,7 @@ Func TrainCustomArmy()
 	If Not $g_bRunState Then Return
 EndFunc   ;==>TrainCustomArmy
 
-Func CheckIfArmyIsReady($IstoOpen = True)
+Func CheckIfArmyIsReady($IstoOpen = True, $bAllowArmyMutation = True)
 
 	If Not $g_bRunState Then Return
 
@@ -109,7 +185,7 @@ Func CheckIfArmyIsReady($IstoOpen = True)
 
 	If Number($g_iCurrentSpells) >= Number($g_iTotalSpellValue) Or Number($g_iCurrentSpells) >= Number($iTotalSpellsToBrew) Then $g_bFullArmySpells = True
 
-	If (Not $g_bFullArmy And Not $g_bFullArmySpells) Or $g_bPreciseArmy Then
+	If $bAllowArmyMutation And ((Not $g_bFullArmy And Not $g_bFullArmySpells) Or $g_bPreciseArmy) Then
 		Local $avWrongTroops = WhatToTrain(True)
 		Local $rRemoveExtraTroops = RemoveExtraTroops($avWrongTroops)
 		If $rRemoveExtraTroops = 1 Or $rRemoveExtraTroops = 2 Then

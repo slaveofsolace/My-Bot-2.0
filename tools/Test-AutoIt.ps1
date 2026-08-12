@@ -78,7 +78,11 @@ function Invoke-Au3Check {
 $testScripts = @(
     "tests\autoit\RunContractsTest.au3",
     "tests\autoit\GameCatalogTest.au3",
-    "tests\autoit\RunEngineTest.au3"
+    "tests\autoit\RunEngineTest.au3",
+    "tests\autoit\RunVillageReadinessTest.au3",
+    "tests\autoit\PassiveCurrentArmyReadinessTest.au3",
+    "tests\autoit\ManualViewportMappingTest.au3",
+    "tests\autoit\SmartAttackPolicyTest.au3"
 )
 
 Push-Location $repositoryRoot

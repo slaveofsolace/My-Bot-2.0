@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check the Town Hall preset, exact-script, and explicit-apply safety contract."""
+"""Check complete Town Hall presets, automatic form loading, and the explicit save boundary."""
 
 from __future__ import annotations
 
@@ -57,6 +57,7 @@ def main() -> int:
     import planner_ui  # noqa: E402
 
     defaults = planner_ui.default_plan()
+    all_setting_ids = set(defaults)
     for preset in presets:
         prefix = preset.get("id", "unknown")
         values = preset.get("values", {})
@@ -67,6 +68,19 @@ def main() -> int:
         clean, adjustments, rejected = planner_ui.validate_plan(candidate)
         if adjustments or rejected or clean != candidate:
             errors.append(f"{prefix} is not normalized by the real planner validator")
+
+        preset_owned = set(values)
+        missing_owned = sorted(all_setting_ids - preserved - preset_owned)
+        if missing_owned:
+            errors.append(f"{prefix} is a partial preset and leaves fields unchanged: {', '.join(missing_owned)}")
+        if "run.heroes" not in values:
+            errors.append(f"{prefix} must explicitly select its complete Hero loadout")
+        selected_heroes = values.get("run.heroes", [])
+        if not isinstance(selected_heroes, list):
+            errors.append(f"{prefix} run.heroes must be a list")
+            selected_heroes = []
+        if len(selected_heroes) != len(set(selected_heroes)) or len(selected_heroes) > 4:
+            errors.append(f"{prefix} Hero loadout must be unique and fit the four active slots")
 
         compatibility = preset.get("compatibility")
         script = values.get("run.attack_script")
@@ -92,8 +106,6 @@ def main() -> int:
         elif compatibility == "engine-fallback":
             if strategy != "legacy.standard" or script != "profile-current":
                 errors.append(f"{prefix} fallback must use Standard without replacing the profile script")
-            if "run.heroes" in values:
-                errors.append(f"{prefix} fallback must preserve the visible Hero selection")
             town_hall_token = re.compile(
                 rf"(?<![A-Za-z0-9])TH0?{preset.get('town_hall')}(?!\d)", re.IGNORECASE
             )
@@ -104,15 +116,22 @@ def main() -> int:
             ]
             if declaring_scripts:
                 errors.append(f"{prefix} fallback is stale because a bundled script now declares this Town Hall")
+        elif compatibility == "research-guided":
+            if strategy != "smart.local" or script != "profile-current":
+                errors.append(f"{prefix} research-guided preset must use Smart Attack and the current profile army")
+            if f"smart-attack-strategies.json TH{preset.get('town_hall')} policy" not in str(preset.get("source_note", "")):
+                errors.append(f"{prefix} does not cite its exact Smart Attack policy")
         else:
             errors.append(f"{prefix} has no compatibility classification")
-        unsupported_preset_heroes = set(values.get("run.heroes", [])) & {"minion-prince", "dragon-duke"}
+        unsupported_preset_heroes = set(selected_heroes) & {"dragon-duke"}
+        if compatibility == "script-declared":
+            unsupported_preset_heroes |= set(selected_heroes) & {"minion-prince"}
         if unsupported_preset_heroes:
             errors.append(
                 f"{prefix} selects a Hero outside the source-proven CSV deployment set: "
                 + ", ".join(sorted(unsupported_preset_heroes))
             )
-        for hero_id in values.get("run.heroes", []):
+        for hero_id in selected_heroes:
             unlock = hero_unlocks.get(hero_id)
             if not isinstance(unlock, int) or unlock > preset.get("town_hall", 0):
                 errors.append(f"{prefix} selects {hero_id} before its catalog unlock")
@@ -136,12 +155,39 @@ def main() -> int:
         errors.append("run.attack_script must default to preserving the profile selection")
 
     planner_js = (ROOT / "ui/planner.js").read_text(encoding="utf-8-sig")
-    apply_body = function_body(planner_js, "function applySelectedPreset()", "async function boot()")
+    apply_body = function_body(planner_js, "function applySelectedPreset()", "function matches(setting)")
     if "let SELECTED_PRESET = 'custom';" not in planner_js:
         errors.append("the preset selector no longer boots in Custom")
-    if "$('applyPreset').onclick = applySelectedPreset;" not in planner_js:
-        errors.append("the explicit Apply preset action is not wired")
-    for required in ("function presetChanges(preset)", "function buildPresetDiff(changes)", "document.createElement('details')", "change.before", "change.after"):
+    initialize_body = function_body(planner_js, "function initializePresets()", "function markPresetCustom(")
+    if "applySelectedPreset();" not in initialize_body:
+        errors.append("choosing a Town Hall must immediately load the complete preset into the visible plan")
+    planner_html = (ROOT / "ui/planner.html").read_text(encoding="utf-8-sig")
+    planner_css = (ROOT / "ui/planner.css").read_text(encoding="utf-8-sig")
+    if 'id="applyPreset"' in planner_html:
+        errors.append("the obsolete second Apply preset click must not remain in the interface")
+    if 'class="preset-workbench" aria-label="Plan starting points"' not in planner_html:
+        errors.append("the preset region and Town Hall select must not share the same accessible name")
+    if "@media (max-width: 360px)" not in planner_css or "min-width: 280px" not in planner_css:
+        errors.append("short desktop viewports must reserve a usable planner workspace")
+    for required in (
+        "if (option.runtime_verified)",
+        "['planned', 'unsupported'].includes(item.availability)",
+        "Planned and implemented",
+        "Object.prototype.hasOwnProperty.call(setting, 'native_fixed_value')",
+        "function selectedHeroLabels(plan = PLAN)",
+        "function matchingPresetForPlan(plan = PLAN)",
+        "Selected Heroes deploy only when their attack-bar slots are present.",
+        "No Heroes are selected for deployment.",
+    ):
+        if required not in planner_js:
+            errors.append(f"the planner lost an honest option-state invariant: {required}")
+    if "{ available: 'verified'" in planner_js:
+        errors.append("availability must not be mislabeled as runtime verification")
+    update_dirty_body = function_body(planner_js, "function updateDirty()", "function readableState(state)")
+    if "renderControl();" not in update_dirty_body:
+        errors.append("unsaved preset or field changes must disable Start immediately, not on the next heartbeat")
+    for required in ("function presetChanges(preset)", "function buildPresetDiff(changes)", "document.createElement('details')", "change.before", "change.after",
+                     "function renderPresetPreview(loadedChanges = null)", "Review ${changes.length} loaded change"):
         if required not in planner_js:
             errors.append(f"preset preview is missing an inspectable old-to-new diff invariant: {required}")
     if not apply_body:
@@ -150,10 +196,22 @@ def main() -> int:
         for forbidden in ("fetch(", "savePlan(", "sendControl("):
             if forbidden in apply_body:
                 errors.append(f"Apply preset must not call {forbidden[:-1]}")
-        if "PLAN[id] = structuredClone(value);" not in apply_body:
+        if "PLAN[id] = clone(value);" not in apply_body:
             errors.append("Apply preset no longer loads values into the visible plan")
-        if "press Apply plan to write it" not in apply_body:
-            errors.append("Apply preset no longer tells the operator the plan is still unsaved")
+        if "renderPresetPreview(changes);" not in apply_body or "addPresetFacts(preview, preset.values || PLAN);" not in planner_js:
+            errors.append("preset loading no longer confirms the Hero loadout it selected")
+        if "is visible but not applied" not in apply_body.lower():
+            errors.append("preset loading no longer tells the operator the plan is still unsaved")
+
+    send_body = function_body(planner_js, "async function sendControl(action)", "function eventDate(event)")
+    if not send_body:
+        errors.append("Start command implementation could not be inspected")
+    else:
+        if "savePlan()" in send_body:
+            errors.append("Start must not silently save an unapplied preset or draft")
+        for required in ("allSettings().some(isUnsaved)", "!PLAN_WRITTEN", "Apply the visible plan before Start"):
+            if required not in send_body:
+                errors.append(f"Start lost its explicit Apply-plan gate: {required}")
 
     run_plan_file = (ROOT / "COCBot/functions/Run/RunPlanFile.au3").read_text(encoding="utf-8-sig")
     if '"run.attack_script"' not in run_plan_file or "profile-current" not in run_plan_file:
@@ -162,6 +220,16 @@ def main() -> int:
     for required in ("FileExists($sAttackScriptPath)", "$g_sAttackScrScriptName[$iMode] = $sAttackScript", "_RunExecutionRestoreProfile"):
         if required not in execution:
             errors.append(f"one-run script override is missing engine invariant: {required}")
+    for required in (
+        'HeroLoadoutContains($oLoadout, "barbarian-king")',
+        'HeroLoadoutContains($oLoadout, "archer-queen")',
+        'HeroLoadoutContains($oLoadout, "minion-prince")',
+        'HeroLoadoutContains($oLoadout, "grand-warden")',
+        'HeroLoadoutContains($oLoadout, "royal-champion")',
+        "$g_aiAttackUseHeroes[$iMode] = $iHeroMask",
+    ):
+        if required not in execution:
+            errors.append(f"selected preset Heroes are not carried into the attack engine: {required}")
     save_config = (ROOT / "COCBot/functions/Config/saveConfig.au3").read_text(encoding="utf-8-sig")
     save_body = function_body(save_config, "Func saveConfig()", "Func SaveProfileConfig")
     guard_at = save_body.find("If RunProfileRegularConfigSerializationAllowed() Then")
@@ -174,7 +242,7 @@ def main() -> int:
         for error in errors:
             print(f"  - {error}")
         return 1
-    print(f"Town Hall preset checks passed: {len(presets)} presets, TH2-TH{max_town_hall}, explicit two-step apply")
+    print(f"Town Hall preset checks passed: {len(presets)} complete presets, TH2-TH{max_town_hall}, selection loads and Apply plan saves")
     return 0
 
 

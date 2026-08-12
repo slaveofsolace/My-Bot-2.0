@@ -7,7 +7,7 @@
 #include <FileConstants.au3>
 #include "RunVerification.au3"
 
-Func RunEventCreate($sType, $iSequence, $iTimestampMs, $sSessionId, $sSeverity = "info", $sMessage = "", $sProfileId = "", $sRoute = "", $iBattleIndex = 0, $iGold = 0, $iElixir = 0, $iDarkElixir = 0, $iFailureCount = 0, $sVerificationState = $RUN_VERIFICATION_VERIFIED, $sSurfaceId = "")
+Func RunEventCreate($sType, $iSequence, $iTimestampMs, $sSessionId, $sSeverity = "info", $sMessage = "", $sProfileId = "", $sRoute = "", $iBattleIndex = 0, $iGold = 0, $iElixir = 0, $iDarkElixir = 0, $iFailureCount = 0, $sVerificationState = $RUN_VERIFICATION_VERIFIED, $sSurfaceId = "", $iStars = 0, $iDestructionPercent = 0, $iTrophyDelta = 0, $iSearchCount = 0)
 	Local $oEvent = ObjCreate("Scripting.Dictionary")
 	If Not IsObj($oEvent) Then Return SetError(1, 0, 0)
 	$oEvent.CompareMode = 1
@@ -24,6 +24,10 @@ Func RunEventCreate($sType, $iSequence, $iTimestampMs, $sSessionId, $sSeverity =
 	$oEvent.Add("gold", Int($iGold))
 	$oEvent.Add("elixir", Int($iElixir))
 	$oEvent.Add("dark_elixir", Int($iDarkElixir))
+	$oEvent.Add("stars", Int($iStars))
+	$oEvent.Add("destruction_percent", Int($iDestructionPercent))
+	$oEvent.Add("trophy_delta", Int($iTrophyDelta))
+	$oEvent.Add("search_count", Int($iSearchCount))
 	$oEvent.Add("failure_count", Int($iFailureCount))
 	$oEvent.Add("verification_state", StringLower(StringStripWS(String($sVerificationState), $STR_STRIPALL)))
 	$oEvent.Add("surface_id", StringLower(StringStripWS(String($sSurfaceId), $STR_STRIPALL)))
@@ -38,7 +42,7 @@ Func RunEventValidate(ByRef $oEvent, ByRef $sError)
 		$sError = "Run event is not an object"
 		Return SetError(1, 0, False)
 	EndIf
-	Local $aRequired = ["schema_version", "sequence", "type", "severity", "session_id", "timestamp_ms", "message", "account_profile_id", "route", "battle_index", "gold", "elixir", "dark_elixir", "failure_count", "verification_state", "surface_id"]
+	Local $aRequired = ["schema_version", "sequence", "type", "severity", "session_id", "timestamp_ms", "message", "account_profile_id", "route", "battle_index", "gold", "elixir", "dark_elixir", "stars", "destruction_percent", "trophy_delta", "search_count", "failure_count", "verification_state", "surface_id"]
 	For $i = 0 To UBound($aRequired) - 1
 		If Not $oEvent.Exists($aRequired[$i]) Then
 			$sError = "Missing run event field: " & $aRequired[$i]
@@ -46,7 +50,7 @@ Func RunEventValidate(ByRef $oEvent, ByRef $sError)
 		EndIf
 	Next
 	Switch $oEvent.Item("type")
-		Case "session.ready", "session.started", "session.stopping", "session.completed", "session.failed", "route.blocked", "route.ready", "route.diagnostic", "account.changed", "battle.started", "battle.completed", "battle.failed", "loot.updated", "quota.observed", "quota.exhausted", "pacing.rest.started", "pacing.rest.ended", "warning", "error"
+		Case "session.ready", "session.started", "session.stopping", "session.completed", "session.failed", "route.blocked", "route.ready", "route.diagnostic", "account.changed", "battle.started", "battle.completed", "battle.failed", "combat.decision", "combat.hero-ability", "combat.spell-cast", "combat.spell-retained", "loot.updated", "quota.observed", "quota.exhausted", "pacing.rest.started", "pacing.rest.ended", "warning", "error"
 		Case Else
 			$sError = "Unsupported run event type: " & $oEvent.Item("type")
 			Return SetError(3, 0, False)
@@ -71,13 +75,21 @@ Func RunEventValidate(ByRef $oEvent, ByRef $sError)
 		$sError = "Session identifier cannot be empty"
 		Return SetError(6, 0, False)
 	EndIf
-	Local $aNonNegative = ["sequence", "timestamp_ms", "battle_index", "gold", "elixir", "dark_elixir", "failure_count"]
+	Local $aNonNegative = ["sequence", "timestamp_ms", "battle_index", "gold", "elixir", "dark_elixir", "search_count", "failure_count"]
 	For $i = 0 To UBound($aNonNegative) - 1
 		If Number($oEvent.Item($aNonNegative[$i])) < 0 Then
 			$sError = $aNonNegative[$i] & " cannot be negative"
 			Return SetError(7, $i, False)
 		EndIf
 	Next
+	If Number($oEvent.Item("stars")) < 0 Or Number($oEvent.Item("stars")) > 3 Then
+		$sError = "stars must be between 0 and 3"
+		Return SetError(9, 0, False)
+	EndIf
+	If Number($oEvent.Item("destruction_percent")) < 0 Or Number($oEvent.Item("destruction_percent")) > 100 Then
+		$sError = "destruction_percent must be between 0 and 100"
+		Return SetError(10, 0, False)
+	EndIf
 	Return True
 EndFunc   ;==>RunEventValidate
 
@@ -108,6 +120,10 @@ Func RunEventToJson(ByRef $oEvent)
 	$sJson &= _RunEventJsonString("gold") & ":" & Int($oEvent.Item("gold")) & ","
 	$sJson &= _RunEventJsonString("elixir") & ":" & Int($oEvent.Item("elixir")) & ","
 	$sJson &= _RunEventJsonString("dark_elixir") & ":" & Int($oEvent.Item("dark_elixir")) & ","
+	$sJson &= _RunEventJsonString("stars") & ":" & Int($oEvent.Item("stars")) & ","
+	$sJson &= _RunEventJsonString("destruction_percent") & ":" & Int($oEvent.Item("destruction_percent")) & ","
+	$sJson &= _RunEventJsonString("trophy_delta") & ":" & Int($oEvent.Item("trophy_delta")) & ","
+	$sJson &= _RunEventJsonString("search_count") & ":" & Int($oEvent.Item("search_count")) & ","
 	$sJson &= _RunEventJsonString("failure_count") & ":" & Int($oEvent.Item("failure_count")) & ","
 	$sJson &= _RunEventJsonString("verification_state") & ":" & _RunEventJsonString($oEvent.Item("verification_state")) & ","
 	$sJson &= _RunEventJsonString("surface_id") & ":" & _RunEventJsonString($oEvent.Item("surface_id"))

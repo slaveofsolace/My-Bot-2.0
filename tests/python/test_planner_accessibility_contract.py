@@ -1,0 +1,78 @@
+import pathlib
+import unittest
+
+
+ROOT = pathlib.Path(__file__).resolve().parents[2]
+HTML = (ROOT / "ui" / "planner.html").read_text(encoding="utf-8")
+JS = (ROOT / "ui" / "planner.js").read_text(encoding="utf-8")
+CSS = (ROOT / "ui" / "planner.css").read_text(encoding="utf-8")
+
+
+class PlannerAccessibilityContract(unittest.TestCase):
+    def test_heartbeat_is_not_repeated_through_live_region(self):
+        self.assertIn('id="controlAck"', HTML)
+        self.assertNotIn('id="controlAck" aria-live', HTML)
+        self.assertIn('id="controlAnnouncement" aria-live="polite"', HTML)
+        self.assertIn("if (!text || text === LAST_CONTROL_ANNOUNCEMENT) return", JS)
+
+    def test_boot_is_fail_closed_and_has_a_retry_shell(self):
+        for control_id in (
+            "controlStart", "controlPause", "controlStop", "viewRunButton",
+            "viewPlanButton", "viewDiagnosticsButton", "apply", "reset",
+            "filter", "presetSelect", "exportDiagnostics",
+        ):
+            marker = f'id="{control_id}"'
+            tag = HTML[HTML.rfind("<", 0, HTML.index(marker)):HTML.index(">", HTML.index(marker))]
+            self.assertIn("disabled", tag, control_id)
+        self.assertIn('id="bootRetry" type="button" hidden', HTML)
+        self.assertIn("function showBootFailure(error)", JS)
+        self.assertIn("No plan or command was sent.", JS)
+        self.assertIn("const [metadataPayload, plan, health] = await Promise.all([", JS)
+
+    def test_revert_is_outside_the_label_and_redraw_restores_focus(self):
+        self.assertIn("titleLine.append(label);", JS)
+        self.assertIn("titleLine.append(revert);", JS)
+        self.assertNotIn("label.append(revert)", JS)
+        self.assertIn("document.getElementById(focusId) || fallback", JS)
+
+    def test_arrow_navigation_moves_focus_without_synthetic_activation(self):
+        body = JS.split("function handleRovingKeys(event, buttons)", 1)[1].split("const viewButtons", 1)[0]
+        self.assertIn("buttons[next].focus()", body)
+        self.assertNotIn(".click()", body)
+
+    def test_hero_chips_form_a_named_group(self):
+        self.assertIn("field.setAttribute('role', 'group')", JS)
+        self.assertIn("field.setAttribute('aria-labelledby', label.id)", JS)
+        self.assertIn("chip.id = `f_${setting.id}_${option.value}`", JS)
+        self.assertIn("chip.setAttribute('aria-pressed', String(selected))", JS)
+
+    def test_details_activity_and_plan_receipt_survive_small_layouts(self):
+        self.assertIn('id="rawLogDetails"', HTML)
+        self.assertIn('id="events"', HTML)
+        self.assertIn('class="plan-receipt"', HTML)
+        self.assertIn(".plan-receipt { position: static; grid-column: 1 / -1; }", CSS)
+        mobile = CSS[CSS.index("@media (max-width: 700px)"):]
+        self.assertIn(".plan-groups { grid-template-columns: repeat(2, minmax(0, 1fr));", mobile)
+        self.assertIn("@media (max-width: 360px)", mobile)
+        self.assertNotIn(".raw-log { display: none", mobile)
+
+    def test_activity_exposes_real_severity_and_machine_readable_time(self):
+        self.assertIn("['error', 'warning', 'info', 'debug'].includes(event.severity)", JS)
+        self.assertIn("time.dateTime = date.toISOString()", JS)
+        self.assertIn("elapsedEventTime(event)", JS)
+        for severity in ("error", "warning", "info", "debug"):
+            self.assertIn(f".activity-severity.{severity}", CSS)
+        self.assertIn("['rejected', 'failed'].includes(outcome) ? 'error' : 'info'", JS)
+
+    def test_theme_supports_system_light_and_dark_without_effect_layers(self):
+        self.assertIn('<option value="system">System</option>', HTML)
+        self.assertIn('<option value="light">Light</option>', HTML)
+        self.assertIn('<option value="dark">Dark</option>', HTML)
+        self.assertIn(':root[data-theme="dark"]', CSS)
+        self.assertIn("@media (prefers-color-scheme: dark)", CSS)
+        self.assertNotIn("gradient", CSS.lower())
+        self.assertNotIn("backdrop-filter", CSS.lower())
+
+
+if __name__ == "__main__":
+    unittest.main()

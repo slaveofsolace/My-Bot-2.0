@@ -121,8 +121,7 @@ Func LaunchTroop2($listInfoDeploy, $iCC, $iKing, $iQueen, $iPrince, $iWarden, $i
 						EndIf
 
 						If ($infoPixelDropTroop[0] = "CC") Then
-							dropCC($pixelRandomDropcc[0], $pixelRandomDropcc[1], $iCC)
-							$g_bIsCCDropped = True
+							$g_bIsCCDropped = dropCC($pixelRandomDropcc[0], $pixelRandomDropcc[1], $iCC)
 						ElseIf ($infoPixelDropTroop[0] = "HEROES") Then
 							dropHeroes($pixelRandomDrop[0], $pixelRandomDrop[1], $iKing, $iQueen, $iPrince, $iWarden, $iChampion)
 							$g_bIsHeroesDropped = True
@@ -187,8 +186,7 @@ Func LaunchTroop2($listInfoDeploy, $iCC, $iKing, $iQueen, $iPrince, $iWarden, $i
 									EndIf
 
 									If ($g_bIsCCDropped = False And $infoTroopListArrPixel[0] = "CC") Then
-										dropCC($pixelRandomDropcc[0], $pixelRandomDropcc[1], $iCC)
-										$g_bIsCCDropped = True
+										$g_bIsCCDropped = dropCC($pixelRandomDropcc[0], $pixelRandomDropcc[1], $iCC)
 									ElseIf ($g_bIsHeroesDropped = False And $infoTroopListArrPixel[0] = "HEROES" And $i = $numberSidesDropTroop - 1) Then
 										dropHeroes($pixelRandomDrop[0], $pixelRandomDrop[1], $iKing, $iQueen, $iPrince, $iWarden, $iChampion)
 										$g_bIsHeroesDropped = True
@@ -245,7 +243,7 @@ Func LaunchTroop2($listInfoDeploy, $iCC, $iKing, $iQueen, $iPrince, $iWarden, $i
 					Local $RandomXY = Round(Random(1, 3))
 				EndIf
 				If ($listInfoDeploy[$i][0] = "CC") Then
-					dropCC($RandomEdge[$RandomXY][0], $RandomEdge[$RandomXY][1], $iCC)
+					$g_bIsCCDropped = dropCC($RandomEdge[$RandomXY][0], $RandomEdge[$RandomXY][1], $iCC)
 				ElseIf ($listInfoDeploy[$i][0] = "HEROES") Then
 					dropHeroes($RandomEdge[$RandomXY][0], $RandomEdge[$RandomXY][1], $iKing, $iQueen, $iPrince, $iWarden, $iChampion)
 				EndIf

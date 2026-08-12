@@ -230,12 +230,7 @@ Func IsReturnHomeBattlePage($useReturnValue = False, $makeDebugImageScreenshot =
 		EndIf
 	EndIf
 
-	If IsPageLoop($aRewardButton, 1) Then
-		If _ColorCheck(_GetPixelColor($aRewardButton[0] + 8, 548 + $g_iMidOffsetY, True), Hex(0xFFFFFF, 6), 10) Then ; White Color From Button (Double Check)
-			If $g_bDebugSetLog Or $g_bDebugClick Then SetLog("**Claim Reward Battle Window OK**", $COLOR_ACTION)
-			Return True
-		EndIf
-	EndIf
+	If IsClaimRewardBattlePage() Then Return True
 
 	If ($g_bDebugSetLog Or $g_bDebugClick) And ($makeDebugImageScreenshot = True) Then SetLog("**Return Home Battle Window FAIL**", $COLOR_ACTION)
 	If $g_bDebugImageSave And $makeDebugImageScreenshot Then SaveDebugImage("IsReturnHomeBattlePage")
@@ -246,6 +241,13 @@ Func IsReturnHomeBattlePage($useReturnValue = False, $makeDebugImageScreenshot =
 	EndIf
 
 EndFunc   ;==>IsReturnHomeBattlePage
+
+Func IsClaimRewardBattlePage()
+	If Not IsPageLoop($aRewardButton, 1) Then Return False
+	If Not _ColorCheck(_GetPixelColor($aRewardButton[0] + 8, 548 + $g_iMidOffsetY, True), Hex(0xFFFFFF, 6), 10) Then Return False
+	If $g_bDebugSetLog Or $g_bDebugClick Then SetLog("**Claim Reward Battle Window OK**", $COLOR_ACTION)
+	Return True
+EndFunc   ;==>IsClaimRewardBattlePage
 
 Func IsOKCancelPage($bWriteLog = True)
 

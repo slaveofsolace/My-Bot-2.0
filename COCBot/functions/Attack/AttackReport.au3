@@ -272,6 +272,13 @@ Func AttackReport()
 	$g_iStatsTotalGain[$eLootTrophy] += $g_iStatsLastAttack[$eLootTrophy]
 	$g_aiTotalTrophyGain[$g_iMatchMode] += $g_iStatsLastAttack[$eLootTrophy]
 	$g_aiAttackedVillageCount[$g_iMatchMode] += 1
+	; This is the authoritative per-battle seam: result OCR is complete, bonuses are restored to full values,
+	; and the inherited battle counter has committed exactly once. The logger is a no-op outside a bound plan.
+	RunEventLogBattleCompleted($starsearned, $g_iPercentageDamage, _
+			Number($g_iStatsLastAttack[$eLootGold]) + Number($g_iStatsBonusLast[$eLootGold]), _
+			Number($g_iStatsLastAttack[$eLootElixir]) + Number($g_iStatsBonusLast[$eLootElixir]), _
+			Number($g_iStatsLastAttack[$eLootDarkElixir]) + Number($g_iStatsBonusLast[$eLootDarkElixir]), _
+			$g_iStatsLastAttack[$eLootTrophy], $g_iSearchCount)
 	UpdateStats()
 	UpdateSDataBase()
 	If ProfileSwitchAccountEnabled() Then

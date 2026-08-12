@@ -217,7 +217,11 @@ Func GUIControl_WM_ACTIVATEAPP($hWin, $iMsg, $wParam, $lParam)
 		; bot activated
 		;If BitAND($g_iBotDesignFlags, 2) And $g_bAndroidEmbedded And $g_bBotDockedShrinked Then BotShrinkExpandToggle() ; auto expand bot again
 		; show Android behind bot without activating it
-		If Not $g_bFlushGuiLogActive And Not $g_bIsHidden And Not AndroidEmbedded() And $g_bChkBackgroundMode Then ShowAndroidWindow($g_hFrmBot, False, Default, "GUIControl_WM_ACTIVATEAPP")
+		; A live ADB/background run must not re-enter window positioning from WM_ACTIVATEAPP. Besides
+		; stealing focus, this callback can suspend the attack dispatcher between its troop and actor
+		; waves. Idle activation keeps the inherited show-behind behavior; the paired launcher owns
+		; explicit minimize/restore while a run is active.
+		If Not $g_bRunState And Not $g_bFlushGuiLogActive And Not $g_bIsHidden And Not AndroidEmbedded() And $g_bChkBackgroundMode Then ShowAndroidWindow($g_hFrmBot, False, Default, "GUIControl_WM_ACTIVATEAPP")
 	Else
 		; bot deactivated
 		If BitAND($g_iBotDesignFlags, 2) And $g_bAndroidEmbedded And Not $g_bBotDockedShrinked Then BotShrinkExpandToggle() ; auto shrink bot again ;

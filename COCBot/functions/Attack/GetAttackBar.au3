@@ -213,6 +213,12 @@ Func GetAttackBar($bRemaining = False, $pMatchMode = $DB, $bDebug = False)
 		EndIf
 	EndIf
 
+	; On the current compact single-row bar, Heroes have no quantity marker of their own. Treating
+	; their portrait as an AmountX candidate can map a Hero and the siege immediately to its left to
+	; the same slot. The visible icons are contiguous, so their proven left-to-right image positions
+	; are the canonical slot order for this one-row/non-extended case.
+	If Not $bRemaining And Not $bDoubleRow And Not $bCheckSlot12 Then _NormalizeSingleRowAttackSlots($aFinalAttackBar)
+
 	_ArraySort($aFinalAttackBar, 0, 0, 0, 1) ; Sort Final Array by Slot Number
 
 	DebugAB($aFinalAttackBar, "Final")
@@ -220,6 +226,14 @@ Func GetAttackBar($bRemaining = False, $pMatchMode = $DB, $bDebug = False)
 	Return $aFinalAttackBar
 
 EndFunc   ;==>GetAttackBar
+
+Func _NormalizeSingleRowAttackSlots(ByRef $aFinalAttackBar)
+	If Not IsArray($aFinalAttackBar) Or UBound($aFinalAttackBar, 1) = 0 Then Return
+	_ArraySort($aFinalAttackBar, 0, 0, 0, 3)
+	For $iSlot = 0 To UBound($aFinalAttackBar, 1) - 1
+		$aFinalAttackBar[$iSlot][1] = $iSlot
+	Next
+EndFunc   ;==>_NormalizeSingleRowAttackSlots
 
 Func ExtendedAttackBarCheck($aAttackBarFirstSearch, $bRemaining, $sSearchDiamond)
 	;DebugAB($aAttackBarFirstSearch, "ExtendedAttackBarCheck")

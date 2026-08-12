@@ -26,12 +26,12 @@ GUI_MAIN_HEIGHT = 692
 CHILD_W = GUI_MAIN_WIDTH - 20      # $g_iSizeWGrpTab1
 CHILD_H = GUI_MAIN_HEIGHT - 255    # $g_iSizeHGrpTab1
 
-TAB_HEIGHT = 188
+TAB_HEIGHT = 204
 # These mirror the AutoIt source exactly. check_design_constants() asserts the source still uses
 # them, and layout() draws with them, so the guard and the renderer cannot drift apart.
-POST_TAB_ADVANCE = 194
-DETAIL_HEIGHT = 76
-POST_DETAIL_ADVANCE = 82
+POST_TAB_ADVANCE = 210
+DETAIL_HEIGHT = 60
+POST_DETAIL_ADVANCE = 66
 TAB_HEADER = 52   # two caption rows: the strip is multiline
 
 
@@ -59,7 +59,7 @@ def check_design_constants(errors):
     expected = [
         (r"Local \$iLeft = 8", "iLeft = 8"),
         (r"Local \$iWidth = \$g_iSizeWGrpTab1 - 22", "iWidth = child width - 22"),
-        (r"GUICtrlCreateTab\(\$iLeft, \$y, \$iWidth, 188, \$TCS_MULTILINE\)", "tab height 188, multiline"),
+        (r"GUICtrlCreateTab\(\$iLeft, \$y, \$iWidth, 204, \$TCS_MULTILINE\)", "tab height 204, multiline"),
         (r"Local \$iRowY = \$y \+ 52", "row origin = tab top + 52"),
         (r"Local \$iCtrlX = \$iLeft \+ 150", "control column at iLeft + 150"),
         (r"Local \$iCtrlW = \$iWidth - 166", "control width = iWidth - 166"),

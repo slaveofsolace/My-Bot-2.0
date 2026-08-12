@@ -4,8 +4,8 @@
   "title": "Run Planner",
   "description": "Describes one run: where it attacks, when it stops, and what it does in between. Every control says whether the bot has actually been shown working.",
   "presets": {
-    "title": "Town Hall starting points",
-    "description": "Compatibility-first run settings for each current Home Village Town Hall. Choosing one only previews it; Apply preset loads it into the visible plan, and Apply plan is still required before anything is written.",
+    "title": "Town Hall Smart Attack starting points",
+    "description": "Research-guided run settings for every current Home Village Town Hall. Choosing one loads its complete preset-owned settings, explicitly selects the Town Hall Hero loadout, and enables the bounded local Smart Attack policy. Recommended army names are guidance only; the bot does not silently replace your profile army.",
     "preserved_settings": [
       "runtime.emulator",
       "runtime.instance",
@@ -17,14 +17,17 @@
         "id": "th2",
         "town_hall": 2,
         "label": "Town Hall 2",
-        "summary": "Short Standard-deployment check using the active profile army.",
-        "description": "No bundled CSV declares a Town Hall 2 training column, so this keeps the exact army already configured in the profile and uses the wired Standard deployment path.",
-        "compatibility": "engine-fallback",
-        "source_note": "RunExecutionContract accepts legacy.standard; no shipped CSV TRAIN table covers TH2.",
+        "summary": "Smart all-sides deployment; GiArch is the current researched recommendation.",
+        "description": "Uses the active profile army, selects no Heroes, and spreads along every small-village side. The GiArch name is guidance; no army is silently retrained.",
+        "compatibility": "research-guided",
+        "source_note": "config/game/smart-attack-strategies.json TH2 policy; community recommendation GiArch.",
         "values": {
           "run.surface": "regular",
+          "run.strategy": "smart.local",
+          "run.attack_script": "profile-current",
           "army.source": "recipe",
           "army.recipe_name": "",
+          "army.manage_training": true,
           "army.wait_for_full": true,
           "search.min_gold": 0,
           "search.min_elixir": 0,
@@ -54,8 +57,7 @@
           "notify.on_stop": true,
           "notify.on_error": true,
           "notify.channel": "log-only",
-          "run.strategy": "legacy.standard",
-          "run.attack_script": "profile-current",
+          "run.heroes": [],
           "army.train_spells": false,
           "army.train_sieges": false,
           "run.duration_minutes": 30,
@@ -66,14 +68,17 @@
         "id": "th3",
         "town_hall": 3,
         "label": "Town Hall 3",
-        "summary": "Short Standard-deployment check using the active profile army.",
-        "description": "No bundled CSV declares a Town Hall 3 training column, so this keeps the exact army already configured in the profile and avoids assuming a deployment script fits it.",
-        "compatibility": "engine-fallback",
-        "source_note": "RunExecutionContract accepts legacy.standard; no shipped CSV TRAIN table covers TH3.",
+        "summary": "Smart all-sides deployment; GiArch is the current researched recommendation.",
+        "description": "Uses the active profile army, selects no Heroes, and spreads along every small-village side.",
+        "compatibility": "research-guided",
+        "source_note": "config/game/smart-attack-strategies.json TH3 policy; community recommendation GiArch.",
         "values": {
           "run.surface": "regular",
+          "run.strategy": "smart.local",
+          "run.attack_script": "profile-current",
           "army.source": "recipe",
           "army.recipe_name": "",
+          "army.manage_training": true,
           "army.wait_for_full": true,
           "search.min_gold": 0,
           "search.min_elixir": 0,
@@ -103,8 +108,7 @@
           "notify.on_stop": true,
           "notify.on_error": true,
           "notify.channel": "log-only",
-          "run.strategy": "legacy.standard",
-          "run.attack_script": "profile-current",
+          "run.heroes": [],
           "army.train_spells": false,
           "army.train_sieges": false,
           "run.duration_minutes": 30,
@@ -115,14 +119,17 @@
         "id": "th4",
         "town_hall": 4,
         "label": "Town Hall 4",
-        "summary": "Standard deployment that preserves the visible Hero selection.",
-        "description": "No bundled CSV declares Town Hall 4 support. This uses the active profile army and Standard deployment, but it does not guess which Hero slots are active; the visible Hero selection stays unchanged and remains subject to Start validation.",
-        "compatibility": "engine-fallback",
-        "source_note": "heroes.json unlocks Barbarian King at TH4; no shipped CSV TRAIN table covers TH4.",
+        "summary": "Smart one-side deployment with Barbarian King; GiLoon or easy GiArch.",
+        "description": "Concentrates the active profile army and explicitly selects the Barbarian King.",
+        "compatibility": "research-guided",
+        "source_note": "config/game/smart-attack-strategies.json TH4 policy; community recommendation GiLoon, easy GiArch.",
         "values": {
           "run.surface": "regular",
+          "run.strategy": "smart.local",
+          "run.attack_script": "profile-current",
           "army.source": "recipe",
           "army.recipe_name": "",
+          "army.manage_training": true,
           "army.wait_for_full": true,
           "search.min_gold": 0,
           "search.min_elixir": 0,
@@ -152,8 +159,9 @@
           "notify.on_stop": true,
           "notify.on_error": true,
           "notify.channel": "log-only",
-          "run.strategy": "legacy.standard",
-          "run.attack_script": "profile-current",
+          "run.heroes": [
+            "barbarian-king"
+          ],
           "army.train_spells": false,
           "army.train_sieges": false,
           "run.duration_minutes": 30,
@@ -164,14 +172,17 @@
         "id": "th5",
         "town_hall": 5,
         "label": "Town Hall 5",
-        "summary": "Standard deployment preserving the profile army and visible Heroes.",
-        "description": "No bundled CSV declares Town Hall 5 support. This uses Standard deployment, waits for the profile army and its configured spells, preserves the visible Hero selection, and keeps the run deliberately short.",
-        "compatibility": "engine-fallback",
-        "source_note": "RunExecutionContract accepts legacy.standard; no shipped CSV TRAIN table covers TH5.",
+        "summary": "Smart one-side deployment with Barbarian King; GiWi recommendation.",
+        "description": "Keeps tanks and damage dealers together behind one entry and explicitly selects the King.",
+        "compatibility": "research-guided",
+        "source_note": "config/game/smart-attack-strategies.json TH5 policy; community recommendation GiWi.",
         "values": {
           "run.surface": "regular",
+          "run.strategy": "smart.local",
+          "run.attack_script": "profile-current",
           "army.source": "recipe",
           "army.recipe_name": "",
+          "army.manage_training": true,
           "army.wait_for_full": true,
           "search.min_gold": 0,
           "search.min_elixir": 0,
@@ -201,8 +212,9 @@
           "notify.on_stop": true,
           "notify.on_error": true,
           "notify.channel": "log-only",
-          "run.strategy": "legacy.standard",
-          "run.attack_script": "profile-current",
+          "run.heroes": [
+            "barbarian-king"
+          ],
           "army.train_spells": true,
           "army.train_sieges": false,
           "run.duration_minutes": 30,
@@ -213,14 +225,17 @@
         "id": "th6",
         "town_hall": 6,
         "label": "Town Hall 6",
-        "summary": "Barch deployment for a short run; the profile army must match.",
-        "description": "The bundled Barch file explicitly references TH06. This preset selects only its deployment routine; it does not import the file's training table or change the active profile army. King is selected because the current catalog unlocks him by TH6 and the CSV has a King DROP action.",
-        "compatibility": "script-declared",
-        "source_note": "CSV/Attack/Barch four fingers.csv explicitly references TH06 and deploys King; the planner applies deployment only and retains the profile army.",
+        "summary": "Smart one-side deployment with Barbarian King; GiHeWi or easy GiWi.",
+        "description": "Concentrates the current army and explicitly selects the King.",
+        "compatibility": "research-guided",
+        "source_note": "config/game/smart-attack-strategies.json TH6 policy; community recommendation GiHeWi, easy GiWi.",
         "values": {
           "run.surface": "regular",
+          "run.strategy": "smart.local",
+          "run.attack_script": "profile-current",
           "army.source": "recipe",
           "army.recipe_name": "",
+          "army.manage_training": true,
           "army.wait_for_full": true,
           "search.min_gold": 0,
           "search.min_elixir": 0,
@@ -250,12 +265,10 @@
           "notify.on_stop": true,
           "notify.on_error": true,
           "notify.channel": "log-only",
-          "run.strategy": "legacy.csv",
-          "run.attack_script": "Barch four fingers",
           "run.heroes": [
             "barbarian-king"
           ],
-          "army.train_spells": false,
+          "army.train_spells": true,
           "army.train_sieges": false,
           "run.duration_minutes": 45,
           "run.max_battles": 6
@@ -265,14 +278,17 @@
         "id": "th7",
         "town_hall": 7,
         "label": "Town Hall 7",
-        "summary": "GiWiHe deployment for TH7; the profile army must match.",
-        "description": "The bundled GiWiHe file explicitly references TH7. This preset selects only its deployment routine; it does not import troop or spell counts. King is selected from the intersection of current TH7 unlocks and the CSV's Hero DROP actions.",
-        "compatibility": "script-declared",
-        "source_note": "CSV/Attack/[TH7-12] GiWiHe v6.4.csv explicitly references TH7 and deploys King; the planner applies deployment only and retains the profile army.",
+        "summary": "Smart one-side deployment with Barbarian King; Mass Dragons recommendation.",
+        "description": "Uses a broad concentrated entry for the active profile army and explicitly selects the King.",
+        "compatibility": "research-guided",
+        "source_note": "config/game/smart-attack-strategies.json TH7 policy; community recommendation Mass Dragons.",
         "values": {
           "run.surface": "regular",
+          "run.strategy": "smart.local",
+          "run.attack_script": "profile-current",
           "army.source": "recipe",
           "army.recipe_name": "",
+          "army.manage_training": true,
           "army.wait_for_full": true,
           "search.min_gold": 0,
           "search.min_elixir": 0,
@@ -302,8 +318,6 @@
           "notify.on_stop": true,
           "notify.on_error": true,
           "notify.channel": "log-only",
-          "run.strategy": "legacy.csv",
-          "run.attack_script": "[TH7-12] GiWiHe v6.4",
           "run.heroes": [
             "barbarian-king"
           ],
@@ -317,14 +331,17 @@
         "id": "th8",
         "town_hall": 8,
         "label": "Town Hall 8",
-        "summary": "GiWiHe deployment for TH8; the profile army must match.",
-        "description": "The bundled GiWiHe file explicitly references TH8. This preset selects only its deployment routine; it does not import troop or spell counts. King and Queen are selected from the intersection of current TH8 unlocks and the CSV's Hero DROP actions.",
-        "compatibility": "script-declared",
-        "source_note": "CSV/Attack/[TH7-12] GiWiHe v6.4.csv explicitly references TH8 and deploys King and Queen; the planner applies deployment only and retains the profile army.",
+        "summary": "Smart one-side deployment with King and Queen; GoHo or easy Zap Dragons.",
+        "description": "Concentrates the active profile army and explicitly selects both unlocked Heroes.",
+        "compatibility": "research-guided",
+        "source_note": "config/game/smart-attack-strategies.json TH8 policy; community recommendation GoHo, easy Zap Dragons.",
         "values": {
           "run.surface": "regular",
+          "run.strategy": "smart.local",
+          "run.attack_script": "profile-current",
           "army.source": "recipe",
           "army.recipe_name": "",
+          "army.manage_training": true,
           "army.wait_for_full": true,
           "search.min_gold": 0,
           "search.min_elixir": 0,
@@ -354,8 +371,6 @@
           "notify.on_stop": true,
           "notify.on_error": true,
           "notify.channel": "log-only",
-          "run.strategy": "legacy.csv",
-          "run.attack_script": "[TH7-12] GiWiHe v6.4",
           "run.heroes": [
             "barbarian-king",
             "archer-queen"
@@ -370,14 +385,17 @@
         "id": "th9",
         "town_hall": 9,
         "label": "Town Hall 9",
-        "summary": "TH9 GoWiPe deployment; the active profile army must match.",
-        "description": "The file's header identifies this as a TH9 GoWiPe attack. The preset selects only that deployment routine; it does not build a GoWiPe army. King and Queen are selected because both are unlocked and have CSV DROP actions.",
-        "compatibility": "script-declared",
-        "source_note": "CSV/Attack/[TH9] Shuttered GoWiPe.csv identifies itself as TH9 and deploys King and Queen; the planner applies deployment only and retains the profile army.",
+        "summary": "Smart TH-side funnel with King, Queen, and Minion Prince; QC LaLo or easy Zap Dragons.",
+        "description": "Targets the Town Hall side on live bases and explicitly selects all three available Heroes.",
+        "compatibility": "research-guided",
+        "source_note": "config/game/smart-attack-strategies.json TH9 policy; community recommendation Queen Charge LaLo, easy Zap Dragons.",
         "values": {
           "run.surface": "regular",
+          "run.strategy": "smart.local",
+          "run.attack_script": "profile-current",
           "army.source": "recipe",
           "army.recipe_name": "",
+          "army.manage_training": true,
           "army.wait_for_full": true,
           "search.min_gold": 0,
           "search.min_elixir": 0,
@@ -407,11 +425,10 @@
           "notify.on_stop": true,
           "notify.on_error": true,
           "notify.channel": "log-only",
-          "run.strategy": "legacy.csv",
-          "run.attack_script": "[TH9] Shuttered GoWiPe",
           "run.heroes": [
             "barbarian-king",
-            "archer-queen"
+            "archer-queen",
+            "minion-prince"
           ],
           "army.train_spells": true,
           "army.train_sieges": false,
@@ -423,14 +440,17 @@
         "id": "th10",
         "town_hall": 10,
         "label": "Town Hall 10",
-        "summary": "TH10 BoWiHe deployment; the active profile army must match.",
-        "description": "The bundled BoWiHe file explicitly references TH10. The preset selects only its deployment routine; it does not import a BoWiHe composition. King and Queen are selected from current TH10 unlocks that also have CSV DROP actions.",
-        "compatibility": "script-declared",
-        "source_note": "CSV/Attack/[TH10-12] BoWiHe v3.2.csv explicitly references TH10 and deploys King and Queen; the planner applies deployment only and retains the profile army.",
+        "summary": "Smart TH-side funnel with King, Queen, and Minion Prince; QC Hybrid or easy Zap Dragons.",
+        "description": "Uses a live-base TH-side funnel and explicitly selects the three unlocked Heroes.",
+        "compatibility": "research-guided",
+        "source_note": "config/game/smart-attack-strategies.json TH10 policy; community recommendation Queen Charge Hybrid, easy Zap Dragons.",
         "values": {
           "run.surface": "regular",
+          "run.strategy": "smart.local",
+          "run.attack_script": "profile-current",
           "army.source": "recipe",
           "army.recipe_name": "",
+          "army.manage_training": true,
           "army.wait_for_full": true,
           "search.min_gold": 0,
           "search.min_elixir": 0,
@@ -460,11 +480,10 @@
           "notify.on_stop": true,
           "notify.on_error": true,
           "notify.channel": "log-only",
-          "run.strategy": "legacy.csv",
-          "run.attack_script": "[TH10-12] BoWiHe v3.2",
           "run.heroes": [
             "barbarian-king",
-            "archer-queen"
+            "archer-queen",
+            "minion-prince"
           ],
           "army.train_spells": true,
           "army.train_sieges": false,
@@ -476,14 +495,17 @@
         "id": "th11",
         "town_hall": 11,
         "label": "Town Hall 11",
-        "summary": "TH11 ElectroLoonBat deployment; the profile army must match.",
-        "description": "The bundled ElectroLoonBat file explicitly covers TH11. This preset selects only its deployment routine; it does not import troop, spell or siege counts. King, Queen and Warden are the currently unlocked Heroes with matching CSV DROP actions.",
-        "compatibility": "script-declared",
-        "source_note": "CSV/Attack/[TH11-15]_ElectroLoonBat.csv declares TH11 and deploys King, Queen and Warden; the planner applies deployment only and retains the profile army.",
+        "summary": "Smart TH-side funnel with Queen, Prince, and Warden; QC Hybrid or easy EDrags.",
+        "description": "Concentrates the current army through a TH-side funnel and explicitly selects Queen, Prince, and Warden.",
+        "compatibility": "research-guided",
+        "source_note": "config/game/smart-attack-strategies.json TH11 policy; community recommendation Queen Charge Hybrid, easy Electro Dragons.",
         "values": {
           "run.surface": "regular",
+          "run.strategy": "smart.local",
+          "run.attack_script": "profile-current",
           "army.source": "recipe",
           "army.recipe_name": "",
+          "army.manage_training": true,
           "army.wait_for_full": true,
           "search.min_gold": 0,
           "search.min_elixir": 0,
@@ -513,11 +535,9 @@
           "notify.on_stop": true,
           "notify.on_error": true,
           "notify.channel": "log-only",
-          "run.strategy": "legacy.csv",
-          "run.attack_script": "[TH11-15]_ElectroLoonBat",
           "run.heroes": [
-            "barbarian-king",
             "archer-queen",
+            "minion-prince",
             "grand-warden"
           ],
           "army.train_spells": true,
@@ -530,14 +550,17 @@
         "id": "th12",
         "town_hall": 12,
         "label": "Town Hall 12",
-        "summary": "TH12 ElectroLoonBat deployment; the profile army must match.",
-        "description": "The bundled file explicitly covers TH12. This preset selects only its deployment routine; it does not import troop, spell or siege counts. King, Queen and Warden have matching CSV DROP actions, while profile spell and siege training stay enabled.",
-        "compatibility": "script-declared",
-        "source_note": "CSV/Attack/[TH11-15]_ElectroLoonBat.csv declares TH12 and deploys King, Queen and Warden; the planner applies deployment only and retains the profile army.",
+        "summary": "Smart TH-side funnel with Queen, Prince, and Warden; Fireball Super Witches or easy Zap Dragons.",
+        "description": "Uses the active profile army and a TH-side funnel; explicitly selects Queen, Prince, and Warden.",
+        "compatibility": "research-guided",
+        "source_note": "config/game/smart-attack-strategies.json TH12 policy; community recommendation Fireball Super Witches, easy Zap Dragons.",
         "values": {
           "run.surface": "regular",
+          "run.strategy": "smart.local",
+          "run.attack_script": "profile-current",
           "army.source": "recipe",
           "army.recipe_name": "",
+          "army.manage_training": true,
           "army.wait_for_full": true,
           "search.min_gold": 0,
           "search.min_elixir": 0,
@@ -567,11 +590,9 @@
           "notify.on_stop": true,
           "notify.on_error": true,
           "notify.channel": "log-only",
-          "run.strategy": "legacy.csv",
-          "run.attack_script": "[TH11-15]_ElectroLoonBat",
           "run.heroes": [
-            "barbarian-king",
             "archer-queen",
+            "minion-prince",
             "grand-warden"
           ],
           "army.train_spells": true,
@@ -584,14 +605,17 @@
         "id": "th13",
         "town_hall": 13,
         "label": "Town Hall 13",
-        "summary": "TH13 ElectroLoonBat deployment; the profile army must match.",
-        "description": "The bundled file explicitly covers TH13. This preset selects only its deployment routine; it does not import troop, spell or siege counts. King, Queen, Warden and Champion are unlocked and each has a matching CSV DROP action.",
-        "compatibility": "script-declared",
-        "source_note": "CSV/Attack/[TH11-15]_ElectroLoonBat.csv declares TH13 and deploys King, Queen, Warden and Champion; the planner applies deployment only and retains the profile army.",
+        "summary": "Smart TH-side funnel with four Heroes; Fireball Super Witches or easy Electro Smash.",
+        "description": "Targets the TH side and explicitly selects Queen, Prince, Warden, and Royal Champion.",
+        "compatibility": "research-guided",
+        "source_note": "config/game/smart-attack-strategies.json TH13 policy; community recommendation Fireball Super Witches, easy Electro Smash.",
         "values": {
           "run.surface": "regular",
+          "run.strategy": "smart.local",
+          "run.attack_script": "profile-current",
           "army.source": "recipe",
           "army.recipe_name": "",
+          "army.manage_training": true,
           "army.wait_for_full": true,
           "search.min_gold": 0,
           "search.min_elixir": 0,
@@ -621,11 +645,9 @@
           "notify.on_stop": true,
           "notify.on_error": true,
           "notify.channel": "log-only",
-          "run.strategy": "legacy.csv",
-          "run.attack_script": "[TH11-15]_ElectroLoonBat",
           "run.heroes": [
-            "barbarian-king",
             "archer-queen",
+            "minion-prince",
             "grand-warden",
             "royal-champion"
           ],
@@ -639,14 +661,17 @@
         "id": "th14",
         "town_hall": 14,
         "label": "Town Hall 14",
-        "summary": "TH14 ElectroLoonBat deployment; the profile army must match.",
-        "description": "The bundled file explicitly covers TH14. This preset selects only its deployment routine; it does not import troop, spell or siege counts. King, Queen, Warden and Champion are unlocked and each has a matching CSV DROP action.",
-        "compatibility": "script-declared",
-        "source_note": "CSV/Attack/[TH11-15]_ElectroLoonBat.csv declares TH14 and deploys King, Queen, Warden and Champion; the planner applies deployment only and retains the profile army.",
+        "summary": "Smart TH-side funnel with four Heroes; Witch Spam or easy Zap Dragons.",
+        "description": "Targets the TH side and explicitly selects Queen, Prince, Warden, and Royal Champion.",
+        "compatibility": "research-guided",
+        "source_note": "config/game/smart-attack-strategies.json TH14 policy; community recommendation Witch Spam, easy Zap Dragons.",
         "values": {
           "run.surface": "regular",
+          "run.strategy": "smart.local",
+          "run.attack_script": "profile-current",
           "army.source": "recipe",
           "army.recipe_name": "",
+          "army.manage_training": true,
           "army.wait_for_full": true,
           "search.min_gold": 0,
           "search.min_elixir": 0,
@@ -676,11 +701,9 @@
           "notify.on_stop": true,
           "notify.on_error": true,
           "notify.channel": "log-only",
-          "run.strategy": "legacy.csv",
-          "run.attack_script": "[TH11-15]_ElectroLoonBat",
           "run.heroes": [
-            "barbarian-king",
             "archer-queen",
+            "minion-prince",
             "grand-warden",
             "royal-champion"
           ],
@@ -694,14 +717,17 @@
         "id": "th15",
         "town_hall": 15,
         "label": "Town Hall 15",
-        "summary": "TH15 ElectroLoonBat deployment; the profile army must match.",
-        "description": "TH15 is the highest Town Hall the bundled file claims. The preset selects deployment only and does not import troop, spell or siege counts. King, Queen, Warden and Champion are the source-proven DROP choices; Minion Prince and Dragon Duke are omitted.",
-        "compatibility": "script-declared",
-        "source_note": "CSV/Attack/[TH11-15]_ElectroLoonBat.csv declares TH15 and deploys King, Queen, Warden and Champion; the planner applies deployment only and retains the profile army.",
+        "summary": "Smart TH-side funnel with four Heroes; RC Walk Root Riders or easy RC Walk Dragons.",
+        "description": "Targets the TH side and explicitly selects Queen, Prince, Warden, and Royal Champion.",
+        "compatibility": "research-guided",
+        "source_note": "config/game/smart-attack-strategies.json TH15 policy; community recommendation Royal Champion Walk Root Riders, easy Royal Champion Walk Dragons.",
         "values": {
           "run.surface": "regular",
+          "run.strategy": "smart.local",
+          "run.attack_script": "profile-current",
           "army.source": "recipe",
           "army.recipe_name": "",
+          "army.manage_training": true,
           "army.wait_for_full": true,
           "search.min_gold": 0,
           "search.min_elixir": 0,
@@ -731,11 +757,9 @@
           "notify.on_stop": true,
           "notify.on_error": true,
           "notify.channel": "log-only",
-          "run.strategy": "legacy.csv",
-          "run.attack_script": "[TH11-15]_ElectroLoonBat",
           "run.heroes": [
-            "barbarian-king",
             "archer-queen",
+            "minion-prince",
             "grand-warden",
             "royal-champion"
           ],
@@ -749,14 +773,17 @@
         "id": "th16",
         "town_hall": 16,
         "label": "Town Hall 16",
-        "summary": "Compatibility fallback using Standard deployment and the profile army.",
-        "description": "No shipped CSV declares TH16 support. This avoids pretending an older script is compatible, keeps the active profile army and visible Hero selection, and uses the wired Standard deployment for a short observed run.",
-        "compatibility": "engine-fallback",
-        "source_note": "No shipped CSV declares TH16 support; legacy.standard is wired but current-client evidence is still required.",
+        "summary": "Smart TH-side funnel with four Heroes; Fireball Super Witch Druids or easy EDrags.",
+        "description": "Targets the TH side and explicitly selects the same four-Hero loadout proven by the current-client actor path.",
+        "compatibility": "research-guided",
+        "source_note": "config/game/smart-attack-strategies.json TH16 policy; community recommendation Fireball Super Witch Druids, easy Electro Dragons.",
         "values": {
           "run.surface": "regular",
+          "run.strategy": "smart.local",
+          "run.attack_script": "profile-current",
           "army.source": "recipe",
           "army.recipe_name": "",
+          "army.manage_training": true,
           "army.wait_for_full": true,
           "search.min_gold": 0,
           "search.min_elixir": 0,
@@ -786,8 +813,12 @@
           "notify.on_stop": true,
           "notify.on_error": true,
           "notify.channel": "log-only",
-          "run.strategy": "legacy.standard",
-          "run.attack_script": "profile-current",
+          "run.heroes": [
+            "archer-queen",
+            "minion-prince",
+            "grand-warden",
+            "royal-champion"
+          ],
           "army.train_spells": true,
           "army.train_sieges": true,
           "run.duration_minutes": 45,
@@ -798,14 +829,17 @@
         "id": "th17",
         "town_hall": 17,
         "label": "Town Hall 17",
-        "summary": "Compatibility fallback using Standard deployment and the profile army.",
-        "description": "No shipped CSV declares TH17 support. This preserves the profile's known army and visible Hero selection, uses only the wired Standard deployment, and leaves diagnostic authorization entirely under operator control.",
-        "compatibility": "engine-fallback",
-        "source_note": "No shipped CSV declares TH17 support; legacy.standard is wired but current-client evidence is still required.",
+        "summary": "Smart TH-side funnel with four Heroes; Dragon Riders or easy Super Yeti Smash.",
+        "description": "Uses the current trained army, the current-client-proven TH-side red line, and the exact four-Hero loadout that completed the supervised 100 percent three-star run.",
+        "compatibility": "research-guided",
+        "source_note": "config/game/smart-attack-strategies.json TH17 policy; community recommendation Air Defense Snipe Dragon Riders, easy Super Yeti Smash, no-Hero Electro Dragons.",
         "values": {
           "run.surface": "regular",
+          "run.strategy": "smart.local",
+          "run.attack_script": "profile-current",
           "army.source": "recipe",
           "army.recipe_name": "",
+          "army.manage_training": true,
           "army.wait_for_full": true,
           "search.min_gold": 0,
           "search.min_elixir": 0,
@@ -835,8 +869,12 @@
           "notify.on_stop": true,
           "notify.on_error": true,
           "notify.channel": "log-only",
-          "run.strategy": "legacy.standard",
-          "run.attack_script": "profile-current",
+          "run.heroes": [
+            "archer-queen",
+            "minion-prince",
+            "grand-warden",
+            "royal-champion"
+          ],
           "army.train_spells": true,
           "army.train_sieges": true,
           "run.duration_minutes": 45,
@@ -847,14 +885,17 @@
         "id": "th18",
         "town_hall": 18,
         "label": "Town Hall 18",
-        "summary": "Compatibility fallback with no unproven TH18 script claim.",
-        "description": "Town Hall 18 is catalogued but its runtime fixtures are still missing and no bundled CSV declares support. The preset uses Standard deployment, preserves the visible Hero selection and stays bounded; Start validation still applies.",
-        "compatibility": "engine-fallback",
-        "source_note": "current-client.json sets TH18 as maximum; no shipped CSV declares TH18 support and runtime fixtures remain required.",
+        "summary": "Smart TH-side funnel with four Heroes; Meteor Golems or easy Super Bowler Smash.",
+        "description": "Uses the current trained army and the bounded TH-side actuator. It does not pretend to train a Meteor Golem, Thrower, or Dragon Rider composition.",
+        "compatibility": "research-guided",
+        "source_note": "config/game/smart-attack-strategies.json TH18 policy; official balance plus community recommendation Fireball Meteor Golems, easy Super Bowler Smash, no-Hero Electro Dragons.",
         "values": {
           "run.surface": "regular",
+          "run.strategy": "smart.local",
+          "run.attack_script": "profile-current",
           "army.source": "recipe",
           "army.recipe_name": "",
+          "army.manage_training": true,
           "army.wait_for_full": true,
           "search.min_gold": 0,
           "search.min_elixir": 0,
@@ -884,8 +925,12 @@
           "notify.on_stop": true,
           "notify.on_error": true,
           "notify.channel": "log-only",
-          "run.strategy": "legacy.standard",
-          "run.attack_script": "profile-current",
+          "run.heroes": [
+            "archer-queen",
+            "minion-prince",
+            "grand-warden",
+            "royal-champion"
+          ],
           "army.train_spells": true,
           "army.train_sieges": true,
           "run.duration_minutes": 45,
@@ -917,8 +962,9 @@
               "label": "Regular Battles",
               "summary": "Unlimited attacks, no Trophy risk.",
               "description": "Ordinary matchmaking. Attacks are unlimited and Trophies are not at stake, which makes this the surface to use while you are still confirming that a build behaves the way you expect.",
-              "availability": "gated",
-              "disabled_reason": "No current-client capture has been recorded for this surface yet. You can still run it as a diagnostic to see how it behaves.",
+              "availability": "available",
+              "runtime_verified": true,
+              "disabled_reason": "",
               "capability_ids": [
                 "battle.regular-ranked-split"
               ],
@@ -933,8 +979,9 @@
               "label": "Ranked Battles",
               "summary": "Attack count is reported by the client.",
               "description": "Tournament matchmaking with a limited number of attacks per tournament. The bot will not start until it has read how many attacks you actually have left, because the published limit is not your remaining count.",
-              "availability": "gated",
-              "disabled_reason": "No current-client capture has been recorded for this surface yet. You can still run it as a diagnostic to see how it behaves.",
+              "availability": "planned",
+              "runtime_verified": false,
+              "disabled_reason": "The native execution contract has no adapter for this battle surface; selecting it cannot start a run.",
               "capability_ids": [
                 "battle.regular-ranked-split"
               ],
@@ -950,8 +997,9 @@
               "label": "Revenge",
               "summary": "One attack per defence log entry.",
               "description": "Attacks a Shadow Base from your defence log. Each entry can be attacked once and the opportunity expires, so this surface is driven by what is in the log rather than by a repeating schedule.",
-              "availability": "gated",
-              "disabled_reason": "No current-client capture has been recorded for this surface yet. You can still run it as a diagnostic to see how it behaves.",
+              "availability": "planned",
+              "runtime_verified": false,
+              "disabled_reason": "The native execution contract has no adapter for this battle surface; selecting it cannot start a run.",
               "capability_ids": [
                 "battle.revenge"
               ],
@@ -966,8 +1014,9 @@
               "label": "Legend III",
               "summary": "Limited to 24 attacks per week.",
               "description": "The entry Legend tier, with a weekly attack budget. The budget shown in the catalog is the published maximum for the tier, not the attacks you have left this week.",
-              "availability": "gated",
-              "disabled_reason": "No current-client capture has been recorded for this surface yet. You can still run it as a diagnostic to see how it behaves.",
+              "availability": "planned",
+              "runtime_verified": false,
+              "disabled_reason": "The native execution contract has no adapter for this battle surface; selecting it cannot start a run.",
               "capability_ids": [
                 "battle.legend-tiers"
               ],
@@ -982,8 +1031,9 @@
               "label": "Legend II",
               "summary": "Limited to 30 attacks per week.",
               "description": "The middle Legend tier, with a larger weekly attack budget than Legend III.",
-              "availability": "gated",
-              "disabled_reason": "No current-client capture has been recorded for this surface yet. You can still run it as a diagnostic to see how it behaves.",
+              "availability": "planned",
+              "runtime_verified": false,
+              "disabled_reason": "The native execution contract has no adapter for this battle surface; selecting it cannot start a run.",
               "capability_ids": [
                 "battle.legend-tiers"
               ],
@@ -998,8 +1048,9 @@
               "label": "Legend I",
               "summary": "Limited to 8 attacks per league day.",
               "description": "The top Legend tier, budgeted per League Day rather than per week, so the remaining count resets on a different schedule from the lower tiers.",
-              "availability": "gated",
-              "disabled_reason": "No current-client capture has been recorded for this surface yet. You can still run it as a diagnostic to see how it behaves.",
+              "availability": "planned",
+              "runtime_verified": false,
+              "disabled_reason": "The native execution contract has no adapter for this battle surface; selecting it cannot start a run.",
               "capability_ids": [
                 "battle.legend-tiers"
               ],
@@ -1014,8 +1065,9 @@
               "label": "Builder Base Battles",
               "summary": "Attack count is reported by the client.",
               "description": "Builder Base matchmaking. Runs against the Builder Base economy and upgrade flow rather than the Home Village one, including the additional Builder.",
-              "availability": "gated",
-              "disabled_reason": "No current-client capture has been recorded for this surface yet. You can still run it as a diagnostic to see how it behaves.",
+              "availability": "planned",
+              "runtime_verified": false,
+              "disabled_reason": "The native execution contract has no adapter for this battle surface; selecting it cannot start a run.",
               "capability_ids": [
                 "builder-base.additional-builder"
               ],
@@ -1042,8 +1094,9 @@
               "label": "Scripted (CSV)",
               "summary": "Runs a deployment script from the Strategies folder.",
               "description": "Uses the CSV deployment scripts that ship with the bot. This is the most predictable option because the deployment order is written down rather than decided from the base layout.",
-              "availability": "available",
-              "disabled_reason": "",
+              "availability": "gated",
+              "runtime_verified": false,
+              "disabled_reason": "The CSV actuator is wired, but a complete current-client deployment has not passed supervised review.",
               "capability_ids": [],
               "prerequisites": [
                 "At least one CSV strategy present"
@@ -1055,23 +1108,41 @@
               "value": "legacy.standard",
               "label": "Standard deployment",
               "summary": "The built-in side and line deployment routine.",
-              "description": "The inherited standard attack, which spreads troops along the chosen sides. It depends on troop-bar recognition that has not been re-confirmed on the current client.",
-              "availability": "gated",
-              "disabled_reason": "Troop bar recognition has not been captured on the current client.",
+              "description": "A supervised run confirmed Standard could issue the trained-army and selected-Hero deployment, observe an empty troop bar, and return home. That single completion confirms the route and actuator, not strategy quality; it did not exercise planned ability or spell actions.",
+              "availability": "available",
+              "runtime_verified": true,
+              "disabled_reason": "",
               "capability_ids": [],
               "prerequisites": [
-                "Troop bar recognition"
+                "A ready trained army"
               ],
               "recommended": false,
               "warning": ""
+            },
+            {
+              "value": "smart.local",
+              "label": "Smart Attack (research-guided)",
+              "summary": "Concentrates the current army using a Town Hall-aware local policy.",
+              "description": "The deterministic Town Hall policy is versioned in config/game/smart-attack-strategies.json and executed locally. Deployment, ability, and spell actions can be planned and issued by the implementation, but the current deterministic ability and spell policy has only static test evidence; a fresh supervised run is still required to confirm it on the live client.",
+              "availability": "gated",
+              "runtime_verified": false,
+              "disabled_reason": "Implemented for supervised diagnostics; live confirmation of the deterministic ability and spell policy is pending.",
+              "capability_ids": [],
+              "prerequisites": [
+                "A ready trained army",
+                "A supervised diagnostic operator"
+              ],
+              "recommended": false,
+              "warning": "Live confirmation of deterministic ability and spell actions is pending."
             },
             {
               "value": "legacy.smart-farm",
               "label": "Smart farm",
               "summary": "Targets collectors and storages based on the base layout.",
               "description": "Reads the base to choose where to drop, which needs current building recognition including the Town Hall 18 additions.",
-              "availability": "gated",
-              "disabled_reason": "Building recognition has not been re-confirmed for Town Hall 18.",
+              "availability": "planned",
+              "runtime_verified": false,
+              "disabled_reason": "The native execution contract has no Smart farm adapter.",
               "capability_ids": [
                 "village.town-hall-18"
               ],
@@ -1087,6 +1158,7 @@
               "summary": "Deployment routine for Builder Base battles.",
               "description": "A Builder Base specific deployment. It is not implemented against the current Builder Base layout yet.",
               "availability": "planned",
+              "runtime_verified": false,
               "disabled_reason": "Not implemented for the current Builder Base layout.",
               "capability_ids": [
                 "builder-base.additional-builder"
@@ -1114,8 +1186,9 @@
               "label": "Use profile selection",
               "summary": "Keeps the script already selected in the active profile.",
               "description": "Does not replace the active profile's script for this run. Use this with Standard deployment, or when the profile already names the exact CSV deployment you want.",
-              "availability": "available",
-              "disabled_reason": "",
+              "availability": "gated",
+              "runtime_verified": false,
+              "disabled_reason": "The profile selection is wired, but its resolved deployment has not completed supervised current-client proof.",
               "capability_ids": [],
               "prerequisites": [],
               "recommended": true,
@@ -1126,8 +1199,9 @@
               "label": "[TH10-12] BoWiHe v3.2",
               "summary": "Selects this exact bundled CSV for the current run only.",
               "description": "Loads CSV/Attack/[TH10-12] BoWiHe v3.2.csv as a one-run deployment override. The file's presence proves engine compatibility, not that its army is suitable for every Town Hall or current game layout.",
-              "availability": "available",
-              "disabled_reason": "",
+              "availability": "gated",
+              "runtime_verified": false,
+              "disabled_reason": "The file is wired as a one-run override, but this exact deployment has not completed supervised current-client proof.",
               "capability_ids": [],
               "prerequisites": [
                 "The active profile army matches the script"
@@ -1140,8 +1214,9 @@
               "label": "[TH10-12] v5.3 BabyLavaLoon SuperFLY Edition",
               "summary": "Selects this exact bundled CSV for the current run only.",
               "description": "Loads CSV/Attack/[TH10-12] v5.3 BabyLavaLoon SuperFLY Edition.csv as a one-run deployment override. The file's presence proves engine compatibility, not that its army is suitable for every Town Hall or current game layout.",
-              "availability": "available",
-              "disabled_reason": "",
+              "availability": "gated",
+              "runtime_verified": false,
+              "disabled_reason": "The file is wired as a one-run override, but this exact deployment has not completed supervised current-client proof.",
               "capability_ids": [],
               "prerequisites": [
                 "The active profile army matches the script"
@@ -1154,8 +1229,9 @@
               "label": "[TH11-13] ElectroLoon v2.0",
               "summary": "Selects this exact bundled CSV for the current run only.",
               "description": "Loads CSV/Attack/[TH11-13] ElectroLoon v2.0.csv as a one-run deployment override. The file's presence proves engine compatibility, not that its army is suitable for every Town Hall or current game layout.",
-              "availability": "available",
-              "disabled_reason": "",
+              "availability": "gated",
+              "runtime_verified": false,
+              "disabled_reason": "The file is wired as a one-run override, but this exact deployment has not completed supervised current-client proof.",
               "capability_ids": [],
               "prerequisites": [
                 "The active profile army matches the script"
@@ -1168,8 +1244,9 @@
               "label": "[TH11-13] Queens Gambit Edrag 1.4",
               "summary": "Selects this exact bundled CSV for the current run only.",
               "description": "Loads CSV/Attack/[TH11-13] Queens Gambit Edrag 1.4.csv as a one-run deployment override. The file's presence proves engine compatibility, not that its army is suitable for every Town Hall or current game layout.",
-              "availability": "available",
-              "disabled_reason": "",
+              "availability": "gated",
+              "runtime_verified": false,
+              "disabled_reason": "The file is wired as a one-run override, but this exact deployment has not completed supervised current-client proof.",
               "capability_ids": [],
               "prerequisites": [
                 "The active profile army matches the script"
@@ -1182,8 +1259,9 @@
               "label": "[TH11-15]_ElectroLoonBat",
               "summary": "Selects this exact bundled CSV for the current run only.",
               "description": "Loads CSV/Attack/[TH11-15]_ElectroLoonBat.csv as a one-run deployment override. The file's presence proves engine compatibility, not that its army is suitable for every Town Hall or current game layout.",
-              "availability": "available",
-              "disabled_reason": "",
+              "availability": "gated",
+              "runtime_verified": false,
+              "disabled_reason": "The file is wired as a one-run override, but this exact deployment has not completed supervised current-client proof.",
               "capability_ids": [],
               "prerequisites": [
                 "The active profile army matches the script"
@@ -1196,8 +1274,9 @@
               "label": "[TH11] GiBarchWizValk",
               "summary": "Selects this exact bundled CSV for the current run only.",
               "description": "Loads CSV/Attack/[TH11] GiBarchWizValk.csv as a one-run deployment override. The file's presence proves engine compatibility, not that its army is suitable for every Town Hall or current game layout.",
-              "availability": "available",
-              "disabled_reason": "",
+              "availability": "gated",
+              "runtime_verified": false,
+              "disabled_reason": "The file is wired as a one-run override, but this exact deployment has not completed supervised current-client proof.",
               "capability_ids": [],
               "prerequisites": [
                 "The active profile army matches the script"
@@ -1210,8 +1289,9 @@
               "label": "[TH11] silver",
               "summary": "Selects this exact bundled CSV for the current run only.",
               "description": "Loads CSV/Attack/[TH11] silver.csv as a one-run deployment override. The file's presence proves engine compatibility, not that its army is suitable for every Town Hall or current game layout.",
-              "availability": "available",
-              "disabled_reason": "",
+              "availability": "gated",
+              "runtime_verified": false,
+              "disabled_reason": "The file is wired as a one-run override, but this exact deployment has not completed supervised current-client proof.",
               "capability_ids": [],
               "prerequisites": [
                 "The active profile army matches the script"
@@ -1224,8 +1304,9 @@
               "label": "[TH11] SkeletonSpell THattack v0.1",
               "summary": "Selects this exact bundled CSV for the current run only.",
               "description": "Loads CSV/Attack/[TH11] SkeletonSpell THattack v0.1.csv as a one-run deployment override. The file's presence proves engine compatibility, not that its army is suitable for every Town Hall or current game layout.",
-              "availability": "available",
-              "disabled_reason": "",
+              "availability": "gated",
+              "runtime_verified": false,
+              "disabled_reason": "The file is wired as a one-run override, but this exact deployment has not completed supervised current-client proof.",
               "capability_ids": [],
               "prerequisites": [
                 "The active profile army matches the script"
@@ -1238,8 +1319,9 @@
               "label": "[TH12-14] EDragv2 210425",
               "summary": "Selects this exact bundled CSV for the current run only.",
               "description": "Loads CSV/Attack/[TH12-14] EDragv2 210425.csv as a one-run deployment override. The file's presence proves engine compatibility, not that its army is suitable for every Town Hall or current game layout.",
-              "availability": "available",
-              "disabled_reason": "",
+              "availability": "gated",
+              "runtime_verified": false,
+              "disabled_reason": "The file is wired as a one-run override, but this exact deployment has not completed supervised current-client proof.",
               "capability_ids": [],
               "prerequisites": [
                 "The active profile army matches the script"
@@ -1252,8 +1334,9 @@
               "label": "[TH12] 4 Fingers GiWiZap",
               "summary": "Selects this exact bundled CSV for the current run only.",
               "description": "Loads CSV/Attack/[TH12] 4 Fingers GiWiZap.csv as a one-run deployment override. The file's presence proves engine compatibility, not that its army is suitable for every Town Hall or current game layout.",
-              "availability": "available",
-              "disabled_reason": "",
+              "availability": "gated",
+              "runtime_verified": false,
+              "disabled_reason": "The file is wired as a one-run override, but this exact deployment has not completed supervised current-client proof.",
               "capability_ids": [],
               "prerequisites": [
                 "The active profile army matches the script"
@@ -1266,8 +1349,9 @@
               "label": "[TH7-12] GiWiHe v6.4",
               "summary": "Selects this exact bundled CSV for the current run only.",
               "description": "Loads CSV/Attack/[TH7-12] GiWiHe v6.4.csv as a one-run deployment override. The file's presence proves engine compatibility, not that its army is suitable for every Town Hall or current game layout.",
-              "availability": "available",
-              "disabled_reason": "",
+              "availability": "gated",
+              "runtime_verified": false,
+              "disabled_reason": "The file is wired as a one-run override, but this exact deployment has not completed supervised current-client proof.",
               "capability_ids": [],
               "prerequisites": [
                 "The active profile army matches the script"
@@ -1280,8 +1364,9 @@
               "label": "[TH7-8] LavaLoonion v1.6",
               "summary": "Selects this exact bundled CSV for the current run only.",
               "description": "Loads CSV/Attack/[TH7-8] LavaLoonion v1.6.csv as a one-run deployment override. The file's presence proves engine compatibility, not that its army is suitable for every Town Hall or current game layout.",
-              "availability": "available",
-              "disabled_reason": "",
+              "availability": "gated",
+              "runtime_verified": false,
+              "disabled_reason": "The file is wired as a one-run override, but this exact deployment has not completed supervised current-client proof.",
               "capability_ids": [],
               "prerequisites": [
                 "The active profile army matches the script"
@@ -1294,8 +1379,9 @@
               "label": "[TH9-12] Undefeatable LavaLoonion v6.3",
               "summary": "Selects this exact bundled CSV for the current run only.",
               "description": "Loads CSV/Attack/[TH9-12] Undefeatable LavaLoonion v6.3.csv as a one-run deployment override. The file's presence proves engine compatibility, not that its army is suitable for every Town Hall or current game layout.",
-              "availability": "available",
-              "disabled_reason": "",
+              "availability": "gated",
+              "runtime_verified": false,
+              "disabled_reason": "The file is wired as a one-run override, but this exact deployment has not completed supervised current-client proof.",
               "capability_ids": [],
               "prerequisites": [
                 "The active profile army matches the script"
@@ -1308,8 +1394,9 @@
               "label": "[TH9] Shuttered GoWiPe",
               "summary": "Selects this exact bundled CSV for the current run only.",
               "description": "Loads CSV/Attack/[TH9] Shuttered GoWiPe.csv as a one-run deployment override. The file's presence proves engine compatibility, not that its army is suitable for every Town Hall or current game layout.",
-              "availability": "available",
-              "disabled_reason": "",
+              "availability": "gated",
+              "runtime_verified": false,
+              "disabled_reason": "The file is wired as a one-run override, but this exact deployment has not completed supervised current-client proof.",
               "capability_ids": [],
               "prerequisites": [
                 "The active profile army matches the script"
@@ -1322,8 +1409,9 @@
               "label": "AnDrOmEdA_EQ-EXTREME_LiveBase",
               "summary": "Selects this exact bundled CSV for the current run only.",
               "description": "Loads CSV/Attack/AnDrOmEdA_EQ-EXTREME_LiveBase.csv as a one-run deployment override. The file's presence proves engine compatibility, not that its army is suitable for every Town Hall or current game layout.",
-              "availability": "available",
-              "disabled_reason": "",
+              "availability": "gated",
+              "runtime_verified": false,
+              "disabled_reason": "The file is wired as a one-run override, but this exact deployment has not completed supervised current-client proof.",
               "capability_ids": [],
               "prerequisites": [
                 "The active profile army matches the script"
@@ -1336,8 +1424,9 @@
               "label": "Barch four fingers",
               "summary": "Selects this exact bundled CSV for the current run only.",
               "description": "Loads CSV/Attack/Barch four fingers.csv as a one-run deployment override. The file's presence proves engine compatibility, not that its army is suitable for every Town Hall or current game layout.",
-              "availability": "available",
-              "disabled_reason": "",
+              "availability": "gated",
+              "runtime_verified": false,
+              "disabled_reason": "The file is wired as a one-run override, but this exact deployment has not completed supervised current-client proof.",
               "capability_ids": [],
               "prerequisites": [
                 "The active profile army matches the script"
@@ -1350,8 +1439,9 @@
               "label": "Bo-Mi_NavySeals_Ver1.0",
               "summary": "Selects this exact bundled CSV for the current run only.",
               "description": "Loads CSV/Attack/Bo-Mi_NavySeals_Ver1.0.csv as a one-run deployment override. The file's presence proves engine compatibility, not that its army is suitable for every Town Hall or current game layout.",
-              "availability": "available",
-              "disabled_reason": "",
+              "availability": "gated",
+              "runtime_verified": false,
+              "disabled_reason": "The file is wired as a one-run override, but this exact deployment has not completed supervised current-client proof.",
               "capability_ids": [],
               "prerequisites": [
                 "The active profile army matches the script"
@@ -1364,8 +1454,9 @@
               "label": "Classic FFF Barch",
               "summary": "Selects this exact bundled CSV for the current run only.",
               "description": "Loads CSV/Attack/Classic FFF Barch.csv as a one-run deployment override. The file's presence proves engine compatibility, not that its army is suitable for every Town Hall or current game layout.",
-              "availability": "available",
-              "disabled_reason": "",
+              "availability": "gated",
+              "runtime_verified": false,
+              "disabled_reason": "The file is wired as a one-run override, but this exact deployment has not completed supervised current-client proof.",
               "capability_ids": [],
               "prerequisites": [
                 "The active profile army matches the script"
@@ -1378,8 +1469,9 @@
               "label": "DragLoon 1.0 Initial",
               "summary": "Selects this exact bundled CSV for the current run only.",
               "description": "Loads CSV/Attack/DragLoon 1.0 Initial.csv as a one-run deployment override. The file's presence proves engine compatibility, not that its army is suitable for every Town Hall or current game layout.",
-              "availability": "available",
-              "disabled_reason": "",
+              "availability": "gated",
+              "runtime_verified": false,
+              "disabled_reason": "The file is wired as a one-run override, but this exact deployment has not completed supervised current-client proof.",
               "capability_ids": [],
               "prerequisites": [
                 "The active profile army matches the script"
@@ -1392,8 +1484,9 @@
               "label": "EDragv2",
               "summary": "Selects this exact bundled CSV for the current run only.",
               "description": "Loads CSV/Attack/EDragv2.csv as a one-run deployment override. The file's presence proves engine compatibility, not that its army is suitable for every Town Hall or current game layout.",
-              "availability": "available",
-              "disabled_reason": "",
+              "availability": "gated",
+              "runtime_verified": false,
+              "disabled_reason": "The file is wired as a one-run override, but this exact deployment has not completed supervised current-client proof.",
               "capability_ids": [],
               "prerequisites": [
                 "The active profile army matches the script"
@@ -1406,8 +1499,9 @@
               "label": "Extreme EQ-GiWiVa _FINAL",
               "summary": "Selects this exact bundled CSV for the current run only.",
               "description": "Loads CSV/Attack/Extreme EQ-GiWiVa _FINAL.csv as a one-run deployment override. The file's presence proves engine compatibility, not that its army is suitable for every Town Hall or current game layout.",
-              "availability": "available",
-              "disabled_reason": "",
+              "availability": "gated",
+              "runtime_verified": false,
+              "disabled_reason": "The file is wired as a one-run override, but this exact deployment has not completed supervised current-client proof.",
               "capability_ids": [],
               "prerequisites": [
                 "The active profile army matches the script"
@@ -1420,8 +1514,9 @@
               "label": "Immortal Bowler_Navyseals_Ver2.1",
               "summary": "Selects this exact bundled CSV for the current run only.",
               "description": "Loads CSV/Attack/Immortal Bowler_Navyseals_Ver2.1.csv as a one-run deployment override. The file's presence proves engine compatibility, not that its army is suitable for every Town Hall or current game layout.",
-              "availability": "available",
-              "disabled_reason": "",
+              "availability": "gated",
+              "runtime_verified": false,
+              "disabled_reason": "The file is wired as a one-run override, but this exact deployment has not completed supervised current-client proof.",
               "capability_ids": [],
               "prerequisites": [
                 "The active profile army matches the script"
@@ -1434,8 +1529,9 @@
               "label": "Immortal Bowler_Navyseals_Ver2.1 Eagle",
               "summary": "Selects this exact bundled CSV for the current run only.",
               "description": "Loads CSV/Attack/Immortal Bowler_Navyseals_Ver2.1 Eagle.csv as a one-run deployment override. The file's presence proves engine compatibility, not that its army is suitable for every Town Hall or current game layout.",
-              "availability": "available",
-              "disabled_reason": "",
+              "availability": "gated",
+              "runtime_verified": false,
+              "disabled_reason": "The file is wired as a one-run override, but this exact deployment has not completed supervised current-client proof.",
               "capability_ids": [],
               "prerequisites": [
                 "The active profile army matches the script"
@@ -1448,8 +1544,9 @@
               "label": "superlalo-demo",
               "summary": "Selects this exact bundled CSV for the current run only.",
               "description": "Loads CSV/Attack/superlalo-demo.csv as a one-run deployment override. The file's presence proves engine compatibility, not that its army is suitable for every Town Hall or current game layout.",
-              "availability": "available",
-              "disabled_reason": "",
+              "availability": "gated",
+              "runtime_verified": false,
+              "disabled_reason": "The file is wired as a one-run override, but this exact deployment has not completed supervised current-client proof.",
               "capability_ids": [],
               "prerequisites": [
                 "The active profile army matches the script"
@@ -1473,7 +1570,7 @@
           "type": "multi-select",
           "label": "Active Heroes",
           "summary": "Up to four Heroes from the six in the Hero Hall.",
-          "description": "Heroes below your Town Hall level are released automatically rather than left selected, so the run never plans around a Hero you cannot field.",
+          "description": "Heroes below your Town Hall level are released automatically rather than left selected, so the run never plans around a Hero you cannot field. In current-trained-army mode the selected Heroes are deployed when their attack-bar slots are present, but the bot does not open Hero Hall or wait for Hero training.",
           "default": "barbarian-king",
           "required": false,
           "engine_binding": "HeroLoadout.hero_ids",
@@ -1484,6 +1581,7 @@
               "summary": "Unlocks at Town Hall 4. Movement: ground.",
               "description": "Ground Hero, and the first one you unlock. Available from Town Hall 4. The Hero Hall holds six Heroes but only 4 can be active at once, so selecting this Hero may require freeing a slot.",
               "availability": "gated",
+              "runtime_verified": false,
               "disabled_reason": "Hero Hall recognition has not been captured on the current client, so the bot cannot confirm which Heroes are actually in your active slots.",
               "capability_ids": [
                 "heroes.six-slot-layout"
@@ -1500,6 +1598,7 @@
               "summary": "Unlocks at Town Hall 8. Movement: ground.",
               "description": "Ranged ground Hero with high single-target damage. Available from Town Hall 8. The Hero Hall holds six Heroes but only 4 can be active at once, so selecting this Hero may require freeing a slot.",
               "availability": "gated",
+              "runtime_verified": false,
               "disabled_reason": "Hero Hall recognition has not been captured on the current client, so the bot cannot confirm which Heroes are actually in your active slots.",
               "capability_ids": [
                 "heroes.six-slot-layout"
@@ -1516,6 +1615,7 @@
               "summary": "Unlocks at Town Hall 9. Movement: air.",
               "description": "Air Hero, so terrain and ground defences affect it differently from the King or Queen. Available from Town Hall 9. The Hero Hall holds six Heroes but only 4 can be active at once, so selecting this Hero may require freeing a slot.",
               "availability": "gated",
+              "runtime_verified": false,
               "disabled_reason": "Hero Hall recognition has not been captured on the current client, so the bot cannot confirm which Heroes are actually in your active slots.",
               "capability_ids": [
                 "heroes.six-slot-layout"
@@ -1532,6 +1632,7 @@
               "summary": "Unlocks at Town Hall 11. Movement: mode-dependent.",
               "description": "Support Hero whose movement follows the mode you set, ground or air. Available from Town Hall 11. The Hero Hall holds six Heroes but only 4 can be active at once, so selecting this Hero may require freeing a slot.",
               "availability": "gated",
+              "runtime_verified": false,
               "disabled_reason": "Hero Hall recognition has not been captured on the current client, so the bot cannot confirm which Heroes are actually in your active slots.",
               "capability_ids": [
                 "heroes.six-slot-layout"
@@ -1548,6 +1649,7 @@
               "summary": "Unlocks at Town Hall 13. Movement: ground.",
               "description": "Ground Hero that targets defences first. Available from Town Hall 13. The Hero Hall holds six Heroes but only 4 can be active at once, so selecting this Hero may require freeing a slot.",
               "availability": "gated",
+              "runtime_verified": false,
               "disabled_reason": "Hero Hall recognition has not been captured on the current client, so the bot cannot confirm which Heroes are actually in your active slots.",
               "capability_ids": [
                 "heroes.six-slot-layout"
@@ -1563,8 +1665,9 @@
               "label": "Dragon Duke",
               "summary": "Unlocks at Town Hall 15. Movement: air.",
               "description": "Air Hero added in the February 2026 update. Available from Town Hall 15. The Hero Hall holds six Heroes but only 4 can be active at once, so selecting this Hero may require freeing a slot.",
-              "availability": "gated",
-              "disabled_reason": "Hero Hall recognition has not been captured on the current client, so the bot cannot confirm which Heroes are actually in your active slots.",
+              "availability": "planned",
+              "runtime_verified": false,
+              "disabled_reason": "Dragon Duke is not present in the inherited five-Hero deployment engine.",
               "capability_ids": [
                 "heroes.dragon-duke"
               ],
@@ -1602,6 +1705,7 @@
               "summary": "Uses whichever supported emulator is already running.",
               "description": "Looks for a running, supported emulator and attaches to it. This is the right choice for a single-instance setup.",
               "availability": "available",
+              "runtime_verified": false,
               "disabled_reason": "",
               "capability_ids": [],
               "prerequisites": [],
@@ -1612,10 +1716,13 @@
               "value": "bluestacks5",
               "label": "BlueStacks 5",
               "summary": "The inherited BlueStacks 5 backend.",
-              "description": "Carried over from the upstream bot. It works against the versions the upstream project supported, which are older than the current release.",
-              "availability": "gated",
-              "disabled_reason": "Not re-tested against current BlueStacks 5 builds.",
-              "capability_ids": [],
+              "description": "Verified on BlueStacks 5.22.252.1008/Pie64 through exact window binding, ADB readiness, current-client game readiness, and bounded Start/Stop smoke tests. This does not claim a completed attack.",
+              "availability": "available",
+              "runtime_verified": true,
+              "disabled_reason": "",
+              "capability_ids": [
+                "emulator.bluestacks5"
+              ],
               "prerequisites": [
                 "BlueStacks 5 installed"
               ],
@@ -1628,6 +1735,7 @@
               "summary": "The inherited MEmu backend.",
               "description": "Carried over from the upstream bot and not re-tested against current MEmu builds.",
               "availability": "gated",
+              "runtime_verified": false,
               "disabled_reason": "Not re-tested against current MEmu builds.",
               "capability_ids": [],
               "prerequisites": [
@@ -1642,6 +1750,7 @@
               "summary": "The inherited Nox backend.",
               "description": "Carried over from the upstream bot and not re-tested against current Nox builds.",
               "availability": "gated",
+              "runtime_verified": false,
               "disabled_reason": "Not re-tested against current Nox builds.",
               "capability_ids": [],
               "prerequisites": [
@@ -1656,6 +1765,7 @@
               "summary": "New adapter with multi-instance ADB addressing.",
               "description": "Discovers installed instances and addresses them on port 5554 plus twice the instance index, which is how LDPlayer 9 assigns ADB ports to multiple instances.",
               "availability": "gated",
+              "runtime_verified": false,
               "disabled_reason": "Adapter is written but has not been run against real hardware.",
               "capability_ids": [
                 "emulator.ldplayer9"
@@ -1672,6 +1782,7 @@
               "summary": "New adapter reading per-instance ADB ports.",
               "description": "Reads each instance's ADB endpoint from the emulator rather than assuming a fixed port, and adapts background capture to the active renderer.",
               "availability": "gated",
+              "runtime_verified": false,
               "disabled_reason": "Adapter is written but has not been run against real hardware.",
               "capability_ids": [
                 "emulator.mumu"
@@ -1689,11 +1800,11 @@
           "type": "instance-select",
           "label": "Instance",
           "summary": "Which emulator instance to attach to.",
-          "description": "Populated by asking the selected emulator what it has configured. Instance zero and the later instances are addressed differently, which is a common source of the bot attaching to the wrong window.",
+          "description": "Choose the exact named instance shown by the attached emulator. BlueStacks 5 requires an explicit instance so capture, input, and the native controller dock cannot target different accounts.",
           "default": "",
           "required": false,
           "engine_binding": "RunPlan.emulator_instance",
-          "empty_state": "No instances found. Start the emulator once.",
+          "empty_state": "Select the exact attached instance.",
           "validation": {
             "max_length": 64
           }
@@ -1723,6 +1834,7 @@
               "summary": "Use one of the recipes saved in game.",
               "description": "Picks a saved Army Recipe and trains it. This is how the current client expects armies to be set up, and it survives balance changes better than a fixed list.",
               "availability": "gated",
+              "runtime_verified": false,
               "disabled_reason": "Army Recipe screen recognition has not been captured.",
               "capability_ids": [
                 "army.recipes"
@@ -1738,8 +1850,9 @@
               "label": "Cookbook entry",
               "summary": "Use an entry from the Cookbook tab.",
               "description": "The Cookbook holds shared and suggested armies. Selecting from it needs the third army tab to be recognised.",
-              "availability": "gated",
-              "disabled_reason": "Cookbook tab recognition has not been captured.",
+              "availability": "planned",
+              "runtime_verified": false,
+              "disabled_reason": "The native execution contract has no Cookbook army adapter.",
               "capability_ids": [
                 "army.cookbook"
               ],
@@ -1754,8 +1867,9 @@
               "label": "Fixed troop list",
               "summary": "The inherited per-troop composition.",
               "description": "Trains a fixed list of troops the way the older bot did. Kept because it does not depend on recipe recognition, but it ignores anything the game has changed since.",
-              "availability": "gated",
-              "disabled_reason": "Training screen recognition has not been re-confirmed.",
+              "availability": "planned",
+              "runtime_verified": false,
+              "disabled_reason": "The native execution contract has no fixed-list army-source adapter.",
               "capability_ids": [],
               "prerequisites": [
                 "Troop training screen recognition"
@@ -1767,16 +1881,28 @@
         },
         {
           "id": "army.recipe_name",
-          "type": "instance-select",
+          "type": "text",
           "label": "Recipe name",
           "summary": "Which saved recipe to train.",
           "description": "The exact recipe name as it appears in game. Left blank, the run uses whichever recipe is already selected rather than switching.",
           "default": "",
           "required": false,
           "engine_binding": "RunPlan.army_recipe_name",
+          "native_fixed_value": "",
+          "native_fixed_reason": "Named Army Recipe selection is not wired; the run can only use the active profile army.",
           "validation": {
             "max_length": 64
           }
+        },
+        {
+          "id": "army.manage_training",
+          "type": "boolean",
+          "label": "Manage training",
+          "summary": "Allow this run to change the training queue.",
+          "description": "Leave this off for one battle with the army already trained in game. The bot still checks whether that army is ready, but it will not boost Super Troops, inspect or edit Quick Train, remove troops, queue troops or spells, or build siege machines. Turn it on only when the active profile's army composition is current and this run should retrain.",
+          "default": false,
+          "required": false,
+          "engine_binding": "RunPlan.army_manage_training"
         },
         {
           "id": "army.wait_for_full",
@@ -1794,7 +1920,7 @@
           "label": "Train spells",
           "summary": "Brew spells as well as troops.",
           "description": "Includes the spell portion of the army. Turn off to save Elixir on cheap farming runs.",
-          "default": true,
+          "default": false,
           "required": false,
           "engine_binding": "RunPlan.army_train_spells"
         },
@@ -1874,6 +2000,8 @@
           "default": 0,
           "required": false,
           "engine_binding": "RunPlan.search_max_seconds",
+          "native_fixed_value": 0,
+          "native_fixed_reason": "The inherited search loop has no safe elapsed-time exit, so this value must remain zero.",
           "unit": "seconds",
           "validation": {
             "minimum": 0,
@@ -1897,6 +2025,7 @@
               "summary": "Accept whatever matchmaking offers.",
               "description": "No filtering. The safest setting while search-screen recognition is unconfirmed, because it does not depend on reading the defender's Town Hall at all.",
               "availability": "available",
+              "runtime_verified": false,
               "disabled_reason": "",
               "capability_ids": [],
               "prerequisites": [],
@@ -1908,8 +2037,9 @@
               "label": "Lower than mine",
               "summary": "Only bases below your Town Hall level.",
               "description": "Prefers weaker defenders. Requires reading the defender Town Hall reliably.",
-              "availability": "gated",
-              "disabled_reason": "Town Hall recognition on the search screen has not been captured.",
+              "availability": "planned",
+              "runtime_verified": false,
+              "disabled_reason": "The native execution contract currently accepts only Any Town Hall.",
               "capability_ids": [
                 "village.town-hall-18"
               ],
@@ -1924,8 +2054,9 @@
               "label": "Same or lower",
               "summary": "Bases at or below your Town Hall level.",
               "description": "A looser version of the above, trading some safety for a shorter search.",
-              "availability": "gated",
-              "disabled_reason": "Town Hall recognition on the search screen has not been captured.",
+              "availability": "planned",
+              "runtime_verified": false,
+              "disabled_reason": "The native execution contract currently accepts only Any Town Hall.",
               "capability_ids": [
                 "village.town-hall-18"
               ],
@@ -1987,6 +2118,8 @@
           "default": 0,
           "required": false,
           "engine_binding": "RunPacing.retry_attempts",
+          "native_fixed_value": 0,
+          "native_fixed_reason": "Generic retries have no visual-change observer in the native engine and must remain zero.",
           "unit": "attempts",
           "validation": {
             "minimum": 0,
@@ -2057,7 +2190,7 @@
           "label": "Battle limit",
           "summary": "Stop after this many battles. Zero means no limit.",
           "description": "Counts every battle the run starts, won or lost. On a surface with a limited attack budget the remaining count still applies on top of this.",
-          "default": 0,
+          "default": 1,
           "required": false,
           "engine_binding": "RunPlan.max_battles",
           "unit": "battles",
@@ -2175,6 +2308,7 @@
               "summary": "Ignore requests entirely.",
               "description": "Skips the clan chat step completely, which is also the fastest option between battles and the one least dependent on chat recognition.",
               "availability": "available",
+              "runtime_verified": false,
               "disabled_reason": "",
               "capability_ids": [],
               "prerequisites": [],
@@ -2187,6 +2321,7 @@
               "summary": "Donate when the request text matches.",
               "description": "Reads the request and donates only what was asked for. Depends on reading clan chat, which moved when Global Chat was added.",
               "availability": "gated",
+              "runtime_verified": false,
               "disabled_reason": "Clan chat recognition has not been captured since Global Chat.",
               "capability_ids": [
                 "chat.global-chat"
@@ -2203,6 +2338,7 @@
               "summary": "Fill any request with whatever is available.",
               "description": "Donates without matching the request. Fast, and reliably annoys clan mates who asked for something specific.",
               "availability": "gated",
+              "runtime_verified": false,
               "disabled_reason": "Clan chat recognition has not been captured since Global Chat.",
               "capability_ids": [
                 "chat.global-chat"
@@ -2223,7 +2359,9 @@
           "description": "Refuses any donation that would leave the army short. Worth keeping on, since donating the army away and then attacking with what is left wastes the attack.",
           "default": true,
           "required": false,
-          "engine_binding": "RunPlan.donate_keep_army"
+          "engine_binding": "RunPlan.donate_keep_army",
+          "native_fixed_value": true,
+          "native_fixed_reason": "The native planner always protects the attack army; allowing donations to consume it is not wired."
         },
         {
           "id": "donate.max_per_run",
@@ -2234,6 +2372,8 @@
           "default": 0,
           "required": false,
           "engine_binding": "RunPlan.donate_max_per_run",
+          "native_fixed_value": 0,
+          "native_fixed_reason": "Per-run donation accounting is not wired, so the limit must remain zero.",
           "unit": "donations",
           "validation": {
             "minimum": 0,
@@ -2279,6 +2419,8 @@
           "default": 0,
           "required": false,
           "engine_binding": "RunPlan.events_clan_games_point_cap",
+          "native_fixed_value": 0,
+          "native_fixed_reason": "Clan Games point accounting is not wired, so this cap must remain zero.",
           "unit": "points",
           "validation": {
             "minimum": 0,
@@ -2302,6 +2444,7 @@
               "summary": "Do not start research.",
               "description": "The run ignores the laboratory. Right setting while lab recognition is unconfirmed.",
               "availability": "available",
+              "runtime_verified": false,
               "disabled_reason": "",
               "capability_ids": [],
               "prerequisites": [],
@@ -2313,8 +2456,9 @@
               "label": "Cheapest available",
               "summary": "Always start the cheapest research.",
               "description": "Keeps the lab permanently busy at the lowest cost. Needs the lab screen read accurately, including the Town Hall 18 additions.",
-              "availability": "gated",
-              "disabled_reason": "Laboratory recognition has not been captured for the current client.",
+              "availability": "planned",
+              "runtime_verified": false,
+              "disabled_reason": "The native execution contract currently accepts only Laboratory off.",
               "capability_ids": [
                 "village.town-hall-18"
               ],
@@ -2330,6 +2474,7 @@
               "summary": "Work down a configured order.",
               "description": "Researches in the order you specify, skipping anything unaffordable. Needs both lab recognition and a stored priority list.",
               "availability": "planned",
+              "runtime_verified": false,
               "disabled_reason": "Priority lists are not implemented yet.",
               "capability_ids": [
                 "village.town-hall-18"
@@ -2348,7 +2493,7 @@
           "label": "Collect collectors",
           "summary": "Empty mines and collectors each pass.",
           "description": "Tapping collectors is low risk and adds up. It is skipped automatically when storages are already full, so it costs nothing to leave on.",
-          "default": true,
+          "default": false,
           "required": false,
           "engine_binding": "RunPlan.events_collect_resources"
         }
@@ -2377,6 +2522,7 @@
               "summary": "Collect resources and leave them alone.",
               "description": "The run does not spend anything. This is the right setting while you are confirming that a surface works at all.",
               "availability": "available",
+              "runtime_verified": false,
               "disabled_reason": "",
               "capability_ids": [],
               "prerequisites": [],
@@ -2389,6 +2535,7 @@
               "summary": "Spend surplus on wall upgrades.",
               "description": "Puts spare resources into walls, which is the least risky upgrade because it does not occupy a Builder.",
               "availability": "gated",
+              "runtime_verified": false,
               "disabled_reason": "Wall levels have not been re-confirmed for the current client.",
               "capability_ids": [
                 "village.town-hall-18"
@@ -2404,8 +2551,9 @@
               "label": "Suggested upgrades",
               "summary": "Follow the in-game suggested upgrade list.",
               "description": "Uses the game's own suggestions, which requires reading the upgrade menu as it currently appears.",
-              "availability": "gated",
-              "disabled_reason": "Upgrade menu recognition has not been captured.",
+              "availability": "planned",
+              "runtime_verified": false,
+              "disabled_reason": "The native execution contract has no suggested-upgrade adapter.",
               "capability_ids": [
                 "builder-base.additional-builder"
               ],
@@ -2421,6 +2569,7 @@
               "summary": "Walls, buildings, laboratory, and Heroes.",
               "description": "The full upgrade routine across every category. It depends on the six-Hero layout and the Town Hall 18 building set.",
               "availability": "planned",
+              "runtime_verified": false,
               "disabled_reason": "Not implemented against the current upgrade and Hero screens.",
               "capability_ids": [
                 "village.town-hall-18",
@@ -2443,6 +2592,8 @@
           "default": "",
           "required": false,
           "engine_binding": "AccountQueue.profile_ids",
+          "native_fixed_value": "",
+          "native_fixed_reason": "Planner-driven account rotation has no native adapter; the current inspected account is pinned for the run.",
           "empty_state": "No profiles queued. Stays on this profile.",
           "validation": {
             "max_items": 32
@@ -2493,6 +2644,7 @@
               "summary": "Write to the log and nowhere else.",
               "description": "No external service involved. The message lands in the log window and the JSONL event stream, which is enough when you are at the machine.",
               "availability": "available",
+              "runtime_verified": false,
               "disabled_reason": "",
               "capability_ids": [],
               "prerequisites": [],
@@ -2504,8 +2656,9 @@
               "label": "Telegram",
               "summary": "Send through the inherited Telegram integration.",
               "description": "Uses the Telegram bot token configured in the bot's own settings. Carried over from upstream and not re-tested against the current Telegram API.",
-              "availability": "gated",
-              "disabled_reason": "Inherited integration, not re-tested.",
+              "availability": "planned",
+              "runtime_verified": false,
+              "disabled_reason": "The native execution contract currently accepts only Bot log notifications.",
               "capability_ids": [],
               "prerequisites": [
                 "Telegram token configured in bot settings"
@@ -2519,6 +2672,7 @@
               "summary": "Raise a desktop notification.",
               "description": "A local desktop notification. Only useful if you are at the machine, in which case the log usually tells you more.",
               "availability": "planned",
+              "runtime_verified": false,
               "disabled_reason": "Not implemented.",
               "capability_ids": [],
               "prerequisites": [],
@@ -2548,7 +2702,7 @@
         },
         {
           "id": "run.diagnostic_note",
-          "type": "instance-select",
+          "type": "text",
           "label": "Diagnostic note",
           "summary": "Who is watching this run, recorded with the results.",
           "description": "Required before an unverified surface will start. It is written into the session so a log read later makes clear the run was being observed rather than left unattended.",

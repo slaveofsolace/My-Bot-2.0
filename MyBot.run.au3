@@ -34,6 +34,7 @@ Global $g_hFrmBot = 0 ; The main GUI window
 ; MBR includes
 #include "COCBot\MBR Global Variables.au3"
 #include "COCBot\functions\Config\DelayTimes.au3"
+#include "COCBot\functions\Run\RunVillageReadiness.au3"
 #include "COCBot\GUI\MBR GUI Design Splash.au3"
 #include "COCBot\functions\Config\ScreenCoordinates.au3"
 #include "COCBot\functions\Config\ImageDirectories.au3"
@@ -717,6 +718,14 @@ EndFunc   ;==>MainLoop
 Func runBot() ;Bot that runs everything in order
 	Local $iWaitTime
 
+	; A passive plan owns exactly the army already visible in game and exactly one attack attempt.
+	; Keep that bounded path out of FirstCheck and the generic maintenance loop entirely: both contain
+	; inherited building, upgrade, account-switch and village-zoom work that this plan did not authorize.
+	If RunExecutionPlanActive() And Not RunExecutionShouldManageTraining() Then
+		_RunExecutionRunCurrentArmyOneBattle()
+		Return
+	EndIf
+
 	InitiateSwitchAcc()
 	If ProfileSwitchAccountEnabled() And $g_bReMatchAcc Then
 		SetLog("Rematching Account [" & $g_iNextAccount + 1 & "] with Profile [" & GUICtrlRead($g_ahCmbProfile[$g_iNextAccount]) & "]")
@@ -726,6 +735,10 @@ Func runBot() ;Bot that runs everything in order
 	$g_bClanGamesCompleted = False
 
 	FirstCheck()
+	If Not $g_bRunState Then Return
+	; FirstCheck normally performs the per-account detection below. Donate-only profiles return early,
+	; so keep this second gate before PrepareDonateCC as a fail-closed account-switch backstop.
+	If Not _RunExecutionRequireOwnVillageReady() Then Return
 
 	While 1
 		If RunExecutionCheckStop() Then Return
@@ -940,6 +953,78 @@ Func runBot() ;Bot that runs everything in order
 	WEnd
 EndFunc   ;==>runBot
 
+Func _RunExecutionFailOwnVillageReadiness($sReason)
+	; A control Stop can arrive while a bounded screen or army proof is sleeping. In that case the
+	; requested cancellation is authoritative: do not relabel it as a village failure or replace the
+	; accepted Stop outcome before BotStop completes the normal cleanup path.
+	If $g_bRunControlStopRequested Then
+		SetDebugLog("Run Planner: pending Stop won the own-village readiness race")
+		Return False
+	EndIf
+
+	Local $sFailure = "Own-village readiness failed: " & $sReason
+	Local $sSurfaceId = ""
+	Local $sVerificationState = $RUN_VERIFICATION_DIAGNOSTIC
+	If IsObj($g_oRunExecutionIntent) Then
+		$sSurfaceId = String($g_oRunExecutionIntent.Item("surface_id"))
+		$sVerificationState = RunIntentVerificationState($g_oRunExecutionIntent)
+	EndIf
+
+	SetLog("Run Planner: " & $sFailure, $COLOR_ERROR)
+	RunEventLogRunFailed($sSurfaceId, $sVerificationState, $sFailure)
+	RunExecutionCancelPrepared($sFailure)
+	btnStop()
+	RunControlReportRunFailure($sFailure)
+	Return False
+EndFunc   ;==>_RunExecutionFailOwnVillageReadiness
+
+Func _RunExecutionRequireOwnVillageReady()
+	If Not RunExecutionPlanActive() Then Return True
+	Local $sReason = ""
+	Local $bTownHallCoordinatesRequired = Not RunExecutionSkipVillageZoomCalibration()
+	Local $bTownHallCoordinatesValid = True
+	If $bTownHallCoordinatesRequired Then $bTownHallCoordinatesValid = isInsideDiamond($g_aiTownHallPos)
+	Local $bTownHallIdentityVerified = RunVillageReadinessIdentityVerified($g_iTownHallLevel)
+	If RunVillageReadinessValidate($g_iTownHallLevel, $bTownHallCoordinatesValid, $g_iMaxTHLevel, $sReason, _
+			$bTownHallIdentityVerified, $bTownHallCoordinatesRequired) Then Return True
+	Return _RunExecutionFailOwnVillageReadiness($sReason)
+EndFunc   ;==>_RunExecutionRequireOwnVillageReady
+
+Func _RunExecutionRunCurrentArmyOneBattle()
+	SetDebugLog("Run Planner current-army mode: entering terminal one-battle path")
+	If Not _RunExecutionRequireOwnVillageReady() Then Return False
+
+	; Re-prove the current screen without legacy scenery calibration, then force the passive army
+	; inspection to publish a fresh result rather than accepting a value left by an earlier profile.
+	Local $bMainScreenReady = checkMainScreen(False)
+	If $g_bRunControlStopRequested Or Not $g_bRunState Then Return False
+	If Not $bMainScreenReady Then _
+		Return _RunExecutionFailOwnVillageReadiness("the current main screen could not be re-proven before army inspection")
+	$g_bFullArmy = False
+	$g_bIsFullArmywithHeroesAndSpells = False
+	$g_iCommandStop = -1
+	TrainSystem()
+	If Not $g_bRunState Then Return False
+	If Not $g_bIsFullArmywithHeroesAndSpells Then _
+		Return _RunExecutionFailOwnVillageReadiness("the current trained army is not ready; finish training it in game and retry")
+	If Not _RunExecutionRequireOwnVillageReady() Then Return False
+
+	SetLog("Run Planner: current trained army is ready; starting the single supervised battle", $COLOR_ACTION)
+	; The generic run loop normally clears this per-iteration restart latch before it attacks.
+	; Current-army mode deliberately bypasses that loop, so clear the inherited latch only after
+	; the main screen, Town Hall identity, and fresh army capacity have all been re-proven.
+	$g_bRestart = False
+	Local $bBattleCompleted = AttackMain(True)
+	If Not $g_bRunState Then Return False
+	If Not $bBattleCompleted Then _
+		Return _RunExecutionFailOwnVillageReadiness("the supervised attack path returned before a battle completed")
+	Local $bTerminalStop = RunExecutionCheckStop()
+	If Not $g_bRunState Then Return $bTerminalStop
+	If Not $bTerminalStop Then _
+		Return _RunExecutionFailOwnVillageReadiness("the single attack attempt returned without completing the planned battle")
+	Return True
+EndFunc   ;==>_RunExecutionRunCurrentArmyOneBattle
+
 Func Idle() ;Sequence that runs until Full Army
 	$g_bIdleState = True
 	Local $Result = _Idle()
@@ -1062,9 +1147,22 @@ Func _Idle() ;Sequence that runs until Full Army
 	WEnd
 EndFunc   ;==>_Idle
 
-Func AttackMain() ;Main control for attack functions
+Func AttackMain($bPlannerTerminalOneBattle = False) ;Main control for attack functions
 	If ProfileSwitchAccountEnabled() And $g_abDonateOnly[$g_iCurAccount] Then Return
 	ClearScreen()
+
+	; This one-shot already passed the planner's exact contract, fresh village identity check, and
+	; fresh army-capacity proof. Legacy profile schedules and maintenance must not close the game or
+	; divert the supervised terminal attempt.
+	If $bPlannerTerminalOneBattle Then
+		If Not (IsSearchModeActive($DB) Or IsSearchModeActive($LB)) Then
+			SetLog("Run Planner cannot attack: neither Regular search mode is active", $COLOR_ERROR)
+			Return False
+		EndIf
+		SetDebugLog("Run Planner current-army mode: bypassing inherited attack schedules and smart breaks")
+		Return _AttackMainExecuteRegularBattle()
+	EndIf
+
 	If IsSearchAttackEnabled() Then
 		If IsSearchModeActive($DB) Or IsSearchModeActive($LB) Then
 			If SmartPause() Then Return
@@ -1098,38 +1196,7 @@ Func AttackMain() ;Main control for attack functions
 				EndIf
 			WEnd
 
-			ClearScreen()
-			PrepareSearch()
-			If Not $g_bRunState Then Return
-			If $g_bOutOfGold Then Return ; Check flag for enough gold to search
-			If $g_bRestart Then
-				CleanSuperchargeTemplates()
-				Return
-			EndIf
-			VillageSearch()
-			If $g_bOutOfGold Then Return ; Check flag for enough gold to search
-			If Not $g_bRunState Then Return
-			If $g_bRestart Then
-				CleanSuperchargeTemplates()
-				Return
-			EndIf
-			PrepareAttack($g_iMatchMode)
-			If Not $g_bRunState Then Return
-			If $g_bRestart Then
-				CleanSuperchargeTemplates()
-				Return
-			EndIf
-			Attack()
-			If Not $g_bRunState Then Return
-			If $g_bRestart Then
-				CleanSuperchargeTemplates()
-				Return
-			EndIf
-			ReturnHome($g_bTakeLootSnapShot)
-			If Not $g_bRunState Then Return
-			If _Sleep($DELAYATTACKMAIN2) Then Return
-			CleanSuperchargeTemplates()
-			Return True
+			Return _AttackMainExecuteRegularBattle()
 		Else
 			SetLog("None of search condition match:", $COLOR_WARNING)
 			SetLog("Search, Trophy or Army Camp % are out of range in search setting", $COLOR_WARNING)
@@ -1145,6 +1212,65 @@ Func AttackMain() ;Main control for attack functions
 		HiddenSlotstatus()
 	EndIf
 EndFunc   ;==>AttackMain
+
+Func _AttackMainExecuteRegularBattle()
+	Local $iBattleTotalBefore = _RunExecutionBattleTotal()
+	ClearScreen()
+	PrepareSearch()
+	If Not $g_bRunState Then Return False
+	If $g_bOutOfGold Then Return False ; Check flag for enough gold to search
+	If $g_bRestart Then
+		CleanSuperchargeTemplates()
+		Return False
+	EndIf
+	VillageSearch()
+	If $g_bOutOfGold Then Return False ; Check flag for enough gold to search
+	If Not $g_bRunState Then Return False
+	If $g_bRestart Then
+		CleanSuperchargeTemplates()
+		Return False
+	EndIf
+	Local $iPreparedTroops = PrepareAttack($g_iMatchMode)
+	If Number($iPreparedTroops) <= 0 Then
+		SetLog("Attack bar could not be proven; surrendering without deploying anything", $COLOR_ERROR)
+		CloseBattle()
+		If Not $g_bRunState Then Return False
+		ReturnHome(False)
+		CleanSuperchargeTemplates()
+		Return False
+	EndIf
+	If Not $g_bRunState Then Return False
+	If $g_bRestart Then
+		CleanSuperchargeTemplates()
+		Return False
+	EndIf
+	Attack()
+	If Not $g_bRunState Then Return False
+	If $g_bRestart Then
+		CleanSuperchargeTemplates()
+		Return False
+	EndIf
+	If Not RunExecutionDeploymentVerified() Then
+		SetLog("Run Planner: troop deployment was not proven; surrendering the incomplete attempt", $COLOR_ERROR)
+		CloseBattle()
+		If Not $g_bRunState Then Return False
+		ReturnHome(False)
+		CleanSuperchargeTemplates()
+		Return False
+	EndIf
+	ReturnHome($g_bTakeLootSnapShot)
+	If Not $g_bRunState Then Return False
+	If _Sleep($DELAYATTACKMAIN2) Then Return False
+	; ReturnHome is not completion by itself. AttackReport is the inherited authoritative seam that
+	; commits the battle counter and emits battle.completed for a bound planner session.
+	If RunExecutionStandardDeploymentProofRequired() And _RunExecutionBattleTotal() <= $iBattleTotalBefore Then
+		SetLog("Run Planner: ReturnHome completed without an authoritative battle report", $COLOR_ERROR)
+		CleanSuperchargeTemplates()
+		Return False
+	EndIf
+	CleanSuperchargeTemplates()
+	Return True
+EndFunc   ;==>_AttackMainExecuteRegularBattle
 
 Func Attack() ;Selects which algorithm
 	$g_bAttackActive = True
@@ -1384,6 +1510,10 @@ Func FirstCheck()
 	EndIf
 	;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+	; A switched account gets its own detection result. Never let a planned run train or attack when
+	; that identity is unknown, stale, or outside the engine's supported Town Hall range.
+	If Not _RunExecutionRequireOwnVillageReady() Then Return
+
 	;Display Level TH in Stats
 	GUICtrlSetData($g_hLblTHLevels, "")
 	_GUI_Value_STATE("HIDE", $g_aGroupListTHLevels)
@@ -1417,7 +1547,6 @@ Func FirstCheck()
 		EndIf
 	EndIf
 	;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 	VillageReport()
 	If Not $g_bRunState Then Return
 
@@ -1451,7 +1580,7 @@ Func FirstCheck()
 		SetDebugLog("Are you ready? " & String($g_bIsFullArmywithHeroesAndSpells))
 		If $g_bIsFullArmywithHeroesAndSpells Then
 			; Just in case of new profile! or BotDetectFirstTime() failed on Initiate()
-			If Not isInsideDiamond($g_aiTownHallPos) Then BotDetectFirstTime()
+			If Not isInsideDiamond($g_aiTownHallPos) Then BotDetectFirstTime(RunExecutionPlanActive())
 			; Now the bot can attack
 			If $g_iCommandStop <> 0 And $g_iCommandStop <> 3 Then
 				SetLog("Before any other routine let's attack!", $COLOR_INFO)

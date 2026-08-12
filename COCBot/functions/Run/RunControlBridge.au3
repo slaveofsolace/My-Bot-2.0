@@ -169,6 +169,20 @@ Func RunControlReportStartOutcome($bStarted, $sMessage)
 	RunControlWriteStatus(True)
 EndFunc   ;==>RunControlReportStartOutcome
 
+Func RunControlReportRunFailure($sMessage)
+	$g_bRunControlStartInProgress = False
+	; Preserve an accepted Stop until BotStop publishes its terminal stopped outcome. A bounded
+	; recognition/readiness call may unwind after the Stop flag was latched, but that unwind is not
+	; a new run failure and must not overwrite the command acknowledgement.
+	If $g_bRunControlStopRequested Then
+		RunControlWriteStatus(True)
+		Return
+	EndIf
+	$g_sRunControlLastOutcome = "failed"
+	$g_sRunControlMessage = $sMessage
+	RunControlWriteStatus(True)
+EndFunc   ;==>RunControlReportRunFailure
+
 Func RunControlBeginStart()
 	$g_bRunControlStartInProgress = True
 	RunControlWriteStatus(True)

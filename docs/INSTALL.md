@@ -74,6 +74,12 @@ The launcher snaps the Mini GUI beside the selected exact BlueStacks top-level w
 both windows independent and does not embed, reparent, or rename BlueStacks. This external
 side-by-side placement is the supported docked layout.
 
+Use **MINIMIZE BOTH - BACKGROUND** on the companion strip to minimize the bound Mini controller and
+the exact BlueStacks instance together. Minimizing either member of the docked pair also minimizes
+the other; restoring either restores and re-docks both. The bot continues through verified ADB
+capture and input without requiring BlueStacks to take foreground focus. Command-line automation
+may use `/background` and `/foreground` for the same paired transition.
+
 Keep `My Bot 2.0.exe`, the exact pinned `MyBot.run.MiniGui.exe`, `MyBot.run.exe`,
 `MyBot.run.exe.config`, and the empty `MyBot.run.txt` compatibility marker together. The marker is
 required and must remain zero bytes. The Mini GUI and backend names and identities are retained
@@ -82,6 +88,13 @@ managed dependencies from `lib`.
 
 Closing the Mini GUI stops the native controller/backend pair. This independent downstream layout
 is not endorsed, sponsored, supported, or approved by the upstream MyBot.run project.
+
+If an owned AutoIt error or stale controller prevents a normal restart, run the installed launcher
+with `/recover` (or `/repair`) from an existing shortcut or deployment entry. The elevated launcher
+logs the full owned error text to `artifacts/launcher-recovery.log`, closes only dialogs whose process
+image is inside this installation, then closes only the exact-path Mini GUI, backend, and duplicate
+launcher processes. It never targets BlueStacks, Clash of Clans, Windows security prompts, or an
+unrelated AutoIt application. Re-run `My Bot 2.0.exe` normally after recovery completes.
 
 For development, the source entry point is:
 
@@ -191,6 +204,7 @@ either window.
 | Repeated unknown popup | Stop the run. Save the screenshot and log. Add the screen to the interruption inventory instead of adding a blind click. |
 | Settings behave unexpectedly | Reproduce with a fresh profile. Do not reuse an older INI until migration is implemented. |
 | Stop takes too long | Capture the current engine state and last action. A blocked input or unbounded retry must be fixed rather than hidden by force-closing. |
+| An AutoIt error dialog blocks restart | Preserve `artifacts/launcher-recovery.log`, then run `My Bot 2.0.exe /recover`. Recovery logs and closes only checkout-owned AutoIt errors and exact-path bot processes; it does not click through arbitrary Windows dialogs. |
 | Mini GUI opens but the backend closes or ImgLoc blocks the run | Confirm the exact pinned v8.2 Mini GUI and backend are unmodified, `MyBot.run.exe.config` is beside them, and `MyBot.run.txt` exists as a zero-byte file. Do not rename or patch the protected binaries. |
 | Start reports `Managed engine did not answer` | The x86 helper contained a mixed-mode DLL startup stall. Inspect Windows Security and `.NET Framework` health. Defender Operational events `5008` followed by `3002` indicate an engine/filter failure that must be repaired before retrying; restart My Bot 2.0 afterward. Do not disable Defender or add a broad exclusion. |
 | Antivirus warning | Build from reviewed source. Verify any native DLL or inherited executable independently. Do not disable endpoint protection as an installation step. |

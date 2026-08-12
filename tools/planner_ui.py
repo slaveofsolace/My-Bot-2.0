@@ -50,11 +50,13 @@ UI_FAVICON = ROOT / "ui/favicon.svg"
 
 PLAN_PATH = ROOT / "config/run-plan.local.json"
 EVENTS_PATH = ROOT / "logs/run-events.jsonl"
+PROFILES_ROOT = ROOT / "Profiles"
 CONTROL_COMMAND_PATH = ROOT / "config/control-command.local.json"
 CONTROL_STATUS_PATH = ROOT / "config/control-status.local.json"
 
 MAX_REQUEST_BYTES = 256 * 1024
 MAX_TAIL_BYTES = 512 * 1024
+MAX_NATIVE_LOG_LINES = 600
 CONTROL_STATUS_MAX_AGE_SECONDS = 4.0
 CONTROL_STATUS_BUSY_MAX_AGE_SECONDS = 45.0
 CONTROL_STATUS_READ_RETRY_SECONDS = 0.02
@@ -204,6 +206,88 @@ def validate_plan(submitted: dict) -> tuple[dict, list[str], list[str]]:
     for key, setting in known.items():
         clean.setdefault(key, normalized_default(setting))
     return clean, adjustments, rejected
+
+
+def engine_preflight(plan: dict) -> list[str]:
+    """Mirror the native RunExecutionContract rules that can be decided before Start.
+
+    The browser is allowed to save only plans the native adapter can represent exactly. Runtime
+    readiness and diagnostic authorization remain Start-time checks, but known no-op/unsupported
+    values must fail here instead of being advertised as an applied plan.
+    """
+    problems: list[str] = []
+    settings = settings_index()
+
+    for setting_id, setting in settings.items():
+        if setting.get("type") != "select":
+            continue
+        selected = plan.get(setting_id)
+        option = next((item for item in setting.get("options", []) if item.get("value") == selected), None)
+        if option and option.get("availability") in {"planned", "unsupported"}:
+            problems.append(f"{setting_id}: {option.get('label', selected)} is not implemented by the native engine")
+
+    surface = str(plan.get("run.surface", "")).strip().lower()
+    strategy = str(plan.get("run.strategy", "")).strip().lower()
+    script = str(plan.get("run.attack_script", "")).strip()
+    if surface != "regular":
+        problems.append("run.surface: the native engine is currently wired only to Regular Battles")
+    if strategy not in {"legacy.csv", "legacy.standard", "smart.local"}:
+        problems.append(f"run.strategy: {strategy or 'blank'} has no native execution adapter")
+    if strategy != "legacy.csv" and script.lower() != "profile-current":
+        problems.append("run.attack_script: a named CSV requires the Scripted strategy")
+
+    if str(plan.get("army.source", "")).strip().lower() != "recipe" or str(plan.get("army.recipe_name", "")).strip():
+        problems.append("army: named recipes and non-profile army sources are not wired; use the active profile army")
+
+    manages_training = bool(plan.get("army.manage_training"))
+    if not manages_training:
+        if int(plan.get("run.max_battles", 0)) != 1:
+            problems.append("run.max_battles: current trained army mode requires exactly one battle")
+        if not bool(plan.get("army.wait_for_full")):
+            problems.append("army.wait_for_full: current trained army mode requires a fresh full-army check")
+        if str(plan.get("donate.mode", "")).strip().lower() != "off":
+            problems.append("donate.mode: donations must be off for the one-shot current army")
+        if bool(plan.get("donate.request_when_short")):
+            problems.append("donate.request_when_short: current-army mode cannot request troops")
+        if bool(plan.get("events.clan_games")) or bool(plan.get("events.collect_resources")):
+            problems.append("events: current-army mode cannot run Clan Games or collector clicks before battle")
+        if str(plan.get("events.laboratory", "")).strip().lower() != "off":
+            problems.append("events.laboratory: current-army mode requires Laboratory off")
+        if str(plan.get("upgrade.policy", "")).strip().lower() != "disabled":
+            problems.append("upgrade.policy: current-army mode requires upgrades disabled")
+
+    if int(plan.get("pacing.retry_attempts", 0)) != 0:
+        problems.append("pacing.retry_attempts: visual-change retries are not wired; use 0")
+    if int(plan.get("search.max_seconds", 0)) != 0:
+        problems.append("search.max_seconds: bounded search exit is not wired; use 0")
+    if str(plan.get("search.town_hall_filter", "")).strip().lower() != "any":
+        problems.append("search.town_hall_filter: only Any Town Hall is wired")
+    if "dragon-duke" in plan.get("run.heroes", []):
+        problems.append("run.heroes: Dragon Duke is not present in the inherited deployment engine")
+
+    emulator = str(plan.get("runtime.emulator", "")).strip().lower()
+    instance = str(plan.get("runtime.instance", "")).strip()
+    if emulator == "auto" and instance:
+        problems.append("runtime.instance: choose a specific emulator before selecting an instance")
+    if emulator == "bluestacks5" and not instance:
+        problems.append("runtime.instance: choose the exact BlueStacks 5 instance")
+
+    if not bool(plan.get("donate.keep_army")):
+        problems.append("donate.keep_army: the native planner requires attack-army protection")
+    if int(plan.get("donate.max_per_run", 0)) != 0:
+        problems.append("donate.max_per_run: per-run donation limits are not wired; use 0")
+    if int(plan.get("events.clan_games_point_cap", 0)) != 0:
+        problems.append("events.clan_games_point_cap: the point cap is not wired; use 0")
+    if str(plan.get("events.laboratory", "")).strip().lower() != "off":
+        problems.append("events.laboratory: planner-driven research is not wired; use Off")
+    if str(plan.get("upgrade.policy", "")).strip().lower() not in {"disabled", "walls"}:
+        problems.append("upgrade.policy: only Disabled or Walls has a native adapter")
+    if str(plan.get("account.queue", "")).strip():
+        problems.append("account.queue: planner account rotation is not wired")
+    if str(plan.get("notify.channel", "")).strip().lower() != "log-only":
+        problems.append("notify.channel: only Bot log notifications are wired")
+
+    return list(dict.fromkeys(problems))
 
 
 def read_plan() -> dict:
@@ -393,6 +477,87 @@ def health_payload() -> dict:
     }
 
 
+def native_log_path(profile: str) -> Path | None:
+    """Return only the latest normal bot log for the active, path-safe profile."""
+    if not isinstance(profile, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9 _.-]{0,63}", profile):
+        return None
+    if profile in {".", ".."}:
+        return None
+    root = PROFILES_ROOT.resolve()
+    log_dir = (PROFILES_ROOT / profile / "Logs").resolve()
+    try:
+        log_dir.relative_to(root)
+    except ValueError:
+        return None
+    try:
+        candidates = []
+        for path in log_dir.iterdir():
+            if not path.is_file() or not re.fullmatch(r"\d{4}-\d{2}-\d{2}_\d{2}\.\d{2}\.\d{2}\.log", path.name):
+                continue
+            try:
+                candidates.append((path.stat().st_mtime_ns, path))
+            except OSError:
+                continue
+    except OSError:
+        return None
+    return max(candidates, default=(0, None))[1]
+
+
+def read_native_log_tail(path: Path) -> tuple[str, bool]:
+    """Read a bounded text tail without returning a partial first line or control characters."""
+    try:
+        size = path.stat().st_size
+        with path.open("rb") as stream:
+            start = max(0, size - MAX_TAIL_BYTES)
+            stream.seek(start)
+            raw = stream.read(MAX_TAIL_BYTES)
+    except OSError:
+        return "", False
+    text = raw.decode("utf-8-sig", errors="replace")
+    if start:
+        split = text.split("\n", 1)
+        text = split[1] if len(split) == 2 else ""
+    all_lines = text.splitlines()
+    lines = all_lines[-MAX_NATIVE_LOG_LINES:]
+    clean = "\n".join("".join(char for char in line if char == "\t" or ord(char) >= 32) for line in lines)
+    return clean, start > 0 or len(all_lines) > MAX_NATIVE_LOG_LINES
+
+
+def native_log_payload() -> dict:
+    status = control_status()
+    profile = status.get("profile", "")
+    path = native_log_path(profile)
+    if path is None:
+        return {
+            "available": False,
+            "profile": profile if isinstance(profile, str) else "",
+            "path": None,
+            "modified_at": None,
+            "size_bytes": 0,
+            "truncated": False,
+            "text": "",
+            "message": "No native log is available for the active profile yet.",
+        }
+    text, truncated = read_native_log_tail(path)
+    try:
+        stat = path.stat()
+    except OSError:
+        return {
+            "available": False, "profile": profile, "path": None, "modified_at": None,
+            "size_bytes": 0, "truncated": False, "text": "", "message": "The native log could not be read.",
+        }
+    return {
+        "available": True,
+        "profile": profile,
+        "path": displayed_path(path),
+        "modified_at": datetime.fromtimestamp(stat.st_mtime, timezone.utc).isoformat(),
+        "size_bytes": stat.st_size,
+        "truncated": truncated,
+        "text": text,
+        "message": "Showing the newest bounded log tail from this local profile.",
+    }
+
+
 def redact_diagnostic_text(value, limit: int = 800):
     """Keep useful operator text while removing common credential and user-path shapes."""
     if not isinstance(value, str):
@@ -431,16 +596,19 @@ def diagnostics_payload() -> dict:
         "exact_setting_set": False,
         "adjustment_count": 0,
         "rejected_setting_count": 0,
+        "engine_preflight_count": 0,
         "valid": False,
     }
     if isinstance(raw_plan, dict):
-        _, adjustments, rejected = validate_plan(raw_plan)
+        normalized, adjustments, rejected = validate_plan(raw_plan)
+        preflight = engine_preflight(normalized)
         exact = set(raw_plan) == known_settings
         plan_validation.update(
             exact_setting_set=exact,
             adjustment_count=len(adjustments),
             rejected_setting_count=len(rejected),
-            valid=exact and not adjustments and not rejected,
+            engine_preflight_count=len(preflight),
+            valid=exact and not adjustments and not rejected and not preflight,
         )
 
     engine = {
@@ -550,6 +718,18 @@ class Handler(BaseHTTPRequestHandler):
             self._json(read_plan())
         elif self.path == "/api/events":
             self._json({"events": tail_events()})
+        elif self.path == "/api/log":
+            self._json(native_log_payload())
+        elif self.path == "/api/log/download":
+            payload = native_log_payload()
+            if not payload["available"]:
+                self._send(404, payload["message"].encode("utf-8"), "text/plain; charset=utf-8")
+                return
+            stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+            body = (payload["text"] + "\n").encode("utf-8")
+            self._send(200, body, "text/plain; charset=utf-8", {
+                "Content-Disposition": f'attachment; filename="my-bot-native-log-{stamp}.txt"'
+            })
         elif self.path == "/api/control/status":
             self._json(control_status())
         elif self.path == "/api/diagnostics":
@@ -604,6 +784,11 @@ class Handler(BaseHTTPRequestHandler):
             self._json({"ok": False, "problems": rejected, "written": None}, 400)
             return
 
+        preflight = engine_preflight(clean)
+        if preflight:
+            self._json({"ok": False, "problems": preflight, "written": None, "plan": clean}, 422)
+            return
+
         try:
             write_plan_atomic(clean)
         except OSError:
@@ -636,6 +821,7 @@ def selftest() -> int:
     check(set(plan) == setting_ids, "default plan covers every setting exactly")
     check(isinstance(plan["run.heroes"], list), "multi-select defaults use a stable list shape")
     check(plan.get("run.attack_script") == "profile-current", "the default preserves the active profile script")
+    check(not engine_preflight(plan), "the default plan is accepted by the native execution contract")
 
     preset_contract = metadata_document().get("presets", {})
     presets = preset_contract.get("items", [])
@@ -647,14 +833,33 @@ def selftest() -> int:
     )
     for preset in presets:
         values = preset.get("values", {})
+        preset_id = preset.get("id", "unknown")
+        owned = setting_ids - preserved
+        check(set(values) == owned, f"{preset_id} owns every non-preserved setting exactly")
+        check("run.heroes" in values and isinstance(values["run.heroes"], list), f"{preset_id} carries an explicit Hero loadout")
+        operator_values = {
+            "runtime.emulator": "bluestacks5",
+            "runtime.instance": "Pie64",
+            "run.diagnostic_mode": True,
+            "run.diagnostic_note": "operator acknowledgement",
+        }
+        loaded = dict(plan)
+        loaded.update(operator_values)
+        loaded.update(values)
+        check(
+            all(loaded[key] == values[key] for key in owned)
+            and all(loaded[key] == value for key, value in operator_values.items()),
+            f"{preset_id} replaces all preset fields while preserving operator-owned fields",
+        )
         candidate = dict(plan)
         candidate.update(values)
         clean_preset, adjusted_preset, rejected_preset = validate_plan(candidate)
         check(
             not adjusted_preset and not rejected_preset and clean_preset == candidate,
-            f"{preset.get('id', 'unknown')} is already normalized",
+            f"{preset_id} is already normalized",
         )
-        check(not (set(values) & preserved), f"{preset.get('id', 'unknown')} does not overwrite preserved settings")
+        check(not engine_preflight(candidate), f"{preset_id} passes the native execution preflight")
+        check(not (set(values) & preserved), f"{preset_id} does not overwrite preserved settings")
 
     clean, adjustments, rejected = validate_plan({"run.max_failures": 9999})
     check(clean["run.max_failures"] == 100 and any("clamped" in item for item in adjustments), "integer maximum is enforced")
@@ -667,6 +872,16 @@ def selftest() -> int:
         check(clean["run.diagnostic_mode"] is False and bool(adjustments), f"ambiguous boolean {ambiguous!r} is rejected")
     clean, adjustments, rejected = validate_plan({"run.heroes": ["barbarian-king", "archer-queen", "minion-prince", "grand-warden", "royal-champion"]})
     check(len(clean["run.heroes"]) == 4 and any("only 4" in item for item in adjustments), "Hero selection is capped at four")
+    for setting_id, value in (
+        ("run.surface", "builder"),
+        ("run.strategy", "legacy.smart-farm"),
+        ("search.max_seconds", 15),
+        ("pacing.retry_attempts", 1),
+        ("notify.channel", "telegram"),
+    ):
+        impossible = dict(plan)
+        impossible[setting_id] = value
+        check(bool(engine_preflight(impossible)), f"native preflight refuses unwired {setting_id}={value}")
 
     # Strict rejection: unknown settings are never silently dropped.
     clean, adjustments, rejected = validate_plan({"run.not_a_real_setting": 1})
@@ -807,6 +1022,15 @@ def selftest() -> int:
             response = connection.getresponse()
             payload = json.loads(response.read())
             check(response.status == 200 and payload["ok"] and set(payload["plan"]) == setting_ids, "valid partial plan is normalized and written")
+
+            saved_before_refusal = PLAN_PATH.read_bytes()
+            connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
+            body = json.dumps({"search.max_seconds": 15}).encode()
+            connection.request("POST", "/api/plan", body=body, headers={"Content-Type": "application/json"})
+            response = connection.getresponse()
+            payload = json.loads(response.read())
+            check(response.status == 422 and payload["ok"] is False, "engine-incompatible plan is refused before save")
+            check(PLAN_PATH.read_bytes() == saved_before_refusal, "engine preflight refusal preserves the previous plan")
 
             connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
             body = json.dumps({"action": "start"}).encode()

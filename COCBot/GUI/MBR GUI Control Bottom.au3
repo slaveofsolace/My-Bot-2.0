@@ -72,6 +72,38 @@ Func Initiate(ByRef $sStartError)
 			Return False
 		EndIf
 
+		; A planned session is not "started" until the inherited detector has established which own
+		; village it would automate. Legacy profile starts retain their existing sequence below.
+		Local $bPlannedVillagePreflight = RunExecutionSessionId() <> ""
+		If $bPlannedVillagePreflight Then
+			If Not RunExecutionSkipVillageZoomCalibration() Then
+				ZoomOut()
+				If Not $g_bRunState Then
+					$sStartError = "Start cancelled during own-village preflight"
+					Return False
+				EndIf
+			EndIf
+
+			BotDetectFirstTime(True)
+			If Not $g_bRunState Then
+				$sStartError = "Start cancelled during own-village detection"
+				Return False
+			EndIf
+
+			Local $sVillageReason = ""
+			Local $bTownHallCoordinatesRequired = Not RunExecutionSkipVillageZoomCalibration()
+			Local $bTownHallCoordinatesValid = True
+			If $bTownHallCoordinatesRequired Then $bTownHallCoordinatesValid = isInsideDiamond($g_aiTownHallPos)
+			Local $bTownHallIdentityVerified = RunVillageReadinessIdentityVerified($g_iTownHallLevel)
+			If Not RunVillageReadinessValidate($g_iTownHallLevel, $bTownHallCoordinatesValid, $g_iMaxTHLevel, $sVillageReason, _
+					$bTownHallIdentityVerified, $bTownHallCoordinatesRequired) Then
+				$sStartError = "Own-village preflight rejected: " & $sVillageReason
+				SetLog("Run Planner cannot start: " & $sStartError, $COLOR_ERROR)
+				RunEventLogPlanBlocked("", $sStartError)
+				Return False
+			EndIf
+		EndIf
+
 		AndroidBotStartEvent() ; signal android only after the CoC main screen is ready
 		If Not $g_bRunState Then
 			$sStartError = "Start cancelled during Android initialization"
@@ -97,12 +129,16 @@ Func Initiate(ByRef $sStartError)
 		EndIf
 		If Not $g_bRunState Then Return True
 
-		ZoomOut()
-		If Not $g_bRunState Then Return True
+		If Not $bPlannedVillagePreflight Then
+			ZoomOut()
+			If Not $g_bRunState Then Return True
+		EndIf
 
 		If Not $g_bSearchMode Then
-			BotDetectFirstTime()
-			If Not $g_bRunState Then Return True
+			If Not $bPlannedVillagePreflight Then
+				BotDetectFirstTime()
+				If Not $g_bRunState Then Return True
+			EndIf
 
 			If $g_bCheckGameLanguage Then TestLanguage()
 			If Not $g_bRunState Then Return True

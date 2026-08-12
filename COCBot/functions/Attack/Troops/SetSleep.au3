@@ -25,8 +25,10 @@ Func SetSleep($iType)
 
 	Switch $iType
 		Case 0
+			If RunExecutionSmartAttackEnabled() And RunPacingIsActive() Then Return 50
 			Return Round(Random(1, 10)) * $iFactorZero
 		Case 1
+			If RunExecutionSmartAttackEnabled() And RunPacingIsActive() Then Return 500
 			Return Round(Random(1, 10)) * $iFactorOne
 	EndSwitch
 EndFunc   ;==>SetSleep

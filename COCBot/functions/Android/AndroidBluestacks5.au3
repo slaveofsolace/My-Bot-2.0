@@ -96,6 +96,20 @@ Func GetBlueStacks5ModernAdbSurfacePosition()
 	Return $aSurface
 EndFunc   ;==>GetBlueStacks5ModernAdbSurfacePosition
 
+; Map desktop mouse input to the actual game viewport. Current BlueStacks Qt shells can include a
+; title bar, toolbar, and advertisement rail, and can scale the configured ADB framebuffer. The one
+; exact BlueStacksApp descendant is the render surface; require its process, visibility, containment,
+; and aspect ratio to match before returning screen coordinates. Never infer a viewport from the
+; top-level shell dimensions because that can silently select the wrong building.
+Func GetBlueStacks5ModernManualViewportPosition()
+	Local $aSurface = GetBlueStacks5ModernAdbSurfacePosition()
+	If Not IsArray($aSurface) Then Return 0
+	Local $hWindow = GetCurrentAndroidHWnD()
+	Local $aViewport = ManualViewportFindBlueStacks5Surface($hWindow, $g_iAndroidClientWidth, $g_iAndroidClientHeight)
+	If Not IsArray($aViewport) Then SetDebugLog("BlueStacks5 manual viewport rejected: no unique proven BlueStacksApp surface", $COLOR_ERROR)
+	Return $aViewport
+EndFunc   ;==>GetBlueStacks5ModernManualViewportPosition
+
 Func OpenBlueStacks5($bRestart = False)
 	SetLog("Starting BlueStacks and Clash Of Clans", $COLOR_SUCCESS)
 	If Not InitAndroid() Then Return False
@@ -357,12 +371,22 @@ Func CheckScreenBlueStacks5($bSetLog = True)
 			'"732"', _
 			'"BlueStacks5']
 
+	; BlueStacks 5.22's Qt presentation window can legitimately report a gl_win_height
+	; smaller than the ADB framebuffer (730 for the verified 860x732 Pie64 surface).
+	; Once the strict modern ADB surface contract is proven, gl_win_height is not an
+	; input or capture dimension and must not trigger a destructive emulator reboot.
+	Local $bModernAdbSurface = IsArray(GetBlueStacks5ModernAdbSurfacePosition())
 	Local $bAdbAccessConfigured = False
 	Local $abSettingFound[UBound($aiSearch)]
+	If $bModernAdbSurface Then
+		$abSettingFound[3] = True
+		SetDebugLog("Modern BlueStacks5 ADB framebuffer verified; ignoring Qt gl_win_height")
+	EndIf
 	For $i = 0 To $iLineCount - 1
 		If StringInStr($__Bluestacks5Conf[$i], "bst.enable_adb_access") Then _
 				$bAdbAccessConfigured = StringInStr($__Bluestacks5Conf[$i], '="1"') > 0
 		For $iSearch = 0 To UBound($aiSearch) - 1
+			If $bModernAdbSurface And $iSearch = 3 Then ContinueLoop
 			If StringInStr($__Bluestacks5Conf[$i], $aiSearch[$iSearch]) Then
 				$abSettingFound[$iSearch] = True
 				SetDebugLog($__Bluestacks5Conf[$i])
@@ -514,6 +538,16 @@ Func CloseBlueStacks5()
 
 	If Not CloseUnsupportedBlueStacksX(False) Then
 		; BlueStacks 5 supports multiple instance
+		; Current BlueStacks 5 instances run in HD-Player.exe. Match both the exact
+		; executable path and quoted --instance argument before terminating it so a
+		; frozen modern Qt shell can be restarted without touching another account.
+		Local $iPlayerPid = ProcessExists2($__BlueStacks_Path & "HD-Player.exe", GetBlueStacks5ProgramParameter(), 1, 1)
+		If $iPlayerPid Then
+			ShellExecute(@WindowsDir & "\System32\taskkill.exe", " -f -t -pid " & $iPlayerPid, "", Default, @SW_HIDE)
+			If _Sleep(1000) Then Return ; Give OS time to work
+		EndIf
+
+		; Keep inherited service/frontend fallbacks for older BlueStacks 5 layouts.
 		Local $aFiles = ["HD-Frontend.exe", "HD-Plus-Service.exe", "HD-Service.exe"]
 
 		Local $bError = False
@@ -525,6 +559,7 @@ Func CloseBlueStacks5()
 				If _Sleep(1000) Then Return ; Give OS time to work
 			EndIf
 		Next
+		If $iPlayerPid And ProcessExists($iPlayerPid) Then SetLog($g_sAndroidEmulator & " failed to kill HD-Player.exe for instance " & $g_sAndroidInstance, $COLOR_ERROR)
 		If _Sleep(1000) Then Return ; Give OS time to work
 		For $sFile In $aFiles
 			Local $PID

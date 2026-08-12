@@ -132,9 +132,10 @@ surface or changing a disabled reason is a catalog edit. CI validates the metada
 catalogs, so the planner cannot quietly drift away from the engine.
 
 The Control Center also offers TH2-TH18 compatibility presets. A preset is only a reviewed starting
-point: select it to see the exact script, Heroes, limits, and evidence note, then press **Apply
-preset** to load the visible form. It does not save or start anything. The active profile still owns
-the trained army, and the preview says when a bundled script requires that army to match.
+point: selecting it immediately loads the exact script, Heroes, limits, and every other preset-owned
+field into the visible form. It does not save or start anything until **Apply plan** is pressed. The
+active profile still owns the trained army, and the preview says when a bundled script requires that
+army to match.
 
 </details>
 
@@ -150,11 +151,14 @@ the trained army, and the preview says when a bundled script requires that army 
 | Windows compile — Au3Check, both AutoIt versions | Green |
 | Game model through July 2026 | Catalogued from official sources |
 | LDPlayer 9 and MuMu Player 12 adapters | Written, **never run on real hardware** |
-| Screen recognition for the current client | **Not started** — needs captures |
-| Attack execution on any surface | **Not demonstrated** |
+| Screen recognition for the current client | Regular Battle TH17 path proven; the broader fixture catalog is still incomplete |
+| Attack execution | Standard completed one supervised TH17 battle; Smart troop/Hero deployment was observed, while its new ability and spell policy still needs a fresh supervised battle |
 
-**The honest summary:** everything that can be verified without a running game has been. Everything
-that needs a running game has not, and cannot be from CI.
+**The honest summary:** the bounded Standard Regular Battle path has live TH17 evidence for zoom,
+red-line geometry, troop and Hero deployment, battle accounting, Return Home, and automatic stop.
+The earlier Smart battle used a different opponent and did not use Hero abilities or spells, so it is
+deployment evidence, not an A/B result or proof that the policy improves outcomes. Other surfaces and
+most recognition fixtures remain unverified; CI does not substitute for those runs.
 
 ---
 
@@ -302,14 +306,16 @@ The **Run Planner** is the last tab in the main window. Thirteen focused section
 | **Between battles** | Supported upgrade policy and account-rotation settings |
 | **Diagnostics** | Whether unverified surfaces are allowed to run |
 
-Above those sections, the Town Hall dropdown covers TH2 through TH18 and always opens on **Custom**.
+Above those sections, the Town Hall dropdown covers TH2 through TH18. A saved plan that exactly
+matches a preset reopens with that preset identified; otherwise it shows **Custom plan — your settings**
+and lists the exact selected Heroes at the top.
 TH6-TH15 recommendations use shipped scripts only where the script declares that Town Hall. Levels
 without a declared script use the engine's Standard deployment and retain the active profile army;
 they are compatibility fallbacks, not claims about the current attack meta. A scripted preset selects
 deployment only: it does not import the CSV training table, so the active profile army must match.
-Fallbacks preserve the visible Hero selection. Selecting a preset only updates the preview. **Apply
-preset** loads an unsaved plan, and **Apply plan** is still required to write it. Emulator selection
-and diagnostic consent are never supplied by a preset.
+Fallbacks explicitly select a four-Hero loadout instead of inheriting a stale manual choice. Selecting
+a preset loads a complete unsaved plan, and **Apply plan** is still required to write it. Emulator
+selection and diagnostic consent are never supplied by a preset.
 
 Set what you want, press **Apply plan**, and you get one of three answers:
 
@@ -402,7 +408,8 @@ Everything in `tools/` is standard-library Python 3.11+, so it runs anywhere:
 | `python tools/repo_audit.py` | Required files, include resolution, secret patterns, upstream pins, binary provenance and hashes |
 | `python tools/validate_game_catalog.py` | Game catalogs against their schemas |
 | `python tools/validate_ui_metadata.py` | Planner metadata against the game catalogs |
-| `python tools/check_town_hall_presets.py` | TH2-TH18 coverage, source-backed script choices, Hero gates, and explicit two-step apply |
+| `python tools/check_town_hall_presets.py` | TH2-TH18 coverage, source-backed script choices, complete Hero gates, selection-time loading, and explicit save separation |
+| `powershell -File tools/run_supervised_battle_acceptance.ps1 -AuthorizeOneBattle` | One explicitly authorized Smart battle; exact zoom and troop depletion, deterministic side/start events, one issued ability per selected Hero, proven Rage and Freeze inventory decreases, internal one-battle stop, preserved plan/process identity, and operator-visible confirmation |
 | `python tools/verify_current_game_model.py` | That the generated catalog is actually wired into the runtime |
 | `python tools/generate_game_catalog_autoit.py --check` | Generated catalog drift |
 | `python tools/generate_run_planner_autoit.py --check` | Generated planner drift |
@@ -447,6 +454,14 @@ chat text and account identifiers redacted before committing.
 
 Until these exist there is no way to build recognition templates, and no way to move any surface
 from unverified to verified.
+
+Regular Battle with Standard deployment has bounded TH17 live proof. A separate Smart run used the
+current trained army, accepted three inherited pinch gestures, proved 132 deployable red-line points,
+deployed all four selected Heroes, reduced 23 deployable troops to zero, returned home, and stopped on
+the one-battle limit. It did not activate Hero abilities or cast spells, and it attacked a different
+base than the Standard run. The replacement deterministic ability/spell policy therefore remains
+diagnostic until a fresh supervised run records its issued and confirmed actions. This does not verify
+other battle surfaces, every Town Hall policy, CSV scripts, or the still-missing fixture matrix.
 
 </details>
 

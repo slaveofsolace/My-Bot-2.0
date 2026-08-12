@@ -32,8 +32,16 @@ Func ChangeLanguage()
 	If IsMainPage() Then Click($aButtonSetting[0], $aButtonSetting[1], 1, 120, "Click Setting")
 	If _Sleep(500) Then Return False
 
-	For $i = 0 To 20 ; Checking Green Language Button continuously in 20sec
-		If _ColorCheck(_GetPixelColor($aButtonLanguage[0], $aButtonLanguage[1], True), Hex($aButtonLanguage[2], 6), $aButtonLanguage[3]) Then ;	Green
+	For $i = 0 To 20 ; Check the current-language label or the green Language button for up to 20 seconds.
+		_CaptureRegion()
+		If _IsSettingsLanguageEnglish(False) Then
+			SetLog("Settings explicitly reports English: Correct.", $COLOR_INFO)
+			Click(786, 79 + $g_iMidOffsetY, 1, 300, "Close Settings")
+			If _Sleep(300) Then Return False
+			Return IsMainPage()
+		EndIf
+
+		If _ColorCheck(_GetPixelColor($aButtonLanguageCheck[0], $aButtonLanguageCheck[1], False), Hex($aButtonLanguageCheck[2], 6), $aButtonLanguageCheck[3]) Then ; Green
 			Click($aButtonLanguage[0], $aButtonLanguage[1], 1, 1000) ; Click Language Button
 			SetLog("   1. Click Language Button")
 			If _Sleep(200) Then Return False
@@ -45,16 +53,10 @@ Func ChangeLanguage()
 
 	For $i = 0 To 20 ; Checking Language List continuously in 20sec
 		If _ColorCheck(_GetPixelColor($aListLanguage[0], $aListLanguage[1], True), Hex($aListLanguage[2], 6), $aListLanguage[3]) Then ;	Green
-			ClickDrag(Random(370, 375, 1), Random(170, 175, 1), Random(370, 375, 1), Random(590, 595, 1), 200)
-			If _Sleep(200) Then Return False
-			ClickDrag(Random(370, 375, 1), Random(170, 175, 1), Random(370, 375, 1), Random(380, 385, 1), 200)
-			If _Sleep(900) Then Return False
-			If _ColorCheck(_GetPixelColor($aEnglishLanguage[0], $aEnglishLanguage[1], True), Hex($aEnglishLanguage[2], 6), $aEnglishLanguage[3]) Then ;	Grey
-				Click($aEnglishLanguage[0], $aEnglishLanguage[1], 1, 1000) ; Click Language Button
-				SetLog("   2. Click English Language")
-				If _Sleep(300) Then Return False
-				ExitLoop
-			EndIf
+			Click($aEnglishLanguage[0], $aEnglishLanguage[1], 1, 1000) ; English is the first fixed row in the current client.
+			SetLog("   2. Click English Language")
+			If _Sleep(300) Then Return False
+			ExitLoop
 		EndIf
 		If $i = 20 Then Return False
 		If _Sleep(900) Then Return False
@@ -75,3 +77,28 @@ Func ChangeLanguage()
 
 	Return False
 EndFunc   ;==>ChangeLanguage
+
+; Prove the current 860x732 Settings label says "English".  The green-button
+; checks establish the correct control; the light/dark samples establish the
+; word itself.  This is a bounded compatibility fallback for the legacy Attack
+; OCR and must stay fail-closed when the current-client signature is absent.
+Func _IsSettingsLanguageEnglish($bNeedCapture = True)
+	If $bNeedCapture Then _CaptureRegion()
+
+	Local $bLanguageButton = _
+			_ColorCheck(_GetPixelColor(360, 372 + $g_iMidOffsetY, False), Hex(0xA9D556, 6), 30) And _
+			_ColorCheck(_GetPixelColor(360, 382 + $g_iMidOffsetY, False), Hex(0x70B52B, 6), 30)
+	If Not $bLanguageButton Then Return False
+
+	Local $bEnglishLight = _
+			_ColorCheck(_GetPixelColor(400, 364 + $g_iMidOffsetY, False), Hex(0xEDEEE9, 6), 25) And _
+			_ColorCheck(_GetPixelColor(419, 368 + $g_iMidOffsetY, False), Hex(0xE8EAE2, 6), 25) And _
+			_ColorCheck(_GetPixelColor(443, 372 + $g_iMidOffsetY, False), Hex(0xEDEEEA, 6), 25) And _
+			_ColorCheck(_GetPixelColor(423, 375 + $g_iMidOffsetY, False), Hex(0xEDEEEB, 6), 25)
+	Local $bEnglishOutline = _
+			_ColorCheck(_GetPixelColor(399, 363 + $g_iMidOffsetY, False), Hex(0x4C5041, 6), 25) And _
+			_ColorCheck(_GetPixelColor(407, 375 + $g_iMidOffsetY, False), Hex(0x1A1D16, 6), 25) And _
+			_ColorCheck(_GetPixelColor(455, 375 + $g_iMidOffsetY, False), Hex(0x33362A, 6), 25)
+
+	Return $bEnglishLight And $bEnglishOutline
+EndFunc   ;==>_IsSettingsLanguageEnglish

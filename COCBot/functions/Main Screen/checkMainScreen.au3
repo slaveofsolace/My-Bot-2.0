@@ -100,7 +100,11 @@ Func _checkMainScreen($bSetLog = Default, $bBuilderBase = Default) ;Checks if in
 	If $bLocated Then
 		; check that shared_prefs are pulled
 		;If $g_bUpdateSharedPrefs And Not HaveSharedPrefs() Then PullSharedPrefs()
-		ZoomOut()
+		If RunExecutionSkipVillageZoomCalibration() Then
+			SetDebugLog("Run Planner current-army mode: accepted proven main screen without legacy scenery zoom calibration")
+		Else
+			ZoomOut()
+		EndIf
 	EndIf
 	If Not $g_bRunState Then Return False
 
@@ -115,8 +119,14 @@ Func _checkMainScreen($bSetLog = Default, $bBuilderBase = Default) ;Checks if in
 	;After checkscreen dispose windows
 	DisposeWindows()
 
-	;Execute Notify Pending Actions
-	NotifyPendingActions()
+	; A passive current-army run authorizes only screen proof, army inspection and one battle.
+	; Legacy pending notifications can request builder OCR, which is unrelated to that plan and may
+	; recursively re-enter checkMainScreen. Keep that profile-owned side effect outside this path.
+	If RunExecutionSkipVillageZoomCalibration() Then
+		SetDebugLog("Run Planner current-army mode: skipped legacy pending notifications during screen proof")
+	Else
+		NotifyPendingActions()
+	EndIf
 
 	Return $bLocated
 EndFunc   ;==>_checkMainScreen

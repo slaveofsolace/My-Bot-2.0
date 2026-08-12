@@ -267,6 +267,11 @@ Func _RunPlannerApplySetting($iSetting, $vValue, ByRef $sError)
 		$sError = $sId & " has no control"
 		Return SetError(1, 0, False)
 	EndIf
+	If $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingNativeFixed] Then
+		Local $vFixed = $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingNativeFixedValue]
+		If String($vValue) <> String($vFixed) Then $sError = $sId & ": fixed by the native contract; used " & String($vFixed)
+		$vValue = $vFixed
+	EndIf
 
 	Switch StringLower($g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingType])
 		Case "select"
@@ -335,6 +340,7 @@ Func _RunPlannerApplySetting($iSetting, $vValue, ByRef $sError)
 		Case Else
 			GUICtrlSetData($hControl, String($vValue))
 	EndSwitch
+	_RunPlannerApplyNativeFixedState($iSetting)
 
 	Return True
 EndFunc   ;==>_RunPlannerApplySetting
@@ -487,6 +493,7 @@ Func RunPlannerBuildIntent(ByRef $sError)
 	Local $sPolicy = RunPlannerSelectedValue("upgrade.policy")
 	If $sPolicy <> "" Then $oPlan.Item("upgrade_policy") = $sPolicy
 	$oPlan.Item("account_queue_id") = RunPlannerReadText("account.queue")
+	$oPlan.Item("army_manage_training") = RunPlannerReadBoolean("army.manage_training")
 
 	Local $oLoadout = RunPlannerBuildLoadout($sError)
 	If Not IsObj($oLoadout) Then Return SetError(6, 0, 0)
@@ -543,6 +550,8 @@ Func UpdateRunPlannerDetail($sSettingId)
 	If $iSetting < 0 Then Return
 
 	Local $sText = $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingDescription]
+	If $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingNativeFixedReason] <> "" Then _
+		$sText &= @CRLF & @CRLF & "Fixed by native contract: " & $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingNativeFixedReason]
 	Local $sValue = RunPlannerSelectedValue($sSettingId)
 	Local $iOption = ($sValue = "") ? -1 : RunPlannerOptionIndex($sSettingId, $sValue)
 
@@ -681,6 +690,7 @@ Func btnRunPlannerReset()
 				GUICtrlSetData($hControl, $g_aRunPlannerSettings[$i][$eRunPlannerSettingDefault])
 		EndSwitch
 	Next
+	_RunPlannerApplyAllNativeFixedStates()
 	$g_sRunPlannerHeroIds = ""
 	$g_oRunPlannerIntent = 0
 	; Reset drops the applied plan, so the pacing that came with it goes too rather than outliving the plan that set it.

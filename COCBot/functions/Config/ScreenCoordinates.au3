@@ -163,9 +163,10 @@ Global $aButtonRemoveTroopsOK1[4] = [723, 509 + $g_iMidOffsetY, 0xDAF582, 20]
 Global $aButtonRemoveTroopsOK2[4] = [530, 435 + $g_iMidOffsetY, 0x6DBC1F, 20]
 
 ;Change Language To English
-Global $aButtonLanguage[4] = [265, 381 + $g_iMidOffsetY, 0xDDF685, 20]
-Global $aListLanguage[4] = [95, 85 + $g_iMidOffsetY, 0xFFFFFF, 10]
-Global $aEnglishLanguage[4] = [420, 145 + $g_iMidOffsetY, 0xD7D5C7, 20]
+Global $aButtonLanguage[2] = [425, 372 + $g_iMidOffsetY]
+Global $aButtonLanguageCheck[4] = [360, 372 + $g_iMidOffsetY, 0xA9D556, 30]
+Global $aListLanguage[4] = [95, 85 + $g_iMidOffsetY, 0xE9EEEF, 20]
+Global $aEnglishLanguage[2] = [160, 147 + $g_iMidOffsetY]
 Global $aLanguageOkay[4] = [533, 435 + $g_iMidOffsetY, 0x6DBC1F, 20]
 
 ;Personal Challenges

@@ -274,7 +274,7 @@ Func CreateMainGUIControls()
 
 		$g_hFrmBotLogoUrlSmall = GUICreate("My Bot 2.0", 290, 13, 0, 0, BitOR($WS_CHILD, $WS_TABSTOP), BitOR($WS_EX_TOOLWINDOW, $WS_EX_NOACTIVATE, ($g_bAndroidShieldPreWin8 ? 0 : $WS_EX_LAYERED)), $g_hFrmBot)
 		;WinSetTrans($g_hFrmBotLogoUrlSmall, "", 254) ; trick to hide buttons from Android Screen that is not always refreshing
-		$g_hFrmBot_URL_PIC2 = GUICtrlCreateLabel("MY BOT 2.0  |  LOCAL CONTROL", 0, 0, 290, 13, $SS_CENTER)
+		$g_hFrmBot_URL_PIC2 = GUICtrlCreateLabel("OPEN BROWSER CONTROL CENTER", 0, 0, 290, 13, $SS_CENTER)
 		GUICtrlSetBkColor(-1, 0x16191D)
 		GUICtrlSetColor(-1, 0xF0A83A)
 		GUICtrlSetFont(-1, 7, 700, 0, "Segoe UI")
@@ -303,7 +303,7 @@ Func CreateMainGUIControls()
 	GUICtrlSetColor(-1, 0xA8AFB4)
 	GUICtrlSetFont(-1, 8, 600, 0, "Segoe UI")
 
-	$g_hFrmBot_URL_PIC = GUICtrlCreateLabel("MY BOT 2.0", 0, $_GUI_MAIN_TOP + 67, $_GUI_MAIN_WIDTH, 13, $SS_CENTER)
+	$g_hFrmBot_URL_PIC = GUICtrlCreateLabel("OPEN BROWSER CONTROL CENTER", 0, $_GUI_MAIN_TOP + 67, $_GUI_MAIN_WIDTH, 13, $SS_CENTER)
 	GUICtrlSetBkColor(-1, 0xF0A83A)
 	GUICtrlSetColor(-1, 0x191108)
 	GUICtrlSetFont(-1, 7, 700, 0, "Segoe UI")

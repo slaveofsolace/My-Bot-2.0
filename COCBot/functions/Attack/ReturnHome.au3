@@ -33,7 +33,11 @@ Func ReturnHome($TakeSS = 1, $GoldChangeCheck = True) ;Return main screen
 			WEnd
 			If IsAttackPage() Then smartZap() ; Check to see if we should zap the DE Drills
 			;If Heroes were not activated: Hero Ability activation before End of Battle to restore health
-			If ($g_bCheckKingPower Or $g_bCheckQueenPower Or $g_bCheckPrincePower Or $g_bCheckWardenPower Or $g_bCheckChampionPower) Then
+			If RunExecutionSmartAttackEnabled() Then
+				; One last fresh-coordinate opportunity for any Smart Hero whose tactical milestone was not
+				; observed before the end screen. Legacy slot-index clicks are unsafe after the bar shifts.
+				SmartAttackCombatTickHeroes($g_iPercentageDamage, True)
+			ElseIf ($g_bCheckKingPower Or $g_bCheckQueenPower Or $g_bCheckPrincePower Or $g_bCheckWardenPower Or $g_bCheckChampionPower) Then
 				;_CaptureRegion()
 				If _ColorCheck(_GetPixelColor($aRtnHomeCheck1[0], $aRtnHomeCheck1[1], True), Hex($aRtnHomeCheck1[2], 6), $aRtnHomeCheck1[3]) = False And _ColorCheck(_GetPixelColor($aRtnHomeCheck2[0], $aRtnHomeCheck2[1], True), Hex($aRtnHomeCheck2[2], 6), $aRtnHomeCheck2[3]) = False Then ; If not already at Return Homescreen
 					If $g_bCheckKingPower Then
@@ -83,6 +87,7 @@ Func ReturnHome($TakeSS = 1, $GoldChangeCheck = True) ;Return main screen
 	$g_aHeroesTimerActivation[$eHeroMinionPrince] = 0
 	$g_aHeroesTimerActivation[$eHeroGrandWarden] = 0
 	$g_aHeroesTimerActivation[$eHeroRoyalChampion] = 0
+	SmartAttackCombatReset()
 
 	; Reset building info used to attack base
 	_ObjDeleteKey($g_oBldgAttackInfo, "") ; Remove all Keys from dictionary
@@ -181,7 +186,12 @@ Func ReturnHome($TakeSS = 1, $GoldChangeCheck = True) ;Return main screen
 		SetDebugLog("Wait for End Fight Scene to appear #" & $i)
 		If _CheckPixel($aEndFightSceneAvl, $g_bCapturePixel) Then ; check for the gold ribbon in the end of battle data screen
 			If IsReturnHomeBattlePage(True) Then
-				ClickP($aReturnHomeButton, 1, 120, "#0101") ;Click Return Home Button
+				If IsClaimRewardBattlePage() Then
+					SetLog("Claiming the current-client battle reward", $COLOR_INFO)
+					ClickP($aRewardButton, 1, 120, "#0101-reward")
+				Else
+					ClickP($aReturnHomeButton, 1, 120, "#0101") ;Click Return Home Button
+				EndIf
 				; sometimes 1st click is not closing, so try again
 				$iExitLoop = $i
 			EndIf
@@ -222,6 +232,10 @@ Func ReturnHome($TakeSS = 1, $GoldChangeCheck = True) ;Return main screen
 						If _Sleep($DELAYCHECKOBSTACLES1) Then Return
 						ContinueLoop
 					EndIf
+				EndIf
+				If CurrentStarBonusReceived() Then
+					SetLog("Current Star Bonus window closed chief!", $COLOR_INFO)
+					ContinueLoop
 				EndIf
 				If StarBonus() Then
 					SetLog("Star Bonus window closed chief!", $COLOR_INFO) ; Check for Star Bonus window to fill treasury (2016-01) update
@@ -351,6 +365,17 @@ Func TreasureHunt($counter = 0)
 	Local $bret = False
 	Local $bHitDone = False
 
+	; The current reward card uses a fixed 860x732 green Continue button and is not covered by the
+	; inherited image catalog. Handle it before the counter-gated legacy lookup so a successful chest
+	; reveal cannot fall into the old hammer loop.
+	If IsCurrentTreasureHuntContinueScreen() Then
+		SetLog("Continuing from the current Treasure Hunt reward card", $COLOR_INFO)
+		PureClick(445, 545, 1, 120, "CurrentTreasureContinue")
+		If _Sleep($DELAYTREASURY2) Then Return False
+		SetLog("Reward Received", $COLOR_SUCCESS1)
+		Return True
+	EndIf
+
 	If $counter > 0 Then
 		Local $aContinueButton = findButton("Continue", Default, 1, True) ; In case all below failed in the ReturnHome loop, unlikely
 		If IsArray($aContinueButton) And UBound($aContinueButton, 1) = 2 Then
@@ -359,6 +384,19 @@ Func TreasureHunt($counter = 0)
 			If _Sleep($DELAYTREASURY2) Then Return ; 1500ms
 			Return True
 		EndIf
+	EndIf
+
+	; Current clients replaced the hammer/lock interaction with a full-screen chest
+	; that must be tapped three times. Prove the fixed 860x732 chest frame before
+	; sending any input; the legacy image flow remains the fallback on a mismatch.
+	If IsCurrentTreasureHuntTapScreen() Then
+		SetLog("Opening current Treasure Hunt chest", $COLOR_INFO)
+		For $i = 1 To 3
+			If Not $g_bRunState Then Return False
+			PureClick(430, 365, 1, 120, "CurrentTreasureTap" & $i)
+			If _Sleep(1100) Then Return False
+		Next
+		Return True
 	EndIf
 
 	SetLog("Opening Chest", $COLOR_SUCCESS)
@@ -430,3 +468,47 @@ Func TreasureHunt($counter = 0)
 	Return $bret
 
 EndFunc   ;==>TreasureHunt
+
+Func IsCurrentTreasureHuntTapScreen()
+	If Not $g_bRunState Then Return False
+	; The Claim Reward click and chest transition occur inside the normal screenshot cache window.
+	; Force a new frame so the prior victory overlay cannot route this screen into the legacy hammer loop.
+	ForceCaptureRegion()
+	_CaptureRegion()
+	; Stable frame/pedestal pixels observed on all three tap stages. The reward
+	; card and the village do not satisfy this combination.
+	; These are framebuffer coordinates; applying the legacy mid-screen offset samples the wrong row.
+	Local $bLeftFrame = _ColorCheck(_GetPixelColor(340, 350, False), Hex(0x9690A4, 6), 20)
+	Local $bPedestal = _ColorCheck(_GetPixelColor(430, 520, False), Hex(0x505165, 6), 20)
+	Local $bWoodBelow = _ColorCheck(_GetPixelColor(430, 550, False), Hex(0x806347, 6), 20)
+	Return $bLeftFrame And $bPedestal And $bWoodBelow
+EndFunc   ;==>IsCurrentTreasureHuntTapScreen
+
+Func IsCurrentTreasureHuntContinueScreen()
+	If Not $g_bRunState Then Return False
+	ForceCaptureRegion()
+	_CaptureRegion()
+	; Current 860x732 card: green left edge, black text at center, green lower face.
+	Local $bGreenEdge = _ColorCheck(_GetPixelColor(390, 550, False), Hex(0x8BD43A, 6), 18)
+	Local $bBlackText = _ColorCheck(_GetPixelColor(430, 550, False), Hex(0x0D0D0D, 6), 18)
+	Local $bGreenFace = _ColorCheck(_GetPixelColor(430, 560, False), Hex(0x87CE39, 6), 18)
+	Return $bGreenEdge And $bBlackText And $bGreenFace
+EndFunc   ;==>IsCurrentTreasureHuntContinueScreen
+
+Func CurrentStarBonusReceived()
+	If Not $g_bRunState Then Return False
+	ForceCaptureRegion()
+	_CaptureRegion()
+	; Current 860x732 Star Bonus Received dialog: saturated blue-purple card plus the
+	; lime Okay button. This combination is absent from the home village and reward card.
+	Local $bPurpleTop = _ColorCheck(_GetPixelColor(300, 300, False), Hex(0x4043F2, 6), 20)
+	Local $bPurpleBody = _ColorCheck(_GetPixelColor(430, 475, False), Hex(0x3158C8, 6), 20)
+	Local $bOkayFace = _ColorCheck(_GetPixelColor(400, 568, False), Hex(0xC6EB60, 6), 20)
+	Local $bOkayLower = _ColorCheck(_GetPixelColor(435, 580, False), Hex(0x73C023, 6), 20)
+	If Not ($bPurpleTop And $bPurpleBody And $bOkayFace And $bOkayLower) Then Return False
+
+	SetLog("Closing current Star Bonus Received window", $COLOR_INFO)
+	PureClick(435, 568, 1, 120, "CurrentStarBonusOkay")
+	If _Sleep($DELAYTREASURY2) Then Return False
+	Return True
+EndFunc   ;==>CurrentStarBonusReceived

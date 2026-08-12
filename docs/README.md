@@ -11,24 +11,23 @@ gets moved once there is enough test coverage to prove a move was behaviour-neut
 
 ## Start here
 
-- [Continuation handoff — August 7, 2026](development/CONTINUATION_HANDOFF_2026-08-07.md) — current commit, completed merge work, architecture, validation evidence, known issues, and prioritized next steps for the next implementation session.
+- [Install guide](INSTALL.md) — install, launch, compatibility controller, and local Control Center setup.
+- [Run Planner web UI](development/PLANNER_UI.md) — the local browser workbench and its exact engine boundary.
 - [Baseline audit](audit/BASELINE_AUDIT_2026-08-06.md) — repository state, source evaluation, risks, and the implementation order that followed from them.
 - [Game compatibility matrix](compatibility/GAME_UPDATE_MATRIX.md) — the Clash of Clans changes that affect navigation, OCR, templates, data tables, and state handling.
 - [Repository plan](architecture/REPOSITORY_PLAN.md) — target structure and the phased sequence for getting there.
 - [Merge playbook](development/MERGE_PLAYBOOK.md) — how upstream fixes and clean-room features enter this repository.
 - [UI handoff](ui/UI_HANDOFF.md) — requirements for the separate design-system work.
-- [Run Planner web UI](development/PLANNER_UI.md) — a local browser front-end for building run plans, and how it connects to the engine.
 - [Capturing fixtures](development/CAPTURING_FIXTURES.md) — how to turn a screenshot into a validated current-client fixture.
 - [Wiki data ingest](development/WIKI_INGEST.md) — how to pull per-level game data from the community wiki, and what it is and is not good for.
 - [Engineering notes](development/ENGINEERING_NOTES.md) — why particular decisions were made, and which ports were deliberately not taken.
-- [Install guide](INSTALL.md) — setup detail beyond the README's quick path.
 - [Upstream changelog](CHANGELOG.md) — release notes inherited from MyBot.run.
 
 ## Branches
 
-`master` is the current source of truth and is where completed work lands. The stale
-`claude/coc-bot-merge-ui-kobgds` branch is intentionally left alone; cleaning it up is not a
-prerequisite for current-client data, fixtures, UI integration, or runtime work.
+The repository default branch is the released source of truth. Feature branches are review and
+validation surfaces; they should not be described as released until their runtime evidence and
+packaged binaries have landed.
 
 ## Checks
 

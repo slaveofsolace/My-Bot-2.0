@@ -1,5 +1,15 @@
 * My Bot 2.0 v2.0.0 **
 * Added the local Control Center and Run Planner.
+* Added a live Native log modal and download in the browser Control Center.
+* Added a visible AutoIt companion button that opens the browser Control Center without modifying the pinned Mini controller.
+* Bound BlueStacks capture, input, and native-controller docking to the same explicit instance; the web planner now shows the attached instance as a select rather than accepting arbitrary text.
+* Added a deterministic, offline Smart Attack selector backed by a dated research catalog and the local standard-deployment engine.
+* Recorded a supervised TH17 Smart deployment: three pinch gestures, 132 red-line points, four selected Heroes, zero remaining deployable troops, Return Home, and one-battle stop. That run did not prove Hero abilities, spells, or strategy quality.
+* Fixed the legacy ADB zoom wrapper's false numeric failure and removed the foreground-focus requirement for exact BlueStacks ADB background control.
+* Added paired dock minimize/restore controls so the pinned Mini controller and its exact BlueStacks instance behave as one background unit.
+* Fixed the current matchmaking confirmation path so legitimate gray transition screens do not cancel the run.
+* Added current-client Treasure Hunt chest tapping and preserved the legacy hammer/lock fallback.
+* Recorded one bounded Standard Regular Battle and a separate Smart deployment run; they used different opponents and are not presented as a strategy comparison.
 * Added TH2-TH18 planner presets with explicit script preview and one-run selection.
 * Restored the official retired forum-login behavior so Start never requests credentials.
 * Kept the exact pinned MyBot.run v8.2 Mini GUI visible as the native safety controller.

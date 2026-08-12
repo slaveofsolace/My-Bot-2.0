@@ -28,7 +28,7 @@ Global Const $RUN_PLANNER_TITLE = {title}
 Global Const $RUN_PLANNER_DESCRIPTION = {description}
 
 Global Enum $eRunPlannerSectionId, $eRunPlannerSectionOrder, $eRunPlannerSectionTitle, $eRunPlannerSectionTabLabel, $eRunPlannerSectionDescription, $eRunPlannerSectionColumnCount
-Global Enum $eRunPlannerSettingId, $eRunPlannerSettingSectionId, $eRunPlannerSettingType, $eRunPlannerSettingLabel, $eRunPlannerSettingSummary, $eRunPlannerSettingDescription, $eRunPlannerSettingDefault, $eRunPlannerSettingRequired, $eRunPlannerSettingBinding, $eRunPlannerSettingUnit, $eRunPlannerSettingMinimum, $eRunPlannerSettingMaximum, $eRunPlannerSettingStep, $eRunPlannerSettingEmptyState, $eRunPlannerSettingColumnCount
+Global Enum $eRunPlannerSettingId, $eRunPlannerSettingSectionId, $eRunPlannerSettingType, $eRunPlannerSettingLabel, $eRunPlannerSettingSummary, $eRunPlannerSettingDescription, $eRunPlannerSettingDefault, $eRunPlannerSettingRequired, $eRunPlannerSettingBinding, $eRunPlannerSettingUnit, $eRunPlannerSettingMinimum, $eRunPlannerSettingMaximum, $eRunPlannerSettingStep, $eRunPlannerSettingEmptyState, $eRunPlannerSettingNativeFixed, $eRunPlannerSettingNativeFixedValue, $eRunPlannerSettingNativeFixedReason, $eRunPlannerSettingColumnCount
 Global Enum $eRunPlannerOptionSettingId, $eRunPlannerOptionValue, $eRunPlannerOptionLabel, $eRunPlannerOptionSummary, $eRunPlannerOptionDescription, $eRunPlannerOptionAvailability, $eRunPlannerOptionDisabledReason, $eRunPlannerOptionPrerequisites, $eRunPlannerOptionCapabilityIds, $eRunPlannerOptionRecommended, $eRunPlannerOptionWarning, $eRunPlannerOptionColumnCount
 
 Global $g_aRunPlannerSections[{section_count}][$eRunPlannerSectionColumnCount]
@@ -83,6 +83,14 @@ def main() -> int:
 
     for index, (section_id, setting) in enumerate(flat_settings):
         validation = setting.get("validation", {})
+        native_fixed = "native_fixed_value" in setting
+        native_fixed_value = setting.get("native_fixed_value", "")
+        if isinstance(native_fixed_value, bool):
+            native_fixed_literal = au3_bool(native_fixed_value)
+        elif isinstance(native_fixed_value, int):
+            native_fixed_literal = str(native_fixed_value)
+        else:
+            native_fixed_literal = au3_string(native_fixed_value)
         pairs = [
             ("Id", au3_string(setting["id"])),
             ("SectionId", au3_string(section_id)),
@@ -99,6 +107,9 @@ def main() -> int:
             ("Maximum", str(int(validation.get("maximum", 0)))),
             ("Step", str(int(validation.get("step", 0)))),
             ("EmptyState", au3_string(setting.get("empty_state", ""))),
+            ("NativeFixed", au3_bool(native_fixed)),
+            ("NativeFixedValue", native_fixed_literal),
+            ("NativeFixedReason", au3_string(setting.get("native_fixed_reason", ""))),
         ]
         for name, value in pairs:
             body.append(f"\t$g_aRunPlannerSettings[{index}][$eRunPlannerSetting{name}] = {value}")

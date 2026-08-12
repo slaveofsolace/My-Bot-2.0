@@ -9,11 +9,15 @@
 #pragma compile(Out, My Bot 2.0.exe)
 
 #include <Crypt.au3>
+#include <GUIConstantsEx.au3>
 #include <Misc.au3>
 #include <MsgBoxConstants.au3>
+#include <StringConstants.au3>
 #include <WinAPIGdi.au3>
+#include <WindowsConstants.au3>
 
 Opt("MustDeclareVars", 1)
+Opt("GUIOnEventMode", 1)
 
 Global Const $g_sLauncherTitle = "My Bot 2.0"
 Global Const $g_sControlCenterUrl = "http://127.0.0.1:8765/"
@@ -25,13 +29,33 @@ Global Const $g_sHostConfigPath = $g_sHostPath & ".config"
 Global Const $g_sEngineMarkerPath = @ScriptDir & "\MyBot.run.txt"
 Global Const $g_sEnginePath = @ScriptDir & "\lib\MyBot.run.dll"
 Global Const $g_sControllerTitlePattern = "^My Bot Mini v8\.2\.0(?: \(.+\))?$"
-Global Const $g_sBlueStacksTitle = "BlueStacks5-Pie64"
 Global Const $g_iDockGap = 8
 Global Const $g_iDockWaitMs = 600000
 Global Const $g_iDockPollMs = 1000
 Global Const $g_iErrorAlreadyExists = 183
+Global Const $g_sRecoveryLogPath = @ScriptDir & "\artifacts\launcher-recovery.log"
+Global Const $g_sPlannerServiceName = "my-bot-control-center"
+Global Const $g_sPlannerScriptPath = @ScriptDir & "\tools\planner_ui.py"
+Global Const $g_iLauncherErrorTimeoutSec = 15
+Global Const $g_iControlStripHeight = 34
+Global Const $g_iControlStripGap = 4
+Global $g_hControlStrip = 0
+Global $g_idOpenControlCenter = 0
+Global $g_idMinimizePair = 0
+Global Const $g_iPairVisible = 0
+Global Const $g_iPairMinimizing = 1
+Global Const $g_iPairMinimized = 2
+Global Const $g_iPairRestoring = 3
+Global $g_iPairVisibilityState = $g_iPairVisible
 
+_CloseOwnedAutoItErrorDialogs()
+If _CommandLineHas("/recover") Or _CommandLineHas("/repair") Then
+	If _RecoverBotStack() Then Exit 0
+	Exit 6
+EndIf
 If Not _ValidateInstallation() Then Exit 1
+If _CommandLineHas("/background") Then Exit _SetDockPairMinimized() ? 0 : 7
+If _CommandLineHas("/foreground") Then Exit _SetDockPairRestored() ? 0 : 8
 
 ; One invisible launcher process owns docking for this installation. Re-running the launcher can
 ; perform one verified snap and open the requested Control Center, but cannot create another keeper.
@@ -52,6 +76,7 @@ EndIf
 
 If $hController Then
 	Local $iExistingControllerPid = WinGetProcess($hController)
+	_ShowControlStrip($hController)
 	_DockWhenReady($hController, $iExistingControllerPid, 15000)
 	_OpenControlCenter()
 	If Not $bOwnDockKeeper Then Exit 0
@@ -93,6 +118,7 @@ EndIf
 
 ; The invisible launcher remains a lightweight dock keeper. It follows later BlueStacks shell
 ; resizes and exits with the exact Mini controller, without reparenting or commanding either app.
+_ShowControlStrip($hController)
 _DockWhenReady($hController, $iControllerPid, $g_iDockWaitMs)
 _KeepDocked($hController, $iControllerPid)
 Exit 0
@@ -107,6 +133,128 @@ Func _AcquireDockKeeper()
 	If @error Then Return SetError(@error, @extended, 0)
 	Return $hMutex
 EndFunc   ;==>_AcquireDockKeeper
+
+Func _CommandLineHas($sSwitch)
+	For $i = 1 To $CmdLine[0]
+		If StringLower($CmdLine[$i]) = StringLower($sSwitch) Then Return True
+	Next
+	Return False
+EndFunc   ;==>_CommandLineHas
+
+Func _RecoverBotStack()
+	_RecoveryLog("recovery requested")
+	_CloseOwnedAutoItErrorDialogs()
+	_CloseExactPathProcesses("MyBot.run.MiniGui.exe", $g_sControllerPath)
+	_CloseExactPathProcesses("MyBot.run.exe", $g_sHostPath)
+	Local $bPlannerClosed = _CloseOwnedPlannerService()
+	_CloseExactPathProcesses("My Bot 2.0.exe", @ScriptFullPath, @AutoItPID)
+
+	Local $hController = _FindControllerWindow()
+	Local $bControllerClosed = Not $hController
+	Local $bBackendClosed = _CountExactPathProcesses("MyBot.run.exe", $g_sHostPath) = 0
+	Local $bRecovered = $bControllerClosed And $bBackendClosed And $bPlannerClosed
+	_RecoveryLog("recovery completed; controller_closed=" & $bControllerClosed & "; backend_closed=" & $bBackendClosed & "; planner_closed=" & $bPlannerClosed)
+	Return $bRecovered
+EndFunc   ;==>_RecoverBotStack
+
+; The planner service can outlive a backend that was force-closed. Recovery runs elevated, but it
+; still proves the loopback service name, exact checkout root, current script hash, reported PID,
+; and pythonw image before closing anything. A foreign listener is logged and left untouched.
+Func _CloseOwnedPlannerService()
+	Local $vHealth = InetRead($g_sControlCenterUrl & "api/health", 1)
+	If @error Or Not IsBinary($vHealth) Or BinaryLen($vHealth) = 0 Then Return True
+	Local $sHealth = BinaryToString($vHealth, 4)
+	If StringInStr($sHealth, """service"": """ & $g_sPlannerServiceName & """") = 0 Then
+		_RecoveryLog("refused planner service: unexpected service identity")
+		Return False
+	EndIf
+	Local $sJsonRoot = StringReplace(@ScriptDir, "\", "\\")
+	If StringInStr($sHealth, """repo_root"": """ & $sJsonRoot & """") = 0 Then
+		_RecoveryLog("refused planner service: repository root mismatch")
+		Return False
+	EndIf
+	Local $sScriptHash = _FileSha256($g_sPlannerScriptPath)
+	If $sScriptHash = "" Or StringInStr(StringLower($sHealth), """build_sha256"": """ & $sScriptHash & """") = 0 Then
+		_RecoveryLog("refused planner service: script build mismatch")
+		Return False
+	EndIf
+	Local $aPid = StringRegExp($sHealth, """service_pid""\s*:\s*([0-9]+)", $STR_REGEXPARRAYMATCH)
+	If @error Or Not IsArray($aPid) Or UBound($aPid) <> 1 Then
+		_RecoveryLog("refused planner service: missing service pid")
+		Return False
+	EndIf
+	Local $iPid = Int($aPid[0])
+	If $iPid <= 0 Or Not ProcessExists($iPid) Then Return True
+	If Not StringRegExp(StringLower(_ProcessImagePath($iPid)), "\\pythonw\.exe$") Then
+		_RecoveryLog("refused planner service: pid " & $iPid & " is not pythonw.exe")
+		Return False
+	EndIf
+	_RecoveryLog("closing verified planner service; pid=" & $iPid)
+	If Not ProcessClose($iPid) Then Return False
+	For $i = 1 To 40
+		If Not ProcessExists($iPid) Then Return True
+		Sleep(50)
+	Next
+	Return Not ProcessExists($iPid)
+EndFunc   ;==>_CloseOwnedPlannerService
+
+Func _CloseOwnedAutoItErrorDialogs()
+	Local $aDialogs = WinList("AutoIt Error")
+	Local $sRootPrefix = StringLower(@ScriptDir & "\")
+	For $i = 1 To $aDialogs[0][0]
+		Local $hDialog = $aDialogs[$i][1]
+		Local $iPid = WinGetProcess($hDialog)
+		If $iPid <= 0 Then ContinueLoop
+		Local $sPath = StringLower(_ProcessImagePath($iPid))
+		If StringLeft($sPath, StringLen($sRootPrefix)) <> $sRootPrefix Then ContinueLoop
+
+		Local $sErrorText = StringStripWS(StringReplace(WinGetText($hDialog), @CRLF, " | "), $STR_STRIPTRAILING)
+		_RecoveryLog("closing owned AutoIt error; pid=" & $iPid & "; image=" & $sPath & "; text=" & $sErrorText)
+		WinClose($hDialog)
+		WinWaitClose($hDialog, "", 2)
+	Next
+EndFunc   ;==>_CloseOwnedAutoItErrorDialogs
+
+Func _CloseExactPathProcesses($sProcessName, $sExpectedPath, $iExcludePid = 0)
+	Local $aProcesses = ProcessList($sProcessName)
+	For $i = 1 To $aProcesses[0][0]
+		Local $iPid = $aProcesses[$i][1]
+		If $iPid = $iExcludePid Then ContinueLoop
+		If StringLower(_ProcessImagePath($iPid)) <> StringLower($sExpectedPath) Then
+			_RecoveryLog("refused non-matching process; name=" & $sProcessName & "; pid=" & $iPid)
+			ContinueLoop
+		EndIf
+
+		_CloseWindowsForPid($iPid)
+		If ProcessWaitClose($iPid, 5) Then
+			_RecoveryLog("closed gracefully; name=" & $sProcessName & "; pid=" & $iPid)
+			ContinueLoop
+		EndIf
+		ProcessClose($iPid)
+		ProcessWaitClose($iPid, 5)
+		_RecoveryLog("force-closed exact process; name=" & $sProcessName & "; pid=" & $iPid)
+	Next
+EndFunc   ;==>_CloseExactPathProcesses
+
+Func _CloseWindowsForPid($iPid)
+	Local $aWindows = WinList()
+	For $i = 1 To $aWindows[0][0]
+		If WinGetProcess($aWindows[$i][1]) = $iPid Then WinClose($aWindows[$i][1])
+	Next
+EndFunc   ;==>_CloseWindowsForPid
+
+Func _CountExactPathProcesses($sProcessName, $sExpectedPath)
+	Local $aProcesses = ProcessList($sProcessName)
+	Local $iCount = 0
+	For $i = 1 To $aProcesses[0][0]
+		If StringLower(_ProcessImagePath($aProcesses[$i][1])) = StringLower($sExpectedPath) Then $iCount += 1
+	Next
+	Return $iCount
+EndFunc   ;==>_CountExactPathProcesses
+
+Func _RecoveryLog($sMessage)
+	FileWriteLine($g_sRecoveryLogPath, @YEAR & "-" & @MON & "-" & @MDAY & "T" & @HOUR & ":" & @MIN & ":" & @SEC & " " & $sMessage)
+EndFunc   ;==>_RecoveryLog
 
 Func _ValidateInstallation()
 	If Not FileExists($g_sControllerPath) Then Return _InstallError("MyBot.run.MiniGui.exe is missing.", $g_sControllerPath)
@@ -189,11 +337,23 @@ Func _ProcessImagePath($iPid)
 	Return DllStructGetData($tPath, 1)
 EndFunc   ;==>_ProcessImagePath
 
-Func _FindBlueStacksWindow()
-	Local $aWindows = WinList($g_sBlueStacksTitle)
+Func _ControllerBlueStacksTitle($hController)
+	If Not WinExists($hController) Then Return ""
+	Local $aMatch = StringRegExp(WinGetTitle($hController), _
+		"^My Bot Mini v8\.2\.0 \(([A-Za-z0-9_. -]{1,64})\)$", $STR_REGEXPARRAYMATCH)
+	If @error Or Not IsArray($aMatch) Or UBound($aMatch) <> 1 Then Return ""
+	Return "BlueStacks5-" & $aMatch[0]
+EndFunc   ;==>_ControllerBlueStacksTitle
+
+Func _FindBlueStacksWindow($hController)
+	; The backend writes its exact bound instance into the genuine Mini controller caption.
+	; Dock only the BlueStacks window for that same instance; never guess a default account.
+	Local $sBlueStacksTitle = _ControllerBlueStacksTitle($hController)
+	If $sBlueStacksTitle = "" Then Return 0
+	Local $aWindows = WinList($sBlueStacksTitle)
 	Local $hFound = 0
 	For $i = 1 To $aWindows[0][0]
-		If $aWindows[$i][0] <> $g_sBlueStacksTitle Then ContinueLoop
+		If $aWindows[$i][0] <> $sBlueStacksTitle Then ContinueLoop
 		Local $hWindow = $aWindows[$i][1]
 		Local $sClass = _WindowClassName($hWindow)
 		If Not StringRegExp($sClass, "^Qt[0-9]+QWindowIcon$") Then ContinueLoop
@@ -216,7 +376,7 @@ Func _DockWhenReady($hController, $iControllerPid, $iTimeoutMs)
 	Local $hTimer = TimerInit()
 	Do
 		If Not ProcessExists($iControllerPid) Or Not WinExists($hController) Then Return False
-		Local $hBlueStacks = _FindBlueStacksWindow()
+		Local $hBlueStacks = _FindBlueStacksWindow($hController)
 		If @error = 2 Then Return False
 		If $hBlueStacks Then Return _DockController($hController, $hBlueStacks)
 		Sleep(500)
@@ -236,15 +396,77 @@ Func _KeepDocked($hController, $iControllerPid)
 				ContinueLoop
 			EndIf
 		EndIf
-
-		Local $hBlueStacks = _FindBlueStacksWindow()
+		Local $hBlueStacks = _FindBlueStacksWindow($hController)
+		If @error <> 2 And $hBlueStacks And _SynchronizeDockPairVisibility($hController, $hBlueStacks) Then
+			Sleep($g_iDockPollMs)
+			ContinueLoop
+		EndIf
 		If @error <> 2 And $hBlueStacks And _WindowCanDock($hController) And _WindowCanDock($hBlueStacks) Then
 			_DockController($hController, $hBlueStacks, False)
+		ElseIf _WindowCanDock($hController) Then
+			_DockControlStrip($hController)
 		EndIf
 		Sleep($g_iDockPollMs)
 	WEnd
 	Return True
 EndFunc   ;==>_KeepDocked
+
+; Treat the exact controller and the exact instance-bound BlueStacks window as one visible pair.
+; A four-state handshake avoids the asynchronous restore race where one window becomes visible a
+; poll before the other and would otherwise be minimized again. No HWND parent/style is changed, so
+; ADB Background Mode remains the capture/input authority while both top-level windows are off-screen.
+Func _SynchronizeDockPairVisibility($hController, $hBlueStacks)
+	If Not WinExists($hController) Or Not WinExists($hBlueStacks) Then Return False
+	Local $bControllerMinimized = _WindowIsMinimized($hController)
+	Local $bBlueStacksMinimized = _WindowIsMinimized($hBlueStacks)
+
+	Switch $g_iPairVisibilityState
+		Case $g_iPairVisible
+			If $bControllerMinimized Or $bBlueStacksMinimized Then
+				If Not $bControllerMinimized Then WinSetState($hController, "", @SW_MINIMIZE)
+				If Not $bBlueStacksMinimized Then WinSetState($hBlueStacks, "", @SW_MINIMIZE)
+				If $g_hControlStrip <> 0 Then WinSetState($g_hControlStrip, "", @SW_HIDE)
+				; This poll owns the paired action. Commit the stable state now so an immediate user
+				; restore cannot be mistaken for an unfinished asynchronous minimize on the next poll.
+				$g_iPairVisibilityState = $g_iPairMinimized
+				Return True
+			EndIf
+		Case $g_iPairMinimizing
+			If Not $bControllerMinimized Then WinSetState($hController, "", @SW_MINIMIZE)
+			If Not $bBlueStacksMinimized Then WinSetState($hBlueStacks, "", @SW_MINIMIZE)
+			If _WindowIsMinimized($hController) And _WindowIsMinimized($hBlueStacks) Then $g_iPairVisibilityState = $g_iPairMinimized
+			Return True
+		Case $g_iPairMinimized
+			If Not $bControllerMinimized Or Not $bBlueStacksMinimized Then
+				WinSetState($hController, "", @SW_RESTORE)
+				WinSetState($hBlueStacks, "", @SW_RESTORE)
+				$g_iPairVisibilityState = $g_iPairVisible
+				If $g_hControlStrip <> 0 Then WinSetState($g_hControlStrip, "", @SW_SHOW)
+				_DockController($hController, $hBlueStacks, False)
+				Return False
+			EndIf
+			Return True
+		Case $g_iPairRestoring
+			If $bControllerMinimized Then WinSetState($hController, "", @SW_RESTORE)
+			If $bBlueStacksMinimized Then WinSetState($hBlueStacks, "", @SW_RESTORE)
+			If Not $bControllerMinimized And Not $bBlueStacksMinimized Then
+				$g_iPairVisibilityState = $g_iPairVisible
+				If $g_hControlStrip <> 0 Then WinSetState($g_hControlStrip, "", @SW_SHOW)
+				_DockController($hController, $hBlueStacks, False)
+				Return False
+			EndIf
+			Return True
+	EndSwitch
+	$g_iPairVisibilityState = $g_iPairVisible
+	Return False
+EndFunc   ;==>_SynchronizeDockPairVisibility
+
+Func _WindowIsMinimized($hWindow)
+	If Not WinExists($hWindow) Then Return False
+	Local $iState = WinGetState($hWindow)
+	If @error Then Return False
+	Return BitAND($iState, 16) <> 0
+EndFunc   ;==>_WindowIsMinimized
 
 Func _WindowCanDock($hWindow)
 	If Not WinExists($hWindow) Then Return False
@@ -276,12 +498,67 @@ Func _DockController($hController, $hBlueStacks, $bReveal = True)
 	If $iY + $aController[3] > $iWorkBottom Then $iY = $iWorkBottom - $aController[3]
 
 	; Avoid needless WinMove calls once the requested 8 px relationship is already stable.
-	If Abs($aController[0] - $iX) <= 2 And Abs($aController[1] - $iY) <= 2 Then Return True
+	If Abs($aController[0] - $iX) <= 2 And Abs($aController[1] - $iY) <= 2 Then
+		_DockControlStrip($hController)
+		Return True
+	EndIf
 	WinMove($hController, "", $iX, $iY)
 	If @error Then Return False
 	Local $aMoved = WinGetPos($hController)
-	Return IsArray($aMoved) And Abs($aMoved[0] - $iX) <= 2 And Abs($aMoved[1] - $iY) <= 2
+	Local $bMoved = IsArray($aMoved) And Abs($aMoved[0] - $iX) <= 2 And Abs($aMoved[1] - $iY) <= 2
+	If $bMoved Then _DockControlStrip($hController)
+	Return $bMoved
 EndFunc   ;==>_DockController
+
+Func _ShowControlStrip($hController)
+	If $g_hControlStrip = 0 Then
+		$g_hControlStrip = GUICreate("My Bot 2.0 Control", 472, $g_iControlStripHeight, -1, -1, _
+			BitOR($WS_POPUP, $WS_BORDER), 0, $hController)
+		GUISetBkColor(0x16191D, $g_hControlStrip)
+		$g_idOpenControlCenter = GUICtrlCreateButton("OPEN CONTROL CENTER", 0, 0, 234, $g_iControlStripHeight)
+		GUICtrlSetFont($g_idOpenControlCenter, 8, 700, 0, "Segoe UI")
+		GUICtrlSetOnEvent($g_idOpenControlCenter, "_OpenControlCenter")
+		$g_idMinimizePair = GUICtrlCreateButton("MINIMIZE BOTH - BACKGROUND", 238, 0, 234, $g_iControlStripHeight)
+		GUICtrlSetFont($g_idMinimizePair, 8, 700, 0, "Segoe UI")
+		GUICtrlSetOnEvent($g_idMinimizePair, "_MinimizeDockPair")
+	EndIf
+	If _WindowIsMinimized($hController) Then
+		GUISetState(@SW_HIDE, $g_hControlStrip)
+		Return True
+	EndIf
+	_DockControlStrip($hController)
+	GUISetState(@SW_SHOW, $g_hControlStrip)
+EndFunc   ;==>_ShowControlStrip
+
+Func _DockControlStrip($hController)
+	If $g_hControlStrip = 0 Or Not WinExists($hController) Then Return False
+	; A visible owned popup can restore its minimized owner on Windows. Never move or reveal this
+	; strip until the paired controller is visible again; the pair synchronizer owns that transition.
+	If _WindowIsMinimized($hController) Then
+		WinSetState($g_hControlStrip, "", @SW_HIDE)
+		Return False
+	EndIf
+	Local $aController = WinGetPos($hController)
+	If @error Or Not IsArray($aController) Or $aController[2] <= 0 Or $aController[3] <= 0 Then Return False
+
+	Local $hMonitor = _WinAPI_MonitorFromWindow($hController, 2)
+	Local $aMonitor = _WinAPI_GetMonitorInfo($hMonitor)
+	If @error Or Not IsArray($aMonitor) Then Return False
+	Local $iWorkTop = DllStructGetData($aMonitor[1], "Top")
+	Local $iWorkBottom = DllStructGetData($aMonitor[1], "Bottom")
+	Local $iX = $aController[0]
+	Local $iY = $aController[1] + $aController[3] + $g_iControlStripGap
+	If $iY + $g_iControlStripHeight > $iWorkBottom Then $iY = $aController[1] - $g_iControlStripGap - $g_iControlStripHeight
+	If $iY < $iWorkTop Then Return False
+
+	Local $iHalfWidth = Int(($aController[2] - 4) / 2)
+	GUICtrlSetPos($g_idOpenControlCenter, 0, 0, $iHalfWidth, $g_iControlStripHeight)
+	GUICtrlSetPos($g_idMinimizePair, $iHalfWidth + 4, 0, $aController[2] - $iHalfWidth - 4, $g_iControlStripHeight)
+	WinMove($g_hControlStrip, "", $iX, $iY, $aController[2], $g_iControlStripHeight)
+	If @error Then Return False
+	Local $aMoved = WinGetPos($g_hControlStrip)
+	Return IsArray($aMoved) And Abs($aMoved[0] - $iX) <= 2 And Abs($aMoved[1] - $iY) <= 2
+EndFunc   ;==>_DockControlStrip
 
 Func _OpenControlCenter()
 	Local $iBrowserPid = ShellExecute($g_sControlCenterUrl)
@@ -292,6 +569,44 @@ Func _OpenControlCenter()
 	Return True
 EndFunc   ;==>_OpenControlCenter
 
+Func _MinimizeDockPair()
+	Return _SetDockPairMinimized()
+EndFunc   ;==>_MinimizeDockPair
+
+Func _SetDockPairMinimized()
+	Local $hController = _FindControllerWindow()
+	If @error Or Not $hController Then Return False
+	Local $hBlueStacks = _FindBlueStacksWindow($hController)
+	If @error Or Not $hBlueStacks Then
+		_ShowError("My Bot 2.0 could not identify the exact BlueStacks instance paired with this controller.")
+		Return False
+	EndIf
+
+	; Keep top-level ownership/styles unchanged. The ADB framebuffer remains the bot's input and
+	; capture surface while the exact controller and exact instance-bound player leave the desktop.
+	$g_iPairVisibilityState = $g_iPairMinimized
+	WinSetState($hController, "", @SW_MINIMIZE)
+	WinSetState($hBlueStacks, "", @SW_MINIMIZE)
+	If $g_hControlStrip <> 0 Then WinSetState($g_hControlStrip, "", @SW_HIDE)
+	Return True
+EndFunc   ;==>_SetDockPairMinimized
+
+Func _SetDockPairRestored()
+	Local $hController = _FindControllerWindow()
+	If @error Or Not $hController Then Return False
+	Local $hBlueStacks = _FindBlueStacksWindow($hController)
+	If @error Or Not $hBlueStacks Then Return False
+
+	WinSetState($hController, "", @SW_RESTORE)
+	WinSetState($hBlueStacks, "", @SW_RESTORE)
+	$g_iPairVisibilityState = $g_iPairVisible
+	Return True
+EndFunc   ;==>_SetDockPairRestored
+
 Func _ShowError($sMessage)
-	MsgBox(BitOR($MB_OK, $MB_ICONERROR, $MB_TOPMOST), $g_sLauncherTitle, $sMessage)
+	Local $sLogText = StringStripWS(StringReplace($sMessage, @CRLF, " | "), $STR_STRIPTRAILING)
+	_RecoveryLog("launcher error; pid=" & @AutoItPID & "; image=" & @ScriptFullPath & "; text=" & $sLogText)
+	; A launcher failure must not pin itself above unrelated work. Keep the message user-visible,
+	; but let Windows manage normal focus/z-order and release the caller automatically.
+	MsgBox(BitOR($MB_OK, $MB_ICONERROR), $g_sLauncherTitle, $sMessage, $g_iLauncherErrorTimeoutSec)
 EndFunc   ;==>_ShowError

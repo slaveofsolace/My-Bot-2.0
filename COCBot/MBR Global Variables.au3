@@ -1629,6 +1629,7 @@ Global $g_iSearchTHLResult = 0
 Global $g_sTHLoc = "In" ; "In" or "Out" are valid values
 Global $g_sImglocRedline ; hold redline data obtained from multisearch
 Global $g_iImglocTHLevel = 0
+Global $g_bImglocTHUnique = False ; current opponent search returned exactly one Town Hall candidate
 Global $g_aiTownHallDetails[4] = [-1, -1, -1, -1] ; [LocX, LocY, BldgLvl, Quantity]
 
 ; Attack

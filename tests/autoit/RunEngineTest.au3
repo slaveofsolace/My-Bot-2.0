@@ -28,14 +28,30 @@ EndFunc   ;==>AttemptGuardedProfileWrite
 
 Local $sError = "", $sReason = ""
 
+; Selecting Heroes for a current-trained-army one-shot must deploy them without entering the Hero
+; Hall readiness path that this mode intentionally cannot prove or mutate.
+AssertTrue(RunExecutionHeroWaitMask(31, True, False) = 0, "current-army mode does not wait on selected Heroes")
+AssertTrue(RunExecutionHeroWaitMask(31, False, True) = 0, "managed training does not wait when Wait for full army is off")
+AssertTrue(RunExecutionHeroWaitMask(31, True, True) = 31, "managed training retains the selected Hero readiness mask")
+
 ; The Activity feed and native control status must identify one planned run with the same id.
 AssertTrue(RunEventLogBindSession("run-session-a"), "event logger accepts the canonical run session id")
 AssertTrue(RunEventLogSessionId() = "run-session-a", "event logger exposes the bound run session id")
+Sleep(25)
+Local $iFirstSessionElapsed = _RunEventLogNowMs()
+AssertTrue($iFirstSessionElapsed >= 10, "event logger advances the active session clock")
+AssertTrue(RunEventLogBindSession("run-session-b"), "event logger can bind a later canonical session")
+AssertTrue(_RunEventLogNowMs() < $iFirstSessionElapsed, "a later session resets its timestamp origin")
+AssertTrue(RunEventLogBindSession("run-session-a"), "event logger restores the first fixture session")
 $g_iRunEventSequence = 7
 AssertTrue(Not RunEventLogReleaseSession("run-session-b"), "a stale run cannot release the active event session")
 AssertTrue(RunEventLogSessionId() = "run-session-a" And $g_iRunEventSequence = 7, "rejected release preserves event correlation")
 AssertTrue(RunEventLogReleaseSession("run-session-a"), "the matching run releases its event session")
 AssertTrue($g_sRunEventSessionId = "" And $g_iRunEventSequence = 0, "event session release clears id and sequence")
+$g_iRunEventSequence = 5
+AssertTrue(RunEventLogBattleCompleted(3, 100, 900, 800, 7, 21, 4), "battle telemetry is a successful no-op outside a planned session")
+AssertTrue($g_iRunEventSequence = 5 And $g_iRunEventBattleIndex = 0, "an unbound battle cannot advance event correlation")
+$g_iRunEventSequence = 0
 
 ; A planner run mutates live globals, but inherited runtime paths call SaveConfig while the bot is
 ; active. The shared guard must leave the on-disk profile byte-for-byte unchanged until restore.
@@ -129,6 +145,8 @@ AssertTrue(BattleQuotaIsExhausted($oLegend), "quota reports exhaustion")
 ; Run intent: exact surface binding and the diagnostic escape hatch.
 ; ---------------------------------------------------------------------------------------------------------------
 Local $oPlan = RunPlanCreateDefault("legend", "fixture-strategy")
+AssertTrue(Not $oPlan.Item("army_manage_training"), "default plan preserves the trained army")
+AssertTrue($oPlan.Item("max_battles") = 1, "default current-army plan is bounded to one battle")
 Local $oIntentLoadout = HeroLoadoutCreate(18)
 AssertTrue(HeroLoadoutAdd($oIntentLoadout, "barbarian-king", $sError), "intent loadout is populated: " & $sError)
 
@@ -159,6 +177,7 @@ Json_ObjPut($oSavedPlan, "upgrade.policy", "disabled")
 Json_ObjPut($oSavedPlan, "account.queue", "")
 Json_ObjPut($oSavedPlan, "army.source", "recipe")
 Json_ObjPut($oSavedPlan, "army.recipe_name", "farm")
+Json_ObjPut($oSavedPlan, "army.manage_training", True)
 Json_ObjPut($oSavedPlan, "army.wait_for_full", True)
 Json_ObjPut($oSavedPlan, "army.train_spells", True)
 Json_ObjPut($oSavedPlan, "army.train_sieges", False)
@@ -194,6 +213,7 @@ Local $oSavedEnginePlan = $oSavedIntent.Item("plan")
 AssertTrue($oSavedEnginePlan.Item("search_max_seconds") = 120, "saved search limit reaches RunPlan")
 AssertTrue($oSavedEnginePlan.Item("army_recipe_name") = "farm", "saved army recipe reaches RunPlan")
 AssertTrue($oSavedEnginePlan.Item("attack_script") = "Barch four fingers", "saved attack script reaches RunPlan")
+AssertTrue(RunIntentManagesTraining($oSavedIntent), "saved training-management choice reaches the intent")
 Local $oSavedLoadout = $oSavedIntent.Item("loadout")
 AssertTrue(HeroLoadoutCount($oSavedLoadout) = 2, "saved Hero list reaches the loadout")
 Local $oSavedPacing = $oSavedIntent.Item("pacing")
@@ -211,20 +231,81 @@ $oSavedEnginePlan.Item("notify_channel") = "windows-toast"
 AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "unwired notification channels are rejected")
 $oSavedEnginePlan.Item("notify_channel") = "log-only"
 AssertTrue(RunExecutionContractValidate($oSavedIntent, $sError), "restoring supported values clears the adapter gate: " & $sError)
+$oSavedEnginePlan.Item("emulator") = "bluestacks5"
+$oSavedEnginePlan.Item("emulator_instance") = ""
+AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "explicit BlueStacks refuses an ambiguous default instance")
+AssertTrue(StringInStr($sError, "exact BlueStacks 5 instance") > 0, "the BlueStacks instance rejection explains the account boundary")
+$oSavedEnginePlan.Item("emulator_instance") = "Pie64"
+AssertTrue(RunExecutionContractValidate($oSavedIntent, $sError), "an exact BlueStacks instance clears the account binding gate: " & $sError)
+$oSavedEnginePlan.Item("emulator_instance") = "Pie64&other"
+AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "unsafe emulator instance characters are rejected before command construction")
+$oSavedEnginePlan.Item("emulator") = "auto"
+$oSavedEnginePlan.Item("emulator_instance") = ""
+AssertTrue(RunExecutionContractValidate($oSavedIntent, $sError), "automatic single-instance detection remains supported: " & $sError)
 $oSavedEnginePlan.Item("strategy") = "legacy.standard"
 AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "a named CSV script cannot be paired with Standard deployment")
 $oSavedEnginePlan.Item("strategy") = "legacy.csv"
 AssertTrue(RunExecutionContractValidate($oSavedIntent, $sError), "restoring Scripted accepts the named bundled-script contract: " & $sError)
+$oSavedEnginePlan.Item("strategy") = "smart.local"
+$oSavedEnginePlan.Item("attack_script") = "profile-current"
+AssertTrue(RunExecutionContractValidate($oSavedIntent, $sError), "Smart Attack maps to the exact local standard-deployment adapter: " & $sError)
+AssertTrue(RunExecutionSmartDropSides(5, True) = 0, "Smart Attack concentrates early villages on one scored side")
+AssertTrue(RunExecutionSmartDropSides(8, True) = 0, "Smart Attack concentrates TH6-8 on one scored side")
+AssertTrue(RunExecutionSmartDropSides(15, True) = 0, "Smart Attack scores a current-frame side instead of trusting legacy TH-side selector 5")
+AssertTrue(RunExecutionSmartDropSides(15, False) = 0, "Smart Attack uses one concentrated side for dead bases")
+$oSavedEnginePlan.Item("strategy") = "legacy.csv"
+$oSavedEnginePlan.Item("attack_script") = "Barch four fingers"
+$oSavedEnginePlan.Item("army_manage_training") = False
+AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "current-army mode refuses an unbounded multi-battle run")
+AssertTrue(StringInStr($sError, "exactly one battle") > 0, "current-army rejection names its one-battle boundary")
+$oSavedEnginePlan.Item("max_battles") = 1
+AssertTrue(Not RunIntentManagesTraining($oSavedIntent), "current-army intent explicitly disables training management")
+AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "current-army mode refuses pre-battle resource collection")
+$oSavedEnginePlan.Item("events_collect_resources") = False
+AssertTrue(RunExecutionContractValidate($oSavedIntent, $sError), "one current trained army is accepted for exactly one battle: " & $sError)
+$oSavedEnginePlan.Item("army_wait_for_full") = False
+AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "current-army mode requires a fresh full-army readiness result")
+AssertTrue(StringInStr($sError, "Wait for full army") > 0, "current-army readiness rejection names the required setting")
+$oSavedEnginePlan.Item("army_wait_for_full") = True
+$oSavedEnginePlan.Item("donate_mode") = "matching"
+AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "current-army mode refuses donations that could consume the one-shot army")
+$oSavedEnginePlan.Item("donate_mode") = "off"
+$oSavedEnginePlan.Item("donate_request_when_short") = True
+AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "current-army mode refuses a pre-battle troop request")
+$oSavedEnginePlan.Item("donate_request_when_short") = False
+$oSavedEnginePlan.Item("events_clan_games") = True
+AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "current-army mode refuses pre-battle Clan Games work")
+$oSavedEnginePlan.Item("events_clan_games") = False
+$oSavedEnginePlan.Item("events_collect_resources") = True
+AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "current-army mode keeps resource collection outside the terminal path")
+$oSavedEnginePlan.Item("events_collect_resources") = False
+$oSavedEnginePlan.Item("events_laboratory") = "cheapest"
+AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "current-army mode refuses pre-battle Laboratory work")
+$oSavedEnginePlan.Item("events_laboratory") = "off"
+$oSavedEnginePlan.Item("upgrade_policy") = "walls"
+AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "current-army mode refuses pre-battle wall or building work")
+$oSavedEnginePlan.Item("upgrade_policy") = "disabled"
+AssertTrue(RunExecutionContractValidate($oSavedIntent, $sError), "restoring terminal current-army settings clears every side-effect gate: " & $sError)
+$oSavedEnginePlan.Item("army_manage_training") = True
+$oSavedEnginePlan.Item("max_battles") = 12
 FileDelete($sSavedPlanPath)
 
-; The immediately preceding planner contract had 42 keys. Its absence of a script override means
-; preserve the profile script, so it can be upgraded without guessing or losing intent.
+; The immediately preceding planner contract had 43 keys and always managed profile training.
+$oSavedPlan.Remove("army.manage_training")
+AssertTrue(FileWrite($sSavedPlanPath, Json_Encode($oSavedPlan)) > 0, "legacy 43-key planner fixture is written")
+Local $oLegacyTrainingIntent = RunPlanFileLoadIntent($sSavedPlanPath, $sError)
+AssertTrue(IsObj($oLegacyTrainingIntent), "legacy 43-key plan is upgraded losslessly: " & $sError)
+AssertTrue(RunIntentManagesTraining($oLegacyTrainingIntent), "legacy plan preserves inherited training management")
+FileDelete($sSavedPlanPath)
+
+; The older 42-key contract also lacked a script override. Preserve both legacy meanings.
 $oSavedPlan.Remove("run.attack_script")
 AssertTrue(FileWrite($sSavedPlanPath, Json_Encode($oSavedPlan)) > 0, "legacy 42-key planner fixture is written")
 Local $oLegacyIntent = RunPlanFileLoadIntent($sSavedPlanPath, $sError)
 AssertTrue(IsObj($oLegacyIntent), "legacy 42-key plan is upgraded losslessly: " & $sError)
 Local $oLegacyPlan = $oLegacyIntent.Item("plan")
 AssertTrue($oLegacyPlan.Item("attack_script") = "profile-current", "legacy plan preserves the active profile script")
+AssertTrue(RunIntentManagesTraining($oLegacyIntent), "legacy 42-key plan preserves inherited training management")
 FileDelete($sSavedPlanPath)
 
 ; Undemonstrated surfaces are blocked by default, which is what makes the diagnostic opt-in meaningful.
@@ -269,11 +350,12 @@ AssertTrue(RunVerificationMerge($RUN_VERIFICATION_VERIFIED, $RUN_VERIFICATION_DI
 ; ---------------------------------------------------------------------------------------------------------------
 ; Events carry the verification state so a log can never imply a demonstrated result.
 ; ---------------------------------------------------------------------------------------------------------------
-Local $oEvent = RunEventCreate("battle.completed", 1, 2000, "engine-test", "info", "Diagnostic battle", "profile-a", "legend", 1, 500, 250, 10, 0, $RUN_VERIFICATION_DIAGNOSTIC, "legend-ii")
+Local $oEvent = RunEventCreate("battle.completed", 1, 2000, "engine-test", "info", "Diagnostic battle", "profile-a", "legend", 1, 500, 250, 10, 0, $RUN_VERIFICATION_DIAGNOSTIC, "legend-ii", 2, 76, -5, 9)
 AssertTrue(IsObj($oEvent), "diagnostic event is created")
 Local $sJson = RunEventToJson($oEvent)
 AssertTrue(StringInStr($sJson, Chr(34) & "verification_state" & Chr(34) & ":" & Chr(34) & $RUN_VERIFICATION_DIAGNOSTIC & Chr(34)) > 0, "event serializes the verification state")
 AssertTrue(StringInStr($sJson, Chr(34) & "surface_id" & Chr(34) & ":" & Chr(34) & "legend-ii" & Chr(34)) > 0, "event serializes the exact surface")
+AssertTrue(StringInStr($sJson, Chr(34) & "trophy_delta" & Chr(34) & ":-5") > 0, "event telemetry keeps trophy loss signed")
 
 Local $oBadEvent = RunEventCreate("battle.completed", 2, 3000, "engine-test", "info", "Bad state", "", "legend", 1, 0, 0, 0, 0, "totally-fine")
 AssertTrue(Not IsObj($oBadEvent), "unknown verification state is rejected")

@@ -19,6 +19,73 @@ Global $IMGLOCTHNEAR
 Global $IMGLOCTHFAR
 Global $IMGLOCTHRDISTANCE
 
+; Detect only the own-village Town Hall identity on the current ADB framebuffer. This deliberately
+; does not call ResetTHsearch, write opponent/building dictionaries, convert the raw point through
+; village zoom calibration, click a building, or save profile state. The caller has already proven
+; the main screen before using this result.
+Func imglocOwnVillageTownHallIdentity(ByRef $iTownHallLevel, ByRef $aRawPoint, $bForceCapture = True, $iExpectedTownHallLevel = 0)
+	$iTownHallLevel = 0
+	Local $aEmptyPoint[2] = [-1, -1]
+	$aRawPoint = $aEmptyPoint
+	Local $iExpectedLevel = Int(Number($iExpectedTownHallLevel))
+	If $iExpectedLevel < 2 Or $iExpectedLevel > $g_iMaxTHLevel Then $iExpectedLevel = 0
+	Local $iMinimumLevel = ($iExpectedLevel > 0 ? $iExpectedLevel : 2)
+	Local $iMaximumLevel = ($iExpectedLevel > 0 ? $iExpectedLevel : $g_iMaxTHLevel)
+	Local $iCandidateLevel = 0
+	Local $aCandidatePoint[2] = [-1, -1]
+
+	Local $aDirectories[4] = [@ScriptDir & "\imgxml\Buildings\snow-Townhall", _
+		@ScriptDir & "\imgxml\Buildings\snow-Townhall2", @ScriptDir & "\imgxml\Buildings\Townhall", _
+		@ScriptDir & "\imgxml\Buildings\Townhall2"]
+	Local $iFirstDirectory = ($g_iDetectedImageType = 1 ? 0 : 2)
+	If $bForceCapture Then _CaptureRegion2()
+	If $g_hHBitmap2 = 0 Then Return SetError(1, 0, False)
+
+	For $iDirectory = $iFirstDirectory To UBound($aDirectories) - 1
+		Local $aResults = findMultiple($aDirectories[$iDirectory], $CocDiamondECD, $CocDiamondECD, _
+			$iMinimumLevel, $iMaximumLevel, 3, "objectname,objectlevel,objectpoints", False)
+		If Not IsArray($aResults) Or UBound($aResults) < 1 Then ContinueLoop
+		For $iResult = 0 To UBound($aResults) - 1
+			Local $aProperties = $aResults[$iResult]
+			If Not IsArray($aProperties) Or UBound($aProperties) < 3 Then ContinueLoop
+			If StringInStr(String($aProperties[0]), "TownHall", $STR_NOCASESENSEBASIC) <> 1 Then ContinueLoop
+
+			Local $iDetectedLevel = Int(Number($aProperties[1]))
+			Local $aDetectedPoint = decodeSingleCoord($aProperties[2])
+			If $iDetectedLevel < $iMinimumLevel Or $iDetectedLevel > $iMaximumLevel Or _
+					Not IsArray($aDetectedPoint) Or UBound($aDetectedPoint) < 2 Then ContinueLoop
+			If Number($aDetectedPoint[0]) < 0 Or Number($aDetectedPoint[0]) >= $g_iGAME_WIDTH Or _
+					Number($aDetectedPoint[1]) < 0 Or Number($aDetectedPoint[1]) >= $g_iGAME_HEIGHT Then ContinueLoop
+
+			If $iCandidateLevel = 0 Then
+				$iCandidateLevel = $iDetectedLevel
+				$aCandidatePoint[0] = Number($aDetectedPoint[0])
+				$aCandidatePoint[1] = Number($aDetectedPoint[1])
+				ContinueLoop
+			EndIf
+
+			; Never accept whichever protected-engine result happens to be returned first. A second
+			; Town Hall level or a far-away point makes the visual identity ambiguous and fail-closed.
+			If $iDetectedLevel <> $iCandidateLevel Or _
+					Abs(Number($aDetectedPoint[0]) - $aCandidatePoint[0]) > 48 Or _
+					Abs(Number($aDetectedPoint[1]) - $aCandidatePoint[1]) > 48 Then
+				SetLog("Own-village Town Hall templates returned conflicting matches; identity was not accepted", $COLOR_WARNING)
+				Return SetError(3, 0, False)
+			EndIf
+		Next
+	Next
+
+	If $iCandidateLevel > 0 Then
+		$iTownHallLevel = $iCandidateLevel
+		$aRawPoint = $aCandidatePoint
+		SetDebugLog("Own-village Town Hall identity verified: TH" & $iTownHallLevel & " at raw framebuffer (" & _
+			$aRawPoint[0] & "," & $aRawPoint[1] & ")", $COLOR_SUCCESS)
+		Return True
+	EndIf
+
+	Return SetError(2, 0, False)
+EndFunc   ;==>imglocOwnVillageTownHallIdentity
+
 Func imglocTHSearch($bReTest = False, $myVillage = False, $bForceCapture = True)
 	Local $xdirectorya = @ScriptDir & "\imgxml\Buildings\Townhall"
 	Local $xdirectoryb = @ScriptDir & "\imgxml\Buildings\Townhall2"
@@ -29,7 +96,9 @@ Func imglocTHSearch($bReTest = False, $myVillage = False, $bForceCapture = True)
 	Local $redLines = ""
 	Local $minLevel = 6 ; We only support TH6+
 	Local $maxLevel = 100
-	Local $maxReturnPoints = 1
+	; Smart Attack may use the Town Hall as a tactical target only when the current-frame
+	; search proves there is exactly one candidate. A one-result cap cannot establish that.
+	Local $maxReturnPoints = 3
 	Local $returnProps = "objectname,objectlevel,objectpoints,nearpoints,farpoints,redlinedistance"
 	Local $iFindTime = 0
 
@@ -73,6 +142,7 @@ Func imglocTHSearch($bReTest = False, $myVillage = False, $bForceCapture = True)
 		Local $result = findMultiple($xdirectory, $sCocDiamond, $redLines, $minLevel, $maxLevel, $maxReturnPoints, $returnProps, $bForceCapture)
 
 		If IsArray($result) Then
+			$g_bImglocTHUnique = (UBound($result) = 1)
 			;we got results from multisearch ; lets set $redline in case we need to perform another search
 			;quick fix for bad redline data, so disabled for now
 			;$redLines = $g_sImglocRedline ; that was set by findMultiple if redline argument was ""
@@ -242,6 +312,7 @@ Func ResetTHsearch()
 	;reset redlines and other globals
 	$g_sImglocRedline = "" ; Redline data obtained from FindMultiple
 	$g_iImglocTHLevel = 0 ; Duhhh!!!
+	$g_bImglocTHUnique = False
 	$IMGLOCTHLOCATION = StringSplit(",", ",", $STR_NOCOUNT) ; x,y array
 	$IMGLOCTHNEAR = "" ; 5 points 5px from redline Near to TH
 	$IMGLOCTHFAR = "" ; 5 points 25px from redline Near to TH

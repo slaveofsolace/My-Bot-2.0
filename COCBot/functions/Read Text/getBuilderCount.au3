@@ -57,10 +57,13 @@ Func getBuilderCount($bSuppressLog = False, $bBuilderBase = False)
 		Else
 			SetLog("Bad OCR read Free/Total Builders", $COLOR_ERROR) ; OCR returned unusable value?
 			$g_iGfxErrorCount += 1
-			If $g_iGfxErrorCount > $g_iGfxErrorMax Then 
-				SetLog("gfxError occured, set to Reboot Android Instance", $COLOR_INFO)
-				$g_bGfxError = True
-				CheckAndroidReboot()
+			If $g_iGfxErrorCount > $g_iGfxErrorMax Then
+				; An OCR mismatch is not evidence that the emulator graphics process failed. The old
+				; escalation killed healthy current-client instances after a font/UI update. Leave
+				; builder-dependent work fail-closed and let the independent Android/process checks
+				; decide whether a reboot is actually required.
+				SetLog("Builder OCR failed repeatedly; leaving Android running and skipping builder-dependent work", $COLOR_ERROR)
+				$g_iGfxErrorCount = $g_iGfxErrorMax
 			EndIf
 			; drop down to error handling code
 		EndIf

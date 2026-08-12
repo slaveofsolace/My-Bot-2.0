@@ -31,6 +31,8 @@
 #include "functions\Attack\Unbreakable.au3"
 #include "functions\Attack\GetAttackBar.au3"
 
+#include "functions\Attack\Attack Algorithms\SmartAttackPolicy.au3"
+#include "functions\Attack\Attack Algorithms\SmartAttackCombat.au3"
 #include "functions\Attack\Attack Algorithms\algorithm_AllTroops.au3"
 #include "functions\Attack\Attack Algorithms\AttackFromCSV.au3"
 #include "functions\Attack\Attack Algorithms\SmartFarm.au3"
@@ -90,6 +92,7 @@
 #Region CreateArmy / Train
 #include "functions\CreateArmy\CheckFullArmy.au3"
 #include "functions\CreateArmy\CheckArmyCamp.au3"
+#include "functions\CreateArmy\PassiveCurrentArmyReadiness.au3"
 #include "functions\CreateArmy\OpenArmyOverview.au3"
 #include "functions\CreateArmy\SmartWait4Train.au3"
 #include "functions\CreateArmy\TrainClick.au3"
@@ -169,6 +172,7 @@
 #include "functions\Other\CreateLogFile.au3"
 #include "functions\Other\SaveDebugImage.au3"
 #include "functions\Other\ExtendedErrorInfo.au3"
+#include "functions\Other\ManualViewportMapping.au3"
 #include "functions\Other\FindPos.au3"
 #include "functions\Other\StringSize.au3"
 #include "functions\Other\Tab.au3"

@@ -36,6 +36,7 @@ def main() -> int:
 
     capture = function_body(execution, "_RunExecutionCaptureProfileSnapshot")
     restore = function_body(execution, "_RunExecutionRestoreProfile")
+    apply_intent = function_body(execution, "_RunExecutionApplyIntent")
     apply_prepared = function_body(execution, "RunExecutionApplyPrepared")
     save_config = function_body(save, "saveConfig")
     save_building = function_body(save, "SaveBuildingConfig")
@@ -52,6 +53,7 @@ def main() -> int:
         ("$g_abAttackTypeEnable[$iMode]", "$g_abRunExecutionSnapshotAttackTypeEnable[$iMode]"),
         ("$g_aiAttackAlgorithm[$iMode]", "$g_aiRunExecutionSnapshotAttackAlgorithm[$iMode]"),
         ("$g_aiAttackUseHeroes[$iMode]", "$g_aiRunExecutionSnapshotAttackUseHeroes[$iMode]"),
+        ("$g_abAttackDropCC[$iMode]", "$g_abRunExecutionSnapshotAttackDropCC[$iMode]"),
         ("$g_aiSearchHeroWaitEnable[$iMode]", "$g_aiRunExecutionSnapshotSearchHeroWaitEnable[$iMode]"),
         ("$g_abSearchSpellsWaitEnable[$iMode]", "$g_abRunExecutionSnapshotSearchSpellsWaitEnable[$iMode]"),
         ("$g_abSearchSiegeWaitEnable[$iMode]", "$g_abRunExecutionSnapshotSearchSiegeWaitEnable[$iMode]"),
@@ -70,12 +72,16 @@ def main() -> int:
         ("$g_bAutoLabUpgradeEnable", "$g_bRunExecutionSnapshotAutoLabUpgradeEnable"),
         ("$g_bAutoUpgradeWallsEnable", "$g_bRunExecutionSnapshotAutoUpgradeWallsEnable"),
         ("$g_bAutoUpgradeEnabled", "$g_bRunExecutionSnapshotAutoUpgradeEnabled"),
+        ("$g_bChkSwitchAcc", "$g_bRunExecutionSnapshotChkSwitchAcc"),
     )
     for live, snapshot in pairs:
         if f"{snapshot} = {live}" not in capture:
             errors.append(f"capture is missing planner field {live}")
         if f"{live} = {snapshot}" not in restore:
             errors.append(f"restore is missing planner field {live}")
+
+    if "$g_bChkSwitchAcc = False" not in apply_intent:
+        errors.append("planned runs do not disable legacy profile account switching")
 
     if "readConfig(" in restore or "applyConfig(" in restore:
         errors.append("restore must not reload or apply the whole profile")

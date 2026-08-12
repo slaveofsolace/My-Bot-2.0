@@ -188,9 +188,13 @@ Func BotStart($bAutostartDelay = 0)
 			$Result = RebootAndroid(False)
 		EndIf
 		If Not $g_bRunState Then Return FuncReturn(_BotStartReject("Start cancelled while initializing Android"))
+		; A modern BlueStacks 5 instance that has an exact Qt window binding plus ADB capture and
+		; ADB click support does not need to steal foreground focus. Requiring WinActivate here made
+		; otherwise healthy background runs fail whenever the Control Center or another app was active.
+		Local $bFocusIndependentControl = $g_bAndroidBackgroundLaunched Or IsArray(GetBlueStacks5ModernAdbSurfacePosition())
 		Local $hWndActive = $g_hAndroidWindow
 		; check if window can be activated
-		If $g_bNoFocusTampering = False And $g_bAndroidBackgroundLaunched = False And $g_bAndroidEmbedded = False Then
+		If Not $bFocusIndependentControl And $g_bNoFocusTampering = False And $g_bAndroidEmbedded = False Then
 			Local $hTimer = __TimerInit()
 			$hWndActive = -1
 			Local $activeHWnD = WinGetHandle("")
@@ -200,7 +204,7 @@ Func BotStart($bAutostartDelay = 0)
 			WinActivate($activeHWnD) ; restore current active window
 		EndIf
 		If Not $g_bRunState Then Return FuncReturn(_BotStartReject("Start cancelled while activating Android"))
-		If $hWndActive = $g_hAndroidWindow And ($g_bAndroidBackgroundLaunched = True Or AndroidControlAvailable()) Then  ; Really?
+		If ($bFocusIndependentControl Or $hWndActive = $g_hAndroidWindow) And ($g_bAndroidBackgroundLaunched = True Or AndroidControlAvailable()) Then  ; Really?
 			If Not Initiate($sStartError) Then
 				If $sStartError = "" Then $sStartError = "Android and Clash of Clans initialization did not complete"
 				SetLog("Bot cannot start: " & $sStartError, $COLOR_ERROR)

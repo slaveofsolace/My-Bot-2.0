@@ -7,6 +7,24 @@
 #include <StringConstants.au3>
 #include "RunIntent.au3"
 
+; Smart uses one concentrated deployment side. The actual BR/BL/TR/TL side is chosen after current-frame
+; red-line extraction by SmartAttackPolicy; the legacy selector-5 DLL branch is not current-client proven.
+; The Boolean remains in the signature for backward-compatible tests/callers.
+Func RunExecutionSmartDropSides($iTownHall, $bActiveBase)
+	Local $iTH = Int($iTownHall)
+	If $iTH >= 2 Then Return 0
+	Return 0
+EndFunc   ;==>RunExecutionSmartDropSides
+
+; A selected Hero has two separate meanings: deploy it when its attack-bar slot is present, and wait
+; for it to become available before searching. Current-trained-army mode can safely do the first but
+; deliberately does not open Hero Hall or mutate training to prove the second. Keep its readiness
+; mask empty so selecting Heroes does not make the one-shot path reject itself before matchmaking.
+Func RunExecutionHeroWaitMask($iSelectedHeroMask, $bWaitForFullArmy, $bManageTraining)
+	If Not $bWaitForFullArmy Or Not $bManageTraining Then Return 0
+	Return Int($iSelectedHeroMask)
+EndFunc   ;==>RunExecutionHeroWaitMask
+
 Func RunExecutionContractValidate(ByRef $oIntent, ByRef $sError)
 	$sError = ""
 	If Not RunIntentValidate($oIntent, $sError) Then Return SetError(1, 0, False)
@@ -24,7 +42,7 @@ Func RunExecutionContractValidate(ByRef $oIntent, ByRef $sError)
 		Return SetError(3, 0, False)
 	EndIf
 	Local $sStrategy = StringLower(StringStripWS(String($oPlan.Item("strategy")), $STR_STRIPALL))
-	If $sStrategy <> "legacy.csv" And $sStrategy <> "legacy.standard" Then
+	If $sStrategy <> "legacy.csv" And $sStrategy <> "legacy.standard" And $sStrategy <> "smart.local" Then
 		$sError = "Attack strategy " & $sStrategy & " has no exact legacy-engine adapter"
 		Return SetError(4, 0, False)
 	EndIf
@@ -38,6 +56,36 @@ Func RunExecutionContractValidate(ByRef $oIntent, ByRef $sError)
 			StringStripWS(String($oPlan.Item("army_recipe_name")), $STR_STRIPALL) <> "" Then
 		$sError = "Named army recipes are not wired yet; leave the recipe name empty to use the active profile army"
 		Return SetError(5, 0, False)
+	EndIf
+	If Not RunIntentManagesTraining($oIntent) Then
+		If Int($oPlan.Item("max_battles")) <> 1 Then
+			$sError = "Using the trained army without managing training is limited to exactly one battle; set Max battles to 1"
+			Return SetError(5, 1, False)
+		EndIf
+		If Not $oPlan.Item("army_wait_for_full") Then
+			$sError = "Current-army mode requires Wait for full army so a fresh passive readiness check can fail closed"
+			Return SetError(5, 2, False)
+		EndIf
+		If StringLower(StringStripWS(String($oPlan.Item("donate_mode")), $STR_STRIPALL)) <> "off" Then
+			$sError = "Turn donations off when using the current trained army so the one-shot army cannot be consumed"
+			Return SetError(5, 3, False)
+		EndIf
+		If $oPlan.Item("donate_request_when_short") Then
+			$sError = "Current-army mode cannot request troops before its terminal one-battle attempt"
+			Return SetError(5, 4, False)
+		EndIf
+		If $oPlan.Item("events_clan_games") Or $oPlan.Item("events_collect_resources") Then
+			$sError = "Current-army mode cannot run Clan Games or resource collection before its terminal battle"
+			Return SetError(5, 5, False)
+		EndIf
+		If StringLower(StringStripWS(String($oPlan.Item("events_laboratory")), $STR_STRIPALL)) <> "off" Then
+			$sError = "Current-army mode cannot enter the Laboratory before its terminal battle"
+			Return SetError(5, 6, False)
+		EndIf
+		If StringLower(StringStripWS(String($oPlan.Item("upgrade_policy")), $STR_STRIPALL)) <> "disabled" Then
+			$sError = "Current-army mode requires upgrades disabled before its terminal battle"
+			Return SetError(5, 7, False)
+		EndIf
 	EndIf
 	If Int($oPlan.Item("search_max_seconds")) > 0 Then
 		$sError = "Search time limits are not wired to a safe search-loop exit yet; use 0"
@@ -55,9 +103,18 @@ Func RunExecutionContractValidate(ByRef $oIntent, ByRef $sError)
 	EndIf
 
 	Local $sEmulator = StringLower(StringStripWS(String($oPlan.Item("emulator")), $STR_STRIPALL))
-	If $sEmulator = "auto" And StringStripWS(String($oPlan.Item("emulator_instance")), $STR_STRIPALL) <> "" Then
+	Local $sEmulatorInstance = StringStripWS(String($oPlan.Item("emulator_instance")), $STR_STRIPLEADING + $STR_STRIPTRAILING)
+	If $sEmulator = "auto" And $sEmulatorInstance <> "" Then
 		$sError = "Choose a specific emulator before selecting an instance"
 		Return SetError(9, 0, False)
+	EndIf
+	If $sEmulatorInstance <> "" And Not StringRegExp($sEmulatorInstance, "^[A-Za-z0-9_. -]{1,64}$") Then
+		$sError = "The emulator instance name contains unsupported characters"
+		Return SetError(9, 1, False)
+	EndIf
+	If $sEmulator = "bluestacks5" And $sEmulatorInstance = "" Then
+		$sError = "Choose the exact BlueStacks 5 instance so capture, input, and docking target the same account"
+		Return SetError(9, 2, False)
 	EndIf
 	If Not $oPlan.Item("donate_keep_army") Then
 		$sError = "Allowing donations to consume the attack army has no bounded legacy adapter"

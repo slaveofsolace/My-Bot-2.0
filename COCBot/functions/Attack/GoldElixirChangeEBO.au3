@@ -123,7 +123,14 @@ Func GoldElixirChangeEBO()
 		$CurDamage = getOcrOverAllDamage(780, 527 + $g_iBottomOffsetY)
 		;--> Read Ressources #2
 
-		CheckHeroesHealth()
+		If RunExecutionSmartAttackEnabled() Then
+			; Use the damage value from this same OCR pass for both tactical decisions. The legacy
+			; global is updated later in this loop and would otherwise delay a Hero milestone.
+			SmartAttackCombatTick(Number($CurDamage))
+			SmartAttackCombatTickHeroes(Number($CurDamage))
+		Else
+			CheckHeroesHealth()
+		EndIf
 
 		;WRITE LOG
 		$txtDiff = Round(($z - (__TimerDiff($iBegin) - SuspendAndroidTime() + $iSuspendAndroidTimeOffset)) / 1000, 0)
@@ -149,7 +156,7 @@ Func GoldElixirChangeEBO()
 
 		If Number($CurDamage) > Number($g_iPercentageDamage) Then $g_iPercentageDamage = Number($CurDamage)
 
-		If Number($CurDamage) >= 92 Then
+		If Not RunExecutionSmartAttackEnabled() And Number($CurDamage) >= 92 Then
 
 			If $g_iKingSlot >= 11 Or $g_iQueenSlot >= 11 Or $g_iPrinceSlot >= 11 Or $g_iWardenSlot >= 11 Or $g_iChampionSlot >= 11 Then
 				If Not $g_bDraggedAttackBar Then DragAttackBar($g_iTotalAttackSlot, False) ; drag forward

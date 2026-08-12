@@ -3,107 +3,207 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
   <title>My Bot 2.0 Control Center</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/planner.css">
 </head>
-<body>
-<a class="skip-nav" href="#main">Skip to run settings</a>
+<body class="is-booting">
+<a class="skip-nav" href="#workspace">Skip to workspace</a>
 
-<header class="topbar">
+<header class="app-header">
   <div class="brand">
-    <span class="brand-index" aria-hidden="true">2.0</span>
+    <span class="brand-mark" aria-hidden="true">2.0</span>
     <div>
-      <span class="kicker">LOCAL AUTOMATION CONTROL</span>
       <h1>My Bot 2.0</h1>
-      <span class="brand-sub">Native engine / browser console</span>
+      <p>Local automation control center</p>
     </div>
   </div>
-  <div class="topbar-tools">
-    <button class="diagnostics-button" id="exportDiagnostics" type="button">Export diagnostics</button>
-    <div class="search">
-      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M11.7 10.3a5 5 0 1 0-1.4 1.4l3 3a1 1 0 0 0 1.4-1.4zM7 10.5A3.5 3.5 0 1 1 10.5 7 3.5 3.5 0 0 1 7 10.5z"/></svg>
-      <input id="filter" type="search" placeholder="Filter settings..." aria-label="Filter settings">
-    </div>
-  </div>
-</header>
 
-<section class="command-deck" aria-label="Native engine controls">
-  <div class="engine-identity">
+  <div class="engine-summary">
     <span class="status-lamp" id="engineLamp" aria-hidden="true"></span>
     <div>
-      <span class="deck-label">NATIVE ENGINE</span>
-      <strong id="engineState">Connecting</strong>
-      <span id="engineMessage">Waiting for the local heartbeat.</span>
+      <strong id="engineState">Loading</strong>
+      <span id="engineMessage">Reading the local engine state.</span>
     </div>
   </div>
-  <dl class="engine-facts">
-    <div><dt>Profile</dt><dd id="engineProfile">&mdash;</dd></div>
-    <div><dt>Emulator</dt><dd id="engineEmulator">&mdash;</dd></div>
-    <div><dt>Engine</dt><dd id="engineVersion">&mdash;</dd></div>
+
+  <dl class="engine-facts" aria-label="Connected engine">
+    <div><dt>Profile</dt><dd id="engineProfile">Not loaded</dd></div>
+    <div><dt>Emulator</dt><dd id="engineEmulator">Not loaded</dd></div>
+    <div><dt>Engine</dt><dd id="engineVersion">Not loaded</dd></div>
   </dl>
-  <div class="engine-actions">
-    <button class="engine-button start" id="controlStart" type="button">Start run</button>
-    <button class="engine-button" id="controlPause" type="button">Pause</button>
-    <button class="engine-button stop" id="controlStop" type="button">Stop</button>
-    <span class="control-ack" id="controlAck" aria-live="polite">Commands are acknowledged by the native engine.</span>
-  </div>
-</section>
 
-<section class="health-region" aria-label="Startup health">
-  <ol class="health-rail">
-    <li id="healthUi" data-state="ready"><span>Control Center</span><strong>Ready</strong></li>
-    <li id="healthNative" data-state="waiting"><span>Native app</span><strong>Waiting</strong></li>
-    <li id="healthEngine" data-state="waiting"><span>Managed engine</span><strong>Waiting</strong></li>
-    <li id="healthEmulator" data-state="waiting"><span>Emulator</span><strong>Waiting</strong></li>
-  </ol>
-</section>
-
-<div class="workspace-title" role="region" aria-labelledby="plannerTitle">
-  <div>
-    <span class="deck-label">RUN CONFIGURATION</span>
-    <h2 id="plannerTitle">Run Planner</h2>
-  </div>
-  <p id="lede"></p>
-</div>
-<section class="preset-dock" aria-labelledby="presetTitle">
-  <div class="preset-picker">
-    <div>
-      <span class="deck-label">COMPATIBILITY STARTING POINT</span>
-      <h3 id="presetTitle">Town Hall preset</h3>
+  <div class="engine-controls" aria-label="Native run controls">
+    <div class="engine-actions">
+      <button class="primary-action" id="controlStart" type="button" disabled>Start run</button>
+      <button id="controlPause" type="button" disabled>Pause</button>
+      <button class="danger-action" id="controlStop" type="button" disabled>Stop</button>
     </div>
-    <label class="sr-only" for="presetSelect">Town Hall preset</label>
-    <select id="presetSelect">
-      <option value="custom">Custom &mdash; keep visible plan</option>
+    <p class="control-ack" id="controlAck">Controls unlock after the saved plan and engine state load.</p>
+  </div>
+
+  <label class="theme-control" for="themeSelect">
+    <span>Theme</span>
+    <select id="themeSelect">
+      <option value="system">System</option>
+      <option value="light">Light</option>
+      <option value="dark">Dark</option>
     </select>
-    <button class="preset-apply" id="applyPreset" type="button" disabled>Apply preset</button>
-  </div>
-  <div class="preset-preview" id="presetPreview" aria-live="polite">
-    <strong>Custom plan</strong>
-    <span>Select a Town Hall to preview its changes. Nothing is changed or saved yet.</span>
+  </label>
+  <span class="sr-only" id="controlAnnouncement" aria-live="polite" aria-atomic="true"></span>
+</header>
+
+<nav class="view-nav" aria-label="Control center views">
+  <button id="viewRunButton" type="button" data-view="run" aria-current="page" disabled>Run<span>Saved plan and controls</span></button>
+  <button id="viewPlanButton" type="button" data-view="plan" disabled>Plan<span>Build and apply a plan</span></button>
+  <button id="viewDiagnosticsButton" type="button" data-view="diagnostics" disabled>Diagnostics<span>Health, activity, and logs</span></button>
+</nav>
+
+<section class="boot-shell" id="bootShell" role="status" aria-live="polite" aria-atomic="true">
+  <div>
+    <h2 id="bootTitle">Loading the control center</h2>
+    <p id="bootStatus">Reading metadata, the saved plan, and the native heartbeat.</p>
+    <button id="bootRetry" type="button" hidden>Try again</button>
   </div>
 </section>
-<p class="banner" id="banner" role="region" aria-label="Verification status"><span class="mark">&bull;</span><span id="bannerText">Loading...</span></p>
 
-<main id="main" tabindex="-1">
-  <nav id="nav" aria-label="Sections"></nav>
-  <section id="panel" aria-label="Run settings"></section>
-  <aside>
-    <h3>About the selected control</h3>
-    <div class="detail" id="detail">Focus a control to see what it does and what it still needs.</div>
-    <div class="events">
-      <h3>Recent activity</h3>
-      <ul id="events"><li>No events yet.</li></ul>
+<main id="workspace" tabindex="-1" hidden>
+  <section class="view-panel" id="viewRun" aria-labelledby="runTitle">
+    <header class="view-heading">
+      <div>
+        <h2 id="runTitle" tabindex="-1">Run</h2>
+        <p>Review the saved plan before starting the native engine.</p>
+      </div>
+      <button id="editPlan" type="button" disabled>Edit plan</button>
+    </header>
+
+    <div class="run-layout">
+      <section class="work-panel" aria-labelledby="savedPlanTitle">
+        <div class="panel-heading">
+          <h3 id="savedPlanTitle">Saved plan</h3>
+          <span class="state-label" id="savedPlanState">Loading</span>
+        </div>
+        <div id="savedPlanSummary" class="summary-list"></div>
+        <div class="plan-fingerprint">
+          <span>Saved plan fingerprint</span>
+          <code id="savedPlanHash">Calculating</code>
+          <small>SHA-256 of the sorted saved values. Start uses this applied plan, never the visible draft.</small>
+        </div>
+        <div id="runEvidence" class="evidence-receipt"></div>
+        <div class="validation" id="runValidation">
+          <h4>Plan check</h4>
+          <ul id="runValidationList"></ul>
+        </div>
+      </section>
+
+      <section class="work-panel" aria-labelledby="recentActivityTitle">
+        <div class="panel-heading">
+          <h3 id="recentActivityTitle">Recent activity</h3>
+          <button class="text-button" id="openDiagnostics" type="button" disabled>View diagnostics</button>
+        </div>
+        <ol class="activity-list" id="recentEvents"><li class="empty-state">Loading activity.</li></ol>
+      </section>
     </div>
-  </aside>
-</main>
+  </section>
 
-<div class="bar" role="region" aria-label="Plan actions">
-  <button class="primary" id="apply">Apply plan</button>
-  <button class="ghost" id="reset">Reset to defaults</button>
-  <span class="dirty" id="dirty"></span>
-  <span class="status" id="status" aria-live="polite"></span>
-</div>
+  <section class="view-panel" id="viewPlan" aria-labelledby="planTitle" hidden>
+    <header class="view-heading plan-heading">
+      <div>
+        <h2 id="planTitle" tabindex="-1">Plan</h2>
+        <p>Build one run, apply it to disk, then return to Run to start it.</p>
+      </div>
+      <label class="search-control" for="filter">
+        <span>Find a setting</span>
+        <input id="filter" type="search" placeholder="Search labels, descriptions, and options" disabled>
+      </label>
+    </header>
+
+    <section class="preset-workbench" aria-label="Plan starting points">
+      <div class="preset-picker">
+        <label for="presetSelect" id="presetTitle">Town Hall starting point</label>
+        <select id="presetSelect" disabled>
+          <option value="custom">Custom plan — your settings</option>
+        </select>
+      </div>
+      <div class="preset-preview" id="presetPreview">
+        <strong>Custom plan</strong>
+        <span>The visible settings remain unchanged until the control center finishes loading.</span>
+      </div>
+      <span class="sr-only" id="presetAnnouncement" aria-live="polite" aria-atomic="true"></span>
+    </section>
+
+    <div class="plan-layout">
+      <nav class="plan-groups" id="planGroupNav" aria-label="Plan groups"></nav>
+      <section class="plan-editor" id="panel" aria-label="Plan settings"></section>
+      <aside class="plan-receipt" aria-labelledby="planReceiptTitle">
+        <div class="panel-heading">
+          <h3 id="planReceiptTitle">Plan receipt</h3>
+          <span class="state-label" id="visiblePlanState">Loading</span>
+        </div>
+        <div id="planSummary" class="summary-list"></div>
+        <div class="plan-fingerprint">
+          <span>Visible plan fingerprint</span>
+          <code id="visiblePlanHash">Calculating</code>
+          <small>Changes here do not reach Start until Apply succeeds.</small>
+        </div>
+        <div id="banner" class="evidence-receipt" aria-labelledby="bannerText">
+          <strong id="bannerText">Evidence scope is loading.</strong>
+        </div>
+        <div class="validation" id="planValidation">
+          <h4>Before apply</h4>
+          <ul id="validationList"></ul>
+        </div>
+      </aside>
+    </div>
+
+    <div class="plan-actions" aria-label="Plan actions">
+      <button class="primary-action" id="apply" type="button" disabled>Apply plan</button>
+      <button id="reset" type="button" disabled>Reset visible plan</button>
+      <span class="dirty" id="dirty">Loading plan.</span>
+      <span class="save-status" id="status" aria-live="polite" aria-atomic="true"></span>
+    </div>
+  </section>
+
+  <section class="view-panel" id="viewDiagnostics" aria-labelledby="diagnosticsTitle" hidden>
+    <header class="view-heading">
+      <div>
+        <h2 id="diagnosticsTitle" tabindex="-1">Diagnostics</h2>
+        <p>Inspect current health and event history. Raw output stays collapsed until you need it.</p>
+      </div>
+      <button id="exportDiagnostics" type="button" disabled>Export diagnostics</button>
+    </header>
+
+    <div class="diagnostics-layout">
+      <section class="work-panel" aria-labelledby="healthTitle">
+        <h3 id="healthTitle">Startup health</h3>
+        <ol class="health-list">
+          <li id="healthUi" data-state="waiting"><span>Control center</span><strong>Loading</strong></li>
+          <li id="healthNative" data-state="waiting"><span>Native app</span><strong>Waiting</strong></li>
+          <li id="healthEngine" data-state="waiting"><span>Managed engine</span><strong>Waiting</strong></li>
+          <li id="healthEmulator" data-state="waiting"><span>Emulator and game</span><strong>Waiting</strong></li>
+        </ol>
+      </section>
+
+      <section class="work-panel activity-panel" aria-labelledby="activityTitle">
+        <h3 id="activityTitle">Activity</h3>
+        <ol class="activity-list" id="events"><li class="empty-state">Loading activity.</li></ol>
+      </section>
+    </div>
+
+    <details class="raw-log" id="rawLogDetails">
+      <summary>Raw native log</summary>
+      <p>The bounded tail is for diagnosis. The activity list above is the operator timeline.</p>
+      <div class="log-toolbar" aria-label="Raw log controls">
+        <button id="refreshNativeLog" type="button" disabled>Refresh log</button>
+        <a id="downloadNativeLog" href="/api/log/download" download hidden>Download tail</a>
+        <label><input id="followNativeLog" type="checkbox" checked disabled> Refresh while not reading</label>
+      </div>
+      <p class="log-status" id="nativeLogStatus">Open this section to load the active profile log.</p>
+      <pre id="nativeLogText" tabindex="0">The raw log is not loaded.</pre>
+    </details>
+  </section>
+</main>
 
 <script src="/planner.js" defer></script>
 </body>

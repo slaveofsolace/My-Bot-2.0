@@ -17,6 +17,12 @@ Global Const $RUN_EVENT_LOG_NAME = "logs\run-events.jsonl"
 
 Global $g_iRunEventSequence = 0
 Global $g_sRunEventSessionId = ""
+Global $g_bRunEventSessionBound = False
+Global $g_iRunEventBattleIndex = 0
+Global $g_sRunEventSurfaceId = ""
+Global $g_sRunEventRoute = ""
+Global $g_sRunEventVerificationState = $RUN_VERIFICATION_DIAGNOSTIC
+Global $g_hRunEventClock = TimerInit()
 
 Func RunEventLogPath()
 	Return @ScriptDir & "\" & $RUN_EVENT_LOG_NAME
@@ -35,22 +41,59 @@ Func RunEventLogBindSession($sSessionId)
 	$sSessionId = StringStripWS(String($sSessionId), $STR_STRIPLEADING + $STR_STRIPTRAILING)
 	If $sSessionId = "" Then Return SetError(1, 0, False)
 	$g_sRunEventSessionId = $sSessionId
+	$g_bRunEventSessionBound = True
 	$g_iRunEventSequence = 0
+	$g_iRunEventBattleIndex = 0
+	$g_sRunEventSurfaceId = ""
+	$g_sRunEventRoute = ""
+	$g_sRunEventVerificationState = $RUN_VERIFICATION_DIAGNOSTIC
+	$g_hRunEventClock = TimerInit()
 	Return True
 EndFunc   ;==>RunEventLogBindSession
 
 Func RunEventLogReleaseSession($sExpectedSessionId = "")
 	If $sExpectedSessionId <> "" And StringCompare($g_sRunEventSessionId, $sExpectedSessionId, 0) <> 0 Then Return False
 	$g_sRunEventSessionId = ""
+	$g_bRunEventSessionBound = False
 	$g_iRunEventSequence = 0
+	$g_iRunEventBattleIndex = 0
+	$g_sRunEventSurfaceId = ""
+	$g_sRunEventRoute = ""
+	$g_sRunEventVerificationState = $RUN_VERIFICATION_DIAGNOSTIC
+	$g_hRunEventClock = TimerInit()
 	Return True
 EndFunc   ;==>RunEventLogReleaseSession
 
-; Milliseconds since launch. The event contract wants a number, and a monotonic one beats a wall clock
-; that can step backwards mid-run.
+Func _RunEventLogRouteForSurface($sSurfaceId)
+	Switch StringLower(StringStripWS(String($sSurfaceId), $STR_STRIPALL))
+		Case "regular", "revenge"
+			Return "regular"
+		Case "ranked"
+			Return "ranked"
+		Case "builder"
+			Return "builder"
+		Case Else
+			If StringLeft(StringLower(String($sSurfaceId)), 7) = "legend-" Then Return "legend"
+	EndSwitch
+	Return ""
+EndFunc   ;==>_RunEventLogRouteForSurface
+
+Func _RunEventLogSetRunContext($sSurfaceId, $sVerificationState)
+	If Not $g_bRunEventSessionBound Then Return False
+	$g_sRunEventSurfaceId = StringLower(StringStripWS(String($sSurfaceId), $STR_STRIPALL))
+	$g_sRunEventRoute = _RunEventLogRouteForSurface($g_sRunEventSurfaceId)
+	If RunVerificationIsState($sVerificationState) Then
+		$g_sRunEventVerificationState = $sVerificationState
+	Else
+		$g_sRunEventVerificationState = $RUN_VERIFICATION_DIAGNOSTIC
+	EndIf
+	Return True
+EndFunc   ;==>_RunEventLogSetRunContext
+
+; Milliseconds since the current session was bound (or the last release for unbound diagnostics).
+; The clock is reset with the sequence so every planned run gets an independent monotonic timeline.
 Func _RunEventLogNowMs()
-	Local Static $hClock = TimerInit()
-	Return Int(TimerDiff($hClock))
+	Return Int(TimerDiff($g_hRunEventClock))
 EndFunc   ;==>_RunEventLogNowMs
 
 Func RunEventLogWrite($sType, $sSeverity, $sMessage, $sSurfaceId = "", $sVerificationState = $RUN_VERIFICATION_VERIFIED)
@@ -88,8 +131,54 @@ Func RunEventLogRestEnded()
 EndFunc   ;==>RunEventLogRestEnded
 
 Func RunEventLogRunStarted($sSurfaceId, $sVerificationState, $sDescription)
+	_RunEventLogSetRunContext($sSurfaceId, $sVerificationState)
 	Return RunEventLogWrite("session.started", "info", $sDescription, $sSurfaceId, $sVerificationState)
 EndFunc   ;==>RunEventLogRunStarted
+
+; AttackReport calls this only after it has read and committed one complete attack result. The explicit
+; bound-session guard prevents legacy/manual attacks from being represented as planner-run evidence.
+Func RunEventLogBattleCompleted($iStars, $iDestructionPercent, $iGold, $iElixir, $iDarkElixir, $iTrophyDelta, $iSearchCount)
+	If Not $g_bRunEventSessionBound Or $g_sRunEventSessionId = "" Then Return True
+
+	Local $iBattleIndex = $g_iRunEventBattleIndex + 1
+	Local $sMessage = "Battle " & $iBattleIndex & " completed: " & Int($iStars) & " stars, " & Int($iDestructionPercent) & _
+			"% destruction, loot " & Int($iGold) & "/" & Int($iElixir) & "/" & Int($iDarkElixir) & _
+			", trophy delta " & Int($iTrophyDelta) & ", searches " & Int($iSearchCount)
+	Local $oEvent = RunEventCreate("battle.completed", $g_iRunEventSequence + 1, _RunEventLogNowMs(), $g_sRunEventSessionId, _
+			"info", $sMessage, "", $g_sRunEventRoute, $iBattleIndex, $iGold, $iElixir, $iDarkElixir, 0, _
+			$g_sRunEventVerificationState, $g_sRunEventSurfaceId, $iStars, $iDestructionPercent, $iTrophyDelta, $iSearchCount)
+	If Not IsObj($oEvent) Then Return False
+
+	$g_iRunEventSequence += 1
+	$g_iRunEventBattleIndex = $iBattleIndex
+	Return RunEventAppendJsonLine(RunEventLogPath(), $oEvent) <> 0
+EndFunc   ;==>RunEventLogBattleCompleted
+
+Func RunEventLogCombatDecision($sMessage)
+	If Not $g_bRunEventSessionBound Then Return True
+	Return RunEventLogWrite("combat.decision", "info", $sMessage, $g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogCombatDecision
+
+Func RunEventLogHeroAbility($sHeroName, $sReason, $sSeverity = "info")
+	If Not $g_bRunEventSessionBound Then Return True
+	Local $sAction = " ability command issued: "
+	If StringLower(String($sSeverity)) = "warning" Or StringLower(String($sSeverity)) = "error" Then _
+		$sAction = " ability not issued: "
+	Return RunEventLogWrite("combat.hero-ability", $sSeverity, $sHeroName & $sAction & $sReason, _
+			$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogHeroAbility
+
+Func RunEventLogSpellCast($sSpellName, $iX, $iY, $sReason)
+	If Not $g_bRunEventSessionBound Then Return True
+	Return RunEventLogWrite("combat.spell-cast", "info", $sSpellName & " cast at " & Int($iX) & "," & Int($iY) & _
+			" (" & $sReason & ")", $g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogSpellCast
+
+Func RunEventLogSpellRetained($sSpellName, $sReason)
+	If Not $g_bRunEventSessionBound Then Return True
+	Return RunEventLogWrite("combat.spell-retained", "warning", $sSpellName & " retained: " & $sReason, _
+			$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogSpellRetained
 
 Func RunEventLogRunStopping($sSurfaceId, $sVerificationState, $sReason)
 	Return RunEventLogWrite("session.stopping", "info", "Stop condition: " & $sReason, $sSurfaceId, $sVerificationState)
@@ -98,6 +187,10 @@ EndFunc   ;==>RunEventLogRunStopping
 Func RunEventLogRunCompleted($sSurfaceId, $sVerificationState, $sReason)
 	Return RunEventLogWrite("session.completed", "info", "Run ended: " & $sReason, $sSurfaceId, $sVerificationState)
 EndFunc   ;==>RunEventLogRunCompleted
+
+Func RunEventLogRunFailed($sSurfaceId, $sVerificationState, $sReason)
+	Return RunEventLogWrite("session.failed", "error", $sReason, $sSurfaceId, $sVerificationState)
+EndFunc   ;==>RunEventLogRunFailed
 
 Func RunEventLogEngineUnavailable($sReason)
 	Return RunEventLogWrite("error", "error", "Managed engine unavailable: " & $sReason, "", $RUN_VERIFICATION_DIAGNOSTIC)

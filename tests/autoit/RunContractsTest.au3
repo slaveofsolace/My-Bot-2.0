@@ -72,11 +72,15 @@ AssertTrue(AccountQueueNext($oQueue, $sProfile, $sName), "disabled queue item is
 AssertTrue($sProfile = "profile-c", "third profile follows the disabled item")
 AssertTrue(Not AccountQueueNext($oQueue, $sProfile, $sName), "non-cycling queue ends")
 
-Local $oEvent = RunEventCreate("battle.completed", 7, 2000, "contract-test", "info", "Battle complete", "profile-a", "ranked", 2, 700, 300, 0, 0)
+Local $oEvent = RunEventCreate("battle.completed", 7, 2000, "contract-test", "info", "Battle complete", "profile-a", "ranked", 2, 700, 300, 0, 0, $RUN_VERIFICATION_VERIFIED, "ranked", 3, 98, -12, 17)
 AssertTrue(IsObj($oEvent), "run event is created")
 Local $sEventJson = RunEventToJson($oEvent)
 AssertTrue(StringInStr($sEventJson, Chr(34) & "type" & Chr(34) & ":" & Chr(34) & "battle.completed" & Chr(34)) > 0, "run event serializes its type")
 AssertTrue(StringInStr($sEventJson, Chr(34) & "gold" & Chr(34) & ":700") > 0, "run event serializes numeric loot")
+AssertTrue(StringInStr($sEventJson, Chr(34) & "stars" & Chr(34) & ":3") > 0, "run event serializes exact stars")
+AssertTrue(StringInStr($sEventJson, Chr(34) & "destruction_percent" & Chr(34) & ":98") > 0, "run event serializes exact destruction")
+AssertTrue(StringInStr($sEventJson, Chr(34) & "trophy_delta" & Chr(34) & ":-12") > 0, "run event preserves a signed trophy delta")
+AssertTrue(StringInStr($sEventJson, Chr(34) & "search_count" & Chr(34) & ":17") > 0, "run event serializes the battle search count")
 Local $sEventPath = @TempDir & "\mybot-run-contract-event.jsonl"
 FileDelete($sEventPath)
 AssertTrue(RunEventAppendJsonLine($sEventPath, $oEvent), "run event is appended to JSONL")

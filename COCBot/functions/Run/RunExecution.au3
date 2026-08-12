@@ -21,6 +21,14 @@ Global $g_iRunExecutionGoldBaseline = 0
 Global $g_iRunExecutionElixirBaseline = 0
 Global $g_iRunExecutionDarkBaseline = 0
 Global $g_sRunExecutionMessage = "Legacy profile mode"
+; A standard planned attack is successful only after the live attack bar proves that the main
+; deployable troops disappeared. Sending click commands is not deployment evidence.
+Global $g_bRunExecutionDeploymentVerified = False
+Global $g_iRunExecutionDeployableBefore = 0
+Global $g_iRunExecutionDeployableAfter = -1
+; True outside a planned override. A plan may turn this off for one already-trained army; every
+; completion/cancellation path restores True before the inherited loop can train again.
+Global $g_bRunExecutionManageTraining = True
 Global $g_bRunExecutionProfileSnapshotCaptured = False
 Global $g_bRunExecutionEmulatorChanged = False
 Global $g_iRunExecutionSnapshotAndroidConfig = 0
@@ -29,7 +37,12 @@ Global $g_sRunExecutionSnapshotAndroidInstance = ""
 Global $g_asRunExecutionSnapshotAttackScript[$g_iModeCount]
 Global $g_abRunExecutionSnapshotAttackTypeEnable[$g_iModeCount + 1]
 Global $g_aiRunExecutionSnapshotAttackAlgorithm[$g_iModeCount]
+Global $g_aiRunExecutionSnapshotAttackStdDropSides[$g_iModeCount + 1]
+Global $g_abRunExecutionSnapshotAttackStdSmartAttack[$g_iModeCount + 1]
 Global $g_aiRunExecutionSnapshotAttackUseHeroes[$g_iModeCount]
+Global $g_abRunExecutionSnapshotAttackDropCC[$g_iModeCount]
+Global $g_abRunExecutionSnapshotAttackUseRageSpell[$g_iModeCount]
+Global $g_abRunExecutionSnapshotAttackUseFreezeSpell[$g_iModeCount]
 Global $g_aiRunExecutionSnapshotSearchHeroWaitEnable[$g_iModeCount]
 Global $g_abRunExecutionSnapshotSearchSpellsWaitEnable[$g_iModeCount]
 Global $g_abRunExecutionSnapshotSearchSiegeWaitEnable[$g_iModeCount]
@@ -48,6 +61,9 @@ Global $g_bRunExecutionSnapshotChkCollect = False
 Global $g_bRunExecutionSnapshotAutoLabUpgradeEnable = False
 Global $g_bRunExecutionSnapshotAutoUpgradeWallsEnable = False
 Global $g_bRunExecutionSnapshotAutoUpgradeEnabled = False
+Global $g_bRunExecutionSnapshotChkSwitchAcc = False
+Global $g_bRunExecutionSnapshotPlannedDropCCHoursEnable = False
+Global $g_bRunExecutionSnapshotUseCCBalanced = False
 
 Func RunExecutionPlanActive()
 	Return $g_bRunExecutionActive
@@ -61,6 +77,102 @@ Func RunExecutionSessionId()
 	If Not IsObj($g_oRunExecutionSession) Then Return ""
 	Return String($g_oRunExecutionSession.Item("session_id"))
 EndFunc   ;==>RunExecutionSessionId
+
+Func RunExecutionShouldManageTraining()
+	Return $g_bRunExecutionManageTraining
+EndFunc   ;==>RunExecutionShouldManageTraining
+
+; A bounded current-army plan performs no own-village building work. Current scenery may not have
+; inherited stone/tree zoom anchors, so requiring legacy village calibration would restart CoC even
+; after the main-screen pixel and chat image have already proven readiness.
+Func RunExecutionSkipVillageZoomCalibration()
+	Return $g_bRunExecutionPrepared And Not $g_bRunExecutionManageTraining
+EndFunc   ;==>RunExecutionSkipVillageZoomCalibration
+
+Func RunExecutionStandardDeploymentProofRequired()
+	If Not $g_bRunExecutionActive Or Not IsObj($g_oRunExecutionIntent) Then Return False
+	Local $oPlan = $g_oRunExecutionIntent.Item("plan")
+	Local $sStrategy = StringLower(StringStripWS(String($oPlan.Item("strategy")), $STR_STRIPALL))
+	Return $sStrategy = "legacy.standard" Or $sStrategy = "smart.local"
+EndFunc   ;==>RunExecutionStandardDeploymentProofRequired
+
+Func RunExecutionResetDeploymentProof($iDeployableBefore = 0)
+	$g_bRunExecutionDeploymentVerified = False
+	$g_iRunExecutionDeployableBefore = Int($iDeployableBefore)
+	$g_iRunExecutionDeployableAfter = -1
+EndFunc   ;==>RunExecutionResetDeploymentProof
+
+Func RunExecutionRecordDeploymentProof($iDeployableAfter)
+	$g_iRunExecutionDeployableAfter = Int($iDeployableAfter)
+	$g_bRunExecutionDeploymentVerified = $g_iRunExecutionDeployableBefore > 0 And $g_iRunExecutionDeployableAfter = 0
+	If $g_bRunExecutionDeploymentVerified Then
+		SetLog("Run Planner deployment verified: " & $g_iRunExecutionDeployableBefore & " deployable troops reduced to zero", $COLOR_SUCCESS)
+	Else
+		SetLog("Run Planner deployment verification failed: " & $g_iRunExecutionDeployableBefore & _
+				" deployable troops before, " & $g_iRunExecutionDeployableAfter & " still visible after the drop routine", $COLOR_ERROR)
+	EndIf
+	Return $g_bRunExecutionDeploymentVerified
+EndFunc   ;==>RunExecutionRecordDeploymentProof
+
+Func RunExecutionDeploymentVerified()
+	If Not RunExecutionStandardDeploymentProofRequired() Then Return True
+	Return $g_bRunExecutionDeploymentVerified
+EndFunc   ;==>RunExecutionDeploymentVerified
+
+; The inherited working attack path uses the emulator-specific AndroidZoomOut primitive before it
+; trusts deployment geometry. Do not run the legacy stone/tree scenery search before the first
+; pinch: current scenery has no matching anchors and that scan can consume the entire 30-second
+; deployment countdown. Apply a small, bounded pinch sequence immediately, then prove the current
+; attack page and its deployable red line from a fresh framebuffer before any resource read or drop.
+Func RunExecutionPrepareEnemyDeploymentView()
+	If Not $g_bRunExecutionActive Then Return True
+	If Not $g_bRunState Or Not IsAttackPage() Then
+		SetLog("Run Planner cannot zoom: the live attack page is not visible", $COLOR_ERROR)
+		Return False
+	EndIf
+
+	SetLog("Run Planner: applying the original enemy zoom-out gesture before deployment", $COLOR_ACTION)
+	For $iZoom = 0 To 2
+		; Use the inherited Normal2 pinch transport, but keep its vertical axis above the current
+		; client's bottom battle controls. The randomized zoom helper selects Normal0..6; Normal0/5/6
+		; cross the Boost Heroes row and can be interpreted as a tap when the gesture collapses.
+		; Mode 2 deliberately disables minitouch and retains AndroidAdbScript's normal fallback.
+		AndroidZoomOut($iZoom, Default, ($g_iAndroidZoomoutMode <> 2), Default, "Normal2")
+		Local $iZoomError = @error
+		If $iZoomError Then
+			SetLog("Run Planner could not send enemy zoom-out gesture " & ($iZoom + 1) & "/3 (error " & $iZoomError & _
+					"); refusing to deploy troops", $COLOR_ERROR)
+			Return False
+		EndIf
+		SetDebugLog("Run Planner: enemy zoom-out gesture " & ($iZoom + 1) & "/3 accepted")
+		If _Sleep(250) Then Return False
+	Next
+
+	; IsAttackPage reads $g_hBitmap while red-line detection reads $g_hHBitmap2.
+	; Refresh both from the same framebuffer so the post-zoom proof cannot compare
+	; a fresh image-search frame against a stale pixel frame.
+	ForceCaptureRegion()
+	_CaptureRegions()
+	If Not IsAttackPage(False) Then
+		SetLog("Run Planner lost the attack page after zoom-out; refusing to deploy troops", $COLOR_ERROR)
+		Return False
+	EndIf
+
+	; Red-line detection is the same current-frame geometry consumed by SmartAttackStrategy and the
+	; inherited DropTroop routines. It is both much faster and more relevant than scenery anchors.
+	$g_sImglocRedline = ""
+	Local $sRedline = SearchRedLines($CocDiamondECD)
+	Local $iRedlinePoints = 0
+	If IsString($sRedline) And $sRedline <> "" And $sRedline <> "ECD" Then _
+		$iRedlinePoints = UBound(StringSplit($sRedline, "|", $STR_NOCOUNT))
+	If $iRedlinePoints < 50 Then
+		SetLog("Run Planner could not prove deployable red-line geometry after zoom-out; refusing to click the base", $COLOR_ERROR)
+		Return False
+	EndIf
+
+	SetLog("Run Planner: enemy zoom-out and " & $iRedlinePoints & " deployable red-line points verified", $COLOR_SUCCESS)
+	Return True
+EndFunc   ;==>RunExecutionPrepareEnemyDeploymentView
 
 Func _RunExecutionBattleTotal()
 	Return Int($g_aiAttackedVillageCount[$DB]) + Int($g_aiAttackedVillageCount[$LB])
@@ -79,6 +191,22 @@ Func _RunExecutionHeroMask(ByRef $oLoadout)
 	If HeroLoadoutContains($oLoadout, "royal-champion") Then $iMask = BitOR($iMask, $eHeroChampion)
 	Return $iMask
 EndFunc   ;==>_RunExecutionHeroMask
+
+Func RunExecutionSmartAttackEnabled()
+	If Not ($g_bRunExecutionPrepared Or $g_bRunExecutionActive) Or Not IsObj($g_oRunExecutionIntent) Then Return False
+	Local $oPlan = $g_oRunExecutionIntent.Item("plan")
+	Return StringLower(StringStripWS(String($oPlan.Item("strategy")), $STR_STRIPALL)) = "smart.local"
+EndFunc   ;==>RunExecutionSmartAttackEnabled
+
+Func RunExecutionConfigureSmartAttackForMode($iMode)
+	If Not RunExecutionSmartAttackEnabled() Then Return False
+	If $iMode < 0 Or $iMode >= $g_iModeCount Then Return False
+	$g_abAttackStdSmartAttack[$iMode] = True
+	$g_aiAttackStdDropSides[$iMode] = RunExecutionSmartDropSides($g_iTownHallLevel, $iMode = $LB)
+	SetLog("Smart Attack local policy: TH" & $g_iTownHallLevel & _
+			", one concentrated side selected from the current red line", $COLOR_INFO)
+	Return True
+EndFunc   ;==>RunExecutionConfigureSmartAttackForMode
 
 Func _RunExecutionEmulatorName($sId)
 	Switch StringLower(StringStripWS(String($sId), $STR_STRIPALL))
@@ -105,7 +233,12 @@ Func _RunExecutionCaptureProfileSnapshot()
 	For $iMode = 0 To $g_iModeCount - 1
 		$g_asRunExecutionSnapshotAttackScript[$iMode] = $g_sAttackScrScriptName[$iMode]
 		$g_aiRunExecutionSnapshotAttackAlgorithm[$iMode] = $g_aiAttackAlgorithm[$iMode]
+		$g_aiRunExecutionSnapshotAttackStdDropSides[$iMode] = $g_aiAttackStdDropSides[$iMode]
+		$g_abRunExecutionSnapshotAttackStdSmartAttack[$iMode] = $g_abAttackStdSmartAttack[$iMode]
 		$g_aiRunExecutionSnapshotAttackUseHeroes[$iMode] = $g_aiAttackUseHeroes[$iMode]
+		$g_abRunExecutionSnapshotAttackDropCC[$iMode] = $g_abAttackDropCC[$iMode]
+		$g_abRunExecutionSnapshotAttackUseRageSpell[$iMode] = $g_abAttackUseRageSpell[$iMode]
+		$g_abRunExecutionSnapshotAttackUseFreezeSpell[$iMode] = $g_abAttackUseFreezeSpell[$iMode]
 		$g_aiRunExecutionSnapshotSearchHeroWaitEnable[$iMode] = $g_aiSearchHeroWaitEnable[$iMode]
 		$g_abRunExecutionSnapshotSearchSpellsWaitEnable[$iMode] = $g_abSearchSpellsWaitEnable[$iMode]
 		$g_abRunExecutionSnapshotSearchSiegeWaitEnable[$iMode] = $g_abSearchSiegeWaitEnable[$iMode]
@@ -117,6 +250,10 @@ Func _RunExecutionCaptureProfileSnapshot()
 	Next
 	For $iMode = 0 To $g_iModeCount
 		$g_abRunExecutionSnapshotAttackTypeEnable[$iMode] = $g_abAttackTypeEnable[$iMode]
+		If $iMode = $g_iModeCount Then
+			$g_aiRunExecutionSnapshotAttackStdDropSides[$iMode] = $g_aiAttackStdDropSides[$iMode]
+			$g_abRunExecutionSnapshotAttackStdSmartAttack[$iMode] = $g_abAttackStdSmartAttack[$iMode]
+		EndIf
 	Next
 	For $iSpell = 0 To $eSpellCount - 1
 		$g_aiRunExecutionSnapshotArmyCompSpells[$iSpell] = $g_aiArmyCompSpells[$iSpell]
@@ -133,6 +270,9 @@ Func _RunExecutionCaptureProfileSnapshot()
 	$g_bRunExecutionSnapshotAutoLabUpgradeEnable = $g_bAutoLabUpgradeEnable
 	$g_bRunExecutionSnapshotAutoUpgradeWallsEnable = $g_bAutoUpgradeWallsEnable
 	$g_bRunExecutionSnapshotAutoUpgradeEnabled = $g_bAutoUpgradeEnabled
+	$g_bRunExecutionSnapshotChkSwitchAcc = $g_bChkSwitchAcc
+	$g_bRunExecutionSnapshotPlannedDropCCHoursEnable = $g_bPlannedDropCCHoursEnable
+	$g_bRunExecutionSnapshotUseCCBalanced = $g_bUseCCBalanced
 	$g_bRunExecutionEmulatorChanged = False
 	$g_bRunExecutionProfileSnapshotCaptured = True
 	Return RunProfileOverrideBegin($g_bRunExecutionSnapshotChkClanGamesEnabled, $g_bRunExecutionSnapshotAutoLabUpgradeEnable, _
@@ -142,10 +282,12 @@ EndFunc   ;==>_RunExecutionCaptureProfileSnapshot
 Func RunExecutionPrepareStart(ByRef $sError)
 	$sError = ""
 	_RunExecutionRestoreProfile()
+	RunExecutionResetDeploymentProof()
 	$g_bRunExecutionPrepared = False
 	$g_bRunExecutionActive = False
 	$g_oRunExecutionIntent = 0
 	$g_oRunExecutionSession = 0
+	$g_bRunExecutionManageTraining = True
 	$g_sRunExecutionMessage = "Legacy profile mode"
 
 	Local $oIntent = 0
@@ -189,6 +331,7 @@ Func _RunExecutionApplyIntent(ByRef $sError)
 	If Not RunExecutionContractValidate($g_oRunExecutionIntent, $sError) Then Return False
 
 	Local $oPlan = $g_oRunExecutionIntent.Item("plan")
+	$g_bRunExecutionManageTraining = RunIntentManagesTraining($g_oRunExecutionIntent)
 	Local $sEmulator = StringLower(String($oPlan.Item("emulator")))
 	If $sEmulator <> "auto" Then
 		Local $sResolvedEmulator = _RunExecutionEmulatorName($sEmulator)
@@ -205,7 +348,8 @@ Func _RunExecutionApplyIntent(ByRef $sError)
 		EndIf
 	EndIf
 
-	Local $iAlgorithm = (StringLower(String($oPlan.Item("strategy"))) = "legacy.csv") ? 1 : 0
+	Local $sStrategy = StringLower(String($oPlan.Item("strategy")))
+	Local $iAlgorithm = ($sStrategy = "legacy.csv") ? 1 : 0
 	Local $sAttackScript = StringStripWS(String($oPlan.Item("attack_script")), $STR_STRIPLEADING + $STR_STRIPTRAILING)
 	If $iAlgorithm = 1 And StringLower($sAttackScript) <> "profile-current" Then
 		Local $sAttackScriptPath = $g_sCSVAttacksPath & "\" & $sAttackScript & ".csv"
@@ -222,11 +366,31 @@ Func _RunExecutionApplyIntent(ByRef $sError)
 	Local $oLoadout = $g_oRunExecutionIntent.Item("loadout")
 	Local $iHeroMask = _RunExecutionHeroMask($oLoadout)
 	Local $bWaitForFull = $oPlan.Item("army_wait_for_full")
+	Local $iHeroWaitMask = RunExecutionHeroWaitMask($iHeroMask, $bWaitForFull, $g_bRunExecutionManageTraining)
 	For $iMode = $DB To $LB
 		$g_abAttackTypeEnable[$iMode] = True
 		$g_aiAttackAlgorithm[$iMode] = $iAlgorithm
 		$g_aiAttackUseHeroes[$iMode] = $iHeroMask
-		$g_aiSearchHeroWaitEnable[$iMode] = $bWaitForFull ? $iHeroMask : $eHeroNone
+		; A named planner strategy must not silently inherit unrelated legacy profile tactics. Both
+		; planned standard and smart attacks use the freshly proven current-client red line; the old
+		; fixed edge coordinates predate the current zoom geometry and can click buildings instead of
+		; deploying. Standard remains deterministic by retaining its one-side selector.
+		If $sStrategy = "legacy.standard" Then
+			$g_abAttackStdSmartAttack[$iMode] = True
+			$g_aiAttackStdDropSides[$iMode] = 0
+		ElseIf $sStrategy = "smart.local" Then
+			$g_abAttackStdSmartAttack[$iMode] = True
+			; Smart owns its tactical spell decision. Training management and battle use are separate:
+			; an already-trained Rage or Freeze is retained for the bounded Smart caster even when this
+			; one-run plan deliberately does not train or mutate the army.
+			$g_abAttackUseRageSpell[$iMode] = True
+			$g_abAttackUseFreezeSpell[$iMode] = True
+		EndIf
+		; A planned one-battle run owns every visible combat actor. If a siege/Clan Castle slot is
+		; present, deploy it; an absent slot remains a harmless no-op. The captured profile value is
+		; restored after the run.
+		If $sStrategy = "legacy.standard" Or $sStrategy = "smart.local" Then $g_abAttackDropCC[$iMode] = True
+		$g_aiSearchHeroWaitEnable[$iMode] = $iHeroWaitMask
 		$g_abSearchSpellsWaitEnable[$iMode] = $bWaitForFull And $oPlan.Item("army_train_spells")
 		$g_abSearchSiegeWaitEnable[$iMode] = $bWaitForFull And $oPlan.Item("army_train_sieges")
 		$g_aiFilterMeetGE[$iMode] = 0
@@ -259,6 +423,13 @@ Func _RunExecutionApplyIntent(ByRef $sError)
 			$g_bDonateLikeCrazy = True
 	EndSwitch
 	$g_bRequestTroopsEnable = $oPlan.Item("donate_request_when_short")
+	If $sStrategy = "legacy.standard" Or $sStrategy = "smart.local" Then
+		$g_bPlannedDropCCHoursEnable = False
+		$g_bUseCCBalanced = False
+	EndIf
+	; A planner run targets the currently inspected village. Never inherit the legacy profile's
+	; autonomous account rotation, which could switch to an uninspected army/account before FirstCheck.
+	$g_bChkSwitchAcc = False
 	$g_bChkClanGamesEnabled = $oPlan.Item("events_clan_games") ? 1 : 0
 	$g_bChkCollect = $oPlan.Item("events_collect_resources")
 	$g_bAutoLabUpgradeEnable = False
@@ -305,6 +476,7 @@ Func RunExecutionBegin(ByRef $sError)
 	$g_iRunExecutionElixirBaseline = _RunExecutionLootTotal($g_aiTotalElixirGain)
 	$g_iRunExecutionDarkBaseline = _RunExecutionLootTotal($g_aiTotalDarkGain)
 	$g_hRunExecutionStarted = __TimerInit()
+	RunExecutionResetDeploymentProof()
 	$g_bRunExecutionActive = True
 	$g_sRunExecutionMessage = "Planned run active"
 
@@ -316,6 +488,7 @@ EndFunc   ;==>RunExecutionBegin
 
 Func _RunExecutionRestoreProfile()
 	If Not $g_bRunExecutionProfileSnapshotCaptured Then
+		$g_bRunExecutionManageTraining = True
 		RunProfileOverrideEnd()
 		Return
 	EndIf
@@ -334,7 +507,12 @@ Func _RunExecutionRestoreProfile()
 	For $iMode = 0 To $g_iModeCount - 1
 		$g_sAttackScrScriptName[$iMode] = $g_asRunExecutionSnapshotAttackScript[$iMode]
 		$g_aiAttackAlgorithm[$iMode] = $g_aiRunExecutionSnapshotAttackAlgorithm[$iMode]
+		$g_aiAttackStdDropSides[$iMode] = $g_aiRunExecutionSnapshotAttackStdDropSides[$iMode]
+		$g_abAttackStdSmartAttack[$iMode] = $g_abRunExecutionSnapshotAttackStdSmartAttack[$iMode]
 		$g_aiAttackUseHeroes[$iMode] = $g_aiRunExecutionSnapshotAttackUseHeroes[$iMode]
+		$g_abAttackDropCC[$iMode] = $g_abRunExecutionSnapshotAttackDropCC[$iMode]
+		$g_abAttackUseRageSpell[$iMode] = $g_abRunExecutionSnapshotAttackUseRageSpell[$iMode]
+		$g_abAttackUseFreezeSpell[$iMode] = $g_abRunExecutionSnapshotAttackUseFreezeSpell[$iMode]
 		$g_aiSearchHeroWaitEnable[$iMode] = $g_aiRunExecutionSnapshotSearchHeroWaitEnable[$iMode]
 		$g_abSearchSpellsWaitEnable[$iMode] = $g_abRunExecutionSnapshotSearchSpellsWaitEnable[$iMode]
 		$g_abSearchSiegeWaitEnable[$iMode] = $g_abRunExecutionSnapshotSearchSiegeWaitEnable[$iMode]
@@ -346,6 +524,10 @@ Func _RunExecutionRestoreProfile()
 	Next
 	For $iMode = 0 To $g_iModeCount
 		$g_abAttackTypeEnable[$iMode] = $g_abRunExecutionSnapshotAttackTypeEnable[$iMode]
+		If $iMode = $g_iModeCount Then
+			$g_aiAttackStdDropSides[$iMode] = $g_aiRunExecutionSnapshotAttackStdDropSides[$iMode]
+			$g_abAttackStdSmartAttack[$iMode] = $g_abRunExecutionSnapshotAttackStdSmartAttack[$iMode]
+		EndIf
 	Next
 	For $iSpell = 0 To $eSpellCount - 1
 		$g_aiArmyCompSpells[$iSpell] = $g_aiRunExecutionSnapshotArmyCompSpells[$iSpell]
@@ -362,6 +544,10 @@ Func _RunExecutionRestoreProfile()
 	$g_bAutoLabUpgradeEnable = $g_bRunExecutionSnapshotAutoLabUpgradeEnable
 	$g_bAutoUpgradeWallsEnable = $g_bRunExecutionSnapshotAutoUpgradeWallsEnable
 	$g_bAutoUpgradeEnabled = $g_bRunExecutionSnapshotAutoUpgradeEnabled
+	$g_bChkSwitchAcc = $g_bRunExecutionSnapshotChkSwitchAcc
+	$g_bPlannedDropCCHoursEnable = $g_bRunExecutionSnapshotPlannedDropCCHoursEnable
+	$g_bUseCCBalanced = $g_bRunExecutionSnapshotUseCCBalanced
+	$g_bRunExecutionManageTraining = True
 	$g_bRunExecutionEmulatorChanged = False
 	$g_bRunExecutionProfileSnapshotCaptured = False
 	RunProfileOverrideEnd()
@@ -424,6 +610,7 @@ Func RunExecutionCancelPrepared($sReason)
 	$g_oRunExecutionIntent = 0
 	If $sCancelledSessionId <> "" Then RunEventLogReleaseSession($sCancelledSessionId)
 	RunPacingDeactivate()
+	RunExecutionResetDeploymentProof()
 	$g_sRunExecutionMessage = $sReason
 EndFunc   ;==>RunExecutionCancelPrepared
 
@@ -458,4 +645,5 @@ Func RunExecutionComplete($sFallbackReason = "stopped")
 	$g_oRunExecutionSession = 0
 	$g_oRunExecutionIntent = 0
 	RunPacingDeactivate()
+	RunExecutionResetDeploymentProof()
 EndFunc   ;==>RunExecutionComplete

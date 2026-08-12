@@ -9,6 +9,7 @@
     "mode",
     "strategy",
     "attack_script",
+    "army_manage_training",
     "duration_minutes",
     "max_battles",
     "stop_on_star_bonus",
@@ -29,6 +30,7 @@
       "maxLength": 80,
       "pattern": "^[^\\\\/:*?\"<>|]+$"
     },
+    "army_manage_training": {"type": "boolean"},
     "duration_minutes": {"type": "integer", "minimum": 0, "maximum": 10080},
     "max_battles": {"type": "integer", "minimum": 0, "maximum": 100000},
     "stop_on_star_bonus": {"type": "boolean"},

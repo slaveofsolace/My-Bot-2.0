@@ -47,10 +47,22 @@ Func _RunPlannerOptionLabelList($sSettingId)
 	Local $sList = ""
 	For $i = 0 To UBound($g_aRunPlannerOptions, 1) - 1
 		If $g_aRunPlannerOptions[$i][$eRunPlannerOptionSettingId] <> $sSettingId Then ContinueLoop
+		If Not _RunPlannerOptionSelectable($i) Then ContinueLoop
 		$sList &= (($sList = "") ? "" : "|") & _RunPlannerDecoratedLabel($i)
 	Next
 	Return $sList
 EndFunc   ;==>_RunPlannerOptionLabelList
+
+; Native combo boxes cannot disable individual rows. Omit choices that the execution contract cannot
+; represent instead of letting the operator select a value that is guaranteed to fail at Apply/Start.
+Func _RunPlannerOptionSelectable($iOptionRow)
+	If $iOptionRow < 0 Or $iOptionRow >= UBound($g_aRunPlannerOptions, 1) Then Return False
+	Switch StringLower($g_aRunPlannerOptions[$iOptionRow][$eRunPlannerOptionAvailability])
+		Case "planned", "unsupported"
+			Return False
+	EndSwitch
+	Return True
+EndFunc   ;==>_RunPlannerOptionSelectable
 
 ; The GUI runs in OnEvent mode, so each interactive control needs a named handler. Settings without one simply
 ; hold their value until Apply reads them.
@@ -99,6 +111,32 @@ Func _RunPlannerDefaultLabel($sSettingId, $sValue)
 	Return ""
 EndFunc   ;==>_RunPlannerDefaultLabel
 
+; Keep the native tab faithful to the same fixed-value contract the browser renders. These values
+; remain visible with an explanation, but neither mouse/keyboard input nor a hand-edited plan can
+; leave the controls displaying an option the engine will refuse.
+Func _RunPlannerApplyNativeFixedState($iSetting)
+	If $iSetting < 0 Or $iSetting >= UBound($g_aRunPlannerSettings, 1) Then Return
+	If Not $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingNativeFixed] Then Return
+	Local $hControl = $g_ahRunPlannerControls[$iSetting]
+	If $hControl = 0 Then Return
+	Local $vFixed = $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingNativeFixedValue]
+	Switch StringLower($g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingType])
+		Case "boolean"
+			GUICtrlSetState($hControl, ($vFixed ? $GUI_CHECKED : $GUI_UNCHECKED))
+		Case Else
+			GUICtrlSetData($hControl, $vFixed)
+	EndSwitch
+	GUICtrlSetState($hControl, $GUI_DISABLE)
+	If $g_ahRunPlannerBuddies[$iSetting] <> 0 Then GUICtrlSetState($g_ahRunPlannerBuddies[$iSetting], $GUI_DISABLE)
+	_GUICtrlSetTip($hControl, $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingNativeFixedReason])
+EndFunc   ;==>_RunPlannerApplyNativeFixedState
+
+Func _RunPlannerApplyAllNativeFixedStates()
+	For $i = 0 To UBound($g_aRunPlannerSettings, 1) - 1
+		_RunPlannerApplyNativeFixedState($i)
+	Next
+EndFunc   ;==>_RunPlannerApplyAllNativeFixedStates
+
 Func CreateRunPlannerTab()
 	$g_hGUI_RUNPLANNER = _GUICreate("", $g_iSizeWGrpTab1, $g_iSizeHGrpTab1, $_GUI_CHILD_LEFT, $_GUI_CHILD_TOP, BitOR($WS_CHILD, $WS_TABSTOP), -1, $g_hFrmBotEx)
 
@@ -120,8 +158,8 @@ Func CreateRunPlannerTab()
 	GUICtrlSetColor(-1, $COLOR_MAROON)
 	$y += 32
 
-	; 26px of tab header plus four 26px rows, which is the tallest page. Anything more is dead space.
-	$g_hRunPlannerTab = GUICtrlCreateTab($iLeft, $y, $iWidth, 188, $TCS_MULTILINE)
+	; 52px of multiline tab headers plus six 26px rows on the Army page.
+	$g_hRunPlannerTab = GUICtrlCreateTab($iLeft, $y, $iWidth, 204, $TCS_MULTILINE)
 	GUICtrlSetResizing(-1, $GUI_DOCKBORDERS)
 
 	Local $iSettingRow = 0
@@ -211,20 +249,21 @@ Func CreateRunPlannerTab()
 					EndIf
 					$iRowY += 26
 			EndSwitch
+			_RunPlannerApplyNativeFixedState($iSetting)
 			$iSettingRow += 1
 		Next
 	Next
 	GUICtrlCreateTabItem("")
 
-	$y += 194
+	$y += 210
 
 	GUICtrlCreateLabel("About the selected option", $iLeft, $y, $iWidth, 16)
 	GUICtrlSetFont(-1, 8.5, $FW_BOLD, Default, "Arial")
 	$y += 18
-	$g_hRunPlannerDetail = GUICtrlCreateEdit("Select a control to see what it does and what it still needs.", $iLeft, $y, $iWidth, 76, BitOR($ES_READONLY, $ES_MULTILINE, $WS_VSCROLL))
+	$g_hRunPlannerDetail = GUICtrlCreateEdit("Select a control to see what it does and what it still needs.", $iLeft, $y, $iWidth, 60, BitOR($ES_READONLY, $ES_MULTILINE, $WS_VSCROLL))
 	GUICtrlSetFont(-1, 8, $FW_NORMAL, Default, "Arial")
 	GUICtrlSetBkColor(-1, $COLOR_WHITE)
-	$y += 82
+	$y += 66
 
 	$g_hBtnRunPlannerApply = GUICtrlCreateButton("Apply", $iLeft, $y, 70, 24)
 	GUICtrlSetOnEvent(-1, "btnRunPlannerApply")

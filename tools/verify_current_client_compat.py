@@ -242,7 +242,7 @@ def main() -> int:
     required_run_fields = set(run_schema["required"])
     require(
         {
-            "schema_version", "mode", "strategy", "duration_minutes", "max_battles",
+            "schema_version", "mode", "strategy", "army_manage_training", "duration_minutes", "max_battles",
             "stop_on_star_bonus", "max_failures", "upgrade_policy",
         }.issubset(required_run_fields),
         "run-plan schema covers the engine contract",

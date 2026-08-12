@@ -1,0 +1,82 @@
+{
+  "schema_version": 3,
+  "strategy_id": "smart.local",
+  "as_of": "2026-08-12",
+  "runtime_network_access": false,
+  "policy": "research-guided-local-actuator",
+  "scope": "Online sources inform versioned Town Hall starting points. At runtime the native engine uses only the current trained army, detected battle geometry, the current framebuffer, and local red-line deployment primitives. Recommendations are guidance, not a claim that the bot trained the named army or found a universally best strategy.",
+  "runtime_side_policy": {
+    "legacy_selector_override": 0,
+    "active_with_unique_town_hall": "nearest valid red-line side",
+    "dead_or_unknown": "longest valid red-line side",
+    "tie_order": ["bottom-right", "bottom-left", "top-right", "top-left"],
+    "note": "The per-Town-Hall selector fields below preserve researched starting-point lineage; the current runtime does not invoke selector 3 or the unproven protected selector 5 branch."
+  },
+  "sources": [
+    {
+      "id": "official-state-2026-03-24",
+      "kind": "official-balance",
+      "url": "https://supercell.com/en/games/clashofclans/blog/news/the-state-of-gameplay-and-whats-ahead/",
+      "published": "2026-03-24",
+      "signal": "The live meta changes frequently and strategy diversity is an explicit balance goal. No composition is permanently universal."
+    },
+    {
+      "id": "official-balance-2026-07-09",
+      "kind": "official-balance",
+      "url": "https://supercell.com/en/games/clashofclans/blog/news/july-balance-update/",
+      "published": "2026-07-09",
+      "signal": "TH18 usage was led by Dragon Duke plus Dragon Riders and Thrower-Healer armies; Electro Dragons, Meteor Golems, and Druids received balance changes."
+    },
+    {
+      "id": "community-every-th-2026-08-06",
+      "kind": "community-guide",
+      "url": "https://www.reddit.com/r/ClashOfClans/comments/1vc73gv/best_army_comps_for_every_town_hall_level/",
+      "published": "2026-08-06",
+      "signal": "Current community recommendations and easier alternatives for every Town Hall from 2 through 18."
+    },
+    {
+      "id": "community-main-armies-2026-08-11",
+      "kind": "community-current",
+      "url": "https://www.reddit.com/r/ClashOfClans/comments/1vlwkrd/hot_topic_post_your_th_level_and_main_army/",
+      "published": "2026-08-11",
+      "signal": "Current high-TH attacks repeatedly use a deliberate funnel and concentrated push; exact value depends on army, equipment, and base."
+    },
+    {
+      "id": "community-th17-easy-2026-03-08",
+      "kind": "community-guide",
+      "url": "https://www.reddit.com/r/ClashOfClans/comments/1rnljp6/need_help_with_th17_strategies_easy_ones_plz/",
+      "published": "2026-03-08",
+      "signal": "A simple TH-side Electro Dragon funnel uses one unit on each edge and a concentrated middle push."
+    }
+  ],
+  "town_hall_policies": [
+    {"town_hall": 2, "live_base_selector": 3, "dead_base_selector": 3, "deployment": "all-sides", "recommended_army": "GiArch", "easy_army": "GiArch", "hero_plan": [], "source_ids": ["community-every-th-2026-08-06"], "reason": "Evenly cover the small perimeter; no Hero is unlocked."},
+    {"town_hall": 3, "live_base_selector": 3, "dead_base_selector": 3, "deployment": "all-sides", "recommended_army": "GiArch", "easy_army": "GiArch", "hero_plan": [], "source_ids": ["community-every-th-2026-08-06"], "reason": "Evenly cover the small perimeter; no Hero is unlocked."},
+    {"town_hall": 4, "live_base_selector": 0, "dead_base_selector": 0, "deployment": "one-side", "recommended_army": "GiLoon", "easy_army": "GiArch", "hero_plan": ["barbarian-king"], "source_ids": ["community-every-th-2026-08-06"], "reason": "Concentrate the first mixed army and deploy the unlocked King."},
+    {"town_hall": 5, "live_base_selector": 0, "dead_base_selector": 0, "deployment": "one-side", "recommended_army": "GiWi", "easy_army": "GiWi", "hero_plan": ["barbarian-king"], "source_ids": ["community-every-th-2026-08-06"], "reason": "Keep tanks and damage dealers together behind one entry."},
+    {"town_hall": 6, "live_base_selector": 0, "dead_base_selector": 0, "deployment": "one-side", "recommended_army": "GiHeWi", "easy_army": "GiWi", "hero_plan": ["barbarian-king"], "source_ids": ["community-every-th-2026-08-06"], "reason": "A concentrated entry preserves tank and healer support."},
+    {"town_hall": 7, "live_base_selector": 0, "dead_base_selector": 0, "deployment": "one-side", "recommended_army": "Mass Dragons", "easy_army": "Mass Dragons", "hero_plan": ["barbarian-king"], "source_ids": ["community-every-th-2026-08-06"], "reason": "Air armies benefit from a single broad entry instead of perimeter dilution."},
+    {"town_hall": 8, "live_base_selector": 0, "dead_base_selector": 0, "deployment": "one-side", "recommended_army": "GoHo", "easy_army": "Zap Dragons", "hero_plan": ["barbarian-king", "archer-queen"], "source_ids": ["community-every-th-2026-08-06"], "reason": "Concentrate the army and deploy both unlocked Heroes."},
+    {"town_hall": 9, "live_base_selector": 5, "dead_base_selector": 0, "deployment": "town-hall-side-live", "recommended_army": "Queen Charge LaLo", "easy_army": "Zap Dragons", "hero_plan": ["barbarian-king", "archer-queen", "minion-prince"], "source_ids": ["community-every-th-2026-08-06", "community-main-armies-2026-08-11"], "reason": "Use a TH-side funnel on live bases while keeping a safe concentrated fallback for dead bases."},
+    {"town_hall": 10, "live_base_selector": 5, "dead_base_selector": 0, "deployment": "town-hall-side-live", "recommended_army": "Queen Charge Hybrid", "easy_army": "Zap Dragons", "hero_plan": ["barbarian-king", "archer-queen", "minion-prince"], "source_ids": ["community-every-th-2026-08-06", "community-main-armies-2026-08-11"], "reason": "Create a TH-side funnel for the main push; concentrate on dead bases."},
+    {"town_hall": 11, "live_base_selector": 5, "dead_base_selector": 0, "deployment": "town-hall-side-live", "recommended_army": "Queen Charge Hybrid", "easy_army": "Electro Dragons", "hero_plan": ["archer-queen", "minion-prince", "grand-warden"], "source_ids": ["community-every-th-2026-08-06", "community-main-armies-2026-08-11"], "reason": "TH-side entry supports a funnel and concentrated core push."},
+    {"town_hall": 12, "live_base_selector": 5, "dead_base_selector": 0, "deployment": "town-hall-side-live", "recommended_army": "Fireball Super Witches", "easy_army": "Zap Dragons", "hero_plan": ["archer-queen", "minion-prince", "grand-warden"], "source_ids": ["community-every-th-2026-08-06", "community-main-armies-2026-08-11"], "reason": "TH-side concentration is the bounded local approximation for funnel-heavy armies."},
+    {"town_hall": 13, "live_base_selector": 5, "dead_base_selector": 0, "deployment": "town-hall-side-live", "recommended_army": "Fireball Super Witches", "easy_army": "Electro Smash", "hero_plan": ["archer-queen", "minion-prince", "grand-warden", "royal-champion"], "source_ids": ["community-every-th-2026-08-06", "community-main-armies-2026-08-11"], "reason": "TH-side concentration and four explicitly selected Heroes avoid the old perimeter-spam failure."},
+    {"town_hall": 14, "live_base_selector": 5, "dead_base_selector": 0, "deployment": "town-hall-side-live", "recommended_army": "Witch Spam", "easy_army": "Zap Dragons", "hero_plan": ["archer-queen", "minion-prince", "grand-warden", "royal-champion"], "source_ids": ["community-every-th-2026-08-06", "community-main-armies-2026-08-11"], "reason": "A TH-side entry gives the local actuator a deliberate funnel direction."},
+    {"town_hall": 15, "live_base_selector": 5, "dead_base_selector": 0, "deployment": "town-hall-side-live", "recommended_army": "Royal Champion Walk Root Riders", "easy_army": "Royal Champion Walk Dragons", "hero_plan": ["archer-queen", "minion-prince", "grand-warden", "royal-champion"], "source_ids": ["community-every-th-2026-08-06", "community-main-armies-2026-08-11"], "reason": "Concentrate the current army toward the TH-side and deploy every selected Hero."},
+    {"town_hall": 16, "live_base_selector": 5, "dead_base_selector": 0, "deployment": "town-hall-side-live", "recommended_army": "Fireball Super Witch Druids", "easy_army": "Electro Dragons", "hero_plan": ["archer-queen", "minion-prince", "grand-warden", "royal-champion"], "source_ids": ["community-every-th-2026-08-06", "community-main-armies-2026-08-11"], "reason": "TH-side concentration is compatible with a broad current-army fallback and proven actor deployment."},
+    {"town_hall": 17, "live_base_selector": 5, "dead_base_selector": 0, "deployment": "town-hall-side-live", "recommended_army": "Air Defense Snipe Dragon Riders", "easy_army": "Super Yeti Smash", "no_hero_army": "Electro Dragons", "hero_plan": ["archer-queen", "minion-prince", "grand-warden", "royal-champion"], "source_ids": ["community-every-th-2026-08-06", "community-main-armies-2026-08-11", "community-th17-easy-2026-03-08"], "reason": "Use a dynamically scored concentrated entry and explicit four-Hero deployment. The supervised Smart EDragon/Balloon run deployed every troop and selected Hero and completed at one star, 58% destruction; a separate Standard run on a different opponent reached three stars and 100%. These are deployment observations, not a controlled quality comparison."},
+    {"town_hall": 18, "live_base_selector": 5, "dead_base_selector": 0, "deployment": "town-hall-side-live", "recommended_army": "Fireball Meteor Golems", "easy_army": "Super Bowler Smash", "no_hero_army": "Electro Dragons", "hero_plan": ["archer-queen", "minion-prince", "grand-warden", "royal-champion"], "source_ids": ["official-state-2026-03-24", "official-balance-2026-07-09", "community-every-th-2026-08-06", "community-main-armies-2026-08-11"], "reason": "Current balance data favors multiple army families, so use a TH-side funnel without pretending the bot trained a specific meta composition."}
+  ],
+  "safety": {
+    "uses_only_current_trained_army": true,
+    "downloads_runtime_coordinates": false,
+    "uses_llm_in_actuator_loop": false,
+    "trains_recommended_army": false,
+    "requires_current_frame_red_line": true,
+    "requires_selected_actor_proof": true,
+    "fallback": "legacy.standard",
+    "strategy_quality_verified": false,
+    "hero_ability_and_spell_policy_status": "implemented-diagnostic"
+  }
+}

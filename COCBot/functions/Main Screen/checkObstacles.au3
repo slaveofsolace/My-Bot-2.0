@@ -382,6 +382,17 @@ Func _checkObstacles($bBuilderBase = False, $bRecursive = False) ;Checks if some
 		ReturnHome(False, False) ;If End battle is available
 		Return True
 	EndIf
+	; Current clients can leave the game on the completed multiplayer summary after the bot or
+	; controller stops.  The inherited pixel gate below depends on the old attack-screen chrome and
+	; misses this valid state.  Use the bundled ReturnHome image only while Main Screen recovery is
+	; already in progress, then click the exact matched button rather than a hard-coded coordinate.
+	Local $aCompletedBattleReturn = findButton("ReturnHome", Default, 1, True, False, False)
+	If IsArray($aCompletedBattleReturn) And UBound($aCompletedBattleReturn) >= 2 Then
+		SetLog("Completed battle summary detected; returning to the Home Village", $COLOR_INFO)
+		ClickP($aCompletedBattleReturn, 1, 120, "#0138")
+		If _Sleep($DELAYCHECKOBSTACLES2) Then Return
+		Return True
+	EndIf
 	If _CheckPixel($aNoCloudsAttack, $g_bCapturePixel) Then ; Prevent drop of troops while searching
 		$aMessage = _PixelSearch(23, 566 + $g_iBottomOffsetY, 36, 580 + $g_iBottomOffsetY, Hex(0xDADDCC, 6), 10, True)
 		If IsArray($aMessage) Then

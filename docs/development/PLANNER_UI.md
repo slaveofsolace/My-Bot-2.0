@@ -66,15 +66,16 @@ browser metadata matches both sources without rewriting it.
 - **Native acknowledgement**: distinguishes a queued request from the engine accepting, rejecting,
   or treating it as a no-op.
 - **Town Hall presets**: one compatibility-first starting point for TH2 through TH18. Selecting one
-  changes only its preview; **Apply preset** loads fields into the unsaved form, and **Apply plan**
-  remains a separate write. Emulator choice and diagnostic acknowledgement are always preserved.
+  immediately loads every preset-owned field, including the complete Hero loadout, into the unsaved
+  form. **Apply plan** remains the only write. Emulator choice and diagnostic acknowledgement are
+  always preserved.
 
 - **Left**: one entry per section — Battle, Heroes, Emulator, Army, Search, Pacing, Limits, Loot,
   Donate, Events, Upkeep, Notify, Debug. The chosen section lives in the URL, so a refresh keeps
   your place.
 - **Middle**: the controls for that section. Each carries its summary under the label, and select
-  controls show an availability pill — verified, unverified, not implemented — plus the specific
-  reason a choice is unavailable.
+  controls distinguish runtime verified, implemented but unverified, gated, and not implemented.
+  Choices with no native execution adapter are disabled instead of failing only after Start.
 - **Right**: a detail panel that expands on the focused control, and a live activity feed that
   tails the run's event log.
 - **Bottom**: Apply writes the plan; Reset returns every control to its default.
@@ -85,8 +86,12 @@ only; it does not import that CSV's training table, so the active profile army m
 **Engine fallback** means no shipped CSV makes that claim, so the preset uses the wired Standard
 deployment and the active profile army. Neither label claims a current competitive meta or
 current-client runtime proof. Named recipes are not wired. Scripted presets choose Heroes only from
-current Town Hall unlocks that also have CSV DROP actions; fallback presets preserve the visible
-Hero selection.
+current Town Hall unlocks that also have CSV DROP actions; fallback presets explicitly choose their
+four-Hero loadout instead of silently retaining an unrelated manual selection.
+
+Custom plans display an explicit Hero receipt. In current-trained-army mode those Heroes are deployed
+when their attack-bar slots exist, but Hero Hall and Hero training are not opened or changed. Managed
+training mode may additionally wait for the selected Heroes.
 
 The diagnostic banner across the top says, for the selected surface, whether the bot has actually
 been shown working on the current client.
@@ -110,7 +115,7 @@ config/run-plan.local.json   <-- the engine reads this to run
         |
         +--> RunPlanFile.au3 --> flat JSON parser --> tab synchronization
                                       |
-                                      +--> exact 43-key validator --> prepared RunIntent
+                                      +--> exact 44-key validator --> prepared RunIntent
 ```
 
 - **`config/run-plan.local.json`** is what the UI writes and the engine reads. It is local to each
@@ -143,9 +148,14 @@ A submitted plan is checked before anything reaches disk, and the two outcomes a
 
 The AutoIt file layer has two deliberate stages. The parser accepts any flat JSON object made from
 strings, numbers, booleans, nulls and scalar lists. The constructor is strict: before it prepares a
-`RunIntent`, the document must contain exactly the 43 metadata keys and every value must satisfy the
+`RunIntent`, the document must contain exactly the 44 metadata keys and every value must satisfy the
 engine contract. Parsing remains reusable while an incomplete or mixed-version plan cannot reach the
 engine.
+
+The two preceding contracts migrate without changing their meaning. A 43-key plan receives
+`army.manage_training=true`, matching the training behavior that build always used. The older
+42-key plan also receives `run.attack_script=profile-current`. Any other missing, extra, or unknown
+field still fails the exact-shape gate.
 
 Loading prepares an intent; it never presses Start. The engine still re-validates everything, so the
 UI is a convenience rather than an authority boundary.
@@ -182,7 +192,7 @@ A value the tab cannot represent costs that one control during synchronization:
 - **a setting this build does not have** — ignored by the visual synchronization pass
 
 Preparing an intent is stricter. **Load saved plan** and **Apply plan** reread the document through
-the composed parser and validator, require all 43 keys exactly once, validate types and engine
+the composed parser and validator, require all 44 keys exactly once, validate types and engine
 bounds, construct the Hero loadout, and attach pacing. Any unknown, missing or malformed setting
 rejects the complete intent rather than preparing a partial run.
 
@@ -194,7 +204,7 @@ with untouched defaults explicit and prevents a stale tab or missing plan file f
 back to legacy-profile behavior.
 
 `tools/check_plan_bridge.py` keeps the two halves honest. It checks that the plan uses shapes the
-parser accepts, every key names a control, the AutoIt constructor's required-key list matches all 43
+parser accepts, every key names a control, the AutoIt constructor's required-key list matches all 44
 metadata settings in both directions, every setting type has an apply branch, and the pacing bounds
 match the engine. CI runs it on every push; Windows additionally executes the AutoIt contract tests.
 
@@ -262,10 +272,45 @@ donation policies, capped Clan Games points, automatic laboratory modes, non-sup
 policies, account rotation, non-log notification channels, and action retries without a visual
 change observer.
 
+`Manage training` is a one-run safety boundary. Its default is off: the engine opens the Army
+Overview and evaluates readiness, but skips Super Troop boosting, Quick Train inspection/editing,
+troop removal, troop/spell queueing, and siege building. This current-army mode is accepted only
+with `Max battles` set to exactly 1 and donations off. Turning it on restores the inherited profile
+training flow for that run. Stop, cancellation, and close all clear the override before the legacy
+loop can train again.
+
 Before the GUI enters the mixed-mode DLL, a separate x86 helper performs the first export call with
 a bounded timeout. That contains the known startup hang and produces a clear unavailable state; it
 does not count as current-client combat evidence. Live client validation is still required before a
 surface can be promoted from diagnostic to verified.
+
+An early 2026-08-12 Regular Battle reached matchmaking but did not prove troop deployment. After the
+enemy-view and actor-slot fixes, a later supervised Standard run did prove visible deployment, battle
+telemetry, Return Home, and a clean one-battle stop. A separate Smart run proved troop and selected-Hero
+deployment, but it used a different opponent and issued no Hero abilities or spells. Those two results
+are not a strategy-quality comparison.
+The permanent `tools/run_supervised_battle_acceptance.ps1` gate now accepts only Smart mode and
+refuses to pass unless the current binary matches provenance, exactly one battle is recorded, the
+native log proves enemy zoom plus two independent empty troop-bar reads, deterministic side/start
+events exist, every selected Hero has one issued ability event, Rage and Freeze each have a proven
+inventory decrease, no spell is retained, the engine stops itself on `battle-limit`, the saved plan
+and BlueStacks process are preserved, and the supervising operator explicitly confirms the visible
+deployment, abilities, and spells. An event-only or click-only run is not accepted.
+The current Treasure Hunt screen uses a proof-gated three-tap chest sequence before the inherited
+Continue-button path; that separate recovery does not count as attack evidence.
+
+`Smart Attack (research-guided)` is a deterministic local option. Its dated source catalog lives in
+`config/game/smart-attack-strategies.json`; the runtime never browses, downloads coordinates, or
+calls an LLM. The current adapter scores the four current-frame red-line sides itself. A live base
+with one detected Town Hall chooses the nearest valid side; dead or uncertain bases choose the
+longest valid side with a fixed tie order. The protected legacy selector-5 branch is not used.
+The new tactical Hero-ability and Rage/Freeze rules have static contract tests but remain labelled
+diagnostic until a supervised battle records the commands and confirms spell inventory changes.
+
+The browser header includes a bounded, sanitized **Native log** modal with refresh and tail download.
+The pinned upstream Mini GUI cannot be rebuilt without tripping the inherited ImgLoc identity guard,
+so the modern launcher owns a small companion AutoIt control strip directly beneath it with an
+**OPEN BROWSER CONTROL CENTER** button.
 
 ---
 
