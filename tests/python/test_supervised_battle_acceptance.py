@@ -46,13 +46,25 @@ class SupervisedBattleAcceptanceContract(unittest.TestCase):
         self.assertIn("session.stopping", SCRIPT)
         self.assertIn("battle-limit", SCRIPT)
         self.assertIn("final.session_id", SCRIPT)
+        self.assertIn('Profiles\\{0}\\Logs\\run-events.jsonl', SCRIPT)
+        self.assertIn("$eventPath = Get-RunEventPath $pre.profile", SCRIPT)
+        self.assertNotIn('$eventPath = Join-Path $root "logs\\run-events.jsonl"', SCRIPT)
 
     def test_requires_human_visual_confirmation_after_automation(self):
         proof_offset = SCRIPT.index("$result.automated_proof = $true")
-        review_offset = SCRIPT.index('Read-Host "Type exactly SMART DEPLOYMENT ABILITIES AND SPELLS CONFIRMED')
+        review_offset = SCRIPT.index("Wait-SupervisedVisualReceipt $VisualReceiptPath")
         pass_offset = SCRIPT.index("$result.pass = $true")
         self.assertLess(proof_offset, review_offset)
         self.assertLess(review_offset, pass_offset)
+        self.assertIn("VisualReceiptPath must not exist before the supervised run", SCRIPT)
+        self.assertIn("WAITING_FOR_VISUAL_RECEIPT", SCRIPT)
+        self.assertIn("personally watched all four happen", SCRIPT)
+
+    def test_failed_run_requires_confirmed_clean_idle(self):
+        self.assertIn("Emergency Stop did not reach clean idle within 45 seconds", SCRIPT)
+        self.assertIn("$status.run_state", SCRIPT)
+        self.assertIn("$status.plan_active", SCRIPT)
+        self.assertIn("$status.session_id", SCRIPT)
 
     def test_preserves_plan_emulator_and_binary_identity(self):
         self.assertIn("Saved plan changed during the run", SCRIPT)

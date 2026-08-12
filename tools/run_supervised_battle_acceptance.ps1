@@ -1,11 +1,11 @@
 param(
-    [switch]$AuthorizeOneBattle
+    [switch]$AuthorizeOneBattle,
+    [string]$VisualReceiptPath = ""
 )
 
 $ErrorActionPreference = "Stop"
 $root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $planPath = Join-Path $root "config\run-plan.local.json"
-$eventPath = Join-Path $root "logs\run-events.jsonl"
 $binaryPath = Join-Path $root "MyBot.run.exe"
 $provenancePath = Join-Path $root "config\binary-provenance.json"
 
@@ -30,6 +30,13 @@ function Get-LatestNativeLog([string]$Profile) {
         Select-Object -First 1
     if (-not $candidate) { throw "No native log exists for the active profile" }
     $candidate
+}
+
+function Get-RunEventPath([string]$Profile) {
+    if ($Profile -notmatch '^[A-Za-z0-9][A-Za-z0-9 _.-]{0,63}$' -or $Profile -in @('.', '..')) {
+        throw "The active profile name is not path-safe"
+    }
+    Join-Path $root ("Profiles\{0}\Logs\run-events.jsonl" -f $Profile)
 }
 
 function Read-FileDelta([string]$Path, [long]$Offset) {
@@ -64,8 +71,35 @@ function Require-ProvenSpellCast([object[]]$Events, [string]$SpellName) {
     if ($valid -lt 1) { throw "$SpellName did not have a proven quantity-decreasing cast" }
 }
 
+function Wait-SupervisedVisualReceipt([string]$Path) {
+    if (-not $Path) {
+        return Read-Host "Type exactly SMART DEPLOYMENT ABILITIES AND SPELLS CONFIRMED only if you personally watched all four happen"
+    }
+    Write-Output "WAITING_FOR_VISUAL_RECEIPT $Path"
+    $deadline = (Get-Date).AddMinutes(3)
+    do {
+        if (Test-Path -LiteralPath $Path -PathType Leaf) {
+            return (Get-Content -LiteralPath $Path -Raw).Trim()
+        }
+        Start-Sleep -Milliseconds 250
+    } while ((Get-Date) -lt $deadline)
+    throw "The supervised visual receipt was not supplied within three minutes"
+}
+
 if (-not $AuthorizeOneBattle) {
     throw "This tool performs one live account-affecting battle. Re-run only with explicit current authorization: -AuthorizeOneBattle"
+}
+if ($VisualReceiptPath) {
+    if (-not [System.IO.Path]::IsPathRooted($VisualReceiptPath)) {
+        throw "VisualReceiptPath must be an absolute path"
+    }
+    $receiptParent = Split-Path -Parent $VisualReceiptPath
+    if (-not $receiptParent -or -not (Test-Path -LiteralPath $receiptParent -PathType Container)) {
+        throw "VisualReceiptPath parent directory does not exist"
+    }
+    if (Test-Path -LiteralPath $VisualReceiptPath) {
+        throw "VisualReceiptPath must not exist before the supervised run"
+    }
 }
 
 $planHashBefore = (Get-FileHash -LiteralPath $planPath -Algorithm SHA256).Hash
@@ -103,6 +137,7 @@ $blueStacks = @(Get-Process HD-Player -ErrorAction Stop | Where-Object {$_.MainW
 if ($blueStacks.Count -ne 1) { throw "Expected exactly one BlueStacks5-Pie64 process" }
 $blueStacksPid = $blueStacks[0].Id
 $nativeLog = Get-LatestNativeLog $pre.profile
+$eventPath = Get-RunEventPath $pre.profile
 $logOffset = $nativeLog.Length
 $eventOffset = if (Test-Path -LiteralPath $eventPath) {(Get-Item -LiteralPath $eventPath).Length} else {0}
 $startedAt = Get-Date
@@ -195,7 +230,7 @@ try {
     if ($crashes.Count) { throw "A new MyBot/BlueStacks application crash was recorded" }
 
     $result.automated_proof = $true
-    $review = Read-Host "Type exactly SMART DEPLOYMENT ABILITIES AND SPELLS CONFIRMED only if you personally watched all four happen"
+    $review = Wait-SupervisedVisualReceipt $VisualReceiptPath
     if ($review -cne 'SMART DEPLOYMENT ABILITIES AND SPELLS CONFIRMED') {
         throw "Player-eye Smart deployment, ability, and spell confirmation was not supplied"
     }
@@ -214,6 +249,9 @@ catch {
             do { Start-Sleep -Milliseconds 250; $status = Get-ControlStatus } while ($status.state -ne 'idle' -and (Get-Date) -lt $stopDeadline)
         }
         $result.final = $status
+        if ($status.state -ne 'idle' -or $status.run_state -or $status.plan_active -or $status.session_id) {
+            throw "Emergency Stop did not reach clean idle within 45 seconds"
+        }
     } catch { $result.errors += "Emergency Stop failed: $($_.Exception.Message)" }
 }
 

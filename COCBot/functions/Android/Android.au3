@@ -2730,6 +2730,15 @@ Func _AndroidScreencap($iLeft, $iTop, $iWidth, $iHeight, $iRetryCount = 0)
 	Local $hostPath = $g_sAndroidPicturesHostPath & $g_sAndroidPicturesHostFolder
 	Local $androidPath = $g_sAndroidPicturesPath & StringReplace($g_sAndroidPicturesHostFolder, "\", "/")
 	Local $bUseBlueStacksInternalCapture = $g_sAndroidEmulator = "BlueStacks5"
+	Local $bCapturePng = $g_bAndroidAdbScreencapPngEnabled Or $bUseBlueStacksInternalCapture
+	If $bUseBlueStacksInternalCapture Then
+		$hostPath = @TempDir & "\MyBot.run-Capture\"
+		If Not FileExists($hostPath) Then DirCreate($hostPath)
+		If Not FileExists($hostPath) Then
+			SetLog("BlueStacks ADB capture temp directory is not available: " & $hostPath, $COLOR_ERROR)
+			Return SetError(7, 0)
+		EndIf
+	EndIf
 
 	If $hostPath = "" Or ($androidPath = "" And Not $bUseBlueStacksInternalCapture) Then
 		If $hostPath = "" Then
@@ -2749,15 +2758,15 @@ Func _AndroidScreencap($iLeft, $iTop, $iWidth, $iHeight, $iRetryCount = 0)
 
 	Local $sBotTitleEx = StringRegExpReplace($g_sBotTitle, '[/:*?"<>|]', '_')
 	Local $Filename = $sBotTitleEx & ".rgba"
-	If $g_bAndroidAdbScreencapPngEnabled = True Then $Filename = $sBotTitleEx & ".png"
+	If $bCapturePng Then $Filename = $sBotTitleEx & ".png"
 	$Filename = GetSecureFilename($Filename)
 	Local $sCaptureAndroidPath = $androidPath & $Filename
-	If $bUseBlueStacksInternalCapture Then $sCaptureAndroidPath = "/data/local/tmp/mybot-screencap-" & @AutoItPID & ($g_bAndroidAdbScreencapPngEnabled ? ".png" : ".rgba")
+	If $bUseBlueStacksInternalCapture Then $sCaptureAndroidPath = "/data/local/tmp/mybot-screencap-" & @AutoItPID & ".png"
 	Local $s
 
 	; Create 32 bits-per-pixel device-independent bitmap (DIB)
 	Local $tBIV5HDR = 0
-	If $g_bAndroidAdbScreencapPngEnabled = False Then
+	If Not $bCapturePng Then
 		$tBIV5HDR = DllStructCreate($tagBITMAPV5HEADER)
 		DllStructSetData($tBIV5HDR, 'bV5Size', DllStructGetSize($tBIV5HDR))
 		DllStructSetData($tBIV5HDR, 'bV5Width', $iWidth)
@@ -2770,7 +2779,7 @@ Func _AndroidScreencap($iLeft, $iTop, $iWidth, $iHeight, $iRetryCount = 0)
 	Local $hHBitmap = 0
 
 	If $g_iAndroidAdbScreencapTimer <> 0 And $g_bForceCapture = False And __TimerDiff($g_iAndroidAdbScreencapTimer) < $g_iAndroidAdbScreencapTimeout And $g_bRunState = True And $iRetryCount = 0 Then
-		If $g_bAndroidAdbScreencapPngEnabled = False Then
+		If Not $bCapturePng Then
 			$hHBitmap = _WinAPI_CreateDIBSection(0, $tBIV5HDR, $DIB_RGB_COLORS, $pBits)
 			$tBIV5HDR = 0 ; Release the resources used by the structure
 			DllCall($g_sLibPath & "\helper_functions.dll", "none:cdecl", "RGBA2BGRA", "ptr", DllStructGetPtr($g_aiAndroidAdbScreencapBuffer), "ptr", $pBits, "int", $iLeft, "int", $iTop, "int", $iWidth, "int", $iHeight, "int", $g_iAndroidAdbScreencapWidth, "int", $g_iAndroidAdbScreencapHeight)
@@ -2786,7 +2795,8 @@ Func _AndroidScreencap($iLeft, $iTop, $iWidth, $iHeight, $iRetryCount = 0)
 	EndIf
 
 	FileDelete($hostPath & $Filename)
-	$s = AndroidAdbSendShellCommand("screencap """ & $sCaptureAndroidPath & """", $g_iAndroidAdbScreencapWaitAdbTimeout, $wasRunState)
+	Local $sScreencapCommand = "screencap " & ($bCapturePng ? "-p " : "") & """" & $sCaptureAndroidPath & """"
+	$s = AndroidAdbSendShellCommand($sScreencapCommand, $g_iAndroidAdbScreencapWaitAdbTimeout, $wasRunState)
 	Local $iScreencapCommandError = @error
 	Local $iScreencapCommandElapsed = @extended
 	Local $iScreencapPullError = 0
@@ -2823,7 +2833,7 @@ Func _AndroidScreencap($iLeft, $iTop, $iWidth, $iHeight, $iRetryCount = 0)
 	Local $ExpectedFileSize = 1500 ; all blank png is approx 1.5 KByte
 	Local $iReadData = 0
 
-	If $g_bAndroidAdbScreencapPngEnabled = False Then
+	If Not $bCapturePng Then
 		; default raw RGBA mode
 
 		; Android screencap see:
@@ -2926,55 +2936,24 @@ Func _AndroidScreencap($iLeft, $iTop, $iWidth, $iHeight, $iRetryCount = 0)
 
 		; slower compatible PNG mode for BlueStacks
 		If $g_hAndroidAdbScreencapBufferPngHandle <> 0 Then
-			_GDIPlus_ImageDispose($g_hAndroidAdbScreencapBufferPngHandle)
 			_GDIPlus_BitmapDispose($g_hAndroidAdbScreencapBufferPngHandle) ; dispose old cache
-			_WinAPI_DeleteObject($g_hAndroidAdbScreencapBufferPngHandle)
 			$g_hAndroidAdbScreencapBufferPngHandle = 0
 		EndIf
-		Local $hBitmap = 0
-
-		If $hFile = 0 Then $hFile = _WinAPI_CreateFile($hostPath & $Filename, 2, 2, 7)
-		If $hFile <> 0 Then $iSize = _WinAPI_GetFileSizeEx($hFile)
-		Sleep(10)
+		Local $sHostCaptureFile = $hostPath & $Filename
+		Local $hPngFile = FileOpen($sHostCaptureFile, 16)
+		Local $dPngData = ($hPngFile = -1 ? Binary("") : FileRead($hPngFile))
+		If $hPngFile <> -1 Then FileClose($hPngFile)
+		If $bUseBlueStacksInternalCapture Then FileDelete($sHostCaptureFile)
+		Local $hBitmap = __GDIPlus_BitmapCreateFromMemory($dPngData)
 		If $wasRunState And Not $g_bRunState Then
-			If $hFile <> 0 Then _WinAPI_CloseHandle($hFile)
+			If $hBitmap <> 0 Then _GDIPlus_BitmapDispose($hBitmap)
 			Return SetError(1, 0)
 		EndIf
-
-		Local $hData = _MemGlobalAlloc($iSize, $GMEM_MOVEABLE)
-		Local $pData = _MemGlobalLock($hData)
-		Local $tData = DllStructCreate('byte[' & $iSize & ']', $pData)
-
-		While $iSize > 0 And $iReadData < $iSize And __TimerDiff($hTimer) < $g_iAndroidAdbScreencapWaitFileTimeout
-			If _WinAPI_ReadFile($hFile, $tData, $iSize, $iReadData) = True And $iReadData = $iSize Then
-				ExitLoop
-			Else
-				SetDebugLog("Error " & _WinAPI_GetLastError() & ", read " & $iReadData & " data bytes, file: " & $hostPath & $Filename, $COLOR_ERROR)
-				If $iReadData > 0 Then _WinAPI_SetFilePointer($hFile, 0)
-				Sleep(10)
-			EndIf
-		WEnd
-		_WinAPI_CloseHandle($hFile)
-		SetDebugLog($iSize, $COLOR_ERROR)
-
-		Local $testTimer = __TimerInit()
-		Local $msg = ""
-		_MemGlobalUnlock($hData)
-		Local $pStream = _WinAPI_CreateStreamOnHGlobal($hData)
-
-		$hBitmap = _GDIPlus_BitmapCreateFromStream($pStream)
-		;Local $hBitmap = _GDIPlus_BitmapCreateHBITMAPFromBitmap($hImage)
-		;Local $iWidth = _GDIPlus_ImageGetWidth($hImage)
-		;Local $iHeight = _GDIPlus_ImageGetHeight($hImage)
-		_WinAPI_ReleaseStream($pStream)
-		$msg &= ", " & Round(__TimerDiff($testTimer), 2)
-		;_GDIPlus_ImageDispose($hImage)
-
-
-		;_GDIPlus_BitmapCreateFromMemory
 		If $hBitmap = 0 Then
 			; problem creating Bitmap
-			If $iRetryCount < 10 Then
+			If $bUseBlueStacksInternalCapture Then FileDelete($sHostCaptureFile)
+			Local $iPngRetryLimit = ($bUseBlueStacksInternalCapture ? 2 : 10)
+			If $iRetryCount < $iPngRetryLimit Then
 				SetDebugLog("ADB retry screencap in 1000 ms. (restarting ADB session)", $COLOR_ACTION)
 				If _Sleep(1000) Then Return
 				AndroidAdbTerminateShellInstance()
@@ -2982,36 +2961,39 @@ Func _AndroidScreencap($iLeft, $iTop, $iWidth, $iHeight, $iRetryCount = 0)
 				Return AndroidScreencap($iLeft, $iTop, $iWidth, $iHeight, $iRetryCount + 1)
 			EndIf
 			SetLog($g_sAndroidEmulator & " screen not captured using ADB", $COLOR_ERROR)
-			If FileExists($hostPath & $Filename) = 0 Then SetLog("File not found: " & $hostPath & $Filename, $COLOR_ERROR)
+			If FileExists($sHostCaptureFile) = 0 Then SetLog("File not found: " & $sHostCaptureFile, $COLOR_ERROR)
 			SetLog($g_sAndroidEmulator & " ADB screen capture disabled", $COLOR_ERROR)
 			$g_bAndroidAdbScreencap = False
 			Return SetError(5, 0)
 		Else
 			$g_iAndroidAdbScreencapWidth = _GDIPlus_ImageGetWidth($hBitmap)
 			$g_iAndroidAdbScreencapHeight = _GDIPlus_ImageGetHeight($hBitmap)
-			$msg &= ", " & Round(__TimerDiff($testTimer), 2)
-			;$hImage = _GDIPlus_BitmapCreateFromHBITMAP($hBitmap)
+			If $g_iAndroidAdbScreencapWidth <> $g_iAndroidClientWidth Or $g_iAndroidAdbScreencapHeight <> $g_iAndroidClientHeight Then
+				SetDebugLog("Invalid PNG screencap dimensions " & $g_iAndroidAdbScreencapWidth & "x" & $g_iAndroidAdbScreencapHeight & _
+					"; expected " & $g_iAndroidClientWidth & "x" & $g_iAndroidClientHeight, $COLOR_ERROR)
+				_GDIPlus_BitmapDispose($hBitmap)
+				If $bUseBlueStacksInternalCapture Then FileDelete($sHostCaptureFile)
+				Return SetError(7, 0)
+			EndIf
 			If $iWidth > $g_iAndroidAdbScreencapWidth - $iLeft Then $iWidth = $g_iAndroidAdbScreencapWidth - $iLeft
 			If $iHeight > $g_iAndroidAdbScreencapHeight - $iTop Then $iHeight = $g_iAndroidAdbScreencapHeight - $iTop
 			Local $hClone = _GDIPlus_BitmapCloneArea($hBitmap, $iLeft, $iTop, $iWidth, $iHeight, $GDIP_PXF32ARGB)
-			$msg &= ", " & Round(__TimerDiff($testTimer), 2)
 			If $hClone = 0 Then
 				SetDebugLog($g_sAndroidEmulator & " error using " & $g_iAndroidAdbScreencapWidth & "x" & $g_iAndroidAdbScreencapHeight & " on _GDIPlus_BitmapCloneArea(" & $hBitmap & "," & $iLeft & "," & $iTop & "," & $iWidth & "," & $iHeight, $COLOR_ERROR)
 				SetLog($g_sAndroidEmulator & " screenshot not available", $COLOR_ERROR)
 				SetLog($g_sAndroidEmulator & " ADB screen capture disabled", $COLOR_ERROR)
 				$g_bAndroidAdbScreencap = False
+				_GDIPlus_BitmapDispose($hBitmap)
+				If $bUseBlueStacksInternalCapture Then FileDelete($sHostCaptureFile)
 				Return SetError(6, 0)
 			EndIf
 			$g_hAndroidAdbScreencapBufferPngHandle = $hBitmap
-			;_GDIPlus_ImageDispose($hBitmap)
-			$msg &= ", " & Round(__TimerDiff($testTimer), 2)
 			$hHBitmap = _GDIPlus_BitmapCreateDIBFromBitmap($hClone)
 			_GDIPlus_BitmapDispose($hClone)
-			;$hHBitmap = _GDIPlus_BitmapCreateDIBFromBitmap($hBitmap)
 		EndIf
 	EndIf
 
-	If BitAND($g_iAndroidSecureFlags, 2) = 2 Then
+	If $bUseBlueStacksInternalCapture Or BitAND($g_iAndroidSecureFlags, 2) = 2 Then
 		; delete file
 		FileDelete($hostPath & $Filename)
 	EndIf
