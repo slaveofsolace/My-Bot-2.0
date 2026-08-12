@@ -385,12 +385,12 @@ Func _SmartAttackCombatCastSpell($iSpellType, $sSpellName, $iTargetX, $iTargetY,
 	If _Sleep(450, False) Then Return False
 
 	Local $bAfterValid = False, $bAfterFound = False, $iAfter = 0, $iAfterX = 0, $iAfterY = 0
-	_SmartAttackCombatReadStableSpell($iSpellType, $bAfterValid, $bAfterFound, $iAfter, $iAfterX, $iAfterY)
+	_SmartAttackCombatReadExpectedSpellAfter($iSpellType, $iAmount, $bAfterValid, $bAfterFound, $iAfter, $iAfterX, $iAfterY)
 	If Not $bAfterValid Or Not SmartAttackPolicySpellQuantityProved($iAmount, $bAfterFound, $iAfter) Then
 		Local $sFailure = $sSpellName & " cast was not proven; before=" & $iAmount & ", after=" & _
 				($bAfterValid ? $iAfter : -1) & ". Further " & $sSpellName & " clicks are disabled"
 		SetLog($sFailure, $COLOR_ERROR)
-		RunEventLogSpellRetained($sSpellName, "post-cast quantity did not decrease")
+		RunEventLogSpellRetained($sSpellName, "exact post-cast quantity decrement was not observed")
 		Return False
 	EndIf
 
@@ -429,6 +429,39 @@ Func _SmartAttackCombatReadStableSpell($iSpellType, ByRef $bScanValid, ByRef $bF
 	Next
 	Return False
 EndFunc   ;==>_SmartAttackCombatReadStableSpell
+
+; Spell animations can make the compact bar report a plausible but wrong amount
+; for several seconds. A generic "stable" OCR result is therefore insufficient:
+; ignore every value except the one legal decrement and require that expected
+; result twice consecutively. Hero ability checks continue during this bounded
+; wait so proof collection cannot starve the combat controller.
+Func _SmartAttackCombatReadExpectedSpellAfter($iSpellType, $iBefore, ByRef $bScanValid, ByRef $bFound, ByRef $iAmount, ByRef $iX, ByRef $iY)
+	$bScanValid = False
+	Local $sPreviousExpected = ""
+	For $iRead = 1 To 12
+		Local $bReadValid = False, $bReadFound = False, $iReadAmount = 0, $iReadX = 0, $iReadY = 0
+		_SmartAttackCombatReadSpell($iSpellType, $bReadValid, $bReadFound, $iReadAmount, $iReadX, $iReadY)
+		If $bReadValid And SmartAttackPolicySpellQuantityProved($iBefore, $bReadFound, $iReadAmount) Then
+			Local $sCurrent = ($bReadFound ? "found:" & Int($iReadAmount) : "absent")
+			If $sCurrent = $sPreviousExpected Then
+				$bScanValid = True
+				$bFound = $bReadFound
+				$iAmount = Int($iReadAmount)
+				$iX = Int($iReadX)
+				$iY = Int($iReadY)
+				Return True
+			EndIf
+			$sPreviousExpected = $sCurrent
+		Else
+			$sPreviousExpected = ""
+		EndIf
+		If $iRead < 12 Then
+			SmartAttackCombatTickHeroes($g_iPercentageDamage)
+			If _Sleep(650, False) Then Return False
+		EndIf
+	Next
+	Return False
+EndFunc   ;==>_SmartAttackCombatReadExpectedSpellAfter
 
 Func _SmartAttackCombatReadSpell($iSpellType, ByRef $bScanValid, ByRef $bFound, ByRef $iAmount, ByRef $iX, ByRef $iY)
 	$bScanValid = False

@@ -108,6 +108,19 @@ class SmartAttackCombatIntegrationTests(unittest.TestCase):
         self.assertIn("SmartAttackPolicySpellQuantityProved", self.combat)
         self.assertIn("did not match expected", self.combat)
         self.assertIn('"; quantity "', self.combat)
+
+        expected_reader = self.combat.split(
+            "Func _SmartAttackCombatReadExpectedSpellAfter", 1
+        )[1].split("EndFunc", 1)[0]
+        self.assertIn("For $iRead = 1 To 12", expected_reader)
+        self.assertIn(
+            "SmartAttackPolicySpellQuantityProved($iBefore, $bReadFound, $iReadAmount)",
+            expected_reader,
+        )
+        self.assertIn("$sPreviousExpected", expected_reader)
+        self.assertIn("SmartAttackCombatTickHeroes($g_iPercentageDamage)", expected_reader)
+        self.assertIn("_Sleep(650, False)", expected_reader)
+        self.assertNotIn("$bScanValid = True\n\t\tElse", expected_reader)
         self.assertIn("SmartAttackCombatTick(Number($CurDamage))", self.waiter)
         self.assertIn("SmartAttackCombatTickHeroes(Number($CurDamage))", self.waiter)
 
