@@ -122,6 +122,13 @@ AssertEqual($aSlot[$SMART_ATTACK_SLOT_X], 300, "slot click X is returned")
 $aSlot = SmartAttackPolicySelectAttackBarSlot($aAttackBar, 8)
 AssertTrue(Not $aSlot[$SMART_ATTACK_SLOT_FOUND], "missing spell fails closed")
 
+; Spell receipts require an exact one-count decrement; transient OCR jumps are rejected.
+AssertTrue(SmartAttackPolicySpellQuantityProved(5, True, 4), "exact spell decrement is proved")
+AssertTrue(SmartAttackPolicySpellQuantityProved(1, False, 0), "final stable portrait absence is proved")
+AssertTrue(Not SmartAttackPolicySpellQuantityProved(5, True, 1), "multi-count OCR jump is rejected")
+AssertTrue(Not SmartAttackPolicySpellQuantityProved(1, True, 2), "increasing quantity is rejected")
+AssertTrue(Not SmartAttackPolicySpellQuantityProved(2, False, 0), "non-final portrait absence is rejected")
+
 ; Rage: fixed three-cast schedule and target progress.
 Local $aSpell = SmartAttackPolicyRageDecision(0, 3, 0, True)
 AssertTrue($aSpell[$SMART_ATTACK_SPELL_CAST], "first Rage is due immediately")

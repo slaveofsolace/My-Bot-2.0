@@ -21,8 +21,9 @@ Global $g_bSmartCombatRageHalted = False
 Global $g_bSmartCombatFreezeHalted = False
 Global $g_bSmartCombatTargetWarningLogged = False
 Global $g_aiSmartCombatHeroAttempts[$eHeroCount] = [0, 0, 0, 0, 0]
+Global $g_aaiSmartCombatHeroAbilityPoint[$eHeroCount][2]
 
-Func SmartAttackCombatReset()
+Func SmartAttackCombatReset($bPreserveDeploymentProof = False)
 	$g_bSmartCombatActive = False
 	$g_hSmartCombatStarted = 0
 	$g_iSmartCombatEntryX = -1
@@ -39,8 +40,22 @@ Func SmartAttackCombatReset()
 	$g_bSmartCombatTargetWarningLogged = False
 	For $iHero = 0 To $eHeroCount - 1
 		$g_aiSmartCombatHeroAttempts[$iHero] = 0
+		If Not $bPreserveDeploymentProof Then
+			$g_aaiSmartCombatHeroAbilityPoint[$iHero][0] = -1
+			$g_aaiSmartCombatHeroAbilityPoint[$iHero][1] = -1
+		EndIf
 	Next
 EndFunc   ;==>SmartAttackCombatReset
+
+; Records a Hero-specific ability point only from same-battle deployment proof.
+; It is a bounded fallback when the protected portrait template later misses.
+Func SmartAttackCombatRememberHeroAbilityPoint($iHero, $iX, $iY)
+	If $iHero < 0 Or $iHero >= $eHeroCount Then Return False
+	If $iX <= 0 Or $iX >= $g_iGAME_WIDTH Or $iY < 570 + $g_iBottomOffsetY Or $iY > 638 + $g_iBottomOffsetY Then Return False
+	$g_aaiSmartCombatHeroAbilityPoint[$iHero][0] = Int($iX)
+	$g_aaiSmartCombatHeroAbilityPoint[$iHero][1] = Int($iY)
+	Return True
+EndFunc   ;==>SmartAttackCombatRememberHeroAbilityPoint
 
 Func SmartAttackCombatSelectDeploymentSide()
 	If Not RunExecutionSmartAttackEnabled() Then Return False
@@ -73,7 +88,9 @@ Func SmartAttackCombatSelectedSide()
 EndFunc   ;==>SmartAttackCombatSelectedSide
 
 Func SmartAttackCombatStart($iEntryX, $iEntryY)
-	SmartAttackCombatReset()
+	; algorithm_AllTroops reset the controller before deployment. Preserve only
+	; the Hero-specific points proved by that same deployment pass.
+	SmartAttackCombatReset(True)
 	If Not RunExecutionSmartAttackEnabled() Then Return True
 
 	$g_bSmartCombatActive = True
@@ -239,6 +256,7 @@ Func _SmartAttackCombatActivateHero($iHero, $sReason, $iElapsedMs, $iDamagePerce
 	If Not IsArray($aAbility) Or UBound($aAbility) <> 2 Then
 		$g_aiSmartCombatHeroAttempts[$iHero] += 1
 		If $g_aiSmartCombatHeroAttempts[$iHero] >= 3 Then
+			If _SmartAttackCombatActivateRememberedHero($iHero, $sReason, $iElapsedMs, $iDamagePercent) Then Return True
 			Local $sMissing = "Smart Attack could not find " & $g_asHeroNames[$iHero] & _
 					" ability after three fresh checks; no blind portrait click was sent"
 			SetLog($sMissing, $COLOR_WARNING)
@@ -256,6 +274,22 @@ Func _SmartAttackCombatActivateHero($iHero, $sReason, $iElapsedMs, $iDamagePerce
 	_SmartAttackCombatDisableHero($iHero)
 	Return True
 EndFunc   ;==>_SmartAttackCombatActivateHero
+
+Func _SmartAttackCombatActivateRememberedHero($iHero, $sReason, $iElapsedMs, $iDamagePercent)
+	Local $iX = Int($g_aaiSmartCombatHeroAbilityPoint[$iHero][0])
+	Local $iY = Int($g_aaiSmartCombatHeroAbilityPoint[$iHero][1])
+	If $iX <= 0 Or $iX >= $g_iGAME_WIDTH Or $iY < 570 + $g_iBottomOffsetY Or $iY > 638 + $g_iBottomOffsetY Then Return False
+	If Not $g_bRunState Or Not IsAttackPage() Then Return False
+
+	_SmartAttackCombatExactClick($iX, $iY, 2, "SmartHeroAbilityProven-" & $g_asHeroShortNames[$iHero])
+	Local $sReceipt = $sReason & "; elapsed_ms=" & Int($iElapsedMs) & "; destruction=" & Int($iDamagePercent) & _
+			"; same-battle deployment-proven point=" & $iX & "," & $iY
+	SetLog("Smart Attack issued " & $g_asHeroNames[$iHero] & " ability command from its deployment-proven point: " & _
+			$sReceipt, $COLOR_ACTION)
+	RunEventLogHeroAbility($g_asHeroNames[$iHero], $sReceipt)
+	_SmartAttackCombatDisableHero($iHero)
+	Return True
+EndFunc   ;==>_SmartAttackCombatActivateRememberedHero
 
 Func _SmartAttackCombatTargetValid($iX, $iY)
 	If $iX <= 0 Or $iX >= $g_iGAME_WIDTH Or $iY <= 0 Or $iY > 555 + $g_iBottomOffsetY Then Return False
@@ -288,7 +322,8 @@ Func _SmartAttackCombatCastDueRage($iElapsedMs, $iDamage)
 	EndIf
 	Local $sOutcome = ""
 	If _SmartAttackCombatCastSpell($eRSpell, "Rage", $aTarget[0], $aTarget[1], _
-			"path stage " & ($g_iSmartCombatRageStage + 1), $sOutcome) Then
+			"path stage " & ($g_iSmartCombatRageStage + 1), _
+			$g_iSmartCombatInitialRage - $g_iSmartCombatRageStage, $sOutcome) Then
 		If $sOutcome = "empty" Then
 			$g_iSmartCombatRageStage = 3
 		Else
@@ -315,7 +350,8 @@ Func _SmartAttackCombatCastDueFreeze($iElapsedMs, $iDamage)
 	EndIf
 	Local $sOutcome = ""
 	If _SmartAttackCombatCastSpell($eFSpell, "Freeze", $g_iSmartCombatTargetX, $g_iSmartCombatTargetY, _
-			"core interval " & ($g_iSmartCombatFreezeStage + 1), $sOutcome) Then
+			"core interval " & ($g_iSmartCombatFreezeStage + 1), _
+			$g_iSmartCombatInitialFreeze - $g_iSmartCombatFreezeStage, $sOutcome) Then
 		If $sOutcome = "empty" Then
 			$g_iSmartCombatFreezeStage = 5
 		Else
@@ -326,17 +362,18 @@ Func _SmartAttackCombatCastDueFreeze($iElapsedMs, $iDamage)
 	EndIf
 EndFunc   ;==>_SmartAttackCombatCastDueFreeze
 
-Func _SmartAttackCombatCastSpell($iSpellType, $sSpellName, $iTargetX, $iTargetY, $sReason, ByRef $sOutcome)
+Func _SmartAttackCombatCastSpell($iSpellType, $sSpellName, $iTargetX, $iTargetY, $sReason, $iExpectedBefore, ByRef $sOutcome)
 	$sOutcome = "failed"
 	Local $bScanValid = False, $bFound = False, $iAmount = 0, $iPortraitX = 0, $iPortraitY = 0
-	_SmartAttackCombatReadSpell($iSpellType, $bScanValid, $bFound, $iAmount, $iPortraitX, $iPortraitY)
+	_SmartAttackCombatReadStableSpell($iSpellType, $bScanValid, $bFound, $iAmount, $iPortraitX, $iPortraitY)
 	If Not $bScanValid Then
-		_SmartAttackCombatRetainSpells($sSpellName, "live attack bar could not be read")
+		_SmartAttackCombatRetainSpells($sSpellName, "live attack bar quantity did not stabilize")
 		Return False
 	EndIf
-	If Not $bFound Or $iAmount <= 0 Then
-		$sOutcome = "empty"
-		Return True
+	If Not $bFound Or $iAmount <= 0 Or $iAmount <> $iExpectedBefore Then
+		_SmartAttackCombatRetainSpells($sSpellName, "stable pre-cast quantity " & $iAmount & _
+				" did not match expected " & $iExpectedBefore)
+		Return False
 	EndIf
 
 	SetLog("Smart Attack casting " & $sSpellName & " at " & $iTargetX & "," & $iTargetY & _
@@ -348,17 +385,8 @@ Func _SmartAttackCombatCastSpell($iSpellType, $sSpellName, $iTargetX, $iTargetY,
 	If _Sleep(450, False) Then Return False
 
 	Local $bAfterValid = False, $bAfterFound = False, $iAfter = 0, $iAfterX = 0, $iAfterY = 0
-	_SmartAttackCombatReadSpell($iSpellType, $bAfterValid, $bAfterFound, $iAfter, $iAfterX, $iAfterY)
-	Local $bNeedSecondAbsenceProof = $bAfterValid And Not $bAfterFound And $iAmount = 1
-	If Not $bAfterValid Or $bNeedSecondAbsenceProof Then
-		; One bounded retry covers a transient spell animation. A final portrait disappearance is
-		; accepted only after two independent valid absence scans; no second cast is sent.
-		If _Sleep(300, False) Then Return False
-		_SmartAttackCombatReadSpell($iSpellType, $bAfterValid, $bAfterFound, $iAfter, $iAfterX, $iAfterY)
-	EndIf
-	; A portrait may disappear only when the final spell was consumed. If the pre-cast stack was
-	; larger than one, an absent row is an unreadable result, not proof that the whole stack vanished.
-	If Not $bAfterValid Or (Not $bAfterFound And $iAmount > 1) Or ($bAfterFound And $iAfter >= $iAmount) Then
+	_SmartAttackCombatReadStableSpell($iSpellType, $bAfterValid, $bAfterFound, $iAfter, $iAfterX, $iAfterY)
+	If Not $bAfterValid Or Not SmartAttackPolicySpellQuantityProved($iAmount, $bAfterFound, $iAfter) Then
 		Local $sFailure = $sSpellName & " cast was not proven; before=" & $iAmount & ", after=" & _
 				($bAfterValid ? $iAfter : -1) & ". Further " & $sSpellName & " clicks are disabled"
 		SetLog($sFailure, $COLOR_ERROR)
@@ -373,6 +401,34 @@ Func _SmartAttackCombatCastSpell($iSpellType, $sSpellName, $iTargetX, $iTargetY,
 			($bAfterFound ? $iAfter : 0), $COLOR_SUCCESS)
 	Return True
 EndFunc   ;==>_SmartAttackCombatCastSpell
+
+; The compact bar can briefly expose a wrong OCR amount while a spell animation
+; settles. Accept a quantity (or final absence) only after two consecutive fresh
+; reads agree. Three reads cover one transient without a background poll.
+Func _SmartAttackCombatReadStableSpell($iSpellType, ByRef $bScanValid, ByRef $bFound, ByRef $iAmount, ByRef $iX, ByRef $iY)
+	$bScanValid = False
+	Local $sPrevious = ""
+	For $iRead = 1 To 3
+		Local $bReadValid = False, $bReadFound = False, $iReadAmount = 0, $iReadX = 0, $iReadY = 0
+		_SmartAttackCombatReadSpell($iSpellType, $bReadValid, $bReadFound, $iReadAmount, $iReadX, $iReadY)
+		If $bReadValid Then
+			Local $sCurrent = ($bReadFound ? "found:" & Int($iReadAmount) : "absent")
+			If $sCurrent = $sPrevious Then
+				$bScanValid = True
+				$bFound = $bReadFound
+				$iAmount = Int($iReadAmount)
+				$iX = Int($iReadX)
+				$iY = Int($iReadY)
+				Return True
+			EndIf
+			$sPrevious = $sCurrent
+		Else
+			$sPrevious = ""
+		EndIf
+		If $iRead < 3 And _Sleep(180, False) Then Return False
+	Next
+	Return False
+EndFunc   ;==>_SmartAttackCombatReadStableSpell
 
 Func _SmartAttackCombatReadSpell($iSpellType, ByRef $bScanValid, ByRef $bFound, ByRef $iAmount, ByRef $iX, ByRef $iY)
 	$bScanValid = False

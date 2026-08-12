@@ -5,6 +5,7 @@ import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 SCRIPT = (ROOT / "tools" / "run_supervised_battle_acceptance.ps1").read_text(encoding="utf-8")
+EVENT_LOGGER = (ROOT / "COCBot" / "functions" / "Run" / "RunEventLog.au3").read_text(encoding="utf-8-sig")
 
 
 class SupervisedBattleAcceptanceContract(unittest.TestCase):
@@ -46,9 +47,10 @@ class SupervisedBattleAcceptanceContract(unittest.TestCase):
         self.assertIn("session.stopping", SCRIPT)
         self.assertIn("battle-limit", SCRIPT)
         self.assertIn("final.session_id", SCRIPT)
-        self.assertIn('Profiles\\{0}\\Logs\\run-events.jsonl', SCRIPT)
-        self.assertIn("$eventPath = Get-RunEventPath $pre.profile", SCRIPT)
-        self.assertNotIn('$eventPath = Join-Path $root "logs\\run-events.jsonl"', SCRIPT)
+        self.assertIn('Join-Path $root "logs\\run-events.jsonl"', SCRIPT)
+        self.assertIn("$eventPath = Get-RunEventPath", SCRIPT)
+        self.assertNotIn('Profiles\\{0}\\Logs\\run-events.jsonl', SCRIPT)
+        self.assertIn('Global Const $RUN_EVENT_LOG_NAME = "logs\\run-events.jsonl"', EVENT_LOGGER)
 
     def test_requires_human_visual_confirmation_after_automation(self):
         proof_offset = SCRIPT.index("$result.automated_proof = $true")

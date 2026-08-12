@@ -53,6 +53,7 @@ class SmartAttackPolicySourceTests(unittest.TestCase):
             "Func SmartAttackPolicyHeroAbilityReason(",
             "Func SmartAttackPolicyHeroAbilityDecision(",
             "Func SmartAttackPolicySelectAttackBarSlot(",
+            "Func SmartAttackPolicySpellQuantityProved(",
             "Func SmartAttackPolicyRageDecision(",
             "Func SmartAttackPolicyFreezeDecision(",
         ):

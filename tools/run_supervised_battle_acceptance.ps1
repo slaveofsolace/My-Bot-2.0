@@ -32,11 +32,8 @@ function Get-LatestNativeLog([string]$Profile) {
     $candidate
 }
 
-function Get-RunEventPath([string]$Profile) {
-    if ($Profile -notmatch '^[A-Za-z0-9][A-Za-z0-9 _.-]{0,63}$' -or $Profile -in @('.', '..')) {
-        throw "The active profile name is not path-safe"
-    }
-    Join-Path $root ("Profiles\{0}\Logs\run-events.jsonl" -f $Profile)
+function Get-RunEventPath {
+    Join-Path $root "logs\run-events.jsonl"
 }
 
 function Read-FileDelta([string]$Path, [long]$Offset) {
@@ -137,7 +134,7 @@ $blueStacks = @(Get-Process HD-Player -ErrorAction Stop | Where-Object {$_.MainW
 if ($blueStacks.Count -ne 1) { throw "Expected exactly one BlueStacks5-Pie64 process" }
 $blueStacksPid = $blueStacks[0].Id
 $nativeLog = Get-LatestNativeLog $pre.profile
-$eventPath = Get-RunEventPath $pre.profile
+$eventPath = Get-RunEventPath
 $logOffset = $nativeLog.Length
 $eventOffset = if (Test-Path -LiteralPath $eventPath) {(Get-Item -LiteralPath $eventPath).Length} else {0}
 $startedAt = Get-Date

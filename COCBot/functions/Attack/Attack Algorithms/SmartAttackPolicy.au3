@@ -313,6 +313,15 @@ Func SmartAttackPolicySelectAttackBarSlot(ByRef $aAttackBar, $iTroopIndex)
 	Return $aDecision
 EndFunc   ;==>SmartAttackPolicySelectAttackBarSlot
 
+; Accepts only an exact one-spell decrement. A missing post-cast portrait proves
+; consumption only when the pre-cast stack contained exactly one spell.
+Func SmartAttackPolicySpellQuantityProved($iBefore, $bAfterFound, $iAfter)
+	If Not IsNumber($iBefore) Or $iBefore <= 0 Or Int($iBefore) <> $iBefore Then Return False
+	If Not $bAfterFound Then Return $iBefore = 1
+	If Not IsNumber($iAfter) Or $iAfter < 0 Or Int($iAfter) <> $iAfter Then Return False
+	Return $iAfter = $iBefore - 1
+EndFunc   ;==>SmartAttackPolicySpellQuantityProved
+
 ; Rage schedule: ordinal 0/1/2 at 0/7s/14s and progress .35/.60/.82.
 ; Inputs: zero-based next ordinal, initial available count, elapsed since main
 ; entry deployment, and a Boolean safe-target proof. Output:

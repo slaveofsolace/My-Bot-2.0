@@ -620,17 +620,17 @@ Func _AttackRefreshPlannedActorProof($iHeroMask, ByRef $bProofValid, $aActorBase
 	; that Hero's ability. The old AmountX/deployed-marker test therefore reports every deployed Hero
 	; as still available. Prove deployment from the Hero-specific battlefield health bar used by the
 	; inherited ability controller; that bar does not exist on an undeployed portrait.
-	Local $bKing = BitAND($iHeroMask, $eHeroKing) <> $eHeroKing Or _AttackProveActiveHero("King", $g_sImgKingBar, $aKingHealth)
-	Local $bQueen = BitAND($iHeroMask, $eHeroQueen) <> $eHeroQueen Or _AttackProveActiveHero("Queen", $g_sImgQueenBar, $aQueenHealth)
-	Local $bPrince = BitAND($iHeroMask, $eHeroPrince) <> $eHeroPrince Or _AttackProveActiveHero("Minion Prince", $g_sImgPrinceBar, $aPrinceHealth)
-	Local $bWarden = BitAND($iHeroMask, $eHeroWarden) <> $eHeroWarden Or _AttackProveActiveHero("Grand Warden", $g_sImgWardenBar, $aWardenHealth)
-	Local $bChampion = BitAND($iHeroMask, $eHeroChampion) <> $eHeroChampion Or _AttackProveActiveHero("Royal Champion", $g_sImgChampionBar, $aChampionHealth)
+	Local $bKing = BitAND($iHeroMask, $eHeroKing) <> $eHeroKing Or _AttackProveActiveHero("King", $g_sImgKingBar, $aKingHealth, $eHeroBarbarianKing)
+	Local $bQueen = BitAND($iHeroMask, $eHeroQueen) <> $eHeroQueen Or _AttackProveActiveHero("Queen", $g_sImgQueenBar, $aQueenHealth, $eHeroArcherQueen)
+	Local $bPrince = BitAND($iHeroMask, $eHeroPrince) <> $eHeroPrince Or _AttackProveActiveHero("Minion Prince", $g_sImgPrinceBar, $aPrinceHealth, $eHeroMinionPrince)
+	Local $bWarden = BitAND($iHeroMask, $eHeroWarden) <> $eHeroWarden Or _AttackProveActiveHero("Grand Warden", $g_sImgWardenBar, $aWardenHealth, $eHeroGrandWarden)
+	Local $bChampion = BitAND($iHeroMask, $eHeroChampion) <> $eHeroChampion Or _AttackProveActiveHero("Royal Champion", $g_sImgChampionBar, $aChampionHealth, $eHeroRoyalChampion)
 	If $bHasBaseline Then
-		If Not $bKing Then $bKing = _AttackProveRaisedHero($aActorBaseline, $aLiveAttackBar, $eKing, "King")
-		If Not $bQueen Then $bQueen = _AttackProveRaisedHero($aActorBaseline, $aLiveAttackBar, $eQueen, "Queen")
-		If Not $bPrince Then $bPrince = _AttackProveRaisedHero($aActorBaseline, $aLiveAttackBar, $ePrince, "Minion Prince")
-		If Not $bWarden Then $bWarden = _AttackProveRaisedHero($aActorBaseline, $aLiveAttackBar, $eWarden, "Grand Warden")
-		If Not $bChampion Then $bChampion = _AttackProveRaisedHero($aActorBaseline, $aLiveAttackBar, $eChampion, "Royal Champion")
+		If Not $bKing Then $bKing = _AttackProveRaisedHero($aActorBaseline, $aLiveAttackBar, $eKing, "King", $eHeroBarbarianKing)
+		If Not $bQueen Then $bQueen = _AttackProveRaisedHero($aActorBaseline, $aLiveAttackBar, $eQueen, "Queen", $eHeroArcherQueen)
+		If Not $bPrince Then $bPrince = _AttackProveRaisedHero($aActorBaseline, $aLiveAttackBar, $ePrince, "Minion Prince", $eHeroMinionPrince)
+		If Not $bWarden Then $bWarden = _AttackProveRaisedHero($aActorBaseline, $aLiveAttackBar, $eWarden, "Grand Warden", $eHeroGrandWarden)
+		If Not $bChampion Then $bChampion = _AttackProveRaisedHero($aActorBaseline, $aLiveAttackBar, $eChampion, "Royal Champion", $eHeroRoyalChampion)
 	EndIf
 	Local $bCC = $g_bIsCCDropped Or $g_iClanCastleSlot = -1 Or Not $g_abAttackDropCC[$g_iMatchMode]
 	For $iSlot = 0 To UBound($aLiveAttackBar, 1) - 1
@@ -653,7 +653,7 @@ Func _AttackRefreshPlannedActorProof($iHeroMask, ByRef $bProofValid, $aActorBase
 	Return _AttackSelectedHeroesDropped($iHeroMask) And $bCC
 EndFunc   ;==>_AttackRefreshPlannedActorProof
 
-Func _AttackProveActiveHero($sHeroName, $sHeroImagePath, ByRef $aHealthTemplate)
+Func _AttackProveActiveHero($sHeroName, $sHeroImagePath, ByRef $aHealthTemplate, $iHeroOrdinal)
 	Local $aHero = decodeSingleCoord(FindImageInPlace2($sHeroName & "Active", $sHeroImagePath, _
 			0, 570 + $g_iBottomOffsetY, 858, 638 + $g_iBottomOffsetY, True))
 	If Not IsArray($aHero) Or UBound($aHero) <> 2 Then
@@ -667,12 +667,13 @@ Func _AttackProveActiveHero($sHeroName, $sHeroImagePath, ByRef $aHealthTemplate)
 	; Do not reuse the inherited Red+Blue mask here: with this DIB channel ordering that mask accepts
 	; a black undeployed background as 0x00D500. Exact all-channel tolerance is the deployment proof.
 	Local $bActive = _ColorCheck($sHealthColor, Hex($aHealth[2], 6), $aHealth[3])
+	If $bActive Then SmartAttackCombatRememberHeroAbilityPoint($iHeroOrdinal, $aHero[0], $aHero[1])
 	SetDebugLog("Run Planner active-Hero proof: " & $sHeroName & " at " & $aHero[0] & "," & $aHero[1] & _
 			" health=" & $sHealthColor & ", active=" & $bActive)
 	Return $bActive
 EndFunc   ;==>_AttackProveActiveHero
 
-Func _AttackProveRaisedHero(ByRef $aBefore, ByRef $aAfter, $iHeroType, $sHeroName)
+Func _AttackProveRaisedHero(ByRef $aBefore, ByRef $aAfter, $iHeroType, $sHeroName, $iHeroOrdinal)
 	Local $iBeforeX = -1, $iBeforeY = -1, $iAfterX = -1, $iAfterY = -1
 	For $i = 0 To UBound($aBefore, 1) - 1
 		If Int($aBefore[$i][0]) = $iHeroType And Int($aBefore[$i][2]) > 0 Then
@@ -695,6 +696,7 @@ Func _AttackProveRaisedHero(ByRef $aBefore, ByRef $aAfter, $iHeroType, $sHeroNam
 	; axes so animation noise cannot turn an unrelated/misclassified portrait into deployment proof.
 	Local $iRise = $iBeforeY - $iAfterY
 	Local $bRaised = Abs($iAfterX - $iBeforeX) <= 12 And $iRise >= 8 And $iRise <= 30
+	If $bRaised Then SmartAttackCombatRememberHeroAbilityPoint($iHeroOrdinal, $iAfterX, $iAfterY)
 	SetDebugLog("Run Planner raised-Hero proof: " & $sHeroName & " before=" & $iBeforeX & "," & $iBeforeY & _
 			" after=" & $iAfterX & "," & $iAfterY & ", rise=" & $iRise & ", active=" & $bRaised)
 	Return $bRaised
