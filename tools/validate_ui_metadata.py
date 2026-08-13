@@ -294,6 +294,35 @@ def main() -> int:
             else:
                 bindings[binding] = setting_id
 
+            setting_availability = setting.get("availability")
+            if setting_availability is not None:
+                setting_prefix = f"{setting_id}.evidence"
+                if setting_availability not in ALLOWED_AVAILABILITY:
+                    errors.append(f"{setting_prefix}: unsupported availability {setting_availability!r}")
+                disabled_reason = str(setting.get("disabled_reason", "")).strip()
+                if setting_availability == "available" and disabled_reason:
+                    errors.append(f"{setting_prefix}: available setting cannot have a disabled reason")
+                if setting_availability != "available" and not disabled_reason:
+                    errors.append(f"{setting_prefix}: unavailable setting requires a disabled reason")
+                if not isinstance(setting.get("runtime_verified"), bool):
+                    errors.append(f"{setting_prefix}: runtime_verified must be an explicit boolean")
+
+                referenced = setting.get("capability_ids")
+                if not isinstance(referenced, list):
+                    errors.append(f"{setting_prefix}: capability_ids must be a list")
+                    referenced = []
+                for capability_id in referenced:
+                    if capability_id not in capability_ids:
+                        errors.append(f"{setting_prefix}: unknown capability id {capability_id}")
+
+                prerequisites = setting.get("prerequisites")
+                if not isinstance(prerequisites, list) or not all(
+                    isinstance(item, str) and item.strip() for item in prerequisites
+                ):
+                    errors.append(f"{setting_prefix}: prerequisites must be a list of non-empty strings")
+                if not isinstance(setting.get("warning"), str):
+                    errors.append(f"{setting_prefix}: warning must be a string")
+
             if setting_type == "integer":
                 validation = setting.get("validation")
                 if not isinstance(validation, dict):

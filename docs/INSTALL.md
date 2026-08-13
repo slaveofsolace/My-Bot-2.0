@@ -10,7 +10,7 @@ This guide sets up the current source baseline for development and controlled co
 | Source language | AutoIt 3.3.16.1 and 3.3.18.0 are checked by the Windows CI matrix. |
 | Elevation | The main script contains `#RequireAdmin` and will request elevation. |
 | BlueStacks 5 | Present in the v8.2.0 source. Current-version smoke test still required. |
-| MEmu | Present in the v8.2.0 source. Current-version smoke test still required. |
+| MEmu | Exact-instance adapter is present and statically checked. Current MEmu 9.5.3 instance/ADB/background/click/zoom/recovery smoke evidence is still required. |
 | Nox | Present in the v8.2.0 source. Current-version smoke test still required. |
 | MuMu Player 12 / LDPlayer 9 | Adapter code is present. A dated current-version smoke test is still required. |
 | Google Play Games on PC | A future clean-room platform target. It is not implemented by the current AutoIt baseline. |
@@ -125,6 +125,11 @@ build origins; a release still requires its runtime smoke-test evidence.
 7. Verify that capture, window positioning, and a known Home Village state are recognized before starting a feature.
 
 Do not assume that successful ADB connection means screen recognition is current.
+
+The MEmu adapter uses the selected VM's reported ADB host/port and prefers an emulator-compatible
+ADB executable. Do not copy MyBotPy's 1600x900 coordinates into this AutoIt engine: this project uses
+its own 860x732 coordinate contract. Select the exact MEmu instance and keep the first run non-spending
+until capture, input, drag, zoom and recovery are visually confirmed.
 
 ## 6. First controlled check
 

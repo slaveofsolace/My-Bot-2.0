@@ -378,6 +378,7 @@ Func _SmartAttackCombatCastSpell($iSpellType, $sSpellName, $iTargetX, $iTargetY,
 
 	SetLog("Smart Attack casting " & $sSpellName & " at " & $iTargetX & "," & $iTargetY & _
 			" (" & $sReason & ", " & $iAmount & " before)", $COLOR_ACTION)
+	RunEventLogSpellCommand($sSpellName, $iTargetX, $iTargetY, $sReason, $iAmount)
 	_SmartAttackCombatExactClick($iPortraitX, $iPortraitY, 1, "SmartSpellSelect-" & $sSpellName)
 	If _Sleep(120, False) Then Return False
 	AttackRemainingTime(False)
@@ -387,10 +388,10 @@ Func _SmartAttackCombatCastSpell($iSpellType, $sSpellName, $iTargetX, $iTargetY,
 	Local $bAfterValid = False, $bAfterFound = False, $iAfter = 0, $iAfterX = 0, $iAfterY = 0
 	_SmartAttackCombatReadExpectedSpellAfter($iSpellType, $iAmount, $bAfterValid, $bAfterFound, $iAfter, $iAfterX, $iAfterY)
 	If Not $bAfterValid Or Not SmartAttackPolicySpellQuantityProved($iAmount, $bAfterFound, $iAfter) Then
-		Local $sFailure = $sSpellName & " cast was not proven; before=" & $iAmount & ", after=" & _
-				($bAfterValid ? $iAfter : -1) & ". Further " & $sSpellName & " clicks are disabled"
+		Local $sFailure = $sSpellName & " command was issued but exact consumption was not proven; before=" & $iAmount & _
+				", after=" & ($bAfterValid ? $iAfter : -1) & ". Further " & $sSpellName & " clicks are disabled"
 		SetLog($sFailure, $COLOR_ERROR)
-		RunEventLogSpellRetained($sSpellName, "exact post-cast quantity decrement was not observed")
+		RunEventLogSpellUnconfirmed($sSpellName, "exact post-command quantity decrement was not observed")
 		Return False
 	EndIf
 

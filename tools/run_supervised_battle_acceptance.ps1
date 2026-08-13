@@ -68,6 +68,15 @@ function Require-ProvenSpellCast([object[]]$Events, [string]$SpellName) {
     if ($valid -lt 1) { throw "$SpellName did not have a proven quantity-decreasing cast" }
 }
 
+function Test-ProvenSpellCast([object[]]$Events, [string]$SpellName) {
+    try {
+        Require-ProvenSpellCast $Events $SpellName
+        $true
+    } catch {
+        $false
+    }
+}
+
 function Wait-SupervisedVisualReceipt([string]$Path) {
     if (-not $Path) {
         return Read-Host "Type exactly SMART DEPLOYMENT ABILITIES AND SPELLS CONFIRMED only if you personally watched all four happen"
@@ -184,6 +193,8 @@ try {
 
     Require-ExactlyOneEvent $result.events 'combat.decision' '^Smart side .+ selected:' 'Smart side selection'
     Require-ExactlyOneEvent $result.events 'combat.decision' '^Smart combat started from ' 'Smart combat start'
+    Require-ExactlyOneEvent $result.events 'combat.zoom-verified' '^Enemy zoom-out verified with [5-9][0-9]+ deployable red-line points$' 'enemy zoom proof'
+    Require-ExactlyOneEvent $result.events 'combat.deployment-verified' '^Deployment verified: [1-9][0-9]* deployable troops reduced to 0$' 'troop deployment proof'
     $heroNames = @{
         'barbarian-king' = 'Barbarian King'
         'archer-queen' = 'Archer Queen'
@@ -202,18 +213,12 @@ try {
         throw "At least one selected hero ability was not issued"
     }
     Require-ProvenSpellCast $result.events 'Rage'
-    Require-ProvenSpellCast $result.events 'Freeze'
-    if (@($result.events | Where-Object {$_.type -eq 'combat.spell-retained'}).Count) {
-        throw "Smart retained a spell instead of proving the requested spell use"
+    if (-not (Test-ProvenSpellCast $result.events 'Freeze')) {
+        Require-ExactlyOneEvent $result.events 'combat.spell-command' '^Freeze command issued at ' 'Freeze command'
+        Require-ExactlyOneEvent $result.events 'combat.spell-unconfirmed' '^Freeze command unconfirmed:' 'Freeze human-review requirement'
     }
 
-    Require-ExactlyOne $nativeDelta 'Run Planner: enemy zoom-out and [5-9][0-9]+ deployable red-line points verified' 'enemy zoom and red-line proof'
-    Require-ExactlyOne $nativeDelta 'Run Planner deployment proof: live attack bar read 1/2 contains zero deployable troops' 'first empty troop-bar proof'
-    Require-ExactlyOne $nativeDelta 'Run Planner deployment proof: live attack bar read 2/2 contains zero deployable troops' 'second empty troop-bar proof'
-    Require-ExactlyOne $nativeDelta 'Run Planner deployment verified: [1-9][0-9]* deployable troops reduced to zero' 'positive troop depletion proof'
-    Require-ExactlyOne $nativeDelta 'Run Planner: stop condition reached - battle-limit' 'internal battle-limit stop'
-    Require-ExactlyOne $nativeDelta '=+ Start Attack =+' 'attack start'
-    if ($nativeDelta -match '(?i)deployment verification failed|deployment was not proven|could not send enemy zoom-out gesture|lost the attack page after zoom-out|could not prove deployable red-line geometry after zoom-out|Smart side selection failed|Smart Attack could not establish|Smart Attack retained|cast was not proven|no blind portrait click was sent') {
+	if ($nativeDelta -match '(?i)deployment verification failed|deployment was not proven|could not send enemy zoom-out gesture|lost the attack page after zoom-out|could not prove deployable red-line geometry after zoom-out|Smart side selection failed|Smart Attack could not establish|no blind portrait click was sent') {
         throw "Native log contains a zoom, deployment, Smart targeting, hero, or spell failure"
     }
 

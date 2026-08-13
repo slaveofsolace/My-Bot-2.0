@@ -475,6 +475,16 @@ Func _WindowCanDock($hWindow)
 	Return BitAND($iState, 2) <> 0 And BitAND($iState, 16) = 0
 EndFunc   ;==>_WindowCanDock
 
+Func _VirtualDesktopHorizontalBounds()
+	Local $aX = DllCall("user32.dll", "int", "GetSystemMetrics", "int", $SM_XVIRTUALSCREEN)
+	Local $aWidth = DllCall("user32.dll", "int", "GetSystemMetrics", "int", $SM_CXVIRTUALSCREEN)
+	Local $aBounds[2] = [0, @DesktopWidth]
+	If @error Or Not IsArray($aX) Or Not IsArray($aWidth) Or $aWidth[0] <= 0 Then Return $aBounds
+	$aBounds[0] = Int($aX[0])
+	$aBounds[1] = Int($aX[0]) + Int($aWidth[0])
+	Return $aBounds
+EndFunc   ;==>_VirtualDesktopHorizontalBounds
+
 Func _DockController($hController, $hBlueStacks, $bReveal = True)
 	If $bReveal Then WinSetState($hController, "", @SW_SHOW)
 	Local $aController = WinGetPos($hController)
@@ -485,14 +495,16 @@ Func _DockController($hController, $hBlueStacks, $bReveal = True)
 	Local $hMonitor = _WinAPI_MonitorFromWindow($hBlueStacks, 2)
 	Local $aMonitor = _WinAPI_GetMonitorInfo($hMonitor)
 	If @error Or Not IsArray($aMonitor) Then Return False
-	Local $iWorkLeft = DllStructGetData($aMonitor[1], "Left")
 	Local $iWorkTop = DllStructGetData($aMonitor[1], "Top")
-	Local $iWorkRight = DllStructGetData($aMonitor[1], "Right")
 	Local $iWorkBottom = DllStructGetData($aMonitor[1], "Bottom")
 
+	; A BlueStacks window may fill most of one monitor while an adjacent monitor still has room.
+	; Horizontal docking therefore uses the complete virtual desktop, not only BlueStacks' monitor.
+	; If neither side fits, fail instead of overlapping the game surface.
+	Local $aVirtual = _VirtualDesktopHorizontalBounds()
 	Local $iX = $aBlueStacks[0] + $aBlueStacks[2] + $g_iDockGap
-	If $iX + $aController[2] > $iWorkRight Then $iX = $aBlueStacks[0] - $g_iDockGap - $aController[2]
-	If $iX < $iWorkLeft Then $iX = $iWorkRight - $aController[2]
+	If $iX + $aController[2] > $aVirtual[1] Then $iX = $aBlueStacks[0] - $g_iDockGap - $aController[2]
+	If $iX < $aVirtual[0] Then Return False
 	Local $iY = $aBlueStacks[1]
 	If $iY < $iWorkTop Then $iY = $iWorkTop
 	If $iY + $aController[3] > $iWorkBottom Then $iY = $iWorkBottom - $aController[3]

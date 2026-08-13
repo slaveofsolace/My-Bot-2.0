@@ -32,6 +32,22 @@ class NativeControlCenterButtonTests(unittest.TestCase):
         self.assertIn('Return "BlueStacks5-" & $aMatch[0]', launcher)
         self.assertIn('_FindBlueStacksWindow($hController)', launcher)
 
+    def test_dock_uses_virtual_desktop_and_never_falls_back_to_overlap(self):
+        launcher = (ROOT / "My Bot 2.0.au3").read_text(encoding="utf-8-sig")
+        helper = launcher[
+            launcher.index("Func _VirtualDesktopHorizontalBounds"):
+            launcher.index("EndFunc   ;==>_VirtualDesktopHorizontalBounds")
+        ]
+        dock = launcher[
+            launcher.index("Func _DockController"):
+            launcher.index("EndFunc   ;==>_DockController")
+        ]
+        self.assertIn("$SM_XVIRTUALSCREEN", helper)
+        self.assertIn("$SM_CXVIRTUALSCREEN", helper)
+        self.assertIn("Local $aVirtual = _VirtualDesktopHorizontalBounds()", dock)
+        self.assertIn("If $iX < $aVirtual[0] Then Return False", dock)
+        self.assertNotIn("$iWorkRight - $aController[2]", dock)
+
     def test_exact_dock_pair_minimizes_and_restores_as_one_background_unit(self):
         launcher = (ROOT / "My Bot 2.0.au3").read_text(encoding="utf-8-sig")
         self.assertIn("Func _SynchronizeDockPairVisibility($hController, $hBlueStacks)", launcher)

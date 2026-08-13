@@ -37,6 +37,15 @@
       "role": "Lineage comparison",
       "license": "GPL-3.0 lineage",
       "importPolicy": "No unique current delta identified. Retain only as a comparison reference."
+    },
+    {
+      "id": "mybot-py-memu-reference",
+      "repository": "evgmalkov/mybot-py",
+      "ref": "main",
+      "commit": "ae24b6d99d522730ab2822282563af764dfa9f5a",
+      "role": "MIT MEmu, cached-frame, batched-input, and gameplay-loop reference",
+      "license": "MIT",
+      "importPolicy": "Reference architecture and selectively adapt small reviewed concepts only. Preserve the MIT copyright and permission notice for any copied substantial source. Do not vendor its executables, templates, account data, or dependencies into this project without separate inventory and review."
     }
   ]
 }

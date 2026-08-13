@@ -50,7 +50,7 @@ Func RunEventValidate(ByRef $oEvent, ByRef $sError)
 		EndIf
 	Next
 	Switch $oEvent.Item("type")
-		Case "session.ready", "session.started", "session.stopping", "session.completed", "session.failed", "route.blocked", "route.ready", "route.diagnostic", "account.changed", "battle.started", "battle.completed", "battle.failed", "combat.decision", "combat.hero-ability", "combat.spell-cast", "combat.spell-retained", "loot.updated", "quota.observed", "quota.exhausted", "pacing.rest.started", "pacing.rest.ended", "warning", "error"
+		Case "session.ready", "session.started", "session.stopping", "session.completed", "session.failed", "route.blocked", "route.ready", "route.diagnostic", "account.changed", "battle.started", "battle.completed", "battle.failed", "combat.decision", "combat.zoom-verified", "combat.deployment-verified", "combat.hero-ability", "combat.spell-command", "combat.spell-cast", "combat.spell-unconfirmed", "combat.spell-retained", "loot.updated", "quota.observed", "quota.exhausted", "pacing.rest.started", "pacing.rest.ended", "warning", "error"
 		Case Else
 			$sError = "Unsupported run event type: " & $oEvent.Item("type")
 			Return SetError(3, 0, False)

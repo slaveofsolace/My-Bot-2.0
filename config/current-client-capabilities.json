@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "as_of": "2026-08-09",
+  "as_of": "2026-08-12",
   "product_version": "v2.0.0",
   "core_baseline": {
     "engine_version": "v8.2.0",
@@ -11,6 +11,7 @@
     "catalogued": "The official change and affected subsystems are documented, but recognition and execution are not implemented.",
     "adapter-added": "Source integration is present and statically verified; controlled Windows runtime testing remains required.",
     "engine-added": "A reusable engine contract is implemented and statically verified; runtime evidence remains required before support promotion.",
+    "legacy-implemented": "An inherited native execution path exists, but current-client recognition and end-to-end behavior remain unverified.",
     "fixture-required": "Recognition cannot be claimed until dated, approved screenshots are available.",
     "supported": "Automated fixtures and controlled runtime evidence both pass and the promotion was reviewed."
   },
@@ -29,6 +30,12 @@
         "environment_patterns": {"emulator": "(?i)^bluestacks\\s*5$"},
         "required_tests": [
           {"test_type": "emulator-smoke", "required_checks": ["emulator.detected", "adb.connected", "game.ready"]}
+        ]
+      },
+      "emulator.memu": {
+        "environment_patterns": {"emulator": "(?i)^memu(?:\\s|$)"},
+        "required_tests": [
+          {"test_type": "emulator-smoke", "required_checks": ["emulator.detected", "instance.bound", "adb.connected", "background.capture", "game.ready"]}
         ]
       },
       "emulator.ldplayer9": {
@@ -167,11 +174,77 @@
           {"test_type": "game-surface-recognition", "required_checks": ["chain-offers.recognized", "safe-region.confirmed"]},
           {"test_type": "end-to-end", "required_checks": ["chain-offers.closed", "home.restored"]}
         ]
+      },
+      "village.collectors": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["collectors.recognized", "storage-state.confirmed"]},
+          {"test_type": "end-to-end", "required_checks": ["collectors.collected", "home.restored"]}
+        ]
+      },
+      "village.donations": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["donation-screen.recognized", "request-text.confirmed"]},
+          {"test_type": "end-to-end", "required_checks": ["donation.matched", "donation.completed", "home.restored"]}
+        ]
+      },
+      "army.training": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["army-screen.recognized", "housing.confirmed"]},
+          {"test_type": "end-to-end", "required_checks": ["composition.prepared", "composition.verified", "home.restored"]}
+        ]
+      },
+      "village.upgrades-home": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["upgrade-screen.recognized", "cost.confirmed"]},
+          {"test_type": "end-to-end", "required_checks": ["upgrade.selected", "upgrade.completed", "home.restored"]}
+        ]
+      },
+      "builder-base.upgrades": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["builder-upgrades.recognized", "builder-count.confirmed"]},
+          {"test_type": "end-to-end", "required_checks": ["builder-upgrade.selected", "builder-home.restored"]}
+        ]
+      },
+      "builder-base.battles": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["builder-battle.recognized", "troop-bar.confirmed"]},
+          {"test_type": "route-execution", "required_checks": ["builder-battle.executed", "builder-battle.completed", "builder-home.restored"]}
+        ]
+      },
+      "village.laboratory": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["laboratory.recognized", "research-state.confirmed"]},
+          {"test_type": "end-to-end", "required_checks": ["research.selected", "research.started", "home.restored"]}
+        ]
+      },
+      "events.clan-games": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["clan-games.recognized", "challenge-state.confirmed"]},
+          {"test_type": "end-to-end", "required_checks": ["challenge.selected", "challenge.completed", "home.restored"]}
+        ]
+      },
+      "orchestration.multi-account": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["account-switcher.recognized", "target-account.confirmed"]},
+          {"test_type": "end-to-end", "required_checks": ["account.selected", "account.ready", "queue.advanced"]}
+        ]
+      },
+      "runtime.recovery": {
+        "required_tests": [
+          {"test_type": "end-to-end", "required_checks": ["failure.detected", "owned-process.recovered", "state.restored", "no-orphan.confirmed"]}
+        ]
+      },
+      "clan-capital.upgrades": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["capital.recognized", "upgrade-state.confirmed"]},
+          {"test_type": "end-to-end", "required_checks": ["capital-upgrade.selected", "capital-home.restored"]}
+        ]
       }
     }
   },
   "capabilities": [
     {"id":"emulator.bluestacks5","introduced":"2026-08-09","status":"adapter-added","implementation":"COCBot/functions/Android/AndroidBluestacks5.au3","verification":["exact-instance-window","adb-capture-transport","windows-au3check"],"runtime_evidence":"required"},
+    {"id":"emulator.memu","introduced":"2026-08-12","status":"adapter-added","implementation":"COCBot/functions/Android/AndroidMEmu.au3","verification":["static-dispatch","instance-vm-info","emulator-owned-adb","background-mode-contract","windows-au3check"],"runtime_evidence":"required"},
     {"id":"emulator.ldplayer9","introduced":"2026-08-06","status":"adapter-added","implementation":"COCBot/functions/Android/AndroidLDPlayer9.au3","verification":["static-dispatch","adb-port-formula","resolution-contract","windows-au3check"],"runtime_evidence":"required"},
     {"id":"emulator.mumu","introduced":"2026-08-06","status":"adapter-added","implementation":"COCBot/functions/Android/AndroidMumu.au3","verification":["static-dispatch","instance-config-adb","resolution-contract","windows-au3check"],"runtime_evidence":"required"},
     {"id":"orchestration.run-plan","introduced":"2026-08-06","status":"engine-added","implementation":"COCBot/functions/Run/RunPlan.au3","schema":"config/run-plan.schema.json","runtime_evidence":"required"},
@@ -181,6 +254,17 @@
     {"id":"orchestration.run-event","introduced":"2026-08-06","status":"engine-added","implementation":"COCBot/functions/Run/RunEvent.au3","schema":"config/run-event.schema.json","tests":"tests/autoit/RunContractsTest.au3","runtime_evidence":"required"},
     {"id":"model.current-game","introduced":"2026-08-06","status":"engine-added","implementation":"COCBot/functions/Game/GameCatalog.au3","schema":"config/game/current-client.schema.json","fixture_status":"required","runtime_evidence":"required"},
     {"id":"model.screen-state-registry","introduced":"2026-08-06","status":"engine-added","implementation":"COCBot/functions/Game/ScreenStateRegistry.au3","schema":"config/game/screen-states.schema.json","fixture_status":"required","runtime_evidence":"required"},
+    {"id":"village.collectors","introduced":"2026-08-12","status":"legacy-implemented","implementation":"COCBot/functions/Village/Collect.au3","fixture_status":"required","runtime_evidence":"required"},
+    {"id":"village.donations","introduced":"2026-08-12","status":"legacy-implemented","implementation":"COCBot/functions/Village/DonateCC.au3","fixture_status":"required","runtime_evidence":"required"},
+    {"id":"army.training","introduced":"2026-08-12","status":"legacy-implemented","implementation":"COCBot/functions/CreateArmy/TrainSystem.au3","fixture_status":"required","runtime_evidence":"required"},
+    {"id":"village.upgrades-home","introduced":"2026-08-12","status":"legacy-implemented","implementation":"COCBot/functions/Village/Auto Upgrade.au3","fixture_status":"required","runtime_evidence":"required"},
+    {"id":"builder-base.upgrades","introduced":"2026-08-12","status":"legacy-implemented","implementation":"COCBot/functions/Village/BuilderBase/SuggestedUpgrades.au3","fixture_status":"required","runtime_evidence":"required"},
+    {"id":"builder-base.battles","introduced":"2026-08-12","status":"legacy-implemented","implementation":"COCBot/functions/Attack/BuilderBase/AttackBB.au3","fixture_status":"required","runtime_evidence":"required"},
+    {"id":"village.laboratory","introduced":"2026-08-12","status":"legacy-implemented","implementation":"COCBot/functions/Village/Laboratory.au3","fixture_status":"required","runtime_evidence":"required"},
+    {"id":"events.clan-games","introduced":"2026-08-12","status":"legacy-implemented","implementation":"COCBot/functions/Village/Clan Games/ClanGames.au3","fixture_status":"required","runtime_evidence":"required"},
+    {"id":"orchestration.multi-account","introduced":"2026-08-12","status":"legacy-implemented","implementation":"COCBot/functions/Village/SwitchAccount.au3","fixture_status":"required","runtime_evidence":"required"},
+    {"id":"runtime.recovery","introduced":"2026-08-12","status":"engine-added","implementation":"COCBot/functions/Main Screen/checkObstacles.au3","runtime_evidence":"required"},
+    {"id":"clan-capital.upgrades","introduced":"2026-08-12","status":"legacy-implemented","implementation":"COCBot/functions/Village/ClanCapital.au3","fixture_status":"required","runtime_evidence":"required"},
     {"id":"army.recipes","official_change_date":"2025-03-24","status":"catalogued","affected_areas":["army-preparation","timers","quick-train","donations","navigation"],"fixture_status":"required","runtime_evidence":"required"},
     {"id":"army.cookbook","official_change_date":"2025-06-16","status":"catalogued","affected_areas":["army-tabs","recipe-selection","navigation","profiles"],"fixture_status":"required","runtime_evidence":"required"},
     {"id":"defense.crafted","official_change_date":"2025-06-16","status":"catalogued","affected_areas":["defense-catalog","crafting-station","attack-analysis","profiles"],"fixture_status":"required","runtime_evidence":"required"},

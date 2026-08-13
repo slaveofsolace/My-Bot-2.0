@@ -197,8 +197,8 @@ Json_ObjPut($oSavedPlan, "events.collect_resources", True)
 Json_ObjPut($oSavedPlan, "notify.on_stop", False)
 Json_ObjPut($oSavedPlan, "notify.on_error", True)
 Json_ObjPut($oSavedPlan, "notify.channel", "log-only")
-Json_ObjPut($oSavedPlan, "run.diagnostic_mode", False)
-Json_ObjPut($oSavedPlan, "run.diagnostic_note", "")
+Json_ObjPut($oSavedPlan, "run.diagnostic_mode", True)
+Json_ObjPut($oSavedPlan, "run.diagnostic_note", "supervised contract test")
 Json_ObjPut($oSavedPlan, "pacing.action_delay_ms", 120)
 Json_ObjPut($oSavedPlan, "pacing.settle_ms", 400)
 Json_ObjPut($oSavedPlan, "pacing.retry_attempts", 0)
@@ -231,10 +231,15 @@ $oSavedEnginePlan.Item("notify_channel") = "windows-toast"
 AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "unwired notification channels are rejected")
 $oSavedEnginePlan.Item("notify_channel") = "log-only"
 AssertTrue(RunExecutionContractValidate($oSavedIntent, $sError), "restoring supported values clears the adapter gate: " & $sError)
+Local $oSavedRoute = $oSavedIntent.Item("route")
+$oSavedRoute.Item("diagnostic_enabled") = False
+AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "Scripted deployment cannot silently claim current-client confirmation")
+AssertTrue(StringInStr($sError, "supervised diagnostic") > 0, "Scripted rejection names the evidence gate")
+$oSavedRoute.Item("diagnostic_enabled") = True
 $oSavedEnginePlan.Item("emulator") = "bluestacks5"
 $oSavedEnginePlan.Item("emulator_instance") = ""
 AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "explicit BlueStacks refuses an ambiguous default instance")
-AssertTrue(StringInStr($sError, "exact BlueStacks 5 instance") > 0, "the BlueStacks instance rejection explains the account boundary")
+AssertTrue(StringInStr($sError, "exact emulator instance") > 0, "the emulator instance rejection explains the account boundary")
 $oSavedEnginePlan.Item("emulator_instance") = "Pie64"
 AssertTrue(RunExecutionContractValidate($oSavedIntent, $sError), "an exact BlueStacks instance clears the account binding gate: " & $sError)
 $oSavedEnginePlan.Item("emulator_instance") = "Pie64&other"
@@ -244,7 +249,13 @@ $oSavedEnginePlan.Item("emulator_instance") = ""
 AssertTrue(RunExecutionContractValidate($oSavedIntent, $sError), "automatic single-instance detection remains supported: " & $sError)
 $oSavedEnginePlan.Item("strategy") = "legacy.standard"
 AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "a named CSV script cannot be paired with Standard deployment")
+$oSavedEnginePlan.Item("attack_script") = "profile-current"
+$oSavedRoute.Item("diagnostic_enabled") = False
+AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "training management requires a supervised diagnostic until its current screens are proven")
+AssertTrue(StringInStr($sError, "Training management") > 0, "the training evidence gate names the active behavior")
+$oSavedRoute.Item("diagnostic_enabled") = True
 $oSavedEnginePlan.Item("strategy") = "legacy.csv"
+$oSavedEnginePlan.Item("attack_script") = "Barch four fingers"
 AssertTrue(RunExecutionContractValidate($oSavedIntent, $sError), "restoring Scripted accepts the named bundled-script contract: " & $sError)
 $oSavedEnginePlan.Item("strategy") = "smart.local"
 $oSavedEnginePlan.Item("attack_script") = "profile-current"
@@ -286,6 +297,14 @@ $oSavedEnginePlan.Item("upgrade_policy") = "walls"
 AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "current-army mode refuses pre-battle wall or building work")
 $oSavedEnginePlan.Item("upgrade_policy") = "disabled"
 AssertTrue(RunExecutionContractValidate($oSavedIntent, $sError), "restoring terminal current-army settings clears every side-effect gate: " & $sError)
+$oSavedEnginePlan.Item("strategy") = "legacy.standard"
+$oSavedEnginePlan.Item("attack_script") = "profile-current"
+$oSavedRoute.Item("diagnostic_enabled") = False
+AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "selected Heroes cannot silently bypass their supervised evidence gate")
+AssertTrue(StringInStr($sError, "Hero deployment") > 0, "the Hero rejection names deployment and ability use")
+$oSavedRoute.Item("diagnostic_enabled") = True
+$oSavedEnginePlan.Item("strategy") = "legacy.csv"
+$oSavedEnginePlan.Item("attack_script") = "Barch four fingers"
 $oSavedEnginePlan.Item("army_manage_training") = True
 $oSavedEnginePlan.Item("max_battles") = 12
 FileDelete($sSavedPlanPath)

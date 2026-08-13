@@ -1694,7 +1694,7 @@
           "type": "select",
           "label": "Emulator",
           "summary": "Which emulator the bot attaches to.",
-          "description": "Leave this on automatic unless you run more than one emulator. The LDPlayer 9 and MuMu adapters are new: their discovery and ADB addressing are implemented, but they have not been through a controlled test on real hardware yet.",
+          "description": "Leave this on automatic unless you run more than one emulator. MEmu, LDPlayer 9 and MuMu have native adapters, but each still needs a dated controlled run on its current release before support can be promoted.",
           "default": "auto",
           "required": true,
           "engine_binding": "RunPlan.emulator",
@@ -1732,17 +1732,20 @@
             {
               "value": "memu",
               "label": "MEmu",
-              "summary": "The inherited MEmu backend.",
-              "description": "Carried over from the upstream bot and not re-tested against current MEmu builds.",
+              "summary": "Inherited exact-instance MEmu backend.",
+              "description": "Discovers MEmu VM instances, reads their ADB host and port from VM information, uses the emulator-owned ADB when available, and selects background capture from the active renderer. The architecture was compared with the MIT MyBotPy MEmu implementation, but no code or templates were imported and no local MEmu runtime test is available on this machine.",
               "availability": "gated",
               "runtime_verified": false,
-              "disabled_reason": "Not re-tested against current MEmu builds.",
-              "capability_ids": [],
+              "disabled_reason": "Adapter is statically checked but has not passed a current MEmu 9.5.3 hardware smoke test.",
+              "capability_ids": [
+                "emulator.memu"
+              ],
               "prerequisites": [
-                "MEmu installed"
+                "MEmu installed",
+                "Exact instance selected"
               ],
               "recommended": false,
-              "warning": ""
+              "warning": "Do not assume that ADB connection alone proves capture, clicks, drag, zoom, or recovery."
             },
             {
               "value": "nox",
@@ -1902,7 +1905,17 @@
           "description": "Leave this off for one battle with the army already trained in game. The bot still checks whether that army is ready, but it will not boost Super Troops, inspect or edit Quick Train, remove troops, queue troops or spells, or build siege machines. Turn it on only when the active profile's army composition is current and this run should retrain.",
           "default": false,
           "required": false,
-          "engine_binding": "RunPlan.army_manage_training"
+          "engine_binding": "RunPlan.army_manage_training",
+          "availability": "gated",
+          "runtime_verified": false,
+          "capability_ids": [
+            "army.training"
+          ],
+          "prerequisites": [
+            "Current training, Quick Train, spell, and siege screen recognition"
+          ],
+          "disabled_reason": "The inherited training routine exists, but its current-client screen flow has not been captured and supervised end to end.",
+          "warning": "Use only as a supervised diagnostic until a full train-wait-attack cycle is recorded."
         },
         {
           "id": "army.wait_for_full",
@@ -2389,7 +2402,17 @@
           "description": "Posts a request when the Clan Castle is empty, so a defending or attacking castle troop is available.",
           "default": false,
           "required": false,
-          "engine_binding": "RunPlan.donate_request_when_short"
+          "engine_binding": "RunPlan.donate_request_when_short",
+          "availability": "gated",
+          "runtime_verified": false,
+          "capability_ids": [
+            "village.donations"
+          ],
+          "prerequisites": [
+            "Current Clan Castle request dialog recognition"
+          ],
+          "disabled_reason": "The request path is inherited but has no current-client supervised receipt.",
+          "warning": "A diagnostic run may post a real clan request."
         }
       ]
     },
@@ -2408,7 +2431,17 @@
           "description": "Clan Games run on a schedule and reward magic items. Automating them means reading the challenge list and tracking points, neither of which has been re-confirmed.",
           "default": false,
           "required": false,
-          "engine_binding": "RunPlan.events_clan_games"
+          "engine_binding": "RunPlan.events_clan_games",
+          "availability": "gated",
+          "runtime_verified": false,
+          "capability_ids": [
+            "events.clan-games"
+          ],
+          "prerequisites": [
+            "Current Clan Games challenge list and progress recognition"
+          ],
+          "disabled_reason": "Clan Games logic is inherited but has not been replayed on the current client.",
+          "warning": "A diagnostic run can accept or abandon a real challenge."
         },
         {
           "id": "events.clan_games_point_cap",
@@ -2495,7 +2528,17 @@
           "description": "Tapping collectors is low risk and adds up. It is skipped automatically when storages are already full, so it costs nothing to leave on.",
           "default": false,
           "required": false,
-          "engine_binding": "RunPlan.events_collect_resources"
+          "engine_binding": "RunPlan.events_collect_resources",
+          "availability": "gated",
+          "runtime_verified": false,
+          "capability_ids": [
+            "village.collectors"
+          ],
+          "prerequisites": [
+            "Current home-village collector recognition"
+          ],
+          "disabled_reason": "Collector tapping exists in the inherited engine but lacks a current-client fixture and run receipt.",
+          "warning": "Use a supervised diagnostic until collector and full-storage handling are observed."
         }
       ]
     },

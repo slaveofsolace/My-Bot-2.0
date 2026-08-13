@@ -159,6 +159,18 @@ Func RunEventLogCombatDecision($sMessage)
 	Return RunEventLogWrite("combat.decision", "info", $sMessage, $g_sRunEventSurfaceId, $g_sRunEventVerificationState)
 EndFunc   ;==>RunEventLogCombatDecision
 
+Func RunEventLogCombatZoomVerified($iRedlinePoints)
+	If Not $g_bRunEventSessionBound Then Return True
+	Return RunEventLogWrite("combat.zoom-verified", "info", "Enemy zoom-out verified with " & _
+			Int($iRedlinePoints) & " deployable red-line points", $g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogCombatZoomVerified
+
+Func RunEventLogCombatDeploymentVerified($iBefore, $iAfter)
+	If Not $g_bRunEventSessionBound Then Return True
+	Return RunEventLogWrite("combat.deployment-verified", "info", "Deployment verified: " & Int($iBefore) & _
+			" deployable troops reduced to " & Int($iAfter), $g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogCombatDeploymentVerified
+
 Func RunEventLogHeroAbility($sHeroName, $sReason, $sSeverity = "info")
 	If Not $g_bRunEventSessionBound Then Return True
 	Local $sAction = " ability command issued: "
@@ -173,6 +185,19 @@ Func RunEventLogSpellCast($sSpellName, $iX, $iY, $sReason)
 	Return RunEventLogWrite("combat.spell-cast", "info", $sSpellName & " cast at " & Int($iX) & "," & Int($iY) & _
 			" (" & $sReason & ")", $g_sRunEventSurfaceId, $g_sRunEventVerificationState)
 EndFunc   ;==>RunEventLogSpellCast
+
+Func RunEventLogSpellCommand($sSpellName, $iX, $iY, $sReason, $iBefore)
+	If Not $g_bRunEventSessionBound Then Return True
+	Return RunEventLogWrite("combat.spell-command", "info", $sSpellName & " command issued at " & Int($iX) & "," & _
+			Int($iY) & " (" & $sReason & "; quantity before " & Int($iBefore) & ")", _
+			$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogSpellCommand
+
+Func RunEventLogSpellUnconfirmed($sSpellName, $sReason)
+	If Not $g_bRunEventSessionBound Then Return True
+	Return RunEventLogWrite("combat.spell-unconfirmed", "warning", $sSpellName & " command unconfirmed: " & $sReason, _
+			$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogSpellUnconfirmed
 
 Func RunEventLogSpellRetained($sSpellName, $sReason)
 	If Not $g_bRunEventSessionBound Then Return True

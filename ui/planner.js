@@ -742,6 +742,33 @@ function evidenceText(option) {
   return 'Planned and implemented; no separate confirmed run is recorded for this option.';
 }
 
+function appendEvidenceDetails(body, evidenceOwner, label = '') {
+  if (!evidenceOwner?.availability) return;
+  const evidence = document.createElement('p');
+  evidence.className = 'evidence-line';
+  evidence.textContent = `${label ? `${label}: ` : ''}${evidenceText(evidenceOwner)}`;
+  body.append(evidence);
+  if ((evidenceOwner.prerequisites || []).length) {
+    const list = document.createElement('ul');
+    for (const prerequisite of evidenceOwner.prerequisites) {
+      const item = document.createElement('li');
+      item.textContent = prerequisite;
+      list.append(item);
+    }
+    body.append(list);
+  }
+  if (evidenceOwner.disabled_reason) {
+    const reason = document.createElement('p');
+    reason.textContent = `Current limit: ${evidenceOwner.disabled_reason}`;
+    body.append(reason);
+  }
+  if (evidenceOwner.warning) {
+    const warning = document.createElement('p');
+    warning.textContent = `Note: ${evidenceOwner.warning}`;
+    body.append(warning);
+  }
+}
+
 function buildSettingHelp(setting) {
   const details = document.createElement('details');
   details.className = 'setting-help';
@@ -752,6 +779,7 @@ function buildSettingHelp(setting) {
   const description = document.createElement('p');
   description.textContent = setting.description;
   body.append(description);
+  appendEvidenceDetails(body, setting, setting.label);
 
   const selectedOptions = setting.type === 'multi-select'
     ? asList(PLAN[setting.id]).map(value => optionOf(setting, value)).filter(Boolean)
@@ -762,29 +790,7 @@ function buildSettingHelp(setting) {
     name.textContent = `${option.label}: `;
     optionDescription.append(name, document.createTextNode(option.description));
     body.append(optionDescription);
-    const evidence = document.createElement('p');
-    evidence.className = 'evidence-line';
-    evidence.textContent = evidenceText(option);
-    body.append(evidence);
-    if ((option.prerequisites || []).length) {
-      const list = document.createElement('ul');
-      for (const prerequisite of option.prerequisites) {
-        const item = document.createElement('li');
-        item.textContent = prerequisite;
-        list.append(item);
-      }
-      body.append(list);
-    }
-    if (option.disabled_reason) {
-      const reason = document.createElement('p');
-      reason.textContent = `Current limit: ${option.disabled_reason}`;
-      body.append(reason);
-    }
-    if (option.warning) {
-      const warning = document.createElement('p');
-      warning.textContent = `Note: ${option.warning}`;
-      body.append(warning);
-    }
+    appendEvidenceDetails(body, option);
   }
   if (setting.native_fixed_reason) {
     const fixed = document.createElement('p');
@@ -842,6 +848,9 @@ function clientProblems(plan = PLAN) {
       const option = optionOf(setting, value);
       if (!option) addProblem(problems, `${setting.label} does not name a current option.`, setting.id);
       else if (['planned', 'unsupported'].includes(option.availability)) addProblem(problems, `${option.label} is unavailable in this build.`, setting.id);
+      else if (option.availability === 'gated' && !plan['run.diagnostic_mode']) {
+        addProblem(problems, `${option.label} needs Allow unverified and a supervised diagnostic acknowledgement.`, setting.id);
+      }
     }
     if (setting.type === 'multi-select') {
       const selected = asList(value);
@@ -850,10 +859,19 @@ function clientProblems(plan = PLAN) {
         const option = optionOf(setting, selectedValue);
         if (!option) addProblem(problems, `${setting.label} contains an unknown selection.`, setting.id);
         else if (['planned', 'unsupported'].includes(option.availability)) addProblem(problems, `${option.label} is unavailable in this build.`, setting.id);
+        else if (option.availability === 'gated' && !plan['run.diagnostic_mode']) {
+          addProblem(problems, `${option.label} needs Allow unverified and a supervised diagnostic acknowledgement.`, setting.id);
+        }
       }
     }
     if (Object.prototype.hasOwnProperty.call(setting, 'native_fixed_value') && !same(value, setting.native_fixed_value)) {
       addProblem(problems, `${setting.label} must keep the native fixed value.`, setting.id);
+    }
+    const settingEvidenceActive = setting.availability && !same(value, setting.default);
+    if (settingEvidenceActive && ['planned', 'unsupported'].includes(setting.availability)) {
+      addProblem(problems, `${setting.label} is unavailable in this build.`, setting.id);
+    } else if (settingEvidenceActive && setting.availability === 'gated' && !plan['run.diagnostic_mode']) {
+      addProblem(problems, `${setting.label} needs Allow unverified and a supervised diagnostic acknowledgement.`, setting.id);
     }
   }
 
@@ -870,7 +888,7 @@ function clientProblems(plan = PLAN) {
   const emulator = String(plan['runtime.emulator'] || '').trim().toLowerCase();
   const instance = String(plan['runtime.instance'] || '').trim();
   if (emulator === 'auto' && instance) addProblem(problems, 'Choose a specific emulator before selecting an instance.', 'runtime.instance');
-  if (emulator === 'bluestacks5' && !instance) addProblem(problems, 'BlueStacks 5 requires the attached instance.', 'runtime.instance');
+  if (emulator !== 'auto' && !instance) addProblem(problems, 'Choose the exact emulator instance so capture, input, and docking stay bound to one account.', 'runtime.instance');
   if (plan['army.source'] !== 'recipe' || String(plan['army.recipe_name'] || '').trim()) {
     addProblem(problems, 'The run can use only the active profile army; named recipes are not wired.', 'army.source');
   }
@@ -991,6 +1009,11 @@ function selectedEvidenceOptions(plan) {
   for (const hero of asList(plan['run.heroes'])) {
     const option = optionOf(heroSetting, hero);
     if (option) results.push({ label: option.label, option });
+  }
+  for (const setting of allSettings()) {
+    if (setting.availability && !same(plan[setting.id], setting.default)) {
+      results.push({ label: setting.label, option: setting });
+    }
   }
   return results;
 }
@@ -1244,7 +1267,12 @@ async function pollControl() {
   recoverControlPending();
   renderControl();
   if (META && LAST_INSTANCE_SIGNATURE !== previousInstanceSignature) refreshInstanceControl();
-  CONTROL_TIMER = setTimeout(pollControl, 1000);
+  CONTROL_TIMER = setTimeout(pollControl, controlPollDelay());
+}
+
+function controlPollDelay() {
+  if (CONTROL_PENDING || ['starting', 'running', 'stopping'].includes(CONTROL.state)) return document.hidden ? 1500 : 500;
+  return document.hidden ? 5000 : 2000;
 }
 
 function refreshInstanceControl() {
@@ -1379,7 +1407,12 @@ async function pollEvents() {
     EVENTS_ERROR = 'unavailable';
   }
   renderActivity();
-  EVENTS_TIMER = setTimeout(pollEvents, 3000);
+  EVENTS_TIMER = setTimeout(pollEvents, eventPollDelay());
+}
+
+function eventPollDelay() {
+  if (['starting', 'running', 'stopping'].includes(CONTROL.state)) return document.hidden ? 5000 : 1500;
+  return document.hidden ? 15000 : 5000;
 }
 
 async function loadNativeLog({ automatic = false } = {}) {
@@ -1623,4 +1656,7 @@ async function boot() {
 }
 
 $('bootRetry').onclick = boot;
+document.addEventListener('visibilitychange', () => {
+  if (BOOT_READY) startPolls();
+});
 boot();

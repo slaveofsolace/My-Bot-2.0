@@ -136,8 +136,12 @@ class SmartAttackCombatIntegrationTests(unittest.TestCase):
     def test_combat_event_types_match_schema(self):
         expected = {
             "combat.decision",
+            "combat.zoom-verified",
+            "combat.deployment-verified",
             "combat.hero-ability",
+            "combat.spell-command",
             "combat.spell-cast",
+            "combat.spell-unconfirmed",
             "combat.spell-retained",
         }
         schema_types = set(self.event_schema["properties"]["type"]["enum"])

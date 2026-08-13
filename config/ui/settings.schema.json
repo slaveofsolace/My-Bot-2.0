@@ -149,6 +149,20 @@
         "default": {},
         "required": {"type": "boolean"},
         "engine_binding": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+$"},
+        "availability": {"enum": ["available", "gated", "planned", "unsupported"]},
+        "runtime_verified": {"type": "boolean"},
+        "capability_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 3, "maxLength": 128}
+        },
+        "prerequisites": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 3, "maxLength": 200}
+        },
+        "disabled_reason": {"type": "string", "maxLength": 500},
+        "warning": {"type": "string", "maxLength": 500},
         "options": {
           "type": "array",
           "minItems": 1,

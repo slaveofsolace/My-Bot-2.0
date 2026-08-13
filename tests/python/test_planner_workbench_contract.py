@@ -49,7 +49,7 @@ class PlannerWorkbenchContract(unittest.TestCase):
 
     def test_conditional_invalid_combinations_are_recoverable(self):
         self.assertIn("emulator === 'auto' && instance", JS)
-        self.assertIn("emulator === 'bluestacks5' && !instance", JS)
+        self.assertIn("emulator !== 'auto' && !instance", JS)
         self.assertIn("plan['run.strategy'] === 'smart.local' && !plan['run.diagnostic_mode']", JS)
         self.assertIn("PLAN[id] === defaultFor(setting)", JS)
         self.assertIn("PLAN[id] === 'profile-current'", JS)

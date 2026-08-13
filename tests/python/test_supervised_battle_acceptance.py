@@ -15,11 +15,10 @@ class SupervisedBattleAcceptanceContract(unittest.TestCase):
 
     def test_requires_exact_zoom_and_deployment_evidence(self):
         for marker in (
-            "enemy zoom-out and [5-9][0-9]+ deployable red-line points verified",
-            "live attack bar read 1/2 contains zero deployable troops",
-            "live attack bar read 2/2 contains zero deployable troops",
-            "deployable troops reduced to zero",
-            "stop condition reached - battle-limit",
+            "combat.zoom-verified",
+            "combat.deployment-verified",
+            "Enemy zoom-out verified with [5-9][0-9]+ deployable red-line points",
+            "Deployment verified: [1-9][0-9]* deployable troops reduced to 0",
         ):
             self.assertIn(marker, SCRIPT)
         self.assertIn("deployment verification failed", SCRIPT)
@@ -36,10 +35,10 @@ class SupervisedBattleAcceptanceContract(unittest.TestCase):
         self.assertIn("ability command issued:", SCRIPT)
         self.assertIn("ability not issued:", SCRIPT)
         self.assertIn("Require-ProvenSpellCast $result.events 'Rage'", SCRIPT)
-        self.assertIn("Require-ProvenSpellCast $result.events 'Freeze'", SCRIPT)
-        self.assertIn("combat.spell-retained", SCRIPT)
-        self.assertIn("cast was not proven", SCRIPT)
-        self.assertIn("Smart Attack retained", SCRIPT)
+        self.assertIn("Test-ProvenSpellCast $result.events 'Freeze'", SCRIPT)
+        self.assertIn("combat.spell-command", SCRIPT)
+        self.assertIn("combat.spell-unconfirmed", SCRIPT)
+        self.assertIn("Freeze human-review requirement", SCRIPT)
 
     def test_requires_one_event_and_clean_internal_stop(self):
         self.assertIn("Exactly one battle.completed event", SCRIPT)

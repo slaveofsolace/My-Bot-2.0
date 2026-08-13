@@ -382,9 +382,9 @@ def main() -> int:
                         "label": "Emulator",
                         "summary": "Which emulator the bot attaches to.",
                         "description": (
-                            "Leave this on automatic unless you run more than one emulator. The LDPlayer 9 and MuMu "
-                            "adapters are new: their discovery and ADB addressing are implemented, but they have not "
-                            "been through a controlled test on real hardware yet."
+                            "Leave this on automatic unless you run more than one emulator. MEmu, LDPlayer 9 and "
+                            "MuMu have native adapters, but each still needs a dated controlled run on its current "
+                            "release before support can be promoted."
                         ),
                         "default": "auto",
                         "required": True,
@@ -403,10 +403,15 @@ def main() -> int:
                                    "available", ["emulator.bluestacks5"], ["BlueStacks 5 installed"],
                                    runtime_verified=True),
                             option("memu", "MEmu",
-                                   "The inherited MEmu backend.",
-                                   "Carried over from the upstream bot and not re-tested against current MEmu builds.",
-                                   "gated", [], ["MEmu installed"],
-                                   disabled_reason="Not re-tested against current MEmu builds."),
+                                   "Inherited exact-instance MEmu backend.",
+                                   "Discovers MEmu VM instances, reads their ADB host and port from VM information, "
+                                   "uses the emulator-owned ADB when available, and selects background capture from "
+                                   "the active renderer. The architecture was compared with the MIT MyBotPy MEmu "
+                                   "implementation, but no code or templates were imported and no local MEmu runtime "
+                                   "test is available on this machine.",
+                                   "gated", ["emulator.memu"], ["MEmu installed", "Exact instance selected"],
+                                   disabled_reason="Adapter is statically checked but has not passed a current MEmu 9.5.3 hardware smoke test.",
+                                   warning="Do not assume that ADB connection alone proves capture, clicks, drag, zoom, or recovery."),
                             option("nox", "Nox",
                                    "The inherited Nox backend.",
                                    "Carried over from the upstream bot and not re-tested against current Nox builds.",
@@ -706,6 +711,15 @@ def main() -> int:
                         "default": False,
                         "required": False,
                         "engine_binding": "RunPlan.army_manage_training",
+                        "availability": "gated",
+                        "runtime_verified": False,
+                        "capability_ids": ["army.training"],
+                        "prerequisites": ["Current training, Quick Train, spell, and siege screen recognition"],
+                        "disabled_reason": (
+                            "The inherited training routine exists, but its current-client screen flow has not been "
+                            "captured and supervised end to end."
+                        ),
+                        "warning": "Use only as a supervised diagnostic until a full train-wait-attack cycle is recorded.",
                     },
                     {
                         "id": "army.wait_for_full",
@@ -921,6 +935,12 @@ def main() -> int:
                         "default": False,
                         "required": False,
                         "engine_binding": "RunPlan.donate_request_when_short",
+                        "availability": "gated",
+                        "runtime_verified": False,
+                        "capability_ids": ["village.donations"],
+                        "prerequisites": ["Current Clan Castle request dialog recognition"],
+                        "disabled_reason": "The request path is inherited but has no current-client supervised receipt.",
+                        "warning": "A diagnostic run may post a real clan request.",
                     },
                 ],
             },
@@ -946,6 +966,12 @@ def main() -> int:
                         "default": False,
                         "required": False,
                         "engine_binding": "RunPlan.events_clan_games",
+                        "availability": "gated",
+                        "runtime_verified": False,
+                        "capability_ids": ["events.clan-games"],
+                        "prerequisites": ["Current Clan Games challenge list and progress recognition"],
+                        "disabled_reason": "Clan Games logic is inherited but has not been replayed on the current client.",
+                        "warning": "A diagnostic run can accept or abandon a real challenge.",
                     },
                     {
                         "id": "events.clan_games_point_cap",
@@ -1007,6 +1033,12 @@ def main() -> int:
                         "default": False,
                         "required": False,
                         "engine_binding": "RunPlan.events_collect_resources",
+                        "availability": "gated",
+                        "runtime_verified": False,
+                        "capability_ids": ["village.collectors"],
+                        "prerequisites": ["Current home-village collector recognition"],
+                        "disabled_reason": "Collector tapping exists in the inherited engine but lacks a current-client fixture and run receipt.",
+                        "warning": "Use a supervised diagnostic until collector and full-storage handling are observed.",
                     },
                 ],
             },

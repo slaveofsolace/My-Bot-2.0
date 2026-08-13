@@ -190,8 +190,8 @@ The bot drives Clash of Clans inside an Android emulator over ADB. Any of these:
 |---|---|
 | **LDPlayer 9** | New adapter. Multi-instance ADB addressing implemented (`5554 + 2×index`). Untested on hardware. |
 | **MuMu Player 12** | New adapter. Reads each instance's ADB port from the emulator instead of assuming one. Untested on hardware. |
-| **BlueStacks 5** | Inherited from upstream. Works against the versions upstream supported. |
-| **MEmu** | Inherited from upstream. |
+| **BlueStacks 5** | Exact Pie64 instance binding, ADB/background capture, docking and supervised Regular-battle evidence exist for the tested local build. |
+| **MEmu** | Inherited exact-instance adapter with VM-provided ADB addressing and renderer-aware background mode. Static checks pass; a current MEmu 9.5.3 hardware smoke test is still required. |
 | **Nox** | Inherited from upstream. |
 
 > Set the emulator to **860 × 732** before first use. The bot's coordinates assume it, and a
@@ -316,6 +316,12 @@ deployment only: it does not import the CSV training table, so the active profil
 Fallbacks explicitly select a four-Hero loadout instead of inheriting a stale manual choice. Selecting
 a preset loads a complete unsaved plan, and **Apply plan** is still required to write it. Emulator
 selection and diagnostic consent are never supplied by a preset.
+
+The broader product goal is the complete repeatable game loop: attacks, training, collectors,
+donation/request, Home and Builder Base upgrades, Laboratory, Clan Games, account rotation and
+recovery. Existing source is not the same as current-client support. The machine-readable gates and
+the per-scope proof still required are listed in
+[`GAMEPLAY_SCOPE_MATRIX.md`](docs/development/GAMEPLAY_SCOPE_MATRIX.md).
 
 Set what you want, press **Apply plan**, and you get one of three answers:
 
@@ -455,13 +461,15 @@ chat text and account identifiers redacted before committing.
 Until these exist there is no way to build recognition templates, and no way to move any surface
 from unverified to verified.
 
-Regular Battle with Standard deployment has bounded TH17 live proof. A separate Smart run used the
-current trained army, accepted three inherited pinch gestures, proved 132 deployable red-line points,
-deployed all four selected Heroes, reduced 23 deployable troops to zero, returned home, and stopped on
-the one-battle limit. It did not activate Hero abilities or cast spells, and it attacked a different
-base than the Standard run. The replacement deterministic ability/spell policy therefore remains
-diagnostic until a fresh supervised run records its issued and confirmed actions. This does not verify
-other battle surfaces, every Town Hall policy, CSV scripts, or the still-missing fixture matrix.
+Regular Battle with Standard deployment has bounded TH17 live proof. A later Smart run from the
+reviewed `978228d5` source/binary pair zoomed the current battle surface, deployed the full trained
+army and all four selected Heroes, issued all four Hero ability commands, proved two exact Rage
+quantity decrements, visibly consumed one Freeze, reached three stars/100 percent, returned home and
+stopped on the one-battle limit. The compact-bar OCR did not stabilize the Freeze count at exactly
+five-to-four, so that cast is human-visual confirmation plus an issued-command event, not an exact
+automated decrement receipt. This proves one supervised Smart path, not strategy superiority, every
+base layout, every Town Hall policy, other battle surfaces, CSV scripts or the still-missing fixture
+matrix.
 
 </details>
 
@@ -480,8 +488,10 @@ remaining-attack count off each limited surface. All of it depends on the captur
 
 <br>
 
-The LDPlayer 9 and MuMu adapters need a controlled run on real hardware: instance zero and a
-non-zero instance, ADB attachment, background capture, clicks and drags, zoom, restart, shutdown.
+The MEmu, LDPlayer 9 and MuMu adapters need a controlled run on real hardware: instance zero and a
+non-zero instance, exact ADB attachment, background capture, clicks and drags, zoom, restart and
+shutdown. MEmu is statically wired and was compared against the separately licensed MyBotPy design,
+but MEmu is not installed on the current test machine.
 
 </details>
 
@@ -525,6 +535,7 @@ and import policy.
 | [xbebenk/MBR_xbebenkMod](https://github.com/xbebenk/MBR_xbebenkMod) | Recent community compatibility work, adapted change by change. |
 | [muratcandegirmenci78-lab/canmurat](https://github.com/muratcandegirmenci78-lab/canmurat) | Pinned for lineage comparison. No unique changes adopted. |
 | [clashautoloot/Clash-AutoLoot](https://github.com/clashautoloot/Clash-AutoLoot) | Behaviour reference only. |
+| [evgmalkov/mybot-py](https://github.com/evgmalkov/mybot-py) | MIT MEmu, cached-frame, batched-input and gameplay-loop reference. No executable or templates imported. |
 
 This is an independent downstream project. Listing an upstream source documents lineage and does
 not imply endorsement, sponsorship, affiliation, support, or approval by that project or its
@@ -573,6 +584,18 @@ with unresolved or restrictive redistribution terms; do not describe the complet
 wholly GPL-licensed or open source. Before publicly redistributing it, obtain written permission
 from the rights holder or replace it with a clearly licensed open implementation and revalidate the
 result.
+
+Publishing source does not surrender copyright. MIT-licensed source keeps its copyright while
+granting broad reuse rights subject to preserving the copyright and permission notice in copies or
+substantial portions; MIT does not itself require a backlink on every screen. This repository is not
+uniformly MIT licensed. The exact licence and protected-resource boundary, including why encrypted
+recognition data is not bypassed, is documented in
+[`OPEN_SOURCE_RIGHTS.md`](docs/development/OPEN_SOURCE_RIGHTS.md).
+
+The low-power/background design and dated process measurements are recorded in
+[`RUNTIME_RESOURCE_BUDGET.md`](docs/development/RUNTIME_RESOURCE_BUDGET.md). BlueStacks is the dominant
+memory cost; the planner now slows status/event polling when idle or hidden without slowing the active
+Stop path.
 
 The upstream project is the work of a large group of contributors over many years, and the
 recognition code in particular represents an enormous amount of accumulated effort. Credits are in

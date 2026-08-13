@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 AUTOIT_CONTRACT_FILES = [
     "COCBot/functions/Other/CurrentClientCompat.au3",
     "COCBot/functions/Android/AndroidBluestacks5.au3",
+    "COCBot/functions/Android/AndroidMEmu.au3",
     "COCBot/functions/Android/AndroidLDPlayer9.au3",
     "COCBot/functions/Android/AndroidMumu.au3",
     "COCBot/functions/Android/ZoomOut.au3",
@@ -154,6 +155,19 @@ def main() -> int:
     require("ADB_PORT_EX" in mumu, "MuMu ADB endpoint is read from instance configuration", findings)
     require("$g_iGAME_WIDTH" in mumu and "$g_iGAME_HEIGHT" in mumu, "MuMu resolution follows the engine dimensions", findings)
 
+    memu = text("COCBot/functions/Android/AndroidMEmu.au3")
+    for contract in (
+        "GetMEmuPath()",
+        "GetMEmuAdbPath()",
+        "GetAndroidVMinfo($__VBoxVMinfo, $MEmu_Manage_Path)",
+        'StringRegExp($__VBoxVMinfo, "name = ADB.*host ip = ([^,]+),"',
+        'StringRegExp($__VBoxVMinfo, "name = ADB.*host port = (\\d{3,5}),"',
+        '$g_sAndroidAdbDevice = $g_sAndroidAdbDeviceHost & ":" & $g_sAndroidAdbDevicePort',
+        "GetMEmuBackgroundMode()",
+        "Name: graphics_render_mode",
+    ):
+        require(contract in memu, f"MEmu adapter retains current static contract: {contract}", findings)
+
     run_plan = text("COCBot/functions/Run/RunPlan.au3")
     require("ByRef $sError = Default" not in run_plan, "run-plan validation uses an explicit error output", findings)
     queue = text("COCBot/functions/Run/AccountQueue.au3")
@@ -176,10 +190,11 @@ def main() -> int:
         verify_autoit_balance(autoit_path, findings)
 
     capabilities = json.loads(text("config/current-client-capabilities.json"))
-    require(capabilities.get("as_of") == "2026-08-09", "capability catalog has a fixed audit date", findings)
+    require(capabilities.get("as_of") == "2026-08-12", "capability catalog has a fixed audit date", findings)
     capability_ids = {item["id"] for item in capabilities["capabilities"]}
     for capability_id in {
         "emulator.bluestacks5",
+        "emulator.memu",
         "emulator.ldplayer9",
         "emulator.mumu",
         "orchestration.run-plan",
@@ -190,6 +205,17 @@ def main() -> int:
         "battle.regular-ranked-split",
         "village.town-hall-18",
         "heroes.six-slot-layout",
+        "village.collectors",
+        "village.donations",
+        "army.training",
+        "village.upgrades-home",
+        "builder-base.upgrades",
+        "builder-base.battles",
+        "village.laboratory",
+        "events.clan-games",
+        "orchestration.multi-account",
+        "runtime.recovery",
+        "clan-capital.upgrades",
     }:
         require(capability_id in capability_ids, f"capability catalog contains {capability_id}", findings)
 
@@ -230,6 +256,25 @@ def main() -> int:
             }
         ],
         "BlueStacks 5 evidence requires exact emulator, ADB, and game readiness",
+        findings,
+    )
+    memu_capability = capabilities_by_id["emulator.memu"]
+    memu_policy = evidence_policy["capabilities"]["emulator.memu"]
+    require(
+        memu_capability.get("implementation") == "COCBot/functions/Android/AndroidMEmu.au3"
+        and memu_capability.get("status") == "adapter-added",
+        "MEmu capability points at the inherited bounded native adapter",
+        findings,
+    )
+    require(
+        memu_policy.get("environment_patterns", {}).get("emulator") == r"(?i)^memu(?:\s|$)"
+        and memu_policy.get("required_tests") == [
+            {
+                "test_type": "emulator-smoke",
+                "required_checks": ["emulator.detected", "instance.bound", "adb.connected", "background.capture", "game.ready"],
+            }
+        ],
+        "MEmu evidence requires exact instance, ADB, background capture, and game readiness",
         findings,
     )
     require(

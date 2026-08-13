@@ -37,6 +37,8 @@ Func RunExecutionContractValidate(ByRef $oIntent, ByRef $sError)
 
 	Local $oPlan = $oIntent.Item("plan")
 	Local $oPacing = $oIntent.Item("pacing")
+	Local $oRoute = $oIntent.Item("route")
+	Local $bDiagnostic = $oRoute.Item("diagnostic_enabled")
 	If Int($oPacing.Item("retry_attempts")) > 0 Then
 		$sError = "Generic action retries need a visual-change observer and are not wired yet; use 0"
 		Return SetError(3, 0, False)
@@ -45,6 +47,10 @@ Func RunExecutionContractValidate(ByRef $oIntent, ByRef $sError)
 	If $sStrategy <> "legacy.csv" And $sStrategy <> "legacy.standard" And $sStrategy <> "smart.local" Then
 		$sError = "Attack strategy " & $sStrategy & " has no exact legacy-engine adapter"
 		Return SetError(4, 0, False)
+	EndIf
+	If $sStrategy = "legacy.csv" And Not $bDiagnostic Then
+		$sError = "Scripted CSV deployment still requires Allow unverified and a supervised diagnostic acknowledgement"
+		Return SetError(4, 2, False)
 	EndIf
 	Local $sAttackScript = StringStripWS(String($oPlan.Item("attack_script")), $STR_STRIPLEADING + $STR_STRIPTRAILING)
 	If $sStrategy <> "legacy.csv" And StringLower($sAttackScript) <> "profile-current" Then
@@ -86,6 +92,9 @@ Func RunExecutionContractValidate(ByRef $oIntent, ByRef $sError)
 			$sError = "Current-army mode requires upgrades disabled before its terminal battle"
 			Return SetError(5, 7, False)
 		EndIf
+	ElseIf Not $bDiagnostic Then
+		$sError = "Training management still requires Allow unverified and a supervised diagnostic acknowledgement"
+		Return SetError(5, 8, False)
 	EndIf
 	If Int($oPlan.Item("search_max_seconds")) > 0 Then
 		$sError = "Search time limits are not wired to a safe search-loop exit yet; use 0"
@@ -101,6 +110,10 @@ Func RunExecutionContractValidate(ByRef $oIntent, ByRef $sError)
 		$sError = "Dragon Duke is not present in the inherited five-Hero deployment engine"
 		Return SetError(8, 0, False)
 	EndIf
+	If HeroLoadoutCount($oLoadout) > 0 And Not $bDiagnostic Then
+		$sError = "Selected Hero deployment and ability use require Allow unverified and a supervised diagnostic acknowledgement"
+		Return SetError(8, 1, False)
+	EndIf
 
 	Local $sEmulator = StringLower(StringStripWS(String($oPlan.Item("emulator")), $STR_STRIPALL))
 	Local $sEmulatorInstance = StringStripWS(String($oPlan.Item("emulator_instance")), $STR_STRIPLEADING + $STR_STRIPTRAILING)
@@ -112,9 +125,13 @@ Func RunExecutionContractValidate(ByRef $oIntent, ByRef $sError)
 		$sError = "The emulator instance name contains unsupported characters"
 		Return SetError(9, 1, False)
 	EndIf
-	If $sEmulator = "bluestacks5" And $sEmulatorInstance = "" Then
-		$sError = "Choose the exact BlueStacks 5 instance so capture, input, and docking target the same account"
+	If $sEmulator <> "auto" And $sEmulatorInstance = "" Then
+		$sError = "Choose the exact emulator instance so capture, input, and docking target the same account"
 		Return SetError(9, 2, False)
+	EndIf
+	If StringRegExp($sEmulator, "^(memu|nox|ldplayer9|mumu)$") And Not $bDiagnostic Then
+		$sError = "This emulator adapter still requires Allow unverified and a supervised diagnostic acknowledgement"
+		Return SetError(9, 3, False)
 	EndIf
 	If Not $oPlan.Item("donate_keep_army") Then
 		$sError = "Allowing donations to consume the attack army has no bounded legacy adapter"
@@ -124,9 +141,18 @@ Func RunExecutionContractValidate(ByRef $oIntent, ByRef $sError)
 		$sError = "Per-run donation limits are not wired yet; use 0"
 		Return SetError(11, 0, False)
 	EndIf
+	If (StringLower(StringStripWS(String($oPlan.Item("donate_mode")), $STR_STRIPALL)) <> "off" Or _
+			$oPlan.Item("donate_request_when_short")) And Not $bDiagnostic Then
+		$sError = "Donation and request actions require Allow unverified and a supervised diagnostic acknowledgement"
+		Return SetError(11, 1, False)
+	EndIf
 	If Int($oPlan.Item("events_clan_games_point_cap")) > 0 Then
 		$sError = "The Clan Games point cap is not wired yet; use 0"
 		Return SetError(12, 0, False)
+	EndIf
+	If ($oPlan.Item("events_clan_games") Or $oPlan.Item("events_collect_resources")) And Not $bDiagnostic Then
+		$sError = "Clan Games and collector actions require Allow unverified and a supervised diagnostic acknowledgement"
+		Return SetError(12, 1, False)
 	EndIf
 	If StringLower(StringStripWS(String($oPlan.Item("events_laboratory")), $STR_STRIPALL)) <> "off" Then
 		$sError = "Planner-driven laboratory selection is not wired yet; leave Laboratory off"
@@ -138,6 +164,10 @@ Func RunExecutionContractValidate(ByRef $oIntent, ByRef $sError)
 			$sError = "Upgrade policy " & $oPlan.Item("upgrade_policy") & " has no exact legacy-engine adapter"
 			Return SetError(14, 0, False)
 	EndSwitch
+	If StringLower(StringStripWS(String($oPlan.Item("upgrade_policy")), $STR_STRIPALL)) = "walls" And Not $bDiagnostic Then
+		$sError = "Wall upgrades require Allow unverified and a supervised diagnostic acknowledgement"
+		Return SetError(14, 1, False)
+	EndIf
 	If StringStripWS(String($oPlan.Item("account_queue_id")), $STR_STRIPALL) <> "" Then
 		$sError = "Planner account queues are not wired to profile switching yet"
 		Return SetError(15, 0, False)

@@ -107,6 +107,7 @@ Func RunExecutionRecordDeploymentProof($iDeployableAfter)
 	$g_bRunExecutionDeploymentVerified = $g_iRunExecutionDeployableBefore > 0 And $g_iRunExecutionDeployableAfter = 0
 	If $g_bRunExecutionDeploymentVerified Then
 		SetLog("Run Planner deployment verified: " & $g_iRunExecutionDeployableBefore & " deployable troops reduced to zero", $COLOR_SUCCESS)
+		RunEventLogCombatDeploymentVerified($g_iRunExecutionDeployableBefore, $g_iRunExecutionDeployableAfter)
 	Else
 		SetLog("Run Planner deployment verification failed: " & $g_iRunExecutionDeployableBefore & _
 				" deployable troops before, " & $g_iRunExecutionDeployableAfter & " still visible after the drop routine", $COLOR_ERROR)
@@ -191,6 +192,7 @@ Func RunExecutionPrepareEnemyDeploymentView()
 	EndIf
 
 	SetLog("Run Planner: enemy zoom-out and " & $iRedlinePoints & " deployable red-line points verified", $COLOR_SUCCESS)
+	RunEventLogCombatZoomVerified($iRedlinePoints)
 	Return True
 EndFunc   ;==>RunExecutionPrepareEnemyDeploymentView
 
