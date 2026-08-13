@@ -178,7 +178,7 @@
     },
     {
       "path": "MyBot.run.exe",
-      "sha256": "0578be7322e3cacae6a98f4277ccd6e8fdbd46367908dafcc2fc46cf50537df0",
+      "sha256": "02a98da2ffbcd1bf88aed2b1ecfdc86240c19197d91b41907f4c182c3c89ec8a",
       "bytes": 3264512,
       "provenance": {
         "kind": "local-build",
@@ -186,7 +186,7 @@
         "toolchain": "AutoIt Aut2Exe",
         "tool_version": "3.3.16.1",
         "tool_signer": "AutoIt Consulting Ltd",
-        "source_commit": "c8b6d63013ac2544860441bd7b79222e6cf0ea7a",
+        "source_commit": "1d25c5196ca6e619adae91576026e0c33a94a10f",
         "compiler_sha256": "921e51d0d9f94c05c5ed10d2d2a80620c8ed930cc48d71e2ce0a5bab4a4f8158",
         "compile_flags": [
           "/x86",
