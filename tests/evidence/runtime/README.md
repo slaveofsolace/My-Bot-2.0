@@ -50,6 +50,8 @@ python tools/validate_runtime_evidence.py --require-capability emulator.ldplayer
 
 No capability is promoted automatically. `tools/evaluate_support_readiness.py` reports whether the documented fixture and evidence gates are complete; a reviewed source change is still required to change a capability status to `supported`.
 
+Every capability that declares `fixture_status: required` must map to an explicit capture target in `tests/fixtures/current-client/manifest.json`. Defining a target improves traceability only: a missing image remains `missing` and cannot promote readiness.
+
 Run the deterministic trust-contract regression suite:
 
 ```powershell
