@@ -89,11 +89,15 @@ class GameplayScopeCatalogTests(unittest.TestCase):
         for setting_id, capability_id in expected.items():
             with self.subTest(setting_id=setting_id):
                 setting = by_id[setting_id]
-                self.assertEqual(setting["availability"], "gated")
+                expected_availability = "unsupported" if setting_id == "army.manage_training" else "gated"
+                self.assertEqual(setting["availability"], expected_availability)
                 self.assertFalse(setting["runtime_verified"])
                 self.assertEqual(setting["capability_ids"], [capability_id])
                 self.assertTrue(setting["prerequisites"])
                 self.assertTrue(setting["disabled_reason"])
+
+        self.assertFalse(by_id["army.manage_training"]["native_fixed_value"])
+        self.assertIn("closed-world", by_id["army.manage_training"]["native_fixed_reason"])
 
         planner = (ROOT / "ui/planner.js").read_text(encoding="utf-8-sig")
         self.assertIn("settingEvidenceActive", planner)

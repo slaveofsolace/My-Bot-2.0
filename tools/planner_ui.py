@@ -211,9 +211,9 @@ def validate_plan(submitted: dict) -> tuple[dict, list[str], list[str]]:
 def engine_preflight(plan: dict) -> list[str]:
     """Mirror the native RunExecutionContract rules that can be decided before Start.
 
-    The browser is allowed to save only plans the native adapter can represent exactly. Runtime
-    readiness and diagnostic authorization remain Start-time checks, but known no-op/unsupported
-    values must fail here instead of being advertised as an applied plan.
+    The browser is allowed to save only plans the native adapter can represent exactly. Gated
+    selections require the same explicit diagnostic acknowledgement that native Start rechecks;
+    known no-op or unsupported values fail here instead of being advertised as an applied plan.
     """
     problems: list[str] = []
     settings = settings_index()
@@ -225,6 +225,11 @@ def engine_preflight(plan: dict) -> list[str]:
         option = next((item for item in setting.get("options", []) if item.get("value") == selected), None)
         if option and option.get("availability") in {"planned", "unsupported"}:
             problems.append(f"{setting_id}: {option.get('label', selected)} is not implemented by the native engine")
+        elif option and option.get("availability") == "gated" and not bool(plan.get("run.diagnostic_mode")):
+            problems.append(
+                f"{setting_id}: {option.get('label', selected)} needs Allow unverified and a supervised "
+                "diagnostic acknowledgement"
+            )
 
     surface = str(plan.get("run.surface", "")).strip().lower()
     strategy = str(plan.get("run.strategy", "")).strip().lower()
@@ -291,7 +296,12 @@ def engine_preflight(plan: dict) -> list[str]:
             problems.append("pacing.break_every_minutes: Clan request requires scheduled breaks off")
     elif bool(plan.get("events.collect_resources")):
         problems.append("events.collect_resources: collector work requires the Home maintenance - collectors only strategy")
-    elif not manages_training:
+    elif manages_training:
+        problems.append(
+            "army.manage_training: managed training is disabled because the inherited profile training path is not "
+            "closed-world; turn it off and use the current trained army for one battle"
+        )
+    else:
         if int(plan.get("run.max_battles", 0)) != 1:
             problems.append("run.max_battles: current trained army mode requires exactly one battle")
         if not bool(plan.get("army.wait_for_full")):
@@ -901,7 +911,11 @@ def selftest() -> int:
     check(set(plan) == setting_ids, "default plan covers every setting exactly")
     check(isinstance(plan["run.heroes"], list), "multi-select defaults use a stable list shape")
     check(plan.get("run.attack_script") == "profile-current", "the default preserves the active profile script")
-    check(not engine_preflight(plan), "the default plan is accepted by the native execution contract")
+    check(bool(engine_preflight(plan)), "the unacknowledged default plan is refused before diagnostic execution")
+    diagnostic_plan = dict(plan)
+    diagnostic_plan["run.diagnostic_mode"] = True
+    diagnostic_plan["run.diagnostic_note"] = "selftest operator acknowledgement"
+    check(not engine_preflight(diagnostic_plan), "the acknowledged default plan reaches the native execution contract")
 
     preset_contract = metadata_document().get("presets", {})
     presets = preset_contract.get("items", [])
@@ -932,6 +946,8 @@ def selftest() -> int:
             f"{preset_id} replaces all preset fields while preserving operator-owned fields",
         )
         candidate = dict(plan)
+        candidate["run.diagnostic_mode"] = True
+        candidate["run.diagnostic_note"] = "selftest operator acknowledgement"
         candidate.update(values)
         clean_preset, adjusted_preset, rejected_preset = validate_plan(candidate)
         check(
@@ -1097,7 +1113,10 @@ def selftest() -> int:
             check(not PLAN_PATH.exists(), "a refused save writes nothing")
 
             connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
-            body = json.dumps({"run.diagnostic_mode": False}).encode()
+            body = json.dumps({
+                "run.diagnostic_mode": True,
+                "run.diagnostic_note": "selftest operator acknowledgement",
+            }).encode()
             connection.request("POST", "/api/plan", body=body, headers={"Content-Type": "application/json"})
             response = connection.getresponse()
             payload = json.loads(response.read())

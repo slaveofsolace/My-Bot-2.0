@@ -58,12 +58,18 @@ class SmartAttackStrategyTests(unittest.TestCase):
                 if setting["id"] == "run.strategy":
                     options = setting["options"]
         smart = next(option for option in options if option["value"] == "smart.local")
-        self.assertEqual(smart["availability"], "available")
-        self.assertTrue(smart["runtime_verified"])
+        standard = next(option for option in options if option["value"] == "legacy.standard")
+        self.assertEqual(standard["availability"], "gated")
+        self.assertFalse(standard["runtime_verified"])
+        self.assertIn("older-binary", standard["description"].lower())
+        self.assertIn("current 438d43a1 source", standard["description"].lower())
+        self.assertEqual(smart["availability"], "gated")
+        self.assertFalse(smart["runtime_verified"])
         self.assertIn("local", smart["description"].lower())
-        self.assertIn("one bounded supervised th17 run", smart["description"].lower())
-        self.assertIn("not strategy quality", smart["description"].lower())
-        self.assertIn("other town halls", smart["warning"].lower())
+        self.assertIn("older-binary bounded supervised th17 run", smart["description"].lower())
+        self.assertIn("strategy quality", smart["description"].lower())
+        self.assertIn("current 438d43a1 source", smart["description"].lower())
+        self.assertIn("historical", smart["warning"].lower())
 
     def test_each_town_hall_preset_uses_its_smart_policy_and_exact_hero_plan(self):
         catalog = json.loads((ROOT / "config/game/smart-attack-strategies.json").read_text(encoding="utf-8"))
@@ -77,6 +83,15 @@ class SmartAttackStrategyTests(unittest.TestCase):
                 self.assertEqual(preset["values"]["run.strategy"], "smart.local")
                 self.assertEqual(preset["values"]["run.attack_script"], "profile-current")
                 self.assertEqual(preset["values"]["run.heroes"], policy["hero_plan"])
+                self.assertFalse(preset["values"]["army.manage_training"])
+                self.assertTrue(preset["values"]["army.wait_for_full"])
+                self.assertFalse(preset["values"]["army.train_spells"])
+                self.assertFalse(preset["values"]["army.train_sieges"])
+                self.assertEqual(preset["values"]["run.duration_minutes"], 0)
+                self.assertEqual(preset["values"]["run.max_battles"], 1)
+                self.assertIn("one supervised battle", preset["description"].lower())
+                self.assertIn("current trained army", preset["description"].lower())
+                self.assertIn("never changes its training queue", preset["description"].lower())
                 self.assertIn(policy["recommended_army"], preset["source_note"])
 
     def test_battle_and_emulator_evidence_are_not_conflated(self):
@@ -88,10 +103,13 @@ class SmartAttackStrategyTests(unittest.TestCase):
         }
         regular = next(item for item in settings["run.surface"]["options"] if item["value"] == "regular")
         bluestacks = next(item for item in settings["runtime.emulator"]["options"] if item["value"] == "bluestacks5")
-        self.assertEqual(regular["availability"], "available")
-        self.assertTrue(regular["runtime_verified"])
-        self.assertEqual(bluestacks["availability"], "available")
-        self.assertTrue(bluestacks["runtime_verified"])
+        self.assertEqual(regular["availability"], "gated")
+        self.assertFalse(regular["runtime_verified"])
+        self.assertIn("current 438d43a1 source", regular["description"].lower())
+        self.assertEqual(bluestacks["availability"], "gated")
+        self.assertFalse(bluestacks["runtime_verified"])
+        self.assertIn("older binary", bluestacks["description"].lower())
+        self.assertIn("live human review", bluestacks["description"].lower())
         self.assertEqual(bluestacks["capability_ids"], ["emulator.bluestacks5"])
 
 

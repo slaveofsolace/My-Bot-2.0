@@ -216,6 +216,40 @@ class RunVillageReadinessStaticTest(unittest.TestCase):
         ):
             self.assertIn(required, contract)
 
+    def test_managed_training_cannot_reach_the_hidden_profile_actuators(self) -> None:
+        contract = autoit_function(
+            source("COCBot/functions/Run/RunExecutionContract.au3"),
+            "RunExecutionContractValidate",
+        )
+        guard = re.search(
+            r'(?ims)If RunIntentManagesTraining\(\$oIntent\) Then\s+'
+            r'\$sError = "Managed training is disabled because the inherited profile training path is not closed-world; '
+            r'turn Manage training off and use the current trained army for one battle"\s+'
+            r'Return SetError\(5, 9, False\)\s+EndIf',
+            contract,
+        )
+        self.assertIsNotNone(guard)
+        assert guard is not None
+        self.assertNotIn("$bDiagnostic", guard.group(0))
+        self.assertLess(
+            guard.start(),
+            contract.index('If Int($oPlan.Item("max_battles")) <> 1 Then'),
+        )
+
+        train_system = autoit_function(
+            source("COCBot/functions/CreateArmy/TrainSystem.au3"),
+            "TrainSystem",
+        )
+        passive_return = train_system.index("Return", train_system.index('EndGainCost("Train")'))
+        for hidden_actuator in (
+            "BoostSuperTroop()",
+            "CheckQuickTrainTroop()",
+            "QuickTrain()",
+            "TrainCustomArmy()",
+            "TrainSiege()",
+        ):
+            self.assertGreater(train_system.index(hidden_actuator), passive_return)
+
     def test_active_failure_is_terminal_and_cleans_up(self) -> None:
         main = source("MyBot.run.au3")
         fail = autoit_function(main, "_RunExecutionFailOwnVillageReadiness")

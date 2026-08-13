@@ -111,14 +111,20 @@ def build_surface_options(surfaces: dict) -> list[dict]:
             summary = "Attack count is reported by the client."
 
         regular = sid == "regular"
+        if regular:
+            prose += (
+                " A bounded source adapter and an older-binary supervised receipt exist, but no binary built from "
+                "the current 438d43a1 source, current-client fixture packet, or live human review is recorded."
+            )
+            prerequisites = prerequisites + ["Allow unverified with a supervised diagnostic acknowledgement"]
         options.append(option(
             value=sid,
             label=surface["label"],
             summary=summary,
             description=prose,
-            availability="available" if regular else "planned",
+            availability="gated" if regular else "planned",
             disabled_reason=(
-                ""
+                "Current-source binary evidence, current-client fixtures, and live human review are still missing."
             ) if regular else (
                 "The native execution contract has no adapter for this battle surface; selecting it cannot start a run."
             ),
@@ -127,7 +133,7 @@ def build_surface_options(surfaces: dict) -> list[dict]:
                     ["battle.revenge"] if sid == "revenge" else ["battle.regular-ranked-split"])),
             prerequisites=prerequisites,
             recommended=(sid == "regular"),
-            runtime_verified=regular,
+            runtime_verified=False,
         ))
     return options
 
@@ -218,7 +224,10 @@ def build_presets(source: dict) -> dict:
             "town_hall": preset["town_hall"],
             "label": preset["label"],
             "summary": preset["summary"],
-            "description": preset["description"],
+            "description": (
+                f"{preset['description']} This preset attempts one supervised battle with the current trained army "
+                "and never changes its training queue."
+            ),
             "compatibility": preset["compatibility"],
             "source_note": preset["source_note"],
             "values": values,
@@ -296,22 +305,26 @@ def main() -> int:
                                    disabled_reason="The CSV actuator is wired, but a complete current-client deployment has not passed supervised review."),
                             option("legacy.standard", "Standard deployment",
                                    "The built-in side and line deployment routine.",
-                                   "A supervised run confirmed Standard could issue the trained-army and selected-"
+                                   "An older-binary supervised run confirmed Standard could issue the trained-army and selected-"
                                    "Hero deployment, observe an empty troop bar, and return home. That single "
                                    "completion confirms the route and actuator, not strategy quality; it did not "
-                                   "exercise planned ability or spell actions.",
-                                   "available", [], ["A ready trained army"], runtime_verified=True),
+                                   "exercise planned ability or spell actions, and it is not proof for a binary "
+                                   "built from the current 438d43a1 source or the current client.",
+                                   "gated", [], ["A ready trained army", "A supervised diagnostic operator"],
+                                   disabled_reason="Current-source binary evidence, current-client fixtures, and live human review are still missing.",
+                                   warning="The historical receipt proves an older build only; treat this source revision as unverified."),
                             option("smart.local", "Smart Attack (research-guided)",
                                    "Concentrates the current army using a Town Hall-aware local policy.",
                                    "The deterministic Town Hall policy is versioned in config/game/smart-attack-"
-                                   "strategies.json and executed locally. One bounded supervised TH17 run verified "
+                                   "strategies.json and executed locally. One older-binary bounded supervised TH17 run observed "
                                    "three zoom gestures, 240 red-line points, deterministic BL-side selection, "
                                    "23-to-zero troop deployment, four selected Hero phase commands, Rage 3-to-zero, "
-                                   "one proven Freeze decrement, and an automatic one-battle stop. This verifies the "
-                                   "mechanics on that run, not strategy quality or every Town Hall and army.",
-                                   "available", [], ["A ready trained army", "A supervised diagnostic operator"],
-                                   runtime_verified=True,
-                                    warning="Runtime-observed on one TH17 current-army battle; quality, other Town Halls, and other armies remain unverified."),
+                                   "one Freeze decrement, and an automatic one-battle stop. That receipt does not "
+                                   "verify a binary built from the current 438d43a1 source, current-client fixtures, "
+                                   "live human review, strategy quality, or every Town Hall and army.",
+                                   "gated", [], ["A ready trained army", "A supervised diagnostic operator"],
+                                   disabled_reason="Current-source binary evidence, current-client fixtures, and live human review are still missing.",
+                                    warning="Historical TH17 mechanics evidence exists, but this source revision and other Town Halls and armies remain unverified."),
                              option("home.collectors", "Home maintenance - collectors only",
                                     "Empty Home Village mines and collectors once, without matchmaking.",
                                     "Runs one bounded collector pass, re-proves the Home Village screen, then stops. "
@@ -437,11 +450,13 @@ def main() -> int:
                                    "available", [], [], recommended=True),
                             option("bluestacks5", "BlueStacks 5",
                                    "The inherited BlueStacks 5 backend.",
-                                   "Verified on BlueStacks 5.22.252.1008/Pie64 through exact window binding, ADB "
+                                   "An older binary was exercised on BlueStacks 5.22.252.1008/Pie64 through exact window binding, ADB "
                                    "readiness, current-client game readiness, and bounded Start/Stop smoke tests. "
-                                   "This does not claim a completed attack.",
-                                   "available", ["emulator.bluestacks5"], ["BlueStacks 5 installed"],
-                                   runtime_verified=True),
+                                   "That receipt does not prove a binary built from the current 438d43a1 source, "
+                                   "current-client capture/input fixtures, live human review, or a completed attack.",
+                                   "gated", ["emulator.bluestacks5"], ["BlueStacks 5 installed", "Exact instance selected", "A supervised diagnostic operator"],
+                                   disabled_reason="The prior attachment smoke predates the current binary; current-client capture/input fixtures and live human review are missing.",
+                                   warning="Treat BlueStacks attachment as unverified until the current binary completes a fresh supervised smoke."),
                             option("memu", "MEmu",
                                    "Inherited exact-instance MEmu backend.",
                                    "Discovers MEmu VM instances, reads their ADB host and port from VM information, "
@@ -741,25 +756,29 @@ def main() -> int:
                         "id": "army.manage_training",
                         "type": "boolean",
                         "label": "Manage training",
-                        "summary": "Allow this run to change the training queue.",
+                        "summary": "Keep this run from changing the training queue.",
                         "description": (
-                            "Leave this off for one battle with the army already trained in game. The bot still "
-                            "checks whether that army is ready, but it will not boost Super Troops, inspect or edit "
-                            "Quick Train, remove troops, queue troops or spells, or build siege machines. Turn it on "
-                            "only when the active profile's army composition is current and this run should retrain."
+                            "Planned combat uses one army already trained in game. The bot checks whether that army "
+                            "is ready, then attempts one battle without boosting Super Troops, inspecting or editing "
+                            "Quick Train, removing troops, queuing troops or spells, or building siege machines."
                         ),
                         "default": False,
                         "required": False,
                         "engine_binding": "RunPlan.army_manage_training",
-                        "availability": "gated",
+                        "native_fixed_value": False,
+                        "native_fixed_reason": (
+                            "The inherited profile training routine exposes unbounded hidden actuators; planned "
+                            "runs use the closed-world current-army one-battle route."
+                        ),
+                        "availability": "unsupported",
                         "runtime_verified": False,
                         "capability_ids": ["army.training"],
-                        "prerequisites": ["Current training, Quick Train, spell, and siege screen recognition"],
+                        "prerequisites": ["A plan-owned exact training recipe and bounded training-screen actuator"],
                         "disabled_reason": (
-                            "The inherited training routine exists, but its current-client screen flow has not been "
-                            "captured and supervised end to end."
+                            "The inherited training routine selects profile-owned Quick Train or custom-army paths "
+                            "and may boost, delete, or queue units outside the plan."
                         ),
-                        "warning": "Use only as a supervised diagnostic until a full train-wait-attack cycle is recorded.",
+                        "warning": "Diagnostic acknowledgement cannot enable managed training in this build.",
                     },
                     {
                         "id": "army.wait_for_full",

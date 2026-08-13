@@ -28,6 +28,7 @@ class LocalRuntimeInstallContract(unittest.TestCase):
             '"Install My Bot 2.0.cmd"',
             '"Uninstall My Bot 2.0.cmd"',
             '"tools\\Install-LocalRuntime.ps1"',
+            '"tools\\install_local_runtime.py"',
         ):
             self.assertIn(name, PACKAGER)
 
@@ -155,12 +156,13 @@ class LocalRuntimeInstallContract(unittest.TestCase):
         ]
         self.assertNotIn("Remove-Item -LiteralPath $profilesRoot", uninstall_flow)
 
-    def test_command_launchers_use_bundled_windows_powershell(self) -> None:
-        expected = "%SystemRoot%\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
-        self.assertIn(expected, INSTALL_CMD)
-        self.assertIn(expected, UNINSTALL_CMD)
-        self.assertIn("Install-LocalRuntime.ps1", INSTALL_CMD)
-        self.assertIn("-Uninstall", UNINSTALL_CMD)
+    def test_command_launchers_prefer_non_clr_python_installer(self) -> None:
+        for source in (INSTALL_CMD, UNINSTALL_CMD):
+            self.assertIn("install_local_runtime.py", source)
+            self.assertIn("py.exe -3", source)
+            self.assertIn("python.exe", source)
+            self.assertNotIn("powershell.exe", source.lower())
+        self.assertIn("--uninstall", UNINSTALL_CMD)
 
 
 @unittest.skipUnless(

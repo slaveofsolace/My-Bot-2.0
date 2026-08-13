@@ -234,7 +234,11 @@ AssertTrue(StringInStr($sError, "recipe") > 0, "the first unsupported adapter is
 $oSavedEnginePlan.Item("army_recipe_name") = ""
 $oSavedEnginePlan.Item("search_max_seconds") = 0
 $oSavedEnginePlan.Item("search_town_hall_filter") = "any"
-AssertTrue(RunExecutionContractValidate($oSavedIntent, $sError), "a fully supported regular-battle plan crosses the execution boundary: " & $sError)
+AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "managed profile training is blocked even after unrelated adapter errors are cleared")
+AssertTrue(StringInStr($sError, "not closed-world") > 0, "managed-training rejection names the hidden actuator boundary")
+$oSavedEnginePlan.Item("army_manage_training") = False
+$oSavedEnginePlan.Item("max_battles") = 1
+AssertTrue(RunExecutionContractValidate($oSavedIntent, $sError), "a bounded current-army regular-battle plan crosses the execution boundary: " & $sError)
 $oSavedPacing.Item("retry_attempts") = 1
 AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "generic retries are blocked without a visual-change observer")
 $oSavedPacing.Item("retry_attempts") = 0
@@ -262,9 +266,13 @@ $oSavedEnginePlan.Item("strategy") = "legacy.standard"
 AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "a named CSV script cannot be paired with Standard deployment")
 $oSavedEnginePlan.Item("attack_script") = "profile-current"
 $oSavedRoute.Item("diagnostic_enabled") = False
-AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "training management requires a supervised diagnostic until its current screens are proven")
-AssertTrue(StringInStr($sError, "Training management") > 0, "the training evidence gate names the active behavior")
+$oSavedEnginePlan.Item("army_manage_training") = True
+AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "managed training is rejected without diagnostic acknowledgement")
+AssertTrue(StringInStr($sError, "not closed-world") > 0, "managed training names the unbounded inherited profile path")
 $oSavedRoute.Item("diagnostic_enabled") = True
+AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "diagnostic acknowledgement cannot enable hidden training actuators")
+AssertTrue(StringInStr($sError, "turn Manage training off") > 0, "managed-training rejection points to the useful bounded route")
+$oSavedEnginePlan.Item("army_manage_training") = False
 $oSavedEnginePlan.Item("strategy") = "legacy.csv"
 $oSavedEnginePlan.Item("attack_script") = "Barch four fingers"
 AssertTrue(RunExecutionContractValidate($oSavedIntent, $sError), "restoring Scripted accepts the named bundled-script contract: " & $sError)
@@ -278,6 +286,7 @@ AssertTrue(RunExecutionSmartDropSides(15, False) = 0, "Smart Attack uses one con
 $oSavedEnginePlan.Item("strategy") = "legacy.csv"
 $oSavedEnginePlan.Item("attack_script") = "Barch four fingers"
 $oSavedEnginePlan.Item("army_manage_training") = False
+$oSavedEnginePlan.Item("max_battles") = 12
 AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "current-army mode refuses an unbounded multi-battle run")
 AssertTrue(StringInStr($sError, "exactly one battle") > 0, "current-army rejection names its one-battle boundary")
 $oSavedEnginePlan.Item("max_battles") = 1

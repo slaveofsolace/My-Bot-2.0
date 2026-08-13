@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "title": "Town Hall Smart Attack starting points",
-  "description": "Research-guided run settings for every current Home Village Town Hall. Choosing one loads its complete preset-owned settings, explicitly selects the Town Hall Hero loadout, and enables the bounded local Smart Attack policy. Recommended army names are guidance only; the bot does not silently replace your profile army.",
+  "description": "Research-guided one-battle settings for every current Home Village Town Hall. Choosing one loads its complete preset-owned settings, explicitly selects the Town Hall Hero loadout, and enables the bounded local Smart Attack policy for the army already trained in game. Recommended army names are guidance only; the bot never edits or retrains that army.",
   "preserved_settings": [
     "runtime.emulator",
     "runtime.instance",
@@ -15,7 +15,7 @@
     "run.town_hall": 0,
     "army.source": "recipe",
     "army.recipe_name": "",
-    "army.manage_training": true,
+    "army.manage_training": false,
     "army.wait_for_full": true,
     "search.min_gold": 0,
     "search.min_elixir": 0,
@@ -52,119 +52,119 @@
       "summary": "Smart all-sides deployment; GiArch is the current researched recommendation.",
       "description": "Uses the active profile army, selects no Heroes, and spreads along every small-village side. The GiArch name is guidance; no army is silently retrained.",
       "compatibility": "research-guided", "source_note": "config/game/smart-attack-strategies.json TH2 policy; community recommendation GiArch.",
-      "values": {"run.town_hall": 2, "run.heroes": [], "army.train_spells": false, "army.train_sieges": false, "run.duration_minutes": 30, "run.max_battles": 4}
+      "values": {"run.town_hall": 2, "run.heroes": [], "army.train_spells": false, "army.train_sieges": false, "run.duration_minutes": 0, "run.max_battles": 1}
     },
     {
       "id": "th3", "town_hall": 3, "label": "Town Hall 3",
       "summary": "Smart all-sides deployment; GiArch is the current researched recommendation.",
       "description": "Uses the active profile army, selects no Heroes, and spreads along every small-village side.",
       "compatibility": "research-guided", "source_note": "config/game/smart-attack-strategies.json TH3 policy; community recommendation GiArch.",
-      "values": {"run.town_hall": 3, "run.heroes": [], "army.train_spells": false, "army.train_sieges": false, "run.duration_minutes": 30, "run.max_battles": 4}
+      "values": {"run.town_hall": 3, "run.heroes": [], "army.train_spells": false, "army.train_sieges": false, "run.duration_minutes": 0, "run.max_battles": 1}
     },
     {
       "id": "th4", "town_hall": 4, "label": "Town Hall 4",
       "summary": "Smart one-side deployment with Barbarian King; GiLoon or easy GiArch.",
       "description": "Concentrates the active profile army and explicitly selects the Barbarian King.",
       "compatibility": "research-guided", "source_note": "config/game/smart-attack-strategies.json TH4 policy; community recommendation GiLoon, easy GiArch.",
-      "values": {"run.town_hall": 4, "run.heroes": ["barbarian-king"], "army.train_spells": false, "army.train_sieges": false, "run.duration_minutes": 30, "run.max_battles": 4}
+      "values": {"run.town_hall": 4, "run.heroes": ["barbarian-king"], "army.train_spells": false, "army.train_sieges": false, "run.duration_minutes": 0, "run.max_battles": 1}
     },
     {
       "id": "th5", "town_hall": 5, "label": "Town Hall 5",
       "summary": "Smart one-side deployment with Barbarian King; GiWi recommendation.",
       "description": "Keeps tanks and damage dealers together behind one entry and explicitly selects the King.",
       "compatibility": "research-guided", "source_note": "config/game/smart-attack-strategies.json TH5 policy; community recommendation GiWi.",
-      "values": {"run.town_hall": 5, "run.heroes": ["barbarian-king"], "army.train_spells": true, "army.train_sieges": false, "run.duration_minutes": 30, "run.max_battles": 4}
+      "values": {"run.town_hall": 5, "run.heroes": ["barbarian-king"], "army.train_spells": false, "army.train_sieges": false, "run.duration_minutes": 0, "run.max_battles": 1}
     },
     {
       "id": "th6", "town_hall": 6, "label": "Town Hall 6",
       "summary": "Smart one-side deployment with Barbarian King; GiHeWi or easy GiWi.",
       "description": "Concentrates the current army and explicitly selects the King.",
       "compatibility": "research-guided", "source_note": "config/game/smart-attack-strategies.json TH6 policy; community recommendation GiHeWi, easy GiWi.",
-      "values": {"run.town_hall": 6, "run.heroes": ["barbarian-king"], "army.train_spells": true, "army.train_sieges": false, "run.duration_minutes": 45, "run.max_battles": 6}
+      "values": {"run.town_hall": 6, "run.heroes": ["barbarian-king"], "army.train_spells": false, "army.train_sieges": false, "run.duration_minutes": 0, "run.max_battles": 1}
     },
     {
       "id": "th7", "town_hall": 7, "label": "Town Hall 7",
       "summary": "Smart one-side deployment with Barbarian King; Mass Dragons recommendation.",
       "description": "Uses a broad concentrated entry for the active profile army and explicitly selects the King.",
       "compatibility": "research-guided", "source_note": "config/game/smart-attack-strategies.json TH7 policy; community recommendation Mass Dragons.",
-      "values": {"run.town_hall": 7, "run.heroes": ["barbarian-king"], "army.train_spells": true, "army.train_sieges": false, "run.duration_minutes": 45, "run.max_battles": 6}
+      "values": {"run.town_hall": 7, "run.heroes": ["barbarian-king"], "army.train_spells": false, "army.train_sieges": false, "run.duration_minutes": 0, "run.max_battles": 1}
     },
     {
       "id": "th8", "town_hall": 8, "label": "Town Hall 8",
       "summary": "Smart one-side deployment with King and Queen; GoHo or easy Zap Dragons.",
       "description": "Concentrates the active profile army and explicitly selects both unlocked Heroes.",
       "compatibility": "research-guided", "source_note": "config/game/smart-attack-strategies.json TH8 policy; community recommendation GoHo, easy Zap Dragons.",
-      "values": {"run.town_hall": 8, "run.heroes": ["barbarian-king", "archer-queen"], "army.train_spells": true, "army.train_sieges": false, "run.duration_minutes": 45, "run.max_battles": 6}
+      "values": {"run.town_hall": 8, "run.heroes": ["barbarian-king", "archer-queen"], "army.train_spells": false, "army.train_sieges": false, "run.duration_minutes": 0, "run.max_battles": 1}
     },
     {
       "id": "th9", "town_hall": 9, "label": "Town Hall 9",
       "summary": "Smart TH-side funnel with King, Queen, and Minion Prince; QC LaLo or easy Zap Dragons.",
       "description": "Targets the Town Hall side on live bases and explicitly selects all three available Heroes.",
       "compatibility": "research-guided", "source_note": "config/game/smart-attack-strategies.json TH9 policy; community recommendation Queen Charge LaLo, easy Zap Dragons.",
-      "values": {"run.town_hall": 9, "run.heroes": ["barbarian-king", "archer-queen", "minion-prince"], "army.train_spells": true, "army.train_sieges": false, "run.duration_minutes": 60, "run.max_battles": 8}
+      "values": {"run.town_hall": 9, "run.heroes": ["barbarian-king", "archer-queen", "minion-prince"], "army.train_spells": false, "army.train_sieges": false, "run.duration_minutes": 0, "run.max_battles": 1}
     },
     {
       "id": "th10", "town_hall": 10, "label": "Town Hall 10",
       "summary": "Smart TH-side funnel with King, Queen, and Minion Prince; QC Hybrid or easy Zap Dragons.",
       "description": "Uses a live-base TH-side funnel and explicitly selects the three unlocked Heroes.",
       "compatibility": "research-guided", "source_note": "config/game/smart-attack-strategies.json TH10 policy; community recommendation Queen Charge Hybrid, easy Zap Dragons.",
-      "values": {"run.town_hall": 10, "run.heroes": ["barbarian-king", "archer-queen", "minion-prince"], "army.train_spells": true, "army.train_sieges": false, "run.duration_minutes": 60, "run.max_battles": 8}
+      "values": {"run.town_hall": 10, "run.heroes": ["barbarian-king", "archer-queen", "minion-prince"], "army.train_spells": false, "army.train_sieges": false, "run.duration_minutes": 0, "run.max_battles": 1}
     },
     {
       "id": "th11", "town_hall": 11, "label": "Town Hall 11",
       "summary": "Smart TH-side funnel with Queen, Prince, and Warden; QC Hybrid or easy EDrags.",
       "description": "Concentrates the current army through a TH-side funnel and explicitly selects Queen, Prince, and Warden.",
       "compatibility": "research-guided", "source_note": "config/game/smart-attack-strategies.json TH11 policy; community recommendation Queen Charge Hybrid, easy Electro Dragons.",
-      "values": {"run.town_hall": 11, "run.heroes": ["archer-queen", "minion-prince", "grand-warden"], "army.train_spells": true, "army.train_sieges": false, "run.duration_minutes": 75, "run.max_battles": 10}
+      "values": {"run.town_hall": 11, "run.heroes": ["archer-queen", "minion-prince", "grand-warden"], "army.train_spells": false, "army.train_sieges": false, "run.duration_minutes": 0, "run.max_battles": 1}
     },
     {
       "id": "th12", "town_hall": 12, "label": "Town Hall 12",
       "summary": "Smart TH-side funnel with Queen, Prince, and Warden; Fireball Super Witches or easy Zap Dragons.",
       "description": "Uses the active profile army and a TH-side funnel; explicitly selects Queen, Prince, and Warden.",
       "compatibility": "research-guided", "source_note": "config/game/smart-attack-strategies.json TH12 policy; community recommendation Fireball Super Witches, easy Zap Dragons.",
-      "values": {"run.town_hall": 12, "run.heroes": ["archer-queen", "minion-prince", "grand-warden"], "army.train_spells": true, "army.train_sieges": true, "run.duration_minutes": 75, "run.max_battles": 10}
+      "values": {"run.town_hall": 12, "run.heroes": ["archer-queen", "minion-prince", "grand-warden"], "army.train_spells": false, "army.train_sieges": false, "run.duration_minutes": 0, "run.max_battles": 1}
     },
     {
       "id": "th13", "town_hall": 13, "label": "Town Hall 13",
       "summary": "Smart TH-side funnel with four Heroes; Fireball Super Witches or easy Electro Smash.",
       "description": "Targets the TH side and explicitly selects Queen, Prince, Warden, and Royal Champion.",
       "compatibility": "research-guided", "source_note": "config/game/smart-attack-strategies.json TH13 policy; community recommendation Fireball Super Witches, easy Electro Smash.",
-      "values": {"run.town_hall": 13, "run.heroes": ["archer-queen", "minion-prince", "grand-warden", "royal-champion"], "army.train_spells": true, "army.train_sieges": true, "run.duration_minutes": 75, "run.max_battles": 10}
+      "values": {"run.town_hall": 13, "run.heroes": ["archer-queen", "minion-prince", "grand-warden", "royal-champion"], "army.train_spells": false, "army.train_sieges": false, "run.duration_minutes": 0, "run.max_battles": 1}
     },
     {
       "id": "th14", "town_hall": 14, "label": "Town Hall 14",
       "summary": "Smart TH-side funnel with four Heroes; Witch Spam or easy Zap Dragons.",
       "description": "Targets the TH side and explicitly selects Queen, Prince, Warden, and Royal Champion.",
       "compatibility": "research-guided", "source_note": "config/game/smart-attack-strategies.json TH14 policy; community recommendation Witch Spam, easy Zap Dragons.",
-      "values": {"run.town_hall": 14, "run.heroes": ["archer-queen", "minion-prince", "grand-warden", "royal-champion"], "army.train_spells": true, "army.train_sieges": true, "run.duration_minutes": 75, "run.max_battles": 10}
+      "values": {"run.town_hall": 14, "run.heroes": ["archer-queen", "minion-prince", "grand-warden", "royal-champion"], "army.train_spells": false, "army.train_sieges": false, "run.duration_minutes": 0, "run.max_battles": 1}
     },
     {
       "id": "th15", "town_hall": 15, "label": "Town Hall 15",
       "summary": "Smart TH-side funnel with four Heroes; RC Walk Root Riders or easy RC Walk Dragons.",
       "description": "Targets the TH side and explicitly selects Queen, Prince, Warden, and Royal Champion.",
       "compatibility": "research-guided", "source_note": "config/game/smart-attack-strategies.json TH15 policy; community recommendation Royal Champion Walk Root Riders, easy Royal Champion Walk Dragons.",
-      "values": {"run.town_hall": 15, "run.heroes": ["archer-queen", "minion-prince", "grand-warden", "royal-champion"], "army.train_spells": true, "army.train_sieges": true, "run.duration_minutes": 75, "run.max_battles": 10}
+      "values": {"run.town_hall": 15, "run.heroes": ["archer-queen", "minion-prince", "grand-warden", "royal-champion"], "army.train_spells": false, "army.train_sieges": false, "run.duration_minutes": 0, "run.max_battles": 1}
     },
     {
       "id": "th16", "town_hall": 16, "label": "Town Hall 16",
       "summary": "Smart TH-side funnel with four Heroes; Fireball Super Witch Druids or easy EDrags.",
       "description": "Targets the TH side and explicitly selects the same four-Hero loadout proven by the current-client actor path.",
       "compatibility": "research-guided", "source_note": "config/game/smart-attack-strategies.json TH16 policy; community recommendation Fireball Super Witch Druids, easy Electro Dragons.",
-      "values": {"run.town_hall": 16, "run.heroes": ["archer-queen", "minion-prince", "grand-warden", "royal-champion"], "army.train_spells": true, "army.train_sieges": true, "run.duration_minutes": 45, "run.max_battles": 6}
+      "values": {"run.town_hall": 16, "run.heroes": ["archer-queen", "minion-prince", "grand-warden", "royal-champion"], "army.train_spells": false, "army.train_sieges": false, "run.duration_minutes": 0, "run.max_battles": 1}
     },
     {
       "id": "th17", "town_hall": 17, "label": "Town Hall 17",
       "summary": "Smart TH-side funnel with four Heroes; Dragon Riders or easy Super Yeti Smash.",
       "description": "Uses the current trained army, the current-client-proven TH-side red line, and the exact four-Hero loadout that completed the supervised 100 percent three-star run.",
       "compatibility": "research-guided", "source_note": "config/game/smart-attack-strategies.json TH17 policy; community recommendation Air Defense Snipe Dragon Riders, easy Super Yeti Smash, no-Hero Electro Dragons.",
-      "values": {"run.town_hall": 17, "run.heroes": ["archer-queen", "minion-prince", "grand-warden", "royal-champion"], "army.train_spells": true, "army.train_sieges": true, "run.duration_minutes": 45, "run.max_battles": 6}
+      "values": {"run.town_hall": 17, "run.heroes": ["archer-queen", "minion-prince", "grand-warden", "royal-champion"], "army.train_spells": false, "army.train_sieges": false, "run.duration_minutes": 0, "run.max_battles": 1}
     },
     {
       "id": "th18", "town_hall": 18, "label": "Town Hall 18",
       "summary": "Smart TH-side funnel with four Heroes; Meteor Golems or easy Super Bowler Smash.",
       "description": "Uses the current trained army and the bounded TH-side actuator. It does not pretend to train a Meteor Golem, Thrower, or Dragon Rider composition.",
       "compatibility": "research-guided", "source_note": "config/game/smart-attack-strategies.json TH18 policy; official balance plus community recommendation Fireball Meteor Golems, easy Super Bowler Smash, no-Hero Electro Dragons.",
-      "values": {"run.town_hall": 18, "run.heroes": ["archer-queen", "minion-prince", "grand-warden", "royal-champion"], "army.train_spells": true, "army.train_sieges": true, "run.duration_minutes": 45, "run.max_battles": 6}
+      "values": {"run.town_hall": 18, "run.heroes": ["archer-queen", "minion-prince", "grand-warden", "royal-champion"], "army.train_spells": false, "army.train_sieges": false, "run.duration_minutes": 0, "run.max_battles": 1}
     }
   ]
 }

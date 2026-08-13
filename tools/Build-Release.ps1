@@ -90,6 +90,7 @@ $runtimeFiles = @(
     "packaging\README.md",
     "tools\planner_ui.py",
     "tools\Install-LocalRuntime.ps1",
+    "tools\install_local_runtime.py",
     "config\account-queue.schema.json",
     "config\battle-route.schema.json",
     "config\binary-provenance.json",

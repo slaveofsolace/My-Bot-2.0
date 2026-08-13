@@ -29,6 +29,7 @@ class NativePlannerContractControls(unittest.TestCase):
             fixed,
             {
                 "account.queue": "",
+                "army.manage_training": False,
                 "army.recipe_name": "",
                 "search.max_seconds": 0,
                 "donate.keep_army": True,

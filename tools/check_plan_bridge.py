@@ -152,8 +152,14 @@ def main() -> int:
         errors.append("a validated plan does not cover exactly the declared settings")
     if written.get("run.diagnostic_mode") is not False:
         errors.append("the writer would put a true diagnostic flag on disk for the string 'false'")
-    if planner_ui.engine_preflight(plan):
-        errors.append("the browser default plan is guaranteed to fail the native execution contract")
+    default_preflight = planner_ui.engine_preflight(plan)
+    if not any("supervised diagnostic acknowledgement" in problem for problem in default_preflight):
+        errors.append("the browser default plan can bypass diagnostic acknowledgement for gated routes")
+    acknowledged_plan = dict(plan)
+    acknowledged_plan["run.diagnostic_mode"] = True
+    acknowledged_plan["run.diagnostic_note"] = "bridge audit acknowledgement"
+    if planner_ui.engine_preflight(acknowledged_plan):
+        errors.append("the acknowledged bounded default plan cannot reach the native execution contract")
     for setting_id, bad_value in (
         ("run.surface", "builder"),
         ("run.strategy", "legacy.smart-farm"),
@@ -560,7 +566,24 @@ def main() -> int:
             errors.append(f"bounded regular-battle core contains inherited diversion: {forbidden}")
 
     execution_contract_source = EXECUTION_CONTRACT.read_text(encoding="utf-8-sig")
-    passive_contract = execution_contract_source.split("If Not RunIntentManagesTraining($oIntent) Then", 1)
+    managed_contract = execution_contract_source.split("If RunIntentManagesTraining($oIntent) Then", 1)
+    managed_contract_body = managed_contract[1].split("EndIf", 1)[0] if len(managed_contract) > 1 else ""
+    for required in (
+        "Managed training is disabled",
+        "inherited profile training path is not closed-world",
+        "turn Manage training off and use the current trained army for one battle",
+        "Return SetError(5, 9, False)",
+    ):
+        if required not in managed_contract_body:
+            errors.append(f"managed training no longer fails closed via {required}")
+    if "$bDiagnostic" in managed_contract_body:
+        errors.append("diagnostic acknowledgement can bypass the managed-training fail-closed gate")
+    managed_guard_offset = execution_contract_source.find("If RunIntentManagesTraining($oIntent) Then")
+    passive_guard_offset = execution_contract_source.find('If Int($oPlan.Item("max_battles")) <> 1 Then')
+    if managed_guard_offset < 0 or passive_guard_offset < 0 or managed_guard_offset > passive_guard_offset:
+        errors.append("managed training is not rejected before the bounded current-army contract")
+
+    passive_contract = execution_contract_source.split('If Int($oPlan.Item("max_battles")) <> 1 Then', 1)
     passive_contract_body = passive_contract[1].split('If Int($oPlan.Item("search_max_seconds"))', 1)[0] if len(passive_contract) > 1 else ""
     for required in (
         'If Not $oPlan.Item("army_wait_for_full") Then',

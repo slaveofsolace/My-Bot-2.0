@@ -1047,7 +1047,9 @@ function clientProblems(plan = PLAN) {
     if (instance && !/^[A-Za-z0-9_. -]{1,64}$/.test(instance)) addProblem(problems, 'The Home route instance name contains unsupported characters.', 'runtime.instance');
   } else if (plan['events.collect_resources']) {
     addProblem(problems, 'Collector work requires the Home maintenance - collectors only strategy.', 'events.collect_resources');
-  } else if (!plan['army.manage_training']) {
+  } else if (plan['army.manage_training']) {
+    addProblem(problems, 'Managed training is disabled because the inherited profile training path is not closed-world. Turn it off and use the current trained army for one battle.', 'army.manage_training');
+  } else {
     if (Number(plan['run.max_battles']) !== 1) addProblem(problems, 'Current trained army mode requires exactly one battle.', 'run.max_battles');
     if (!plan['army.wait_for_full']) addProblem(problems, 'Current trained army mode requires a fresh full-army check.', 'army.wait_for_full');
     if (plan['donate.mode'] !== 'off') addProblem(problems, 'Donations must be off for the one-shot current army.', 'donate.mode');

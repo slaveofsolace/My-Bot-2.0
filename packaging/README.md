@@ -1,37 +1,51 @@
 # Local release packaging
 
-`tools/Build-Release.ps1` is the release boundary for the Windows x86 package. It never rewrites the
-checked-in executables or the pinned Mini GUI. All five locally owned entry points are compiled into
-an isolated work directory with explicit `/x86`, `/gui` or `/console`, `/nopack`, and `/comp 2`
-arguments.
+`tools/build_release.py` is the fail-closed release boundary for the Windows x86 LocalRuntime
+package. It does not depend on PowerShell or the .NET CLR. The older
+`tools/Build-Release.ps1` remains as a compatibility implementation, but new reviewed releases use
+the Python boundary and its mandatory two-phase flow. The Python tool never rewrites the pinned
+Mini GUI. It temporarily isolates each checked-in pragma output, restores it byte-for-byte, and
+compiles the five locally owned entry points with explicit `/x86`, `/gui` or `/console`, `/nopack`,
+and `/comp 2` arguments.
 
 The launcher, main host, Engine Probe, and Watchdog retain the Windows GUI subsystem. WMI is the
 only console helper. Watchdog may allocate a console for its explicit `/console` diagnostic mode,
 but its packaged executable remains GUI like the reviewed artifact.
 
-The default one-shot path is suitable when compiler output already matches the reviewed records in
-`config/binary-provenance.json`:
+The release must start from an isolated, clean worktree at the reviewed source commit. Compile the
+five candidates without packaging them:
 
-```powershell
-powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File tools/Build-Release.ps1 `
-  -Action BuildAndPackage `
-  -AutoItRoot "C:\Program Files (x86)\AutoIt3" `
-  -Version 2.0.0 `
-  -Mode LocalRuntime
+```console
+python tools/build_release.py --action compile-for-review ^
+  --autoit-root "C:\Program Files (x86)\AutoIt3" ^
+  --version 2.0.0 ^
+  --output-directory "C:\path\to\isolated-release-output"
 ```
 
-AutoIt output may differ between builds. When it does, use the review path so the exact bytes that
-were inspected are the bytes that are packaged:
+AutoIt output may differ between builds, so the exact bytes inspected must be the exact bytes
+packaged:
 
-1. Commit the reviewed source-only tree, then run `-Action CompileForReview` from that clean commit
-   with `-AutoItRoot` and `-Version`.
+1. Commit the reviewed source-only tree, then run `--action compile-for-review` from that clean
+   commit using the Python command above.
 2. Review the five candidate executables and `candidate-hashes.json` outside the live runtime.
-3. Update `config/binary-provenance.json` in a separate, reviewed change. This script deliberately
-   does not update provenance.
-4. Commit only the five reviewed executables and updated provenance. Run `-Action PackageReviewed
-   -ReviewedBinaryDirectory <candidate-directory> -Version <version>` from that clean commit. The
-   packager verifies the candidate manifest, every candidate byte, ancestry, and that the intervening
-   commit changed only those binaries and provenance.
+3. Replace only the five checked-in executables with those reviewed bytes and update
+   `config/binary-provenance.json`. The tool deliberately never writes provenance for the operator.
+4. Commit only those five executables and provenance. From that clean descendant, package the exact
+   reviewed candidate directory:
+
+   ```console
+   python tools/build_release.py --action package-reviewed ^
+     --reviewed-binary-directory "C:\path\to\MyBot-2.0.0-win-x86-candidate" ^
+     --version 2.0.0 ^
+     --output-directory "C:\path\to\isolated-release-output"
+   ```
+
+The packager verifies the repository audit, clean source and immutable commit identity, candidate
+manifest and bytes, ancestry, the exact intervening-change allowlist, promoted Git blobs, compiler
+identity, complete binary provenance, pinned Mini GUI, zero-byte marker, and tracked payload
+allowlist. It builds the payload exclusively from recorded Git blobs, never mutable working-tree
+files. ZIP paths are sorted below one package root, timestamps are fixed to 1980-01-01, and final
+publication is atomic and refuses to overwrite another release.
 
 The package uses an explicit allowlist. It excludes profiles, plans and control state, logs,
 artifacts, caches, temporary helpers, `CLAUDE_HANDOFF_PROMPT.md`, and the working-tree
@@ -46,9 +60,10 @@ directory. Installed releases use `%LOCALAPPDATA%\My Bot 2.0\Profiles`; upgrades
 that directory.
 
 `LocalRuntime` creates a local-use package only. It is not permission to redistribute the inherited
-ImgLoc component. `PublicDistribution` fails unless the release operator has actual written
-permission or has validated a clearly licensed replacement and supplies the exact acknowledgement
-token printed in the script. That switch records an operator assertion; it does not create rights.
+ImgLoc component. The Python boundary has no PublicDistribution mode and fails on every other mode.
+Public release remains blocked until actual written ImgLoc permission exists or a clearly licensed
+replacement has been validated. The legacy PowerShell acknowledgement switch records an operator
+assertion; it does not create rights.
 
 The workflow performs no code signing and makes no signing claim.
 

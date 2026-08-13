@@ -475,6 +475,7 @@ def main() -> int:
 
     expected_native_fixed = {
         "account.queue": "",
+        "army.manage_training": False,
         "army.recipe_name": "",
         "search.max_seconds": 0,
         "donate.keep_army": True,
@@ -503,8 +504,11 @@ def main() -> int:
 
     surface_options = option_map("run.surface")
     regular_option = surface_options.get("regular", {})
-    if regular_option.get("availability") != "available" or regular_option.get("runtime_verified") is not True:
-        errors.append("Regular Battles must expose the completed supervised current-client proof")
+    if regular_option.get("availability") != "gated" or regular_option.get("runtime_verified") is not False:
+        errors.append("Regular Battles must remain diagnostic-only until the current binary and client are reviewed")
+    regular_copy = " ".join(str(regular_option.get(field, "")).lower() for field in ("description", "disabled_reason"))
+    if "current 438d43a1 source" not in regular_copy or "live human review" not in regular_copy:
+        errors.append("Regular Battles must name the missing current-source and human-review evidence")
     for surface_id, surface_option in surface_options.items():
         if surface_id != "regular" and surface_option.get("availability") not in {"planned", "unsupported"}:
             errors.append(f"{surface_id}: a surface with no native adapter must not remain selectable")
@@ -514,17 +518,20 @@ def main() -> int:
     if csv_option.get("availability") != "gated" or csv_option.get("runtime_verified") is not False:
         errors.append("legacy.csv: attack strategy must remain unverified until its supervised proof")
     standard_option = strategy_options.get("legacy.standard", {})
-    if standard_option.get("availability") != "available" or standard_option.get("runtime_verified") is not True:
-        errors.append("legacy.standard must expose the completed supervised deployment proof")
+    if standard_option.get("availability") != "gated" or standard_option.get("runtime_verified") is not False:
+        errors.append("legacy.standard must remain diagnostic-only until the current binary and client are reviewed")
+    standard_copy = " ".join(str(standard_option.get(field, "")).lower() for field in ("description", "disabled_reason", "warning"))
+    if "older-binary" not in standard_copy or "current 438d43a1 source" not in standard_copy:
+        errors.append("legacy.standard must distinguish its older-binary receipt from current-source evidence")
     smart_option = strategy_options.get("smart.local", {})
-    if smart_option.get("availability") != "available" or smart_option.get("runtime_verified") is not True:
-        errors.append("smart.local must expose its completed bounded TH17 mechanics proof")
+    if smart_option.get("availability") != "gated" or smart_option.get("runtime_verified") is not False:
+        errors.append("smart.local must remain diagnostic-only until the current binary and client are reviewed")
     smart_copy = " ".join(
         str(smart_option.get(field, "")).lower()
         for field in ("description", "warning")
     )
-    if "one bounded supervised th17 run" not in smart_copy or "not strategy quality" not in smart_copy:
-        errors.append("smart.local must keep its single-run mechanics proof narrower than a quality claim")
+    if "older-binary bounded supervised th17 run" not in smart_copy or "strategy quality" not in smart_copy or "current 438d43a1 source" not in smart_copy:
+        errors.append("smart.local must keep its historical mechanics receipt narrower than current-source or quality proof")
     for strategy_id in ("legacy.smart-farm", "builder.baby-dragon"):
         if strategy_options.get(strategy_id, {}).get("availability") not in {"planned", "unsupported"}:
             errors.append(f"{strategy_id}: strategy with no native adapter must not remain selectable")
@@ -533,8 +540,15 @@ def main() -> int:
         if script_option.get("availability") != "gated" or script_option.get("runtime_verified") is not False:
             errors.append(f"{script_id}: attack script must not be labelled runtime verified without battle evidence")
 
-    if option_map("runtime.emulator").get("bluestacks5", {}).get("runtime_verified") is not True:
-        errors.append("BlueStacks 5 must retain its separately reviewed attachment/readiness evidence")
+    bluestacks_option = option_map("runtime.emulator").get("bluestacks5", {})
+    if bluestacks_option.get("availability") != "gated" or bluestacks_option.get("runtime_verified") is not False:
+        errors.append("BlueStacks 5 must remain diagnostic-only until the current binary attachment path is reviewed")
+    bluestacks_copy = " ".join(
+        str(bluestacks_option.get(field, "")).lower()
+        for field in ("description", "disabled_reason", "warning")
+    )
+    if "older binary" not in bluestacks_copy or "current 438d43a1 source" not in bluestacks_copy or "live human review" not in bluestacks_copy:
+        errors.append("BlueStacks 5 must distinguish its older smoke from current-source and human-review evidence")
 
     presets = settings.get("presets")
     if not isinstance(presets, dict):

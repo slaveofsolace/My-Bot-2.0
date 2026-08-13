@@ -76,6 +76,8 @@ REQUIRED_PATHS = (
     BINARY_PROVENANCE_PATH,
     "config/ui/run-planner.presets.json",
     "tools/check_town_hall_presets.py",
+    "tools/build_release.py",
+    "tools/install_local_runtime.py",
     "tools/run_supervised_battle_acceptance.ps1",
     "tools/validate_translation_keys.py",
     "ui/planner.html",

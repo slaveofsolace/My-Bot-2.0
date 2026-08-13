@@ -25,6 +25,7 @@ Use a dedicated Windows 10 or Windows 11 test machine or virtual machine with:
 - current graphics drivers
 - Microsoft Visual C++ 2010 Redistributable **x86**
 - .NET Framework 4.5 or later Windows-provided compatibility
+- Python 3.13 with `py.exe` or `python.exe` available for the Control Center and non-CLR installer
 - AutoIt 3.3.16.x
 - SciTE for AutoIt, recommended for source work
 - one supported Android environment installed separately
@@ -80,6 +81,9 @@ Start-menu entry. Afterward, press the Windows key and type `My Bot 2.0`. Use Wi
 or the Start-menu uninstall shortcut to remove it. The installer deliberately refuses source-tree
 folders and packages whose release manifest, marker, or launcher provenance is invalid. Uninstall
 removes the application and its registration but retains `%LOCALAPPDATA%\My Bot 2.0\Profiles`.
+The command launcher uses the standard-library Python installer so validation, registration, and
+rollback do not depend on Windows PowerShell or the CLR. The reviewed PowerShell implementation is
+retained as a separately testable compatibility reference, but is not the default install path.
 
 For normal use, run:
 

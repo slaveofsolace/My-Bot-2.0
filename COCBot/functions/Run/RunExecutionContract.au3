@@ -67,42 +67,45 @@ Func RunExecutionContractValidate(ByRef $oIntent, ByRef $sError)
 		$sError = "Named army recipes are not wired yet; leave the recipe name empty to use the active profile army"
 		Return SetError(5, 0, False)
 	EndIf
-	If Not RunIntentManagesTraining($oIntent) Then
-		If Int($oPlan.Item("max_battles")) <> 1 Then
-			$sError = "Using the trained army without managing training is limited to exactly one battle; set Max battles to 1"
-			Return SetError(5, 1, False)
-		EndIf
-		If Not $oPlan.Item("army_wait_for_full") Then
-			$sError = "Current-army mode requires Wait for full army so a fresh passive readiness check can fail closed"
-			Return SetError(5, 2, False)
-		EndIf
-		If StringLower(StringStripWS(String($oPlan.Item("donate_mode")), $STR_STRIPALL)) <> "off" Then
-			$sError = "Turn donations off when using the current trained army so the one-shot army cannot be consumed"
-			Return SetError(5, 3, False)
-		EndIf
-		If $oPlan.Item("donate_request_when_short") Then
-			$sError = "Current-army mode cannot request troops before its terminal one-battle attempt"
-			Return SetError(5, 4, False)
-		EndIf
-		If $oPlan.Item("events_collect_resources") Then
-			$sError = "Collector work requires the explicit Home maintenance - collectors only strategy"
-			Return SetError(5, 5, False)
-		EndIf
-		If $oPlan.Item("events_clan_games") Then
-			$sError = "Current-army mode cannot run Clan Games before its terminal battle"
-			Return SetError(5, 6, False)
-		EndIf
-		If StringLower(StringStripWS(String($oPlan.Item("events_laboratory")), $STR_STRIPALL)) <> "off" Then
-			$sError = "Current-army mode cannot enter the Laboratory before its terminal battle"
-			Return SetError(5, 7, False)
-		EndIf
-		If StringLower(StringStripWS(String($oPlan.Item("upgrade_policy")), $STR_STRIPALL)) <> "disabled" Then
-			$sError = "Current-army mode requires upgrades disabled before its terminal battle"
-			Return SetError(5, 8, False)
-		EndIf
-	ElseIf Not $bDiagnostic Then
-		$sError = "Training management still requires Allow unverified and a supervised diagnostic acknowledgement"
+	; The inherited training entry point is profile-owned rather than plan-owned: it may boost a Super
+	; Troop, choose Quick Train or the custom profile army, delete mismatches, and queue troops, spells,
+	; or sieges. Diagnostic acknowledgement cannot turn that hidden actuator set into an exact route.
+	; Keep planned combat on the separately bounded current-army observer and terminal one-battle path.
+	If RunIntentManagesTraining($oIntent) Then
+		$sError = "Managed training is disabled because the inherited profile training path is not closed-world; turn Manage training off and use the current trained army for one battle"
 		Return SetError(5, 9, False)
+	EndIf
+	If Int($oPlan.Item("max_battles")) <> 1 Then
+		$sError = "Using the trained army without managing training is limited to exactly one battle; set Max battles to 1"
+		Return SetError(5, 1, False)
+	EndIf
+	If Not $oPlan.Item("army_wait_for_full") Then
+		$sError = "Current-army mode requires Wait for full army so a fresh passive readiness check can fail closed"
+		Return SetError(5, 2, False)
+	EndIf
+	If StringLower(StringStripWS(String($oPlan.Item("donate_mode")), $STR_STRIPALL)) <> "off" Then
+		$sError = "Turn donations off when using the current trained army so the one-shot army cannot be consumed"
+		Return SetError(5, 3, False)
+	EndIf
+	If $oPlan.Item("donate_request_when_short") Then
+		$sError = "Current-army mode cannot request troops before its terminal one-battle attempt"
+		Return SetError(5, 4, False)
+	EndIf
+	If $oPlan.Item("events_collect_resources") Then
+		$sError = "Collector work requires the explicit Home maintenance - collectors only strategy"
+		Return SetError(5, 5, False)
+	EndIf
+	If $oPlan.Item("events_clan_games") Then
+		$sError = "Current-army mode cannot run Clan Games before its terminal battle"
+		Return SetError(5, 6, False)
+	EndIf
+	If StringLower(StringStripWS(String($oPlan.Item("events_laboratory")), $STR_STRIPALL)) <> "off" Then
+		$sError = "Current-army mode cannot enter the Laboratory before its terminal battle"
+		Return SetError(5, 7, False)
+	EndIf
+	If StringLower(StringStripWS(String($oPlan.Item("upgrade_policy")), $STR_STRIPALL)) <> "disabled" Then
+		$sError = "Current-army mode requires upgrades disabled before its terminal battle"
+		Return SetError(5, 8, False)
 	EndIf
 	If Int($oPlan.Item("search_max_seconds")) > 0 Then
 		$sError = "Search time limits are not wired to a safe search-loop exit yet; use 0"

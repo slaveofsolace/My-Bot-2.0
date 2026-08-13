@@ -147,25 +147,25 @@ army to match.
 |---|---|
 | Run engine — plan, intent, session, quota, loadout, events | Written, contract-tested |
 | Run Planner tab | Written, renders from generated metadata |
-| My Bot 2.0 launcher and local Control Center | Built, x86-validated |
+| My Bot 2.0 launcher and local Control Center | Source-tested; the current source revision still needs a fresh binary/runtime receipt |
 | Windows compile — Au3Check, both AutoIt versions | Green |
 | Game model through July 2026 | Catalogued from official sources |
 | LDPlayer 9 and MuMu Player 12 adapters | Written, **never run on real hardware** |
-| Screen recognition for the current client | Regular Battle TH17 path proven; the broader fixture catalog is still incomplete |
-| Attack execution | Standard completed one supervised TH17 battle; one later Smart TH17 run verified the current zoom, side, troop, Hero-command, Rage, Freeze-proof, accounting, and one-battle-stop mechanics |
+| Screen recognition for the current client | Historical TH17 observations exist; all required current-client fixtures remain missing for the current source revision |
+| Attack execution | Older binaries completed bounded Standard and Smart TH17 observations; neither proves the current source revision or general strategy quality |
 
-**The honest summary:** the bounded Standard Regular Battle path has live TH17 evidence for zoom,
-red-line geometry, troop and Hero deployment, battle accounting, Return Home, and automatic stop.
-A later bounded Smart run exercised the current role-specific Hero phase policy and quantity-proved
-Rage plus one Freeze decrement. It is one mechanics observation, not an A/B result or proof that the
-policy improves outcomes. Other Town Halls, armies, surfaces, and most recognition fixtures remain
+**The honest summary:** older reviewed binaries produced bounded TH17 observations for zoom,
+red-line geometry, troop and Hero deployment, battle accounting, Return Home, automatic stop, and
+part of the Smart spell policy. Those receipts are useful regression references, but they do not
+verify a binary built from the current source revision, every required current-client fixture, or an
+improvement in strategy quality. Other Town Halls, armies, surfaces, and most gameplay scopes remain
 unverified; CI does not substitute for those runs.
 
 ---
 
 ## Install
 
-You need **Windows 10 or 11**, an **Android emulator**, and **AutoIt**.
+You need **Windows 10 or 11**, **Python 3.13**, an **Android emulator**, and **AutoIt**.
 
 For an internally reviewed LocalRuntime ZIP, extract it and double-click **`Install My Bot 2.0.cmd`**.
 The per-user installer verifies the package, installs it under `%LOCALAPPDATA%\Programs\My Bot 2.0`,
@@ -197,9 +197,9 @@ The bot drives Clash of Clans inside an Android emulator over ADB. Any of these:
 |---|---|
 | **LDPlayer 9** | New adapter. Multi-instance ADB addressing implemented (`5554 + 2×index`). Untested on hardware. |
 | **MuMu Player 12** | New adapter. Reads each instance's ADB port from the emulator instead of assuming one. Untested on hardware. |
-| **BlueStacks 5** | Exact Pie64 instance binding, ADB/background capture, docking and supervised Regular-battle evidence exist for the tested local build. |
+| **BlueStacks 5** | Exact Pie64 binding and historical local smoke evidence exist. The current source revision still needs a fresh capture/input/Start-Stop receipt. |
 | **MEmu** | Inherited exact-instance adapter with VM-provided ADB addressing and renderer-aware background mode. Static checks pass; a current MEmu 9.5.3 hardware smoke test is still required. |
-| **Nox** | Inherited from upstream. |
+| **Nox** | Inherited source only; it is not in the current supported-capability ledger and must be treated as unavailable until catalogued and tested. |
 
 > Set the emulator to **860 × 732** before first use. The bot's coordinates assume it, and a
 > mismatch is by far the most common cause of "the bot clicks the wrong thing".
