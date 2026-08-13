@@ -4,47 +4,48 @@ These fixtures are the evidence layer for screen recognition and route readiness
 
 ## Capture contract
 
-Capture the game content at the engine's canonical **860 × 732** client size and save it as PNG in `images/` using the exact fixture ID from `manifest.json`:
+Capture only the game content at the engine's canonical **860 × 732** client size. Do not resize, crop, sharpen, recolor, or recompress the recognition image. Those operations change pixel and OCR evidence.
 
-```text
-images/battle.ranked.entry.png
-metadata/battle.ranked.entry.json
-```
-
-Do not resize, crop, sharpen, recolor, or recompress a fixture after capture. Those operations change pixel and OCR evidence.
+Raw account captures must remain outside the repository. Create a same-size derivative using only opaque, solid-color rectangles over private regions. The import tool compares decoded pixels and rejects any change outside those declared rectangles.
 
 ## Privacy review
 
-Before a fixture is committed, remove or replace:
+Before import, replace:
 
 - player and clan names;
 - Supercell IDs or other account identifiers;
 - chat messages and social notifications;
 - purchase, payment, or offer-account information;
 - email addresses, machine usernames, and local paths;
-- any unrelated personal content visible outside the game window.
+- unrelated personal content visible outside the game window.
 
-Redaction must not cover the control, text, icon, border, or background area being tested. Recapture the state when safe redaction would invalidate the evidence.
+Do not blur. Do not cover a control, text, icon, border, or background area being tested. Recapture the state when safe redaction would invalidate the evidence.
 
 ## Metadata
 
-Every non-missing fixture requires a metadata JSON file:
+Every non-missing fixture uses schema version 2 and records both source and derivative hashes without recording the private source path:
 
 ```json
 {
-  "schema_version": 1,
-  "fixture_id": "battle.ranked.entry",
-  "captured_at": "2026-08-06T15:30:00Z",
+  "schema_version": 2,
+  "fixture_id": "home.maintenance.ready",
+  "captured_at": "2026-08-13T15:30:00Z",
   "game_version": "documented-client-version",
   "source_type": "authorized-test-account",
   "width": 860,
   "height": 732,
-  "sha256": "64-lowercase-hex-characters",
+  "sha256": "redacted-file-sha256",
+  "raw_sha256": "private-source-sha256",
+  "redacted_sha256": "redacted-file-sha256",
   "redacted": true,
-  "redaction_notes": "Player and clan labels replaced outside recognition regions.",
+  "redaction_masks": [
+    {"x": 20, "y": 14, "width": 160, "height": 24, "fill_hex": "#000000"}
+  ],
+  "redaction_pixel_changes": 3840,
+  "privacy_review_method": "decoded-pixel-diff-v1",
+  "redaction_notes": "Player label replaced with one opaque solid mask.",
   "assertions": [
-    "Ranked entry control is visible",
-    "Remaining-attack area is present"
+    "Collector-ready indicators are visible without covering the tested regions"
   ],
   "reviewed_by": "",
   "reviewed_at": "",
@@ -57,9 +58,8 @@ Every non-missing fixture requires a metadata JSON file:
 ## Status progression
 
 1. `missing` — no image or metadata is committed.
-2. `captured` — image and metadata exist; privacy review is incomplete.
-3. `redacted` — privacy review is complete; recognition assertions still need approval.
-4. `verified` — privacy review and recognition assertions are approved.
+2. `redacted` — a pixel-diff-verified derivative exists; recognition assertions still need approval.
+3. `verified` — privacy review and recognition assertions are approved.
 
 Run the validator after every fixture change:
 

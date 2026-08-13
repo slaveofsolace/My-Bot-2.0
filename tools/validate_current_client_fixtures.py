@@ -7,17 +7,22 @@ import argparse
 import hashlib
 import json
 import re
-import struct
 from pathlib import Path
 from typing import Any
+
+try:
+    from tools.fixture_png import decode_png, normalize_masks
+except ModuleNotFoundError:  # Direct execution from the tools directory.
+    from fixture_png import decode_png, normalize_masks
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST_PATH = ROOT / "tests/fixtures/current-client/manifest.json"
 CAPABILITIES_PATH = ROOT / "config/current-client-capabilities.json"
-PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 ID_PATTERN = re.compile(r"^[a-z0-9]+(?:[.-][a-z0-9]+)*$")
 SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
-ALLOWED_STATUS = {"missing", "captured", "redacted", "verified"}
+UTC_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
+FILL_PATTERN = re.compile(r"^#[0-9A-F]{2}(?:[0-9A-F]{2}){0,3}$")
+ALLOWED_STATUS = {"missing", "redacted", "verified"}
 
 
 def safe_path(relative: str) -> Path:
@@ -25,14 +30,6 @@ def safe_path(relative: str) -> Path:
     if candidate != ROOT and ROOT not in candidate.parents:
         raise ValueError(f"path escapes repository root: {relative}")
     return candidate
-
-
-def png_dimensions(path: Path) -> tuple[int, int]:
-    with path.open("rb") as stream:
-        header = stream.read(24)
-    if len(header) != 24 or header[:8] != PNG_SIGNATURE or header[12:16] != b"IHDR":
-        raise ValueError("not a valid PNG with an IHDR header")
-    return struct.unpack(">II", header[16:24])
 
 
 def sha256(path: Path) -> str:
@@ -141,13 +138,14 @@ def main() -> int:
             continue
 
         try:
-            width, height = png_dimensions(image_path)
+            decoded = decode_png(image_path)
+            width, height = decoded.width, decoded.height
         except ValueError as exc:
             errors.append(f"{fixture_id}: {exc}")
             continue
         if width != expected_width or height != expected_height:
             errors.append(f"{fixture_id}: expected {expected_width}x{expected_height}, found {width}x{height}")
-        result["checks"].append("png-dimensions")
+        result["checks"].append("png-decode")
 
         try:
             metadata = load_json(metadata_path)
@@ -164,7 +162,12 @@ def main() -> int:
             "width",
             "height",
             "sha256",
+            "raw_sha256",
+            "redacted_sha256",
             "redacted",
+            "redaction_masks",
+            "redaction_pixel_changes",
+            "privacy_review_method",
             "redaction_notes",
             "assertions",
             "reviewed_by",
@@ -176,12 +179,16 @@ def main() -> int:
             errors.append(f"{fixture_id}: metadata fields missing: {', '.join(missing_fields)}")
             continue
 
-        if metadata.get("schema_version") != 1:
-            errors.append(f"{fixture_id}: metadata schema_version must be 1")
+        if metadata.get("schema_version") != 2:
+            errors.append(f"{fixture_id}: metadata schema_version must be 2")
         if metadata.get("fixture_id") != fixture_id:
             errors.append(f"{fixture_id}: metadata fixture_id does not match")
         if metadata.get("width") != width or metadata.get("height") != height:
             errors.append(f"{fixture_id}: metadata dimensions do not match the PNG")
+        if not isinstance(metadata.get("captured_at"), str) or not UTC_PATTERN.fullmatch(metadata["captured_at"]):
+            errors.append(f"{fixture_id}: captured_at must be an ISO-8601 UTC timestamp ending in Z")
+        if not isinstance(metadata.get("source_type"), str) or not metadata["source_type"].strip():
+            errors.append(f"{fixture_id}: source_type must be a non-empty string")
 
         actual_hash = sha256(image_path)
         declared_hash = metadata.get("sha256")
@@ -189,6 +196,14 @@ def main() -> int:
             errors.append(f"{fixture_id}: metadata sha256 must be lowercase hexadecimal")
         elif declared_hash != actual_hash:
             errors.append(f"{fixture_id}: metadata sha256 does not match the PNG")
+        raw_hash = metadata.get("raw_sha256")
+        redacted_hash = metadata.get("redacted_sha256")
+        if not isinstance(raw_hash, str) or not SHA256_PATTERN.fullmatch(raw_hash):
+            errors.append(f"{fixture_id}: raw_sha256 must be lowercase hexadecimal")
+        if not isinstance(redacted_hash, str) or not SHA256_PATTERN.fullmatch(redacted_hash):
+            errors.append(f"{fixture_id}: redacted_sha256 must be lowercase hexadecimal")
+        elif redacted_hash != actual_hash:
+            errors.append(f"{fixture_id}: redacted_sha256 does not match the PNG")
         result["sha256"] = actual_hash
         result["checks"].append("sha256")
 
@@ -196,13 +211,47 @@ def main() -> int:
         if not isinstance(assertions, list) or not assertions or not all(isinstance(item, str) and item.strip() for item in assertions):
             errors.append(f"{fixture_id}: assertions must contain at least one non-empty statement")
 
-        if status in {"redacted", "verified"} and metadata.get("redacted") is not True:
+        masks = metadata.get("redaction_masks")
+        normalized_masks: list[dict[str, int]] = []
+        if not isinstance(masks, list):
+            errors.append(f"{fixture_id}: redaction_masks must be a list")
+        else:
+            coordinates: list[dict[str, int]] = []
+            for mask_index, mask in enumerate(masks):
+                if not isinstance(mask, dict):
+                    errors.append(f"{fixture_id}: redaction mask {mask_index} must be an object")
+                    continue
+                fill = mask.get("fill_hex")
+                if (not isinstance(fill, str) or not FILL_PATTERN.fullmatch(fill)
+                        or len(fill) != 1 + decoded.channels * 2):
+                    errors.append(f"{fixture_id}: redaction mask {mask_index} has invalid fill_hex")
+                coordinates.append({key: mask.get(key) for key in ("x", "y", "width", "height")})
+            try:
+                normalized_masks = normalize_masks(coordinates, width, height)
+            except ValueError as exc:
+                errors.append(f"{fixture_id}: {exc}")
+
+        changed_pixels = metadata.get("redaction_pixel_changes")
+        if not isinstance(changed_pixels, int) or isinstance(changed_pixels, bool) or changed_pixels < 0:
+            errors.append(f"{fixture_id}: redaction_pixel_changes must be a non-negative integer")
+        elif normalized_masks and changed_pixels == 0:
+            errors.append(f"{fixture_id}: declared masks require at least one changed pixel")
+        elif not normalized_masks and changed_pixels != 0:
+            errors.append(f"{fixture_id}: changed pixels require declared masks")
+        if normalized_masks and isinstance(raw_hash, str) and raw_hash == actual_hash:
+            errors.append(f"{fixture_id}: masked fixtures must differ from the raw capture")
+        if metadata.get("privacy_review_method") != "decoded-pixel-diff-v1":
+            errors.append(f"{fixture_id}: privacy_review_method must be decoded-pixel-diff-v1")
+
+        if metadata.get("redacted") is not True:
             errors.append(f"{fixture_id}: {status} fixtures require redacted=true")
-        if metadata.get("redacted") is True and not str(metadata.get("redaction_notes", "")).strip():
-            warnings.append(f"{fixture_id}: redacted fixture has no redaction notes")
+        if not str(metadata.get("redaction_notes", "")).strip():
+            errors.append(f"{fixture_id}: redacted fixture requires redaction_notes")
         if status == "verified":
             if not str(metadata.get("reviewed_by", "")).strip() or not str(metadata.get("reviewed_at", "")).strip():
                 errors.append(f"{fixture_id}: verified fixtures require reviewed_by and reviewed_at")
+            if any(item.strip().lower().startswith("todo") for item in assertions if isinstance(item, str)):
+                errors.append(f"{fixture_id}: verified fixtures cannot contain TODO assertions")
         result["checks"].append("metadata")
 
     if args.require_complete and missing_count:

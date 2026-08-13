@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "as_of": "2026-08-06",
+  "as_of": "2026-08-13",
   "capture_contract": {
     "width": 860,
     "height": 732,
@@ -12,13 +12,13 @@
   },
   "status_definitions": {
     "missing": "Required capture has not been supplied.",
-    "captured": "Image and metadata exist but privacy review is incomplete.",
-    "redacted": "Privacy review is complete; recognition assertions are not yet approved.",
+    "redacted": "Only a pixel-diff-verified redacted derivative is committed; recognition assertions are not yet approved.",
     "verified": "Privacy review and recognition assertions have both been approved."
   },
   "required_fixtures": [
     {"id":"home.th18.default","status":"missing","purpose":"Town Hall 18 and main-village baseline","capability_ids":["village.town-hall-18"],"image_path":"tests/fixtures/current-client/images/home.th18.default.png","metadata_path":"tests/fixtures/current-client/metadata/home.th18.default.json"},
     {"id":"home.th18.guardian","status":"missing","purpose":"Guardian and defensive-system recognition","capability_ids":["village.guardians"],"image_path":"tests/fixtures/current-client/images/home.th18.guardian.png","metadata_path":"tests/fixtures/current-client/metadata/home.th18.guardian.json"},
+    {"id":"home.maintenance.ready","status":"missing","purpose":"Main-village collector, donation-request, and upgrade-entry recognition","capability_ids":["village.collectors","village.donations","village.upgrades-home"],"image_path":"tests/fixtures/current-client/images/home.maintenance.ready.png","metadata_path":"tests/fixtures/current-client/metadata/home.maintenance.ready.json"},
     {"id":"army.recipes.home","status":"missing","purpose":"Current Army Recipes home surface","capability_ids":["army.recipes"],"image_path":"tests/fixtures/current-client/images/army.recipes.home.png","metadata_path":"tests/fixtures/current-client/metadata/army.recipes.home.json"},
     {"id":"army.cookbook.tab","status":"missing","purpose":"Cookbook third-tab navigation and state","capability_ids":["army.cookbook"],"image_path":"tests/fixtures/current-client/images/army.cookbook.tab.png","metadata_path":"tests/fixtures/current-client/metadata/army.cookbook.tab.json"},
     {"id":"defense.crafted.management","status":"missing","purpose":"Crafted Defense management surface","capability_ids":["defense.crafted"],"image_path":"tests/fixtures/current-client/images/defense.crafted.management.png","metadata_path":"tests/fixtures/current-client/metadata/defense.crafted.management.json"},

@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
-"""Turn a raw screenshot into a validated current-client fixture.
+"""Import a privacy-safe current-client screenshot fixture.
 
-The recognition work is blocked on 20 screenshots of the current game (see tests/fixtures/
-current-client/manifest.json). This tool takes one you captured on Windows and does everything
-around it: checks the dimensions, files the image where the validator expects it, computes the
-hash, and writes metadata that matches the schema exactly. It does not touch the network and needs
-only the standard library.
+The recognition work is blocked on current-game screenshots (see tests/fixtures/
+current-client/manifest.json). Raw account captures must remain outside the repository. This tool
+compares a raw capture with an operator-created solid-mask derivative, proves that every changed
+pixel is inside a declared mask, and copies only the redacted derivative into the fixture tree. It
+does not touch the network and needs only the standard library.
 
-A fixture climbs a four-rung ladder, and each rung is a subcommand here:
+A fixture climbs a three-rung ladder:
 
     list                 show every fixture and where it stands
-    add <id> <png>       missing  -> captured   (image filed, metadata stubbed)
-    redact <id>          captured -> redacted   (you confirm privacy is done)
+    add <id> <raw> <redacted>     missing -> redacted (pixel changes verified)
     verify <id>          redacted -> verified   (you confirm the recognition assertions)
 
 Run tools/validate_current_client_fixtures.py after any change; the release gate needs every
@@ -27,6 +26,11 @@ import shutil
 import struct
 import time
 from pathlib import Path
+
+try:
+    from tools.fixture_png import decode_png, parse_mask, verify_redaction
+except ModuleNotFoundError:  # Direct execution from the tools directory.
+    from fixture_png import decode_png, parse_mask, verify_redaction
 
 ROOT = Path(__file__).resolve().parents[1]
 BASE = ROOT / "tests/fixtures/current-client"
@@ -89,14 +93,14 @@ def read_metadata(fixture_id: str) -> dict:
 def cmd_list(args) -> int:
     manifest = load_manifest()
     entries = manifest.get("required_fixtures", [])
-    order = {"missing": 0, "captured": 1, "redacted": 2, "verified": 3}
+    order = {"missing": 0, "redacted": 1, "verified": 2}
     counts = {k: 0 for k in order}
     print(f"{'fixture':<28} {'status':<10} purpose")
     print("-" * 78)
     for entry in sorted(entries, key=lambda e: (order.get(e.get("status"), 0), e.get("id", ""))):
         status = entry.get("status", "?")
         counts[status] = counts.get(status, 0) + 1
-        marker = {"missing": " ", "captured": ".", "redacted": ":", "verified": "*"}.get(status, "?")
+        marker = {"missing": " ", "redacted": ":", "verified": "*"}.get(status, "?")
         print(f"{marker} {entry.get('id',''):<26} {status:<10} {entry.get('purpose','')}")
     print("-" * 78)
     print("  ".join(f"{k}: {counts.get(k,0)}" for k in order))
@@ -111,17 +115,35 @@ def cmd_add(args) -> int:
     if entry is None:
         print(f"'{args.fixture_id}' is not a required fixture. Run: python tools/capture_fixture.py list")
         return 2
-
-    source = Path(args.png)
-    if not source.is_file():
-        print(f"no such file: {source}")
+    if not args.privacy_notes.strip():
+        print("--privacy-notes must describe the masks or explain why no redaction was needed")
         return 2
+
+    raw_source = Path(args.raw_png).resolve()
+    redacted_source = Path(args.redacted_png).resolve()
+    for label, source in (("raw", raw_source), ("redacted", redacted_source)):
+        if not source.is_file():
+            print(f"no such {label} file: {source}")
+            return 2
+        if source == ROOT or ROOT in source.parents:
+            print(f"{label} input must remain outside the repository: {source}")
+            return 2
 
     try:
-        width, height = png_dimensions(source)
-    except ValueError as exc:
-        print(f"{source}: {exc}")
+        raw_image = decode_png(raw_source)
+        redacted_image = decode_png(redacted_source)
+        masks = [parse_mask(value) for value in args.mask]
+        redaction = verify_redaction(
+            raw_image,
+            redacted_image,
+            masks,
+            no_redaction_needed=args.no_redaction_needed,
+        )
+    except (OSError, ValueError) as exc:
+        print(f"redaction verification failed: {exc}")
         return 2
+
+    width, height = redacted_image.width, redacted_image.height
 
     contract = manifest.get("capture_contract", {})
     want_w, want_h = contract.get("width", 860), contract.get("height", 732)
@@ -132,13 +154,14 @@ def cmd_add(args) -> int:
 
     IMAGES.mkdir(parents=True, exist_ok=True)
     destination = image_path(args.fixture_id)
-    shutil.copyfile(source, destination)
+    temporary = destination.with_suffix(".png.tmp")
+    shutil.copyfile(redacted_source, temporary)
+    temporary.replace(destination)
     digest = sha256(destination)
 
-    # Stub metadata at the "captured" rung: schema-complete, but privacy and assertions are still
-    # the operator's to confirm. redacted stays false and the review fields stay blank on purpose.
+    raw_digest = sha256(raw_source)
     write_metadata(args.fixture_id, {
-        "schema_version": 1,
+        "schema_version": 2,
         "fixture_id": args.fixture_id,
         "captured_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "game_version": args.game_version,
@@ -146,8 +169,13 @@ def cmd_add(args) -> int:
         "width": width,
         "height": height,
         "sha256": digest,
-        "redacted": False,
-        "redaction_notes": "",
+        "raw_sha256": raw_digest,
+        "redacted_sha256": digest,
+        "redacted": True,
+        "redaction_masks": redaction["masks"],
+        "redaction_pixel_changes": redaction["changed_pixels"],
+        "privacy_review_method": "decoded-pixel-diff-v1",
+        "redaction_notes": args.privacy_notes,
         "assertions": [
             f"TODO: state what {args.fixture_id} must show for recognition to trust it."
         ],
@@ -155,51 +183,18 @@ def cmd_add(args) -> int:
         "reviewed_at": "",
         "notes": args.notes or "",
     })
-    entry["status"] = "captured"
+    entry["status"] = "redacted"
     save_manifest(manifest)
 
-    print(f"captured {args.fixture_id}")
+    print(f"imported redacted fixture {args.fixture_id}")
     print(f"  image     {destination.relative_to(ROOT)}")
     print(f"  metadata  {metadata_path(args.fixture_id).relative_to(ROOT)}")
     print(f"  sha256    {digest}")
+    print(f"  masks     {len(redaction['masks'])}")
+    print(f"  changes   {redaction['changed_pixels']} pixels")
     print("\nNext:")
     print(f"  1. Edit the metadata: replace the TODO assertion(s) with what the image must show.")
-    print(f"  2. Confirm privacy:   python tools/capture_fixture.py redact {args.fixture_id}")
-    return 0
-
-
-def cmd_redact(args) -> int:
-    manifest = load_manifest()
-    entry = find_entry(manifest, args.fixture_id)
-    if entry is None or entry.get("status") == "missing":
-        print(f"'{args.fixture_id}' has not been captured yet.")
-        return 2
-    if not metadata_path(args.fixture_id).is_file():
-        print(f"metadata for {args.fixture_id} is missing; re-run add.")
-        return 2
-
-    contract = load_manifest().get("capture_contract", {})
-    print("Before confirming, check the image has none of the following visible:")
-    print(f"  {contract.get('redaction', 'player names, clan names, chat, account identifiers')}")
-    if not args.yes:
-        reply = input("Is the image fully redacted? [y/N] ").strip().lower()
-        if reply not in ("y", "yes"):
-            print("left unchanged.")
-            return 1
-
-    data = read_metadata(args.fixture_id)
-    # A privacy edit changes the file, so the recorded hash has to be recomputed or the validator
-    # will (correctly) reject the mismatch.
-    if image_path(args.fixture_id).is_file():
-        data["sha256"] = sha256(image_path(args.fixture_id))
-    data["redacted"] = True
-    if not data.get("redaction_notes"):
-        data["redaction_notes"] = args.notes or "Reviewed against the capture contract; no identifying content visible."
-    write_metadata(args.fixture_id, data)
-    entry["status"] = "redacted"
-    save_manifest(manifest)
-    print(f"{args.fixture_id} -> redacted")
-    print(f"  next: python tools/capture_fixture.py verify {args.fixture_id} --reviewer \"<name>\"")
+    print(f"  2. Review/verify: python tools/capture_fixture.py verify {args.fixture_id} --reviewer \"<name>\"")
     return 0
 
 
@@ -248,9 +243,15 @@ def cmd_selftest(args) -> int:
         if not condition:
             failures.append(message)
 
-    # A real 860x732 PNG, built by hand so the test needs no image library.
-    def make_png(path: Path, w: int, h: int):
-        raw = b"".join(b"\x00" + b"\x20\x30\x40" * w for _ in range(h))
+    # Real PNGs, built by hand so the test needs no image library.
+    def make_png(path: Path, w: int, h: int, changed=False):
+        rows = []
+        for y in range(h):
+            row = bytearray(b"\x20\x30\x40" * w)
+            if changed and y == 1:
+                row[3:6] = b"\x00\x00\x00"
+            rows.append(b"\x00" + bytes(row))
+        raw = b"".join(rows)
         def chunk(tag, data):
             body = tag + data
             return struct.pack(">I", len(data)) + body + struct.pack(">I", zlib.crc32(body) & 0xFFFFFFFF)
@@ -260,12 +261,15 @@ def cmd_selftest(args) -> int:
 
     with tempfile.TemporaryDirectory() as tmp:
         good = Path(tmp) / "good.png"; make_png(good, 860, 732)
+        redacted = Path(tmp) / "redacted.png"; make_png(redacted, 860, 732, changed=True)
         wrong = Path(tmp) / "wrong.png"; make_png(wrong, 800, 600)
         w, h = png_dimensions(good)
         check((w, h) == (860, 732), "reads PNG dimensions from the header")
         check(png_dimensions(wrong) == (800, 600), "reads a non-contract size too")
         digest = sha256(good)
         check(len(digest) == 64 and digest == sha256(good), "sha256 is stable")
+        result = verify_redaction(decode_png(good), decode_png(redacted), [{"x": 1, "y": 1, "width": 1, "height": 1}])
+        check(result["changed_pixels"] == 1, "proves a solid masked pixel replacement")
         try:
             png_dimensions(Path(tmp) / "nope.png") if (Path(tmp) / "nope.png").exists() else make_png(Path(tmp)/"txt.png",1,1)
             (Path(tmp) / "bad.bin").write_bytes(b"not a png at all")
@@ -289,19 +293,17 @@ def main() -> int:
 
     sub.add_parser("list", help="show every fixture and its status").set_defaults(func=cmd_list)
 
-    add = sub.add_parser("add", help="file a captured screenshot (missing -> captured)")
+    add = sub.add_parser("add", help="verify and import a redacted screenshot (missing -> redacted)")
     add.add_argument("fixture_id")
-    add.add_argument("png", help="path to the 860x732 screenshot")
+    add.add_argument("raw_png", help="private raw 860x732 PNG outside the repository")
+    add.add_argument("redacted_png", help="solid-mask derivative outside the repository")
+    add.add_argument("--mask", action="append", default=[], metavar="X,Y,W,H", help="solid redaction rectangle; repeat as needed")
+    add.add_argument("--no-redaction-needed", action="store_true", help="attest that decoded pixels are identical and contain no private data")
     add.add_argument("--game-version", default="unknown", help="e.g. 18.x.y")
-    add.add_argument("--source-type", default="emulator", help="emulator or device")
+    add.add_argument("--source-type", default="authorized-test-account", help="authorized-test-account, emulator, or device")
+    add.add_argument("--privacy-notes", required=True, help="what was masked or why no redaction was needed")
     add.add_argument("--notes", default="")
     add.set_defaults(func=cmd_add)
-
-    redact = sub.add_parser("redact", help="confirm privacy review (captured -> redacted)")
-    redact.add_argument("fixture_id")
-    redact.add_argument("--yes", action="store_true", help="skip the interactive confirmation")
-    redact.add_argument("--notes", default="")
-    redact.set_defaults(func=cmd_redact)
 
     verify = sub.add_parser("verify", help="confirm the recognition assertions (redacted -> verified)")
     verify.add_argument("fixture_id")

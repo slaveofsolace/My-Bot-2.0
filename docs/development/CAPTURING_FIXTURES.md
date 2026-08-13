@@ -1,120 +1,72 @@
 # Capturing current-client fixtures
 
-Recognition is blocked on 20 screenshots of the current game. Until they exist, no battle surface
-can move from unverified to verified, which is why nearly everything in the status table says "not
-demonstrated".
+Recognition is blocked on 21 current-game fixtures. Until real captures, recognition assertions, and controlled runtime checks exist, the related capabilities remain unverified.
 
-`tools/capture_fixture.py` handles everything around a screenshot: dimension checking, filing,
-hashing, and writing metadata that matches the schema. You take the picture; it does the paperwork.
+`tools/capture_fixture.py` validates dimensions, privacy-preserving pixel changes, paths, hashes, and metadata. It never edits an image and never copies the raw account capture into the repository.
 
-**This needs Windows**, an emulator at 860 × 732, and the current game client. It cannot be done
-from CI.
-
----
+This workflow needs Windows, an authorized test account, an emulator at 860 × 732, and the current game client. It cannot be completed by CI alone.
 
 ## The ladder
 
-A fixture climbs four rungs, and nothing skips a step:
-
-| Rung | Means | Command |
+| Rung | Meaning | Command |
 |---|---|---|
-| `missing` | No capture exists | — |
-| `captured` | Image filed, metadata stubbed | `add` |
-| `redacted` | You confirmed nothing identifying is visible | `redact` |
-| `verified` | You confirmed the image shows what recognition needs | `verify` |
+| `missing` | No reviewable fixture exists | — |
+| `redacted` | Only a verified redacted derivative is tracked | `add` |
+| `verified` | A reviewer approved the recognition assertions | `verify` |
 
-The release gate needs all 20 at `verified`.
+## Import one fixture
 
----
+List the missing evidence:
 
-## Doing one
-
-**See what is outstanding:**
-
-```bash
+```powershell
 python tools/capture_fixture.py list
 ```
 
-**Take the screenshot.** The emulator must be at 860 × 732 and the shot must be of the emulator
-surface only, not the whole desktop. Do not crop or rescale afterwards — resizing resamples pixels
-and corrupts the template matching this exists to support.
+Capture the 860 × 732 emulator surface to a private path outside the repository. Create a second 860 × 732 PNG using only opaque, solid-color rectangles over private content. Do not blur, crop, resize, sharpen, or otherwise alter it.
 
-**File it:**
+For every rectangle, pass `--mask x,y,width,height`:
 
-```bash
-python tools/capture_fixture.py add home.th18.default C:\path\to\shot.png --game-version 18.4.1
+```powershell
+python tools/capture_fixture.py add home.maintenance.ready `
+  C:\private\home-raw.png `
+  C:\private\home-redacted.png `
+  --mask 18,12,180,26 `
+  --mask 690,8,160,74 `
+  --game-version 18.400.9 `
+  --source-type authorized-test-account `
+  --privacy-notes "Player label and resource/account values replaced with opaque masks."
 ```
 
-It refuses anything that is not exactly 860 × 732, so a wrong-sized capture fails here rather than
-silently poisoning recognition later.
+The command fails unless:
 
-**Write the assertions.** Open the metadata file it just created and replace the `TODO` line with
-what the image actually has to show, for example:
+- both PNGs decode cleanly and are exactly 860 × 732;
+- they use the same non-interlaced 8-bit pixel format;
+- every changed pixel is inside a declared rectangle;
+- each rectangle is a single, fully opaque color;
+- at least one pixel changes when masks are declared;
+- both inputs remain outside the repository.
 
-```json
-"assertions": [
-  "The Town Hall is level 18 and shows the Guardian platform",
-  "The four resource counters are readable in the top-left",
-  "No player or clan name appears anywhere in the frame"
-]
+For a genuinely anonymous capture, `--no-redaction-needed` is allowed only when the decoded pixels are identical. A privacy note is still required.
+
+Only the redacted derivative and schema-2 metadata are copied. The metadata records the raw SHA-256 but never its path.
+
+## Recognition review
+
+Replace the metadata `TODO` assertion with exact, observable statements. For the shared maintenance fixture, useful statements identify the collector-ready indicators, the donation-request entry, and the upgrade entry without claiming that any action was executed.
+
+Then verify interactively:
+
+```powershell
+python tools/capture_fixture.py verify home.maintenance.ready --reviewer "reviewer name"
 ```
 
-These are what a reviewer checks against, so be specific. "Shows the village" is useless; "the
-Attack button is present at the bottom-left and not covered by an event banner" is not.
+The tool refuses verification while any assertion starts with `TODO`.
 
-**Confirm privacy:**
+## Validate
 
-```bash
-python tools/capture_fixture.py redact home.th18.default
-```
-
-It prints the redaction contract and asks you to confirm. If you edited the image to blur anything,
-it recomputes the hash — the validator would otherwise reject the mismatch.
-
-**Sign it off:**
-
-```bash
-python tools/capture_fixture.py verify home.th18.default --reviewer "your name"
-```
-
-It refuses while a `TODO` assertion remains, then shows the assertions and asks whether they all
-hold.
-
-**Check and commit:**
-
-```bash
-python tools/validate_current_client_fixtures.py
-git add tests/fixtures/current-client && git commit -m "Add TH18 baseline fixture"
-```
-
----
-
-## What gets committed
-
-Both the PNG and its metadata. The metadata records when it was captured, against which game
-version, its SHA-256, whether privacy review passed, the assertions, and who signed off.
-
-The hash matters: it is what proves the reviewed image is the one still in the tree. Edit the PNG
-and the validator fails until the fixture goes back through `redact`.
-
----
-
-## Privacy
-
-The capture contract is in `manifest.json` and the tool prints it before asking you to confirm.
-Remove player names, clan names, chat text, account identifiers, purchase information, notification
-contents, and machine-specific paths.
-
-These images go into a public repository. A blurred name cannot be recovered; a committed one
-cannot be taken back.
-
----
-
-## Verifying the tool itself
-
-```bash
+```powershell
 python tools/capture_fixture.py selftest
+python tools/validate_current_client_fixtures.py
 ```
 
-Runs offline against a synthetic PNG. CI runs it on every push, so a change that breaks the
-dimension check or the hashing fails there rather than after you have captured twenty screenshots.
+`--require-complete` is a final evidence gate and intentionally fails until every required fixture is verified. A fixture proves recognition state only; it does not prove that collection, donation, upgrading, or another account-affecting action completed safely.

@@ -12,6 +12,7 @@
 * Added paired dock minimize/restore controls so the pinned Mini controller and its exact BlueStacks instance behave as one background unit.
 * Fixed the current matchmaking confirmation path so legitimate gray transition screens do not cancel the run.
 * Made Return Home, game reload, and emulator reboot recovery poll Stop immediately before each click or process mutation.
+* Replaced raw screenshot intake with a dependency-free pixel-diff gate that commits only solid-mask redacted fixture derivatives, and mapped one shared maintenance fixture to collector, donation, and home-upgrade recognition.
 * Added current-client Treasure Hunt chest tapping and preserved the legacy hammer/lock fallback.
 * Recorded one bounded Standard Regular Battle and a separate Smart deployment run; they used different opponents and are not presented as a strategy comparison.
 * Added TH2-TH18 planner presets with explicit script preview and one-run selection.
