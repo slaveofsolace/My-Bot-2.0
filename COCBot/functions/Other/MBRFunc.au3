@@ -18,6 +18,7 @@ Global $g_bMBRFuncEngineAvailable = True
 Global $g_sMBRFuncEngineProbeState = "not-run"
 Global $g_sMBRFuncEngineError = ""
 Global Const $g_sMBRFuncEngineMarkerName = "MyBot.run.txt"
+Global Const $g_sMBRFuncEngineProbeProtocol = "engine-probe/v1"
 
 Func MBRFunc($Start = True, $bInitialize = True)
 	Switch $Start
@@ -110,8 +111,72 @@ Func MBRFuncValidateEngineMarker(ByRef $sError)
 	Return True
 EndFunc   ;==>MBRFuncValidateEngineMarker
 
+Func MBRFuncEngineProbeReadPhase($sPhasePath)
+	If Not FileExists($sPhasePath) Then Return ""
+	Local $sReceipt = StringStripWS(FileRead($sPhasePath), $STR_STRIPALL)
+	Switch $sReceipt
+		Case $g_sMBRFuncEngineProbeProtocol & "|opened"
+			Return "opened"
+		Case $g_sMBRFuncEngineProbeProtocol & "|call-entered"
+			Return "call-entered"
+		Case $g_sMBRFuncEngineProbeProtocol & "|call-returned"
+			Return "call-returned"
+	EndSwitch
+	Return ""
+EndFunc   ;==>MBRFuncEngineProbeReadPhase
+
+Func MBRFuncEngineProbePhaseSuffix($sPhase)
+	Switch $sPhase
+		Case "opened", "call-entered", "call-returned"
+			Return " (phase: " & $sPhase & ")"
+	EndSwitch
+	Return ""
+EndFunc   ;==>MBRFuncEngineProbePhaseSuffix
+
+; Only the PID returned by Run is ever closed. A successful receipt gets at most one second to
+; exit naturally; after that the parent closes that exact helper and proves it is gone.
+Func MBRFuncEngineProbeEnsureHelperGone($iProbePid, $iGraceSeconds = 0)
+	If $iProbePid <= 0 Or Not ProcessExists($iProbePid) Then Return True
+	If $iGraceSeconds > 0 Then ProcessWaitClose($iProbePid, $iGraceSeconds)
+	If ProcessExists($iProbePid) Then
+		ProcessClose($iProbePid)
+		ProcessWaitClose($iProbePid, 1)
+	EndIf
+	Return Not ProcessExists($iProbePid)
+EndFunc   ;==>MBRFuncEngineProbeEnsureHelperGone
+
+Func MBRFuncEngineProbeCleanupArtifacts($sToken, $sPhasePath, $iProbePid)
+	FileDelete($sToken)
+	FileDelete($sPhasePath)
+	If $iProbePid > 0 Then
+		FileDelete($sToken & "." & $iProbePid & ".tmp")
+		FileDelete($sPhasePath & "." & $iProbePid & ".tmp")
+	EndIf
+	If FileExists($sToken) Or FileExists($sPhasePath) Then Return False
+	If $iProbePid > 0 And (FileExists($sToken & "." & $iProbePid & ".tmp") Or FileExists($sPhasePath & "." & $iProbePid & ".tmp")) Then Return False
+	Return True
+EndFunc   ;==>MBRFuncEngineProbeCleanupArtifacts
+
+; Invalid or unconsumable receipts are hostile/stale evidence. Before returning, always close and
+; prove the exact Run-returned helper PID is gone, then attempt and verify every receipt artifact.
+Func MBRFuncEngineProbeRejectReceipt(ByRef $sError, $sReason, $sPhase, $sToken, $sPhasePath, $iProbePid)
+	Local $bHelperGone = MBRFuncEngineProbeEnsureHelperGone($iProbePid)
+	Local $bArtifactsCleared = MBRFuncEngineProbeCleanupArtifacts($sToken, $sPhasePath, $iProbePid)
+	If Not $bHelperGone Then
+		$sError = $sReason & "; exact helper process could not be stopped" & MBRFuncEngineProbePhaseSuffix($sPhase)
+	ElseIf Not $bArtifactsCleared Then
+		$sError = $sReason & "; receipt artifacts could not be cleared" & MBRFuncEngineProbePhaseSuffix($sPhase)
+	Else
+		$sError = $sReason & MBRFuncEngineProbePhaseSuffix($sPhase)
+	EndIf
+	MBRFuncMarkUnavailable($sError)
+	Return False
+EndFunc   ;==>MBRFuncEngineProbeRejectReceipt
+
 ; Starts the mixed-mode DLL in an isolated x86 helper first. A filter-driver or CLR stall can then
 ; freeze only the helper, which is terminated at the bounded deadline while the GUI keeps pumping.
+; A failed probe stays failed in this host process; an explicit host restart creates fresh globals
+; and permits one new controlled attempt without adding a blind same-process retry.
 Func MBRFuncProbeEngine(ByRef $sError, $iTimeoutMs = 15000)
 	$sError = ""
 	If Not MBRFuncValidateEngineMarker($sError) Then Return False
@@ -130,17 +195,16 @@ Func MBRFuncProbeEngine(ByRef $sError, $iTimeoutMs = 15000)
 
 	; A per-attempt nonce prevents a locked token from a recycled PID from satisfying this probe.
 	Local $sToken = @ScriptDir & "\config\engine-probe-" & @AutoItPID & "-" & @YEAR & @MON & @MDAY & @HOUR & @MIN & @SEC & @MSEC & "-" & Random(100000, 999999, 1) & ".ok"
-	If FileExists($sToken) Then
-		FileDelete($sToken)
-		If FileExists($sToken) Then
-			$sError = "Managed engine probe token could not be prepared"
-			MBRFuncMarkUnavailable($sError)
-			Return False
-		EndIf
+	Local $sPhasePath = $sToken & ".phase"
+	If Not MBRFuncEngineProbeCleanupArtifacts($sToken, $sPhasePath, 0) Then
+		$sError = "Managed engine probe receipts could not be prepared"
+		MBRFuncMarkUnavailable($sError)
+		Return False
 	EndIf
 	$g_sMBRFuncEngineProbeState = "running"
 	Local $iProbePid = Run('"' & $sHelper & '" "' & $sToken & '"', @ScriptDir, @SW_HIDE)
 	If @error Or $iProbePid <= 0 Then
+		MBRFuncEngineProbeCleanupArtifacts($sToken, $sPhasePath, 0)
 		$sError = "Managed engine probe could not be started"
 		MBRFuncMarkUnavailable($sError)
 		Return False
@@ -148,22 +212,57 @@ Func MBRFuncProbeEngine(ByRef $sError, $iTimeoutMs = 15000)
 
 	Local $hProbeTimer = __TimerInit()
 	Local $bProbeExited = False
+	Local $sLastPhase = ""
 	While __TimerDiff($hProbeTimer) < $iTimeoutMs
-		If FileExists($sToken) Then
-			Local $sResult = StringStripWS(FileRead($sToken), $STR_STRIPALL)
-			FileDelete($sToken)
-			; Never accept a probe token that cannot be consumed. A locked token would otherwise
-			; survive this attempt and could be mistaken for fresh evidence by later code.
-			If FileExists($sToken) Then
-				If ProcessExists($iProbePid) Then
-					ProcessClose($iProbePid)
-					ProcessWaitClose($iProbePid, 2)
-				EndIf
-				$sError = "Managed engine probe token could not be cleared"
+		Local $sObservedPhase = MBRFuncEngineProbeReadPhase($sPhasePath)
+		If $sObservedPhase <> "" Then $sLastPhase = $sObservedPhase
+		If $g_iBotAction = $eBotStop Or $g_iBotAction = $eBotClose Then
+			If Not MBRFuncEngineProbeEnsureHelperGone($iProbePid) Then
+				$sError = "Managed engine probe helper could not be stopped after cancellation" & MBRFuncEngineProbePhaseSuffix($sLastPhase)
 				MBRFuncMarkUnavailable($sError)
 				Return False
 			EndIf
-			If $sResult = "ok" Then
+			If Not MBRFuncEngineProbeCleanupArtifacts($sToken, $sPhasePath, $iProbePid) Then
+				$sError = "Managed engine probe receipts could not be cleared after cancellation" & MBRFuncEngineProbePhaseSuffix($sLastPhase)
+				MBRFuncMarkUnavailable($sError)
+				Return False
+			EndIf
+			$sError = "Engine start was cancelled"
+			$g_sMBRFuncEngineProbeState = "not-run"
+			Return False
+		EndIf
+		If FileExists($sToken) Then
+			Local $sResult = StringStripWS(FileRead($sToken), $STR_STRIPALL)
+			FileDelete($sToken)
+			If FileExists($sToken) Then
+				Return MBRFuncEngineProbeRejectReceipt($sError, "Managed engine probe success receipt could not be consumed", $sLastPhase, $sToken, $sPhasePath, $iProbePid)
+			EndIf
+			If $sResult <> $g_sMBRFuncEngineProbeProtocol & "|call-returned" Then
+				Return MBRFuncEngineProbeRejectReceipt($sError, "Managed engine probe returned an invalid receipt", $sLastPhase, $sToken, $sPhasePath, $iProbePid)
+			EndIf
+			$sLastPhase = "call-returned"
+			If Not MBRFuncEngineProbeEnsureHelperGone($iProbePid, 1) Then
+				MBRFuncEngineProbeCleanupArtifacts($sToken, $sPhasePath, $iProbePid)
+				$sError = "Managed engine probe helper did not stop after returning success" & MBRFuncEngineProbePhaseSuffix($sLastPhase)
+				MBRFuncMarkUnavailable($sError)
+				Return False
+			EndIf
+			If $g_iBotAction = $eBotStop Or $g_iBotAction = $eBotClose Then
+				If Not MBRFuncEngineProbeCleanupArtifacts($sToken, $sPhasePath, $iProbePid) Then
+					$sError = "Managed engine probe receipts could not be cleared after cancellation" & MBRFuncEngineProbePhaseSuffix($sLastPhase)
+					MBRFuncMarkUnavailable($sError)
+					Return False
+				EndIf
+				$sError = "Engine start was cancelled"
+				$g_sMBRFuncEngineProbeState = "not-run"
+				Return False
+			EndIf
+			If Not MBRFuncEngineProbeCleanupArtifacts($sToken, $sPhasePath, $iProbePid) Then
+				$sError = "Managed engine probe receipts could not be cleared" & MBRFuncEngineProbePhaseSuffix($sLastPhase)
+				MBRFuncMarkUnavailable($sError)
+				Return False
+			EndIf
+			If Not ProcessExists($iProbePid) Then
 				$g_bMBRFuncEngineAvailable = True
 				$g_sMBRFuncEngineProbeState = "passed"
 				$g_sMBRFuncEngineError = ""
@@ -174,36 +273,25 @@ Func MBRFuncProbeEngine(ByRef $sError, $iTimeoutMs = 15000)
 			$bProbeExited = True
 			ExitLoop
 		EndIf
-		If $g_iBotAction = $eBotStop Or $g_iBotAction = $eBotClose Then
-			ProcessClose($iProbePid)
-			ProcessWaitClose($iProbePid, 2)
-			FileDelete($sToken)
-			If FileExists($sToken) Then
-				$sError = "Managed engine probe token could not be cleared after cancellation"
-				MBRFuncMarkUnavailable($sError)
-				Return False
-			EndIf
-			$sError = "Engine start was cancelled"
-			$g_sMBRFuncEngineProbeState = "not-run"
-			Return False
-		EndIf
 		_Sleep(100, True, False)
 	WEnd
 
-	If ProcessExists($iProbePid) Then
-		ProcessClose($iProbePid)
-		ProcessWaitClose($iProbePid, 2)
+	Local $sFinalPhase = MBRFuncEngineProbeReadPhase($sPhasePath)
+	If $sFinalPhase <> "" Then $sLastPhase = $sFinalPhase
+	If Not MBRFuncEngineProbeEnsureHelperGone($iProbePid) Then
+		$sError = "Managed engine probe helper could not be stopped" & MBRFuncEngineProbePhaseSuffix($sLastPhase)
+		MBRFuncMarkUnavailable($sError)
+		Return False
 	EndIf
-	FileDelete($sToken)
-	If FileExists($sToken) Then
-		$sError = "Managed engine probe token could not be cleared after failure"
+	If Not MBRFuncEngineProbeCleanupArtifacts($sToken, $sPhasePath, $iProbePid) Then
+		$sError = "Managed engine probe receipts could not be cleared after failure" & MBRFuncEngineProbePhaseSuffix($sLastPhase)
 		MBRFuncMarkUnavailable($sError)
 		Return False
 	EndIf
 	If $bProbeExited Then
-		$sError = "Managed engine startup failed; check Windows Security and .NET health, restart Windows once, then relaunch My Bot 2.0"
+		$sError = "Managed engine startup failed; check Windows Security and .NET health, restart Windows once, then relaunch My Bot 2.0" & MBRFuncEngineProbePhaseSuffix($sLastPhase)
 	Else
-		$sError = "Managed engine did not answer within " & Int($iTimeoutMs / 1000) & " seconds; check Windows Security and .NET health, restart Windows once, then relaunch My Bot 2.0"
+		$sError = "Managed engine did not answer within " & Int($iTimeoutMs / 1000) & " seconds; check Windows Security and .NET health, restart Windows once, then relaunch My Bot 2.0" & MBRFuncEngineProbePhaseSuffix($sLastPhase)
 	EndIf
 	MBRFuncMarkUnavailable($sError)
 	Return False

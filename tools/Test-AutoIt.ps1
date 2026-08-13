@@ -84,7 +84,8 @@ $testScripts = @(
     "tests\autoit\HomeMaintenanceRouteTest.au3",
     "tests\autoit\ClanRequestRouteTest.au3",
     "tests\autoit\ManualViewportMappingTest.au3",
-    "tests\autoit\SmartAttackPolicyTest.au3"
+    "tests\autoit\SmartAttackPolicyTest.au3",
+    "tests\autoit\EngineProbeLifecycleTest.au3"
 )
 
 Push-Location $repositoryRoot
