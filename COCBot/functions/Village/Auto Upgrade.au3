@@ -13,15 +13,16 @@
 ; Example .......: ---
 ;================================================================================================================================
 Func AutoUpgrade($bTest = False)
+	If Not $bTest And Not $g_bRunState Then Return False
 	Local $bWasRunState = $g_bRunState
-	$g_bRunState = True
+	If $bTest Then $g_bRunState = True
 	Local $Result = _AutoUpgrade()
-	$g_bRunState = $bWasRunState
+	If $bTest Then $g_bRunState = $bWasRunState
 	Return $Result
 EndFunc   ;==>AutoUpgrade
 
 Func _AutoUpgrade()
-	If Not $g_bAutoUpgradeEnabled Then Return
+	If Not $g_bRunState Or Not $g_bAutoUpgradeEnabled Then Return False
 
 	SetLog("Starting Auto Upgrade", $COLOR_INFO)
 	Local $iLoopAmount = 0
@@ -295,6 +296,7 @@ Func _AutoUpgrade()
 		EndIf
 
 		; final click on upgrade button, click coord is get looking at upgrade type (heroes have a diferent place for Upgrade button)
+		If _Sleep(1) Then Return False
 		Click(630, 540 + $g_iMidOffsetY)
 
 		;Check for 'End Boost?' pop-up
