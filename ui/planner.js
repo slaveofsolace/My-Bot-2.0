@@ -8,7 +8,56 @@ let ACTIVE_VIEW = 'run';
 const VIEW_IDS = ['run', 'plan', 'village', 'activity', 'diagnostics'];
 let ACTIVE_GROUP = 'match';
 let SELECTED_PRESET = 'custom';
+let LOADED_SAFETY_PATCH = null;
 let CAPABILITY_CATALOG = { capabilities: [], status_definitions: {} };
+
+// Route selectors may load a complete, visible safety contract, but never save or start it. Keeping
+// these patches keyed by strategy makes later single-purpose Home routes explicit rather than a
+// growing set of special-case onchange branches.
+const STRATEGY_SAFETY_PATCHES = {
+  'home.collectors': {
+    label: 'Collectors-only safety settings',
+    values: {
+      'run.surface': 'regular', 'run.strategy': 'home.collectors', 'run.attack_script': 'profile-current',
+      'run.town_hall': 0, 'run.heroes': [], 'run.duration_minutes': 0, 'run.max_battles': 0,
+      'run.stop_on_star_bonus': false, 'run.max_failures': 0,
+      'target.gold': 0, 'target.elixir': 0, 'target.dark_elixir': 0,
+      'upgrade.policy': 'disabled', 'account.queue': '',
+      'army.source': 'recipe', 'army.recipe_name': '', 'army.manage_training': false,
+      'army.wait_for_full': false, 'army.train_spells': false, 'army.train_sieges': false,
+      'search.min_gold': 0, 'search.min_elixir': 0, 'search.min_dark': 0,
+      'search.max_seconds': 0, 'search.town_hall_filter': 'any',
+      'donate.mode': 'off', 'donate.keep_army': true, 'donate.max_per_run': 0,
+      'donate.request_when_short': false,
+      'events.clan_games': false, 'events.clan_games_point_cap': 0,
+      'events.laboratory': 'off', 'events.collect_resources': true,
+      'notify.on_stop': true, 'notify.on_error': true, 'notify.channel': 'log-only',
+      'pacing.action_delay_ms': 180, 'pacing.settle_ms': 650, 'pacing.retry_attempts': 0,
+      'pacing.break_every_minutes': 0, 'pacing.break_minutes': 5,
+    },
+  },
+  'home.clan-request': {
+    label: 'Clan-request-only safety settings',
+    values: {
+      'run.surface': 'regular', 'run.strategy': 'home.clan-request', 'run.attack_script': 'profile-current',
+      'run.town_hall': 0, 'run.heroes': [], 'run.duration_minutes': 0, 'run.max_battles': 0,
+      'run.stop_on_star_bonus': false, 'run.max_failures': 0,
+      'target.gold': 0, 'target.elixir': 0, 'target.dark_elixir': 0,
+      'upgrade.policy': 'disabled', 'account.queue': '',
+      'army.source': 'recipe', 'army.recipe_name': '', 'army.manage_training': false,
+      'army.wait_for_full': false, 'army.train_spells': false, 'army.train_sieges': false,
+      'search.min_gold': 0, 'search.min_elixir': 0, 'search.min_dark': 0,
+      'search.max_seconds': 0, 'search.town_hall_filter': 'any',
+      'donate.mode': 'off', 'donate.keep_army': true, 'donate.max_per_run': 0,
+      'donate.request_when_short': true,
+      'events.clan_games': false, 'events.clan_games_point_cap': 0,
+      'events.laboratory': 'off', 'events.collect_resources': false,
+      'notify.on_stop': true, 'notify.on_error': true, 'notify.channel': 'log-only',
+      'pacing.action_delay_ms': 180, 'pacing.settle_ms': 650, 'pacing.retry_attempts': 0,
+      'pacing.break_every_minutes': 0, 'pacing.break_minutes': 5,
+    },
+  },
+};
 
 let CONTROL = { connected: false, state: 'offline' };
 let CONTROL_PENDING = null;
@@ -280,6 +329,7 @@ function initializePresets() {
 }
 
 function markPresetCustom(settingId = '') {
+  LOADED_SAFETY_PATCH = null;
   const preserved = new Set(META?.presets?.preserved_settings || []);
   if (settingId && preserved.has(settingId)) {
     renderPresetPreview();
@@ -308,8 +358,10 @@ function formatSettingValue(setting, value) {
 }
 
 function presetChanges(preset) {
-  const values = preset.values || {};
-  const preserved = new Set(META?.presets?.preserved_settings || []);
+  return settingChanges(preset.values || {}, new Set(META?.presets?.preserved_settings || []));
+}
+
+function settingChanges(values, preserved = new Set()) {
   return (META?.sections || []).flatMap(section => settingsOf(section)
     .filter(setting => Object.prototype.hasOwnProperty.call(values, setting.id)
       && !preserved.has(setting.id)
@@ -364,7 +416,9 @@ function addPresetFacts(preview, plan) {
   const scriptSetting = findSetting('run.attack_script');
   const script = optionOf(scriptSetting, plan['run.attack_script']);
   const heroes = selectedHeroLabels(plan);
+  const townHall = Number(plan['run.town_hall'] || 0);
   for (const value of [
+    `Town Hall: ${townHall > 0 ? `TH${townHall}` : 'detect at Start'}`,
     `Script: ${script?.label || plan['run.attack_script'] || 'Profile selection'}`,
     `Heroes: ${heroes.length ? heroes.join(', ') : 'none'}`,
     `Limit: ${plan['run.max_battles'] || 0} battles / ${plan['run.duration_minutes'] || 0} min`,
@@ -387,6 +441,12 @@ function renderPresetPreview(loadedChanges = null) {
     note.textContent = 'These are the visible values. Applying writes them; selecting a Town Hall replaces every setting owned by that starting point.';
     preview.append(title, note);
     addPresetFacts(preview, PLAN);
+    if (LOADED_SAFETY_PATCH) {
+      const safety = document.createElement('span');
+      safety.className = 'preset-note';
+      safety.textContent = `${LOADED_SAFETY_PATCH.label} loaded ${LOADED_SAFETY_PATCH.changes.length} visible change${LOADED_SAFETY_PATCH.changes.length === 1 ? '' : 's'}. Runtime and diagnostic acknowledgement stayed unchanged. Nothing was saved or started.`;
+      preview.append(safety, buildPresetDiff(LOADED_SAFETY_PATCH.changes));
+    }
     const heroes = selectedHeroLabels();
     const heroNote = document.createElement('span');
     heroNote.className = 'preset-note';
@@ -417,6 +477,7 @@ function renderPresetPreview(loadedChanges = null) {
 function applySelectedPreset() {
   const preset = presetById(SELECTED_PRESET);
   if (!preset) return;
+  LOADED_SAFETY_PATCH = null;
   const changes = presetChanges(preset);
   const preserved = new Set(META?.presets?.preserved_settings || []);
   for (const [id, value] of Object.entries(preset.values || {})) {
@@ -430,6 +491,27 @@ function applySelectedPreset() {
   updateDirty();
   announcePreset(`${preset.label} loaded ${changes.length} unsaved change${changes.length === 1 ? '' : 's'}.`);
   setSaveStatus(`${preset.label} is visible but not applied.`, 'warn');
+}
+
+function applyStrategySafetyPatch(strategyId) {
+  const patch = STRATEGY_SAFETY_PATCHES[strategyId];
+  if (!patch) return false;
+  const preserved = new Set(META?.presets?.preserved_settings || []);
+  const changes = settingChanges(patch.values, preserved);
+  markPresetCustom();
+  for (const [id, value] of Object.entries(patch.values)) {
+    if (!findSetting(id) || preserved.has(id)) continue;
+    PLAN[id] = clone(value);
+  }
+  LOADED_SAFETY_PATCH = { label: patch.label, changes };
+  drawPlanPanel();
+  updatePlanGroupNav();
+  renderPresetPreview();
+  renderPlanReceipts();
+  updateDirty();
+  announcePreset(`${patch.label} loaded ${changes.length} unsaved change${changes.length === 1 ? '' : 's'}.`);
+  setSaveStatus(`${patch.label} are visible but not applied. Review diagnostic acknowledgement, then Apply plan.`, 'warn');
+  return true;
 }
 
 function matches(setting) {
@@ -621,6 +703,7 @@ function buildField(setting, field, condition) {
   control.setAttribute('aria-describedby', descriptions.join(' '));
   control.onchange = () => {
     PLAN[setting.id] = readControl(setting, control);
+    if (setting.id === 'run.strategy' && applyStrategySafetyPatch(PLAN[setting.id])) return;
     markPresetCustom(setting.id);
     refreshAfterChange(setting, control.id);
   };
@@ -728,6 +811,7 @@ function readControl(setting, control) {
 function buildChips(setting, field) {
   const chosen = asList(PLAN[setting.id]);
   const max = setting.max_selected || setting.options.length;
+  const plannedTownHall = Number(PLAN['run.town_hall'] || 0);
   const chips = document.createElement('div');
   chips.className = 'chips';
   for (const option of setting.options) {
@@ -740,7 +824,9 @@ function buildChips(setting, field) {
     chip.setAttribute('aria-pressed', String(selected));
     chip.setAttribute('aria-describedby', `s_${setting.id}`);
     const unavailable = ['planned', 'unsupported'].includes(option.availability);
-    chip.disabled = !selected && (chosen.length >= max || unavailable);
+    const lockedForTownHall = setting.id === 'run.heroes' && plannedTownHall > 0
+      && Number(option.unlock_town_hall || 0) > plannedTownHall;
+    chip.disabled = !selected && (chosen.length >= max || unavailable || lockedForTownHall);
     chip.onclick = () => {
       const next = asList(PLAN[setting.id]);
       const index = next.indexOf(option.value);
@@ -901,7 +987,9 @@ function clientProblems(plan = PLAN) {
   }
 
   if (plan['run.surface'] !== 'regular') addProblem(problems, 'Only Regular Battles can start through the native engine.', 'run.surface');
-  if (!['legacy.csv', 'legacy.standard', 'smart.local'].includes(plan['run.strategy'])) {
+  const collectorsOnly = plan['run.strategy'] === 'home.collectors';
+  const clanRequestOnly = plan['run.strategy'] === 'home.clan-request';
+  if (!['legacy.csv', 'legacy.standard', 'smart.local', 'home.collectors', 'home.clan-request'].includes(plan['run.strategy'])) {
     addProblem(problems, 'The selected deployment routine has no native adapter.', 'run.strategy');
   }
   if (plan['run.strategy'] !== 'legacy.csv' && plan['run.attack_script'] !== 'profile-current') {
@@ -910,6 +998,18 @@ function clientProblems(plan = PLAN) {
   if (plan['run.strategy'] === 'smart.local' && !plan['run.diagnostic_mode']) {
     addProblem(problems, 'Smart Attack remains a supervised diagnostic option until its deterministic policy has fresh live proof.', 'run.diagnostic_mode');
   }
+  const plannedTownHall = Number(plan['run.town_hall'] || 0);
+  const heroSetting = findSetting('run.heroes');
+  for (const heroId of asList(plan['run.heroes'])) {
+    const hero = optionOf(heroSetting, heroId);
+    if (!hero?.active_slot_eligible || heroId === 'dragon-duke') {
+      addProblem(problems, `${hero?.label || heroId} is not present in the inherited deployment actuator.`, 'run.heroes');
+      continue;
+    }
+    if (plannedTownHall > 0 && Number(hero.unlock_town_hall || 0) > plannedTownHall) {
+      addProblem(problems, `${hero.label} unlocks at Town Hall ${hero.unlock_town_hall}, after planned TH${plannedTownHall}.`, 'run.heroes');
+    }
+  }
   const emulator = String(plan['runtime.emulator'] || '').trim().toLowerCase();
   const instance = String(plan['runtime.instance'] || '').trim();
   if (emulator === 'auto' && instance) addProblem(problems, 'Choose a specific emulator before selecting an instance.', 'runtime.instance');
@@ -917,7 +1017,37 @@ function clientProblems(plan = PLAN) {
   if (plan['army.source'] !== 'recipe' || String(plan['army.recipe_name'] || '').trim()) {
     addProblem(problems, 'The run can use only the active profile army; named recipes are not wired.', 'army.source');
   }
-  if (!plan['army.manage_training']) {
+  if (collectorsOnly) {
+    if (emulator === 'auto' || !instance) addProblem(problems, 'Collectors-only maintenance requires the exact non-Auto emulator and instance.', 'runtime.instance');
+    if (instance && !/^[A-Za-z0-9_. -]{1,64}$/.test(instance)) addProblem(problems, 'The Home route instance name contains unsupported characters.', 'runtime.instance');
+    if (!plan['run.diagnostic_mode']) addProblem(problems, 'Collectors-only maintenance requires supervised diagnostic acknowledgement.', 'run.diagnostic_mode');
+    if (!plan['events.collect_resources']) addProblem(problems, 'Collectors-only maintenance requires Collect collectors.', 'events.collect_resources');
+    if (plan['army.manage_training'] || plan['army.wait_for_full'] || plan['army.train_spells'] || plan['army.train_sieges']) addProblem(problems, 'Collectors-only maintenance requires training, army wait, spells, and sieges off.', 'army.manage_training');
+    if (asList(plan['run.heroes']).length) addProblem(problems, 'Collectors-only maintenance requires no selected Heroes.', 'run.heroes');
+    if (Number(plan['run.duration_minutes']) !== 0 || Number(plan['run.max_battles']) !== 0 || plan['run.stop_on_star_bonus'] || Number(plan['run.max_failures']) !== 0) addProblem(problems, 'Collectors-only maintenance is one pass; duration, battles, star bonus, and failure limits must be 0/off.', 'run.max_battles');
+    if (['target.gold', 'target.elixir', 'target.dark_elixir', 'search.min_gold', 'search.min_elixir', 'search.min_dark', 'search.max_seconds'].some((key) => Number(plan[key]) !== 0)) addProblem(problems, 'Collectors-only maintenance cannot configure matchmaking or battle-loot targets.', 'search.min_gold');
+    if (plan['donate.mode'] !== 'off' || plan['donate.request_when_short'] || Number(plan['donate.max_per_run']) !== 0) addProblem(problems, 'Collectors-only maintenance requires donations and requests off.', 'donate.mode');
+    if (plan['events.clan_games'] || Number(plan['events.clan_games_point_cap']) !== 0) addProblem(problems, 'Collectors-only maintenance cannot enter Clan Games.', 'events.clan_games');
+    if (plan['events.laboratory'] !== 'off') addProblem(problems, 'Collectors-only maintenance requires Laboratory off.', 'events.laboratory');
+    if (plan['upgrade.policy'] !== 'disabled') addProblem(problems, 'Collectors-only maintenance requires upgrades disabled.', 'upgrade.policy');
+    if (String(plan['account.queue'] || '').trim()) addProblem(problems, 'Collectors-only maintenance cannot rotate accounts.', 'account.queue');
+  } else if (clanRequestOnly) {
+    if (!plan['run.diagnostic_mode']) addProblem(problems, 'Clan request requires supervised diagnostic acknowledgement.', 'run.diagnostic_mode');
+    if (plan['army.manage_training'] || plan['army.wait_for_full'] || plan['army.train_spells'] || plan['army.train_sieges']) addProblem(problems, 'Clan request requires training, army wait, spells, and sieges off.', 'army.manage_training');
+    if (asList(plan['run.heroes']).length) addProblem(problems, 'Clan request requires no selected Heroes.', 'run.heroes');
+    if (Number(plan['run.duration_minutes']) !== 0 || Number(plan['run.max_battles']) !== 0 || plan['run.stop_on_star_bonus'] || Number(plan['run.max_failures']) !== 0) addProblem(problems, 'Clan request is one pass; duration, battles, star bonus, and failure limits must be 0/off.', 'run.max_battles');
+    if (['target.gold', 'target.elixir', 'target.dark_elixir', 'search.min_gold', 'search.min_elixir', 'search.min_dark', 'search.max_seconds'].some((key) => Number(plan[key]) !== 0)) addProblem(problems, 'Clan request cannot configure matchmaking or battle-loot targets.', 'search.min_gold');
+    if (plan['donate.mode'] !== 'off' || !plan['donate.request_when_short'] || !plan['donate.keep_army'] || Number(plan['donate.max_per_run']) !== 0) addProblem(problems, 'Clan request requires Off, Request when available on, army preservation on, and donation limit 0.', 'donate.request_when_short');
+    if (plan['events.collect_resources'] || plan['events.clan_games'] || Number(plan['events.clan_games_point_cap']) !== 0) addProblem(problems, 'Clan request cannot collect resources or enter Clan Games.', 'events.clan_games');
+    if (plan['events.laboratory'] !== 'off') addProblem(problems, 'Clan request requires Laboratory off.', 'events.laboratory');
+    if (plan['upgrade.policy'] !== 'disabled') addProblem(problems, 'Clan request requires upgrades disabled.', 'upgrade.policy');
+    if (String(plan['account.queue'] || '').trim()) addProblem(problems, 'Clan request cannot rotate accounts.', 'account.queue');
+    if (Number(plan['pacing.break_every_minutes']) !== 0) addProblem(problems, 'Clan request requires scheduled breaks off.', 'pacing.break_every_minutes');
+    if (emulator === 'auto' || !instance) addProblem(problems, 'Clan request requires the exact non-Auto emulator and instance.', 'runtime.instance');
+    if (instance && !/^[A-Za-z0-9_. -]{1,64}$/.test(instance)) addProblem(problems, 'The Home route instance name contains unsupported characters.', 'runtime.instance');
+  } else if (plan['events.collect_resources']) {
+    addProblem(problems, 'Collector work requires the Home maintenance - collectors only strategy.', 'events.collect_resources');
+  } else if (!plan['army.manage_training']) {
     if (Number(plan['run.max_battles']) !== 1) addProblem(problems, 'Current trained army mode requires exactly one battle.', 'run.max_battles');
     if (!plan['army.wait_for_full']) addProblem(problems, 'Current trained army mode requires a fresh full-army check.', 'army.wait_for_full');
     if (plan['donate.mode'] !== 'off') addProblem(problems, 'Donations must be off for the one-shot current army.', 'donate.mode');
@@ -981,8 +1111,10 @@ function summaryEntries(plan) {
   const heroes = selectedHeroLabels(plan);
   const emulator = optionOf(findSetting('runtime.emulator'), plan['runtime.emulator']);
   const matched = matchingPresetForPlan(plan);
+  const plannedTownHall = Number(plan['run.town_hall'] || 0);
   return [
     ['Starting point', matched?.label || 'Custom plan'],
+    ['Town Hall', plannedTownHall > 0 ? `TH${plannedTownHall}` : 'Detect at Start'],
     ['Battle', surface?.label || plan['run.surface'] || 'Not selected'],
     ['Deployment', strategy?.label || plan['run.strategy'] || 'Not selected'],
     ['Script', script?.label || plan['run.attack_script'] || 'Not selected'],
@@ -1178,9 +1310,10 @@ function renderControl() {
   else setHealth('healthEngine', 'warning', 'Not checked');
 
   const emulator = [CONTROL.emulator, CONTROL.instance].filter(Boolean).join(' / ');
-  const windowAttached = connected && (CONTROL.window_attached === true || CONTROL.emulator_attached === true);
-  const adbReady = connected && CONTROL.adb_ready === true;
-  const gameReady = connected && CONTROL.game_ready === true;
+  const hasNativeWindowState = Object.prototype.hasOwnProperty.call(CONTROL, 'window_attached');
+  const windowAttached = connected && (hasNativeWindowState ? CONTROL.window_attached === true : CONTROL.emulator_attached === true);
+  const adbReady = windowAttached && CONTROL.adb_ready === true;
+  const gameReady = adbReady && CONTROL.game_ready === true;
   let emulatorState = connected ? 'warning' : 'waiting';
   let emulatorText = connected ? (emulator ? 'Not attached' : 'Not selected') : 'Waiting';
   if (windowAttached) emulatorText = 'Window found';
@@ -1267,6 +1400,10 @@ async function fetchJson(url, options = {}) {
 }
 
 async function pollControl() {
+  if (hiddenIdlePollingSuspended()) {
+    CONTROL_TIMER = null;
+    return;
+  }
   const previousInstanceSignature = LAST_INSTANCE_SIGNATURE;
   try {
     CONTROL = await fetchJson('/api/control/status', { cache: 'no-store' });
@@ -1292,12 +1429,21 @@ async function pollControl() {
   recoverControlPending();
   renderControl();
   if (META && LAST_INSTANCE_SIGNATURE !== previousInstanceSignature) refreshInstanceControl();
-  CONTROL_TIMER = setTimeout(pollControl, controlPollDelay());
+  const delay = controlPollDelay();
+  CONTROL_TIMER = delay == null ? null : setTimeout(pollControl, delay);
+}
+
+function controlActivityIsActive() {
+  return !!CONTROL_PENDING || ['starting', 'running', 'stopping'].includes(CONTROL.state);
+}
+
+function hiddenIdlePollingSuspended() {
+  return document.hidden && !controlActivityIsActive();
 }
 
 function controlPollDelay() {
-  if (CONTROL_PENDING || ['starting', 'running', 'stopping'].includes(CONTROL.state)) return document.hidden ? 1500 : 500;
-  return document.hidden ? 15000 : 5000;
+  if (controlActivityIsActive()) return document.hidden ? 1500 : 500;
+  return document.hidden ? null : 5000;
 }
 
 function refreshInstanceControl() {
@@ -1352,6 +1498,8 @@ async function sendControl(action) {
   renderControl();
   clearTimeout(CONTROL_TIMER);
   CONTROL_TIMER = setTimeout(pollControl, 0);
+  clearTimeout(EVENTS_TIMER);
+  EVENTS_TIMER = setTimeout(pollEvents, 0);
 }
 
 $('controlStart').onclick = () => sendControl('start');
@@ -1503,6 +1651,10 @@ function renderActivity() {
 }
 
 async function pollEvents() {
+  if (hiddenIdlePollingSuspended()) {
+    EVENTS_TIMER = null;
+    return;
+  }
   try {
     const payload = await fetchJson('/api/events', { cache: 'no-store' });
     EVENTS = Array.isArray(payload.events) ? payload.events : [];
@@ -1511,12 +1663,13 @@ async function pollEvents() {
     EVENTS_ERROR = 'unavailable';
   }
   renderActivity();
-  EVENTS_TIMER = setTimeout(pollEvents, eventPollDelay());
+  const delay = eventPollDelay();
+  EVENTS_TIMER = delay == null ? null : setTimeout(pollEvents, delay);
 }
 
 function eventPollDelay() {
-  if (['starting', 'running', 'stopping'].includes(CONTROL.state)) return document.hidden ? 5000 : 1500;
-  return document.hidden ? 60000 : 15000;
+  if (controlActivityIsActive()) return document.hidden ? 5000 : 1500;
+  return document.hidden ? null : 15000;
 }
 
 async function loadNativeLog({ automatic = false } = {}) {
@@ -1692,6 +1845,7 @@ function stopPolls() {
 
 function startPolls() {
   stopPolls();
+  if (hiddenIdlePollingSuspended()) return;
   pollControl();
   pollEvents();
 }
@@ -1763,6 +1917,8 @@ async function boot() {
 
 $('bootRetry').onclick = boot;
 document.addEventListener('visibilitychange', () => {
-  if (BOOT_READY) startPolls();
+  if (!BOOT_READY) return;
+  if (hiddenIdlePollingSuspended()) stopPolls();
+  else startPolls();
 });
 boot();

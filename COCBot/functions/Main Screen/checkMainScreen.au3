@@ -119,11 +119,11 @@ Func _checkMainScreen($bSetLog = Default, $bBuilderBase = Default) ;Checks if in
 	;After checkscreen dispose windows
 	DisposeWindows()
 
-	; A passive current-army run authorizes only screen proof, army inspection and one battle.
-	; Legacy pending notifications can request builder OCR, which is unrelated to that plan and may
-	; recursively re-enter checkMainScreen. Keep that profile-owned side effect outside this path.
-	If RunExecutionSkipVillageZoomCalibration() Then
-		SetDebugLog("Run Planner current-army mode: skipped legacy pending notifications during screen proof")
+	; Bounded planner routes authorize only their explicit screen work. Legacy pending notifications
+	; can request builder OCR, which is unrelated to either passive combat or collectors-only maintenance
+	; and may recursively re-enter checkMainScreen. Keep that profile-owned side effect outside both paths.
+	If RunExecutionSkipPendingNotifications() Then
+		SetDebugLog("Run Planner bounded mode: skipped legacy pending notifications during screen proof")
 	Else
 		NotifyPendingActions()
 	EndIf

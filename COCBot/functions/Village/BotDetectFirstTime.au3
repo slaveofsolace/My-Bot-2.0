@@ -50,7 +50,8 @@ Func BotDetectFirstTime($bOwnVillageReadinessOnly = False)
 
 		If RunExecutionSkipVillageZoomCalibration() Then Return
 		If Not isInsideDiamond($g_aiTownHallPos) Then
-			Collect(False)
+			; Planned readiness is still pre-session. Never collect, donate, upgrade, or click a
+			; building here: Home maintenance must account for every action inside its own route.
 			imglocTHSearch(True, True, True)
 			SetLog("Townhall: (" & $g_aiTownHallPos[0] & "," & $g_aiTownHallPos[1] & ")", $COLOR_DEBUG)
 		EndIf

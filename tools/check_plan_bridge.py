@@ -279,8 +279,18 @@ def main() -> int:
 
         skip_zoom = execution_source.split("Func RunExecutionSkipVillageZoomCalibration()", 1)
         skip_zoom_body = skip_zoom[1].split("EndFunc", 1)[0] if len(skip_zoom) > 1 else ""
-        if "$g_bRunExecutionPrepared And Not $g_bRunExecutionManageTraining" not in skip_zoom_body:
-            errors.append("village zoom bypass is not limited to a prepared current-army run")
+        for required in (
+            "If Not $g_bRunExecutionPrepared Or $g_bRunExecutionManageTraining Then Return False",
+            "HomeMaintenanceRouteSelected($g_oRunExecutionIntent) Then Return False",
+            "Return True",
+        ):
+            if required not in skip_zoom_body:
+                errors.append(f"village zoom bypass lost its passive-combat boundary via {required}")
+
+        skip_notifications = execution_source.split("Func RunExecutionSkipPendingNotifications()", 1)
+        skip_notifications_body = skip_notifications[1].split("EndFunc", 1)[0] if len(skip_notifications) > 1 else ""
+        if "$g_bRunExecutionPrepared And Not $g_bRunExecutionManageTraining" not in skip_notifications_body:
+            errors.append("pending-action suppression is not limited to a prepared bounded run")
 
         main_screen_source = CHECK_MAIN_SCREEN.read_text(encoding="utf-8-sig")
         main_screen = main_screen_source.split("Func _checkMainScreen(", 1)
@@ -290,8 +300,8 @@ def main() -> int:
         if zoom_guard < 0 or zoom_call < zoom_guard:
             errors.append("checkMainScreen still requires unsupported scenery anchors in current-army mode")
         notification_guard = (
-            'If RunExecutionSkipVillageZoomCalibration() Then\n'
-            '\t\tSetDebugLog("Run Planner current-army mode: skipped legacy pending notifications during screen proof")\n'
+            'If RunExecutionSkipPendingNotifications() Then\n'
+            '\t\tSetDebugLog("Run Planner bounded mode: skipped legacy pending notifications during screen proof")\n'
             '\tElse\n'
             '\t\tNotifyPendingActions()\n'
             '\tEndIf'
@@ -555,7 +565,9 @@ def main() -> int:
     for required in (
         'If Not $oPlan.Item("army_wait_for_full") Then',
         '$oPlan.Item("donate_request_when_short")',
-        '$oPlan.Item("events_clan_games") Or $oPlan.Item("events_collect_resources")',
+        'If $oPlan.Item("events_collect_resources") Then',
+        'If $oPlan.Item("events_clan_games") Then',
+        'Collector work requires the explicit Home maintenance - collectors only strategy',
         '$oPlan.Item("events_laboratory")',
         '$oPlan.Item("upgrade_policy")',
     ):
@@ -760,10 +772,23 @@ def main() -> int:
             "_WindowCanDock($hController)",
             "_WindowCanDock($hBlueStacks)",
             "_DockController($hController, $hBlueStacks, False)",
-            "Sleep($g_iDockPollMs)",
+            "_AdaptiveDockPollDelay($sDockState, $sPreviousDockState, $bNeedsFastPoll)",
         ):
             if required not in keep_body:
                 errors.append(f"persistent docking no longer revalidates and follows window geometry via {required}")
+
+        adaptive_delay = launcher_source.split("Func _AdaptiveDockPollDelay(", 1)
+        adaptive_delay_body = adaptive_delay[1].split("EndFunc", 1)[0] if len(adaptive_delay) > 1 else ""
+        for required in (
+            "Global Const $g_iDockTransitionPollMs = 1000",
+            "Global Const $g_iDockStablePollMs = 5000",
+            "$bStateChanged = $sState <> $sPreviousState",
+            "If $bNeedsFastPoll Or $bStateChanged Then Return $g_iDockTransitionPollMs",
+            "Return $g_iDockStablePollMs",
+        ):
+            target = launcher_source if required.startswith("Global Const") else adaptive_delay_body
+            if required not in target:
+                errors.append(f"launcher adaptive docking backoff is no longer bounded via {required}")
 
         controller_match = launcher_source.split("Func _ControllerWindowMatches(", 1)
         controller_match_body = controller_match[1].split("EndFunc", 1)[0] if len(controller_match) > 1 else ""

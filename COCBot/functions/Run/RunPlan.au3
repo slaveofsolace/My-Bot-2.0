@@ -4,6 +4,7 @@
 ; Remarks .......: Run plans contain operational settings only. Credentials and authentication material are never stored here.
 ; ===============================================================================================================================
 #include-once
+#include "..\Game\GameCatalog.au3"
 
 Func RunPlanCreateDefault($sMode = "home", $sStrategy = "auto", $sAttackScript = "profile-current")
 	Local $oPlan = ObjCreate("Scripting.Dictionary")
@@ -13,6 +14,9 @@ Func RunPlanCreateDefault($sMode = "home", $sStrategy = "auto", $sAttackScript =
 	$oPlan.Add("mode", StringLower($sMode))
 	$oPlan.Add("strategy", $sStrategy)
 	$oPlan.Add("attack_script", $sAttackScript)
+	; Zero means the engine must use its freshly proven own-village identity at Start. Town Hall
+	; presets replace zero with their exact level so an account/preset mismatch fails closed.
+	$oPlan.Add("planned_town_hall", 0)
 	$oPlan.Add("duration_minutes", 0)
 	; The safest default uses the already-trained army without changing its queue. Keep that default
 	; contract-valid and bounded to a single battle; users who enable training management may choose 0.
@@ -57,7 +61,7 @@ Func RunPlanValidate(ByRef $oPlan, ByRef $sError)
 		Return SetError(1, 0, False)
 	EndIf
 
-	Local $aRequired = ["schema_version", "mode", "strategy", "attack_script", "duration_minutes", "max_battles", "stop_on_star_bonus", "max_failures", "target_gold", "target_elixir", "target_dark_elixir", "upgrade_policy", "account_queue_id", _
+	Local $aRequired = ["schema_version", "mode", "strategy", "attack_script", "planned_town_hall", "duration_minutes", "max_battles", "stop_on_star_bonus", "max_failures", "target_gold", "target_elixir", "target_dark_elixir", "upgrade_policy", "account_queue_id", _
 		"emulator", "emulator_instance", "army_source", "army_recipe_name", "army_manage_training", "army_wait_for_full", "army_train_spells", "army_train_sieges", "search_min_gold", "search_min_elixir", "search_min_dark", "search_max_seconds", "search_town_hall_filter", _
 		"donate_mode", "donate_keep_army", "donate_max_per_run", "donate_request_when_short", "events_clan_games", "events_clan_games_point_cap", "events_laboratory", "events_collect_resources", "notify_on_stop", "notify_on_error", "notify_channel"]
 	For $i = 0 To UBound($aRequired) - 1
@@ -85,6 +89,12 @@ Func RunPlanValidate(ByRef $oPlan, ByRef $sError)
 			StringInStr($sAttackScript, ">") Or StringInStr($sAttackScript, "|") Or StringInStr($sAttackScript, "..") Then
 		$sError = "Attack script must be a safe bundled filename without an extension"
 		Return SetError(4, 1, False)
+	EndIf
+	Local $iPlannedTownHall = Int(Number($oPlan.Item("planned_town_hall")))
+	If Not IsNumber($oPlan.Item("planned_town_hall")) Or Number($oPlan.Item("planned_town_hall")) <> $iPlannedTownHall Or _
+			$iPlannedTownHall < 0 Or $iPlannedTownHall > $CURRENT_GAME_MAX_TOWN_HALL Then
+		$sError = "Planned Town Hall must be 0 (detect at Start) or a current Town Hall level"
+		Return SetError(4, 2, False)
 	EndIf
 
 	Local $aNonNegative = ["duration_minutes", "max_battles", "max_failures", "target_gold", "target_elixir", "target_dark_elixir", "search_min_gold", "search_min_elixir", "search_min_dark", "search_max_seconds", "donate_max_per_run", "events_clan_games_point_cap"]
@@ -172,6 +182,21 @@ Func RunPlanSetResourceTargets(ByRef $oPlan, $iGold = 0, $iElixir = 0, $iDarkEli
 	Return True
 EndFunc   ;==>RunPlanSetResourceTargets
 
+Func RunPlanSetPlannedTownHall(ByRef $oPlan, $iTownHall, ByRef $sError)
+	$sError = ""
+	If Not IsObj($oPlan) Or Not $oPlan.Exists("planned_town_hall") Then
+		$sError = "Run plan cannot carry a planned Town Hall"
+		Return SetError(1, 0, False)
+	EndIf
+	If Not IsNumber($iTownHall) Or Number($iTownHall) <> Int(Number($iTownHall)) Or _
+			Int(Number($iTownHall)) < 0 Or Int(Number($iTownHall)) > $CURRENT_GAME_MAX_TOWN_HALL Then
+		$sError = "Planned Town Hall must be 0 (detect at Start) or a current Town Hall level"
+		Return SetError(2, 0, False)
+	EndIf
+	$oPlan.Item("planned_town_hall") = Int(Number($iTownHall))
+	Return True
+EndFunc   ;==>RunPlanSetPlannedTownHall
+
 Func RunPlanShouldStop(ByRef $oPlan, $iElapsedMilliseconds, $iBattleCount, $iFailureCount, $bStarBonusComplete, $iGold = 0, $iElixir = 0, $iDarkElixir = 0)
 	Local $sError
 	If Not RunPlanValidate($oPlan, $sError) Then Return SetError(1, 0, "invalid-plan")
@@ -201,6 +226,8 @@ Func RunPlanDescribe(ByRef $oPlan)
 	Local $sError
 	If Not RunPlanValidate($oPlan, $sError) Then Return SetError(1, 0, $sError)
 	Local $sDescription = StringUpper($oPlan.Item("mode")) & " / " & $oPlan.Item("strategy")
+	$sDescription &= (Int($oPlan.Item("planned_town_hall")) > 0 ? _
+			(" / planned TH" & Int($oPlan.Item("planned_town_hall"))) : " / Town Hall detected at Start")
 	If StringLower($oPlan.Item("attack_script")) <> "profile-current" Then $sDescription &= " / " & $oPlan.Item("attack_script")
 	If Int($oPlan.Item("duration_minutes")) > 0 Then $sDescription &= " / " & Int($oPlan.Item("duration_minutes")) & " min"
 	If Int($oPlan.Item("max_battles")) = 1 Then

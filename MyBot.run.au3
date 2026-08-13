@@ -718,6 +718,20 @@ EndFunc   ;==>MainLoop
 Func runBot() ;Bot that runs everything in order
 	Local $iWaitTime
 
+	; Home maintenance is an explicit one-pass route, not a battle with a collector side effect.
+	; Dispatch it before both the passive one-battle path and the inherited all-purpose village loop.
+	If HomeMaintenanceRouteActive() Then
+		HomeMaintenanceRouteExecute()
+		Return
+	EndIf
+
+	; Clan request is a separate request-only terminal route. It must never fall through to DonateCC,
+	; RequestCC, FirstCheck, training, collectors, matchmaking, or the generic village loop.
+	If ClanRequestRouteActive() Then
+		ClanRequestRouteExecute()
+		Return
+	EndIf
+
 	; A passive plan owns exactly the army already visible in game and exactly one attack attempt.
 	; Keep that bounded path out of FirstCheck and the generic maintenance loop entirely: both contain
 	; inherited building, upgrade, account-switch and village-zoom work that this plan did not authorize.
@@ -985,9 +999,16 @@ Func _RunExecutionRequireOwnVillageReady()
 	Local $bTownHallCoordinatesValid = True
 	If $bTownHallCoordinatesRequired Then $bTownHallCoordinatesValid = isInsideDiamond($g_aiTownHallPos)
 	Local $bTownHallIdentityVerified = RunVillageReadinessIdentityVerified($g_iTownHallLevel)
-	If RunVillageReadinessValidate($g_iTownHallLevel, $bTownHallCoordinatesValid, $g_iMaxTHLevel, $sReason, _
-			$bTownHallIdentityVerified, $bTownHallCoordinatesRequired) Then Return True
-	Return _RunExecutionFailOwnVillageReadiness($sReason)
+	Local $iPlannedTownHall = RunIntentPlannedTownHall($g_oRunExecutionIntent)
+	If Not RunVillageReadinessValidate($g_iTownHallLevel, $bTownHallCoordinatesValid, $g_iMaxTHLevel, $sReason, _
+			$bTownHallIdentityVerified, $bTownHallCoordinatesRequired, $iPlannedTownHall, RunVillageReadinessIdentitySource()) Then _
+		Return _RunExecutionFailOwnVillageReadiness($sReason)
+	Local $oLoadout = $g_oRunExecutionIntent.Item("loadout")
+	If HeroLoadoutCount($oLoadout) > 0 And RunVillageReadinessIdentitySource() <> "template" Then _
+		Return _RunExecutionFailOwnVillageReadiness("selected Heroes require a fresh visual Town Hall detection before any action")
+	If Not HeroLoadoutValidateForDetectedTownHall($oLoadout, $g_iTownHallLevel, $sReason) Then _
+		Return _RunExecutionFailOwnVillageReadiness("Hero loadout does not match the current account: " & $sReason)
+	Return True
 EndFunc   ;==>_RunExecutionRequireOwnVillageReady
 
 Func _RunExecutionRunCurrentArmyOneBattle()

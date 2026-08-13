@@ -26,12 +26,18 @@ Global Const $g_sControllerSha256 = "ae26c098ceb3c74e3d7f567834d9135257e094172e3
 Global Const $g_iControllerBytes = 1634304
 Global Const $g_sHostPath = @ScriptDir & "\MyBot.run.exe"
 Global Const $g_sHostConfigPath = $g_sHostPath & ".config"
+Global Const $g_sEngineProbeConfigPath = @ScriptDir & "\MyBot.run.EngineProbe.exe.config"
 Global Const $g_sEngineMarkerPath = @ScriptDir & "\MyBot.run.txt"
 Global Const $g_sEnginePath = @ScriptDir & "\lib\MyBot.run.dll"
+Global Const $g_sUserDataRoot = @LocalAppDataDir & "\My Bot 2.0"
+Global Const $g_sProfilesRoot = $g_sUserDataRoot & "\Profiles"
+Global Const $g_sProfilesIniPath = $g_sProfilesRoot & "\profile.ini"
+Global Const $g_sFirstRunProfile = "MyVillage"
 Global Const $g_sControllerTitlePattern = "^My Bot Mini v8\.2\.0(?: \(.+\))?$"
 Global Const $g_iDockGap = 8
 Global Const $g_iDockWaitMs = 600000
-Global Const $g_iDockPollMs = 1000
+Global Const $g_iDockTransitionPollMs = 1000
+Global Const $g_iDockStablePollMs = 5000
 Global Const $g_iErrorAlreadyExists = 183
 Global Const $g_sRecoveryLogPath = @ScriptDir & "\artifacts\launcher-recovery.log"
 Global Const $g_sPlannerServiceName = "my-bot-control-center"
@@ -102,7 +108,13 @@ EndIf
 
 ; The inherited image engine supports this exact upstream controller as its genuine remote GUI.
 ; The controller remains visible and functional; it launches the modern backend with /ng and /guipid.
-Local $iControllerPid = ShellExecute($g_sControllerPath, "/nowatchdog", @ScriptDir, "", @SW_SHOWNORMAL)
+Local $sLaunchProfile = _PrepareUserProfile()
+If @error Or $sLaunchProfile = "" Then
+	_ShowError("My Bot 2.0 could not prepare its per-user profile." & @CRLF & @CRLF & _
+		"Check this folder and its profile.ini, then try again:" & @CRLF & $g_sProfilesRoot)
+	Exit 9
+EndIf
+Local $iControllerPid = ShellExecute($g_sControllerPath, _BuildControllerArguments($sLaunchProfile), @ScriptDir, "", @SW_SHOWNORMAL)
 If @error Or $iControllerPid <= 0 Then
 	_ShowError("My Bot 2.0 could not start its native controller." & @CRLF & @CRLF & _
 		"Approve the Windows administrator prompt and try again.")
@@ -140,6 +152,38 @@ Func _CommandLineHas($sSwitch)
 	Next
 	Return False
 EndFunc   ;==>_CommandLineHas
+
+Func _PrepareUserProfile()
+	If Not FileExists($g_sProfilesRoot) Then
+		If Not DirCreate($g_sProfilesRoot) Then Return SetError(1, 0, "")
+	EndIf
+	If StringInStr(FileGetAttrib($g_sProfilesRoot), "D") = 0 Then Return SetError(2, 0, "")
+
+	If Not FileExists($g_sProfilesIniPath) Then
+		Local $sFirstRunPath = $g_sProfilesRoot & "\" & $g_sFirstRunProfile
+		If Not FileExists($sFirstRunPath) And Not DirCreate($sFirstRunPath) Then Return SetError(3, 0, "")
+		If Not IniWrite($g_sProfilesIniPath, "general", "defaultprofile", $g_sFirstRunProfile) Then Return SetError(4, 0, "")
+	EndIf
+
+	Local $sProfile = StringStripWS(IniRead($g_sProfilesIniPath, "general", "defaultprofile", ""), $STR_STRIPLEADING + $STR_STRIPTRAILING)
+	If Not _IsSafeProfileName($sProfile) Then Return SetError(5, 0, "")
+	Local $sProfilePath = $g_sProfilesRoot & "\" & $sProfile
+	If Not FileExists($sProfilePath) Or StringInStr(FileGetAttrib($sProfilePath), "D") = 0 Then Return SetError(6, 0, "")
+	Return $sProfile
+EndFunc   ;==>_PrepareUserProfile
+
+Func _IsSafeProfileName($sProfile)
+	; The pinned Mini controller forwards positional arguments as a reconstructed command line.
+	; Keep the profile name simple so it cannot split, inject another option, or select a parent path.
+	Return StringRegExp($sProfile, "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$") = 1
+EndFunc   ;==>_IsSafeProfileName
+
+Func _BuildControllerArguments($sProfile)
+	; The first parse must leave literal quotes around the path in Mini's $CmdLine value. Mini then
+	; rebuilds the backend command without its own quoting, and the second parse consumes these quotes.
+	; This keeps a path such as "My Bot 2.0\Profiles" intact through both exact pinned executables.
+	Return '"' & $sProfile & '" ' & '"/profiles=\"' & $g_sProfilesRoot & '\"" /nowatchdog'
+EndFunc   ;==>_BuildControllerArguments
 
 Func _RecoverBotStack()
 	_RecoveryLog("recovery requested")
@@ -263,6 +307,7 @@ Func _ValidateInstallation()
 	EndIf
 	If Not FileExists($g_sHostPath) Then Return _InstallError("MyBot.run.exe is missing.", $g_sHostPath)
 	If Not FileExists($g_sHostConfigPath) Then Return _InstallError("MyBot.run.exe.config is missing.", $g_sHostConfigPath)
+	If Not FileExists($g_sEngineProbeConfigPath) Then Return _InstallError("MyBot.run.EngineProbe.exe.config is missing.", $g_sEngineProbeConfigPath)
 	If Not FileExists($g_sEnginePath) Then Return _InstallError("lib\MyBot.run.dll is missing.", $g_sEnginePath)
 	If Not FileExists($g_sEngineMarkerPath) Or FileGetSize($g_sEngineMarkerPath) <> 0 Then
 		Return _InstallError("The empty MyBot.run.txt engine marker is missing or invalid.", $g_sEngineMarkerPath)
@@ -385,6 +430,7 @@ Func _DockWhenReady($hController, $iControllerPid, $iTimeoutMs)
 EndFunc   ;==>_DockWhenReady
 
 Func _KeepDocked($hController, $iControllerPid)
+	Local $sPreviousDockState = ""
 	While ProcessExists($iControllerPid)
 		; Re-prove the controller's exact PID, path, and title before every possible move. If its
 		; window is briefly recreated, reacquire only another exact window from the same process.
@@ -392,24 +438,43 @@ Func _KeepDocked($hController, $iControllerPid)
 			$hController = _FindControllerWindow($iControllerPid)
 			If @error = 2 Then Return False
 			If Not $hController Then
-				Sleep($g_iDockPollMs)
+				Sleep(_AdaptiveDockPollDelay("controller-unbound", $sPreviousDockState))
 				ContinueLoop
 			EndIf
 		EndIf
 		Local $hBlueStacks = _FindBlueStacksWindow($hController)
-		If @error <> 2 And $hBlueStacks And _SynchronizeDockPairVisibility($hController, $hBlueStacks) Then
-			Sleep($g_iDockPollMs)
-			ContinueLoop
-		EndIf
-		If @error <> 2 And $hBlueStacks And _WindowCanDock($hController) And _WindowCanDock($hBlueStacks) Then
-			_DockController($hController, $hBlueStacks, False)
+		Local $iBlueStacksFindError = @error
+		Local $sDockState = "unbound:" & String($hController)
+		Local $bNeedsFastPoll = $iBlueStacksFindError = 2
+		If $iBlueStacksFindError <> 2 And $hBlueStacks Then
+			Local $bVisibilityHandled = _SynchronizeDockPairVisibility($hController, $hBlueStacks)
+			$sDockState = "bound:" & String($hController) & ":" & String($hBlueStacks) & ":" & String($g_iPairVisibilityState)
+			If Not $bVisibilityHandled Then
+				If _WindowCanDock($hController) And _WindowCanDock($hBlueStacks) Then
+					Local $bDocked = _DockController($hController, $hBlueStacks, False)
+					Local $iDockAction = @extended
+					$bNeedsFastPoll = Not $bDocked Or $iDockAction > 0
+				Else
+					$bNeedsFastPoll = True
+				EndIf
+			EndIf
 		ElseIf _WindowCanDock($hController) Then
 			_DockControlStrip($hController)
+			$bNeedsFastPoll = $bNeedsFastPoll Or @extended > 0
 		EndIf
-		Sleep($g_iDockPollMs)
+		Sleep(_AdaptiveDockPollDelay($sDockState, $sPreviousDockState, $bNeedsFastPoll))
 	WEnd
 	Return True
 EndFunc   ;==>_KeepDocked
+
+; A stable bound pair and a stable unbound controller need only a low-frequency identity check.
+; Any state transition, ambiguous binding, or corrected geometry gets a fast confirmation poll.
+Func _AdaptiveDockPollDelay($sState, ByRef $sPreviousState, $bNeedsFastPoll = False)
+	Local $bStateChanged = $sState <> $sPreviousState
+	$sPreviousState = $sState
+	If $bNeedsFastPoll Or $bStateChanged Then Return $g_iDockTransitionPollMs
+	Return $g_iDockStablePollMs
+EndFunc   ;==>_AdaptiveDockPollDelay
 
 ; Treat the exact controller and the exact instance-bound BlueStacks window as one visible pair.
 ; A four-state handshake avoids the asynchronous restore race where one window becomes visible a
@@ -489,12 +554,12 @@ Func _DockController($hController, $hBlueStacks, $bReveal = True)
 	If $bReveal Then WinSetState($hController, "", @SW_SHOW)
 	Local $aController = WinGetPos($hController)
 	Local $aBlueStacks = WinGetPos($hBlueStacks)
-	If @error Or Not IsArray($aController) Or Not IsArray($aBlueStacks) Then Return False
-	If $aController[2] <= 0 Or $aController[3] <= 0 Or $aBlueStacks[2] <= 0 Or $aBlueStacks[3] <= 0 Then Return False
+	If @error Or Not IsArray($aController) Or Not IsArray($aBlueStacks) Then Return SetExtended(0, False)
+	If $aController[2] <= 0 Or $aController[3] <= 0 Or $aBlueStacks[2] <= 0 Or $aBlueStacks[3] <= 0 Then Return SetExtended(0, False)
 
 	Local $hMonitor = _WinAPI_MonitorFromWindow($hBlueStacks, 2)
 	Local $aMonitor = _WinAPI_GetMonitorInfo($hMonitor)
-	If @error Or Not IsArray($aMonitor) Then Return False
+	If @error Or Not IsArray($aMonitor) Then Return SetExtended(0, False)
 	Local $iWorkTop = DllStructGetData($aMonitor[1], "Top")
 	Local $iWorkBottom = DllStructGetData($aMonitor[1], "Bottom")
 
@@ -504,7 +569,7 @@ Func _DockController($hController, $hBlueStacks, $bReveal = True)
 	Local $aVirtual = _VirtualDesktopHorizontalBounds()
 	Local $iX = $aBlueStacks[0] + $aBlueStacks[2] + $g_iDockGap
 	If $iX + $aController[2] > $aVirtual[1] Then $iX = $aBlueStacks[0] - $g_iDockGap - $aController[2]
-	If $iX < $aVirtual[0] Then Return False
+	If $iX < $aVirtual[0] Then Return SetExtended(0, False)
 	Local $iY = $aBlueStacks[1]
 	If $iY < $iWorkTop Then $iY = $iWorkTop
 	If $iY + $aController[3] > $iWorkBottom Then $iY = $iWorkBottom - $aController[3]
@@ -512,14 +577,15 @@ Func _DockController($hController, $hBlueStacks, $bReveal = True)
 	; Avoid needless WinMove calls once the requested 8 px relationship is already stable.
 	If Abs($aController[0] - $iX) <= 2 And Abs($aController[1] - $iY) <= 2 Then
 		_DockControlStrip($hController)
-		Return True
+		Local $iStripAction = @extended
+		Return SetExtended($iStripAction, True)
 	EndIf
 	WinMove($hController, "", $iX, $iY)
-	If @error Then Return False
+	If @error Then Return SetExtended(0, False)
 	Local $aMoved = WinGetPos($hController)
 	Local $bMoved = IsArray($aMoved) And Abs($aMoved[0] - $iX) <= 2 And Abs($aMoved[1] - $iY) <= 2
 	If $bMoved Then _DockControlStrip($hController)
-	Return $bMoved
+	Return SetExtended($bMoved ? 1 : 0, $bMoved)
 EndFunc   ;==>_DockController
 
 Func _ShowControlStrip($hController)
@@ -543,33 +609,37 @@ Func _ShowControlStrip($hController)
 EndFunc   ;==>_ShowControlStrip
 
 Func _DockControlStrip($hController)
-	If $g_hControlStrip = 0 Or Not WinExists($hController) Then Return False
+	If $g_hControlStrip = 0 Or Not WinExists($hController) Then Return SetExtended(0, False)
 	; A visible owned popup can restore its minimized owner on Windows. Never move or reveal this
 	; strip until the paired controller is visible again; the pair synchronizer owns that transition.
 	If _WindowIsMinimized($hController) Then
 		WinSetState($g_hControlStrip, "", @SW_HIDE)
-		Return False
+		Return SetExtended(0, False)
 	EndIf
 	Local $aController = WinGetPos($hController)
-	If @error Or Not IsArray($aController) Or $aController[2] <= 0 Or $aController[3] <= 0 Then Return False
+	If @error Or Not IsArray($aController) Or $aController[2] <= 0 Or $aController[3] <= 0 Then Return SetExtended(0, False)
 
 	Local $hMonitor = _WinAPI_MonitorFromWindow($hController, 2)
 	Local $aMonitor = _WinAPI_GetMonitorInfo($hMonitor)
-	If @error Or Not IsArray($aMonitor) Then Return False
+	If @error Or Not IsArray($aMonitor) Then Return SetExtended(0, False)
 	Local $iWorkTop = DllStructGetData($aMonitor[1], "Top")
 	Local $iWorkBottom = DllStructGetData($aMonitor[1], "Bottom")
 	Local $iX = $aController[0]
 	Local $iY = $aController[1] + $aController[3] + $g_iControlStripGap
 	If $iY + $g_iControlStripHeight > $iWorkBottom Then $iY = $aController[1] - $g_iControlStripGap - $g_iControlStripHeight
-	If $iY < $iWorkTop Then Return False
+	If $iY < $iWorkTop Then Return SetExtended(0, False)
 
 	Local $iHalfWidth = Int(($aController[2] - 4) / 2)
 	GUICtrlSetPos($g_idOpenControlCenter, 0, 0, $iHalfWidth, $g_iControlStripHeight)
 	GUICtrlSetPos($g_idMinimizePair, $iHalfWidth + 4, 0, $aController[2] - $iHalfWidth - 4, $g_iControlStripHeight)
+	Local $aStrip = WinGetPos($g_hControlStrip)
+	If IsArray($aStrip) And Abs($aStrip[0] - $iX) <= 2 And Abs($aStrip[1] - $iY) <= 2 And _
+			Abs($aStrip[2] - $aController[2]) <= 2 And Abs($aStrip[3] - $g_iControlStripHeight) <= 2 Then Return SetExtended(0, True)
 	WinMove($g_hControlStrip, "", $iX, $iY, $aController[2], $g_iControlStripHeight)
-	If @error Then Return False
+	If @error Then Return SetExtended(0, False)
 	Local $aMoved = WinGetPos($g_hControlStrip)
-	Return IsArray($aMoved) And Abs($aMoved[0] - $iX) <= 2 And Abs($aMoved[1] - $iY) <= 2
+	Local $bMoved = IsArray($aMoved) And Abs($aMoved[0] - $iX) <= 2 And Abs($aMoved[1] - $iY) <= 2
+	Return SetExtended($bMoved ? 1 : 0, $bMoved)
 EndFunc   ;==>_DockControlStrip
 
 Func _OpenControlCenter()

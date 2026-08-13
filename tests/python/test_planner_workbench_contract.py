@@ -29,7 +29,8 @@ class PlannerWorkbenchContract(unittest.TestCase):
 
     def test_all_settings_survive_and_free_text_types_are_explicit(self):
         settings = {setting["id"]: setting for section in METADATA["sections"] for setting in section["settings"]}
-        self.assertEqual(len(settings), 44)
+        self.assertEqual(len(settings), 45)
+        self.assertEqual(settings["run.town_hall"]["default"], 0)
         self.assertEqual(settings["runtime.instance"]["type"], "instance-select")
         self.assertEqual(settings["army.recipe_name"]["type"], "text")
         self.assertEqual(settings["run.diagnostic_note"]["type"], "text")

@@ -3224,7 +3224,7 @@ Func AndroidClick($x, $y, $times = 1, $speed = 150, $checkProblemAffect = True)
 	ForceCaptureRegion()
 	;AndroidSlowClick($x, $y, $times, $speed)
 	;AndroidFastClick($x, $y, $times, $speed, $checkProblemAffect)
-	AndroidMinitouchClick($x, $y, $times, $speed, $checkProblemAffect)
+	Return AndroidMinitouchClick($x, $y, $times, $speed, $checkProblemAffect)
 EndFunc   ;==>AndroidClick
 
 Func AndroidSlowClick($x, $y, $times = 1, $speed = 0)
@@ -3311,7 +3311,7 @@ EndFunc   ;==>AndroidFastClick
 Func _AndroidFastClick($x, $y, $times = 1, $speed = 0, $checkProblemAffect = True, $iRetryCount = 0)
 	Local $_SilentSetLog = $g_bSilentSetLog
 	Local $hDuration = __TimerInit()
-	If $times < 1 Then Return SetError(0, 0)
+	If $times < 1 Then Return SetError(0, 0, False)
 	Local $i = 0, $j = 0
 	Local $Click = [$x, $y, "down-up"]
 	Local $aiAndroidAdbClicks
@@ -3328,7 +3328,7 @@ Func _AndroidFastClick($x, $y, $times = 1, $speed = 0, $checkProblemAffect = Tru
 			SetDebugLog("Hold back click (" & $x & "/" & $y & " * " & $times & "): queue size = " & $g_aiAndroidAdbClicks[0], $COLOR_ERROR)
 			$g_bSilentSetLog = $_SilentSetLog
 		EndIf
-		Return
+		Return False
 	EndIf
 
 	$x = Int($x)
@@ -3346,7 +3346,7 @@ Func _AndroidFastClick($x, $y, $times = 1, $speed = 0, $checkProblemAffect = Tru
 		SetLog($g_sAndroidEmulator & " shared folder not configured for Android", $COLOR_ERROR)
 		$g_bAndroidAdbClick = False
 		SetLog("Disabled " & $g_sAndroidEmulator & " ADB fast mouse click", $COLOR_ERROR)
-		Return SetError(1, 0)
+		Return SetError(1, 0, False)
 	EndIf
 
 	AndroidAdbLaunchShellInstance($wasRunState)
@@ -3724,7 +3724,7 @@ Func AndroidMinitouchClick($x, $y, $times = 1, $speed = 150, $checkProblemAffect
 		If $g_bAndroidAdbMinitouchSocket < 1 Then
 			$g_bAndroidAdbClick = False
 			SetLog("Disabled " & $g_sAndroidEmulator & " ADB fast mouse click", $COLOR_ERROR)
-			Return SetError(1, 0)
+			Return SetError(1, 0, False)
 		EndIf
 
 		TCPRecv($g_bAndroidAdbMinitouchSocket, 256, 1)
@@ -3738,7 +3738,7 @@ Func AndroidMinitouchClick($x, $y, $times = 1, $speed = 150, $checkProblemAffect
 				AndroidAdbTerminateShellInstance()
 				Return AndroidMinitouchClick($x, $y, $times, $speed, $checkProblemAffect, $iRetryCount + 1)
 			EndIf
-			Return SetError(1, 0)
+			Return SetError(1, 0, False)
 		EndIf
 	EndIf
 
@@ -3781,7 +3781,7 @@ Func AndroidMinitouchClick($x, $y, $times = 1, $speed = 150, $checkProblemAffect
 				If isProblemAffect(True) Then
 					SetDebugLog("VOIDED Click " & $x & "," & $y & "," & $times & "," & $speed, $COLOR_ERROR, "Verdana", "7.5", 0)
 					checkMainScreen(False)
-					Return ; if need to clear screen do not click
+					Return False ; if need to clear screen do not click
 				EndIf
 			EndIf
 		EndIf
@@ -3885,7 +3885,7 @@ Func AndroidMinitouchClick($x, $y, $times = 1, $speed = 150, $checkProblemAffect
 						SetDebugLog("AndroidMinitouchClick: Sleep " & $wait & " ms.")
 						$g_bSilentSetLog = $_SilentSetLog
 					EndIf
-					If _Sleep($wait, False) Then Return
+					If _Sleep($wait, False) Then Return True
 				EndIf
 			EndIf
 		EndIf
@@ -3928,6 +3928,7 @@ Func AndroidMinitouchClick($x, $y, $times = 1, $speed = 150, $checkProblemAffect
 			SetDebugLog("AndroidMinitouchClick: " & $totalAvg & "/" & $lastAvg & "/" & $duration & " ms (all/" & $iLastCount & "/1), $x=" & $x & ", $y=" & $y & ", $times=" & $times & ", $speed = " & $speed & ", $checkProblemAffect=" & $checkProblemAffect)
 		EndIf
 	EndIf
+	Return True
 EndFunc   ;==>AndroidMinitouchClick
 
 Func AndroidSendText($sText, $SymbolFix = False, $wasRunState = $g_bRunState)

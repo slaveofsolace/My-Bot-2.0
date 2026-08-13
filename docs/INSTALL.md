@@ -52,9 +52,25 @@ Avoid protected folders, cloud-synced folders, unusual Unicode paths, and deeply
 
 ## 3. Start with a clean profile
 
-Do not copy profile or configuration folders from an older MyBot installation. The inherited code already warns against old configs, and the unified project does not yet have a complete migration layer.
+Installed releases keep mutable profiles outside the replaceable program directory at
+`%LOCALAPPDATA%\My Bot 2.0\Profiles`. A first install creates the safe `MyVillage` starting profile
+and selects it in `profile.ini`. Program upgrades and uninstall leave this per-user data in place.
 
-Keep the original folder untouched. Use a separate copy for each experimental branch until profile migration tests exist.
+The installer can make a one-time, non-destructive copy of a profile directory from this same source
+baseline. From the extracted release directory, run:
+
+```powershell
+& ".\Install My Bot 2.0.cmd" -ProfileSourceDirectory "C:\path\to\My-Bot-2.0\Profiles"
+```
+
+The source must contain `[general] defaultprofile=...` in `profile.ini`, and the selected profile
+folder must exist. The selected name is limited to letters, numbers, dot, underscore, and hyphen so
+the exact pinned Mini GUI can forward it safely. Migration refuses to overwrite anything already in
+the per-user Profiles directory. It copies the source; it never moves or deletes it.
+
+Do not use this copy option for configuration folders from an older MyBot version. The inherited
+code warns against old configs, and this project does not claim schema migration from older releases.
+Keep the original folder untouched until the copied profile has passed controlled startup checks.
 
 ## 4. Run the application or source
 
@@ -62,7 +78,8 @@ For an extracted, internally reviewed LocalRuntime package, double-click `Instal
 It installs for the current Windows user under `%LOCALAPPDATA%\Programs\My Bot 2.0` and creates a
 Start-menu entry. Afterward, press the Windows key and type `My Bot 2.0`. Use Windows Installed apps
 or the Start-menu uninstall shortcut to remove it. The installer deliberately refuses source-tree
-folders and packages whose release manifest, marker, or launcher provenance is invalid.
+folders and packages whose release manifest, marker, or launcher provenance is invalid. Uninstall
+removes the application and its registration but retains `%LOCALAPPDATA%\My Bot 2.0\Profiles`.
 
 For normal use, run:
 
@@ -73,8 +90,10 @@ My Bot 2.0.exe
 The launcher requests elevation and starts the exact pinned MyBot.run v8.2
 `MyBot.run.MiniGui.exe`. The Mini GUI stays visible and functional as the native safety controller
 for Start, Stop, Pause and Resume. It launches `MyBot.run.exe` as the modern `/ng` backend and
-passes its exact process ID through `/guipid`. The browser Control Center remains the primary
-planner, and the backend performs the automation work.
+passes its exact process ID through `/guipid`. The launcher also selects the validated per-user
+default profile and forwards the quoted `%LOCALAPPDATA%\My Bot 2.0\Profiles` path through the exact
+Mini GUI to the backend. The browser Control Center remains the primary planner, and the backend
+performs the automation work.
 
 The launcher snaps the Mini GUI beside the selected exact BlueStacks top-level window. It keeps
 both windows independent and does not embed, reparent, or rename BlueStacks. This external
@@ -213,10 +232,11 @@ either window.
 | ADB connects to the wrong instance | Stop testing and record emulator name, version, instance index, reported device, and ADB port. Do not change formulas without an adapter-level review. |
 | Window is found but nothing is recognized | Verify resolution, DPI, zoom, scenery, current game screen, and whether the client is newer than the available image set. Capture a redacted screenshot fixture. |
 | Repeated unknown popup | Stop the run. Save the screenshot and log. Add the screen to the interruption inventory instead of adding a blind click. |
-| Settings behave unexpectedly | Reproduce with a fresh profile. Do not reuse an older INI until migration is implemented. |
+| Settings behave unexpectedly | Confirm `profile.ini` and the selected folder under `%LOCALAPPDATA%\My Bot 2.0\Profiles`. Reproduce with a fresh current-version profile; do not reuse an older-version INI. |
 | Stop takes too long | Capture the current engine state and last action. A blocked input or unbounded retry must be fixed rather than hidden by force-closing. |
 | An AutoIt error dialog blocks restart | Preserve `artifacts/launcher-recovery.log`, then run `My Bot 2.0.exe /recover`. Recovery logs and closes only checkout-owned AutoIt errors and exact-path bot processes; it does not click through arbitrary Windows dialogs. |
 | Mini GUI opens but the backend closes or ImgLoc blocks the run | Confirm the exact pinned v8.2 Mini GUI and backend are unmodified, `MyBot.run.exe.config` is beside them, and `MyBot.run.txt` exists as a zero-byte file. Do not rename or patch the protected binaries. |
+| Managed engine does not answer within 15 seconds | The isolated probe has already stopped the hung helper. Confirm Windows Security protection is running and review its Operational log. If Defender or the 32-bit CLR is stalled, restart Windows once, then relaunch the app. Do not add antivirus exclusions or disable tamper protection. |
 | Start reports `Managed engine did not answer` | The x86 helper contained a mixed-mode DLL startup stall. Inspect Windows Security and `.NET Framework` health. Defender Operational events `5008` followed by `3002` indicate an engine/filter failure that must be repaired before retrying; restart My Bot 2.0 afterward. Do not disable Defender or add a broad exclusion. |
 | Antivirus warning | Build from reviewed source. Verify any native DLL or inherited executable independently. Do not disable endpoint protection as an installation step. |
 | Game account warning or penalty | Stop using the environment. Supercell prohibits unapproved gameplay bots on live accounts. Use only environments and accounts for which explicit authorization exists. |

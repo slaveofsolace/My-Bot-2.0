@@ -290,7 +290,7 @@ Func _RunPlannerApplySetting($iSetting, $vValue, ByRef $sError)
 			; Heroes are held in a loadout rather than the control, so the list goes through the engine and an impossible
 			; selection is refused here rather than surfacing at Apply.
 			Local $sIds = StringStripWS(String($vValue), $STR_STRIPLEADING + $STR_STRIPTRAILING)
-			Local $oLoadout = HeroLoadoutCreate($CURRENT_GAME_MAX_TOWN_HALL)
+			Local $oLoadout = HeroLoadoutCreate(RunPlannerReadInteger("run.town_hall"))
 			If Not IsObj($oLoadout) Then
 				$sError = $sId & ": unable to create a Hero loadout"
 				Return SetError(3, 0, False)
@@ -365,9 +365,23 @@ Func RunPlannerApplyPlanFile($sPath, ByRef $sError)
 	Local $iApplied = 0, $iAdjusted = 0, $iRefused = 0, $iUnknown = 0
 	Local $sFirstProblem = ""
 	Local $aKeys = $oValues.Keys()
+	; Hero availability depends on the plan's Town Hall. Apply that identity first even when
+	; the JSON dictionary returns run.heroes before run.town_hall.
+	If $oValues.Exists("run.town_hall") Then
+		Local $iTownHallSetting = RunPlannerSettingIndex("run.town_hall")
+		Local $sTownHallError = ""
+		If $iTownHallSetting >= 0 And _RunPlannerApplySetting($iTownHallSetting, $oValues.Item("run.town_hall"), $sTownHallError) Then
+			$iApplied += 1
+			If $sTownHallError <> "" Then $iAdjusted += 1
+		Else
+			$iRefused += 1
+		EndIf
+		If $sTownHallError <> "" Then $sFirstProblem = $sTownHallError
+	EndIf
 
 	For $i = 0 To UBound($aKeys) - 1
 		Local $sKey = $aKeys[$i]
+		If $sKey = "run.town_hall" Then ContinueLoop
 		Local $iSetting = RunPlannerSettingIndex($sKey)
 		If $iSetting < 0 Then
 			; A setting this build does not have. Older or newer plan files are readable either way, which is the point of
@@ -442,7 +456,7 @@ EndFunc   ;==>RunPlannerPlanModeForSurface
 
 Func RunPlannerBuildLoadout(ByRef $sError)
 	$sError = ""
-	Local $oLoadout = HeroLoadoutCreate($CURRENT_GAME_MAX_TOWN_HALL)
+	Local $oLoadout = HeroLoadoutCreate(RunPlannerReadInteger("run.town_hall"))
 	If Not IsObj($oLoadout) Then
 		$sError = "Unable to create a Hero loadout"
 		Return SetError(1, 0, 0)
@@ -480,6 +494,8 @@ Func RunPlannerBuildIntent(ByRef $sError)
 		$sError = "Unable to create a run plan"
 		Return SetError(3, 0, 0)
 	EndIf
+	If Not RunPlanSetPlannedTownHall($oPlan, RunPlannerReadInteger("run.town_hall"), $sError) Then _
+		Return SetError(3, 1, 0)
 
 	If Not RunPlanSetStopConditions($oPlan, RunPlannerReadInteger("run.duration_minutes"), RunPlannerReadInteger("run.max_battles"), RunPlannerReadBoolean("run.stop_on_star_bonus"), RunPlannerReadInteger("run.max_failures")) Then
 		$sError = "Stop conditions are out of range"
@@ -500,6 +516,10 @@ Func RunPlannerBuildIntent(ByRef $sError)
 
 	Local $oIntent = RunIntentCreate($oPlan, $sSurface, $oLoadout, $sError)
 	If Not IsObj($oIntent) Then Return SetError(7, 0, 0)
+	If Not RunIntentSetProfile($oIntent, $g_sProfileCurrentName) Then
+		$sError = "Unable to bind the run intent to the active profile"
+		Return SetError(7, 1, 0)
+	EndIf
 
 	If Not RunIntentSetPacing($oIntent, RunPlannerReadInteger("pacing.action_delay_ms"), RunPlannerReadInteger("pacing.settle_ms"), RunPlannerReadInteger("pacing.retry_attempts"), RunPlannerReadInteger("pacing.break_every_minutes"), RunPlannerReadInteger("pacing.break_minutes"), $sError) Then
 		$sError = "Pacing is out of range: " & $sError
@@ -710,6 +730,10 @@ Func cmbRunPlannerHeroes()
 	UpdateRunPlannerDetail("run.heroes")
 EndFunc   ;==>cmbRunPlannerHeroes
 
+Func inpRunPlannerTownHall()
+	UpdateRunPlannerDetail("run.town_hall")
+EndFunc   ;==>inpRunPlannerTownHall
+
 Func cmbRunPlannerStrategy()
 	UpdateRunPlannerDetail("run.strategy")
 EndFunc   ;==>cmbRunPlannerStrategy
@@ -755,6 +779,11 @@ Func btnRunPlannerLoad()
 		$g_oRunPlannerIntent = 0
 		_RunPlannerSetLabel($g_hRunPlannerStatus, "Rejected · " & $sError, $COLOR_MAROON)
 		SetLog("Run Planner: " & $sError, $COLOR_ERROR)
+		Return
+	EndIf
+	If Not RunIntentSetProfile($oIntent, $g_sProfileCurrentName) Then
+		$g_oRunPlannerIntent = 0
+		_RunPlannerSetLabel($g_hRunPlannerStatus, "Rejected · current profile could not be bound", $COLOR_MAROON)
 		Return
 	EndIf
 	$g_oRunPlannerIntent = $oIntent

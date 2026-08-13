@@ -18,7 +18,7 @@
 #include "..\Run\RunPacingGate.au3"
 
 Func Click($x, $y, $times = 1, $speed = 120, $debugtxt = "")
-	Local $txt = "", $aPrevCoor[2] = [$x, $y]
+	Local $txt = "", $aPrevCoor[2] = [$x, $y], $bIssued = False
 	If $g_bUseRandomClick Then
 		$x = Random($x - 5, $x + 5, 1)
 		$y = Random($y - 5, $y + 5, 1)
@@ -34,19 +34,20 @@ Func Click($x, $y, $times = 1, $speed = 120, $debugtxt = "")
 		EndIf
 	EndIf
 
-	If TestCapture() Then Return
+	If TestCapture() Then Return False
 
 	; Holds this action back until the run's configured gap has passed. Returns immediately when no run has installed
 	; pacing, which is every bot that has not started a plan, so the untouched path costs one IsObj.
 	;
 	; Only Click() is gated, not PureClick or PureClickTrain: those drive troop training in tight loops that already
 	; space themselves with their own speed argument, and a second delay on top would double-space something tuned.
-	If RunPacingGateAction() Then Return
+	If RunPacingGateAction() Then Return False
 
 	If $g_bAndroidAdbClick = True Then
-		AndroidClick($x, $y, $times, $speed)
+		Local $bAndroidIssued = AndroidClick($x, $y, $times, $speed)
+		Local $iAndroidError = @error, $iAndroidExtended = @extended
 		RunPacingSettle()
-		Return
+		Return SetError($iAndroidError, $iAndroidExtended, $bAndroidIssued = True)
 	EndIf
 
 	Local $SuspendMode = ResumeAndroid()
@@ -56,10 +57,10 @@ Func Click($x, $y, $times = 1, $speed = 120, $debugtxt = "")
 				If $g_bDebugClick Then SetLog("VOIDED Click " & $x & "," & $y & "," & $times & "," & $speed & " " & $debugtxt & $txt, $COLOR_ERROR, "Verdana", "7.5", 0)
 				checkMainScreen(False)
 				SuspendAndroid($SuspendMode)
-				Return ; if need to clear screen do not click
+				Return $bIssued ; if need to clear screen do not click
 			EndIf
 			MoveMouseOutBS()
-			_ControlClick($x, $y)
+			If _ControlClick($x, $y) Then $bIssued = True
 			If _Sleep($speed, False) Then ExitLoop
 		Next
 	Else
@@ -67,13 +68,14 @@ Func Click($x, $y, $times = 1, $speed = 120, $debugtxt = "")
 			If $g_bDebugClick Then SetLog("VOIDED Click " & $x & "," & $y & "," & $times & "," & $speed & " " & $debugtxt & $txt, $COLOR_ERROR, "Verdana", "7.5", 0)
 			checkMainScreen(False)
 			SuspendAndroid($SuspendMode)
-			Return ; if need to clear screen do not click
+			Return False ; if need to clear screen do not click
 		EndIf
 		MoveMouseOutBS()
-		_ControlClick($x, $y)
+		$bIssued = (_ControlClick($x, $y) <> 0)
 	EndIf
 	SuspendAndroid($SuspendMode)
 	RunPacingSettle()
+	Return $bIssued
 EndFunc   ;==>Click
 
 Func _ControlClick($x, $y)

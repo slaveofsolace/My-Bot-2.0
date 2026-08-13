@@ -27,7 +27,10 @@ class RunVillageReadinessStaticTest(unittest.TestCase):
             "ZoomOut()",
             "BotDetectFirstTime(True)",
             "RunVillageReadinessIdentityVerified(",
+            "RunExecutionPreparedIntent()",
+            "RunIntentPlannedTownHall(",
             "RunVillageReadinessValidate(",
+            "HeroLoadoutValidateForDetectedTownHall(",
             "AndroidBotStartEvent()",
             "RunExecutionBegin(",
             "RunControlReportStartOutcome(True",
@@ -37,6 +40,19 @@ class RunVillageReadinessStaticTest(unittest.TestCase):
         self.assertIn("RunEventLogPlanBlocked", initiate)
         self.assertIn("Return False", initiate)
         self.assertNotIn("RunVillageReadinessValidate($g_iTownHallLevel, isInsideDiamond(", initiate)
+
+        execution = source("COCBot/functions/Run/RunExecution.au3")
+        event_log = source("COCBot/functions/Run/RunEventLog.au3")
+        prepare = autoit_function(execution, "RunExecutionPrepareStart")
+        cancel = autoit_function(execution, "RunExecutionCancelPrepared")
+        self.assertIn("RunEventLogPreflightStarted", prepare)
+        self.assertIn('RunEventLogWrite("session.preparing"', event_log)
+        self.assertNotIn('RunEventLogWrite("session.ready"', event_log)
+        self.assertIn("RunSessionFail($g_oRunExecutionSession, $sReason)", cancel)
+        self.assertIn('"Preflight failed: " & $sReason', cancel)
+        self.assertLess(prepare.index("RunEventLogBindSession"), prepare.index("RunEventLogPreflightStarted"))
+        self.assertIn("RunVillageReadinessIdentitySource()", initiate)
+        self.assertIn("selected Heroes require a fresh visual Town Hall detection", initiate)
 
     def test_account_switch_gate_precedes_training_donation_and_attack(self) -> None:
         main = source("MyBot.run.au3")
@@ -54,15 +70,23 @@ class RunVillageReadinessStaticTest(unittest.TestCase):
     def test_current_army_run_skips_legacy_zoom_and_building_interaction(self) -> None:
         main = source("MyBot.run.au3")
         run_bot = autoit_function(main, "runBot")
-        terminal_boundary = (
-            "If RunExecutionPlanActive() And Not RunExecutionShouldManageTraining() Then",
-            "_RunExecutionRunCurrentArmyOneBattle()",
-            "Return",
-            "InitiateSwitchAcc()",
-            "FirstCheck()",
-            "While 1",
-        )
-        offsets = [run_bot.index(fragment) for fragment in terminal_boundary]
+        home_start = run_bot.index("If HomeMaintenanceRouteActive() Then")
+        home_execute = run_bot.index("HomeMaintenanceRouteExecute()", home_start)
+        home_return = run_bot.index("Return", home_execute)
+        passive_start = run_bot.index("If RunExecutionPlanActive() And Not RunExecutionShouldManageTraining() Then")
+        passive_execute = run_bot.index("_RunExecutionRunCurrentArmyOneBattle()", passive_start)
+        passive_return = run_bot.index("Return", passive_execute)
+        offsets = [
+            home_start,
+            home_execute,
+            home_return,
+            passive_start,
+            passive_execute,
+            passive_return,
+            run_bot.index("InitiateSwitchAcc()", passive_return),
+            run_bot.index("FirstCheck()", passive_return),
+            run_bot.index("While 1", passive_return),
+        ]
         self.assertEqual(offsets, sorted(offsets))
 
         one_battle = autoit_function(main, "_RunExecutionRunCurrentArmyOneBattle")
@@ -146,13 +170,19 @@ class RunVillageReadinessStaticTest(unittest.TestCase):
             main_screen.index("ZoomOut()"),
         )
         self.assertIn(
-            "Run Planner current-army mode: skipped legacy pending notifications during screen proof",
+            "Run Planner bounded mode: skipped legacy pending notifications during screen proof",
             main_screen,
         )
         self.assertRegex(
             main_screen,
-            r"(?s)If RunExecutionSkipVillageZoomCalibration\(\) Then.*?Else\s+NotifyPendingActions\(\)\s+EndIf",
+            r"(?s)If RunExecutionSkipPendingNotifications\(\) Then.*?Else\s+NotifyPendingActions\(\)\s+EndIf",
         )
+
+        execution = autoit_function(
+            source("COCBot/functions/Run/RunExecution.au3"), "RunExecutionSkipVillageZoomCalibration"
+        )
+        self.assertIn("If Not $g_bRunExecutionPrepared Or $g_bRunExecutionManageTraining Then Return False", execution)
+        self.assertIn("HomeMaintenanceRouteSelected($g_oRunExecutionIntent) Then Return False", execution)
 
         builder_count = autoit_function(
             source("COCBot/functions/Read Text/getBuilderCount.au3"), "getBuilderCount"
@@ -178,7 +208,9 @@ class RunVillageReadinessStaticTest(unittest.TestCase):
         for required in (
             'If Not $oPlan.Item("army_wait_for_full") Then',
             '$oPlan.Item("donate_request_when_short")',
-            '$oPlan.Item("events_clan_games") Or $oPlan.Item("events_collect_resources")',
+            'If $oPlan.Item("events_collect_resources") Then',
+            'Collector work requires the explicit Home maintenance - collectors only strategy',
+            'If $oPlan.Item("events_clan_games") Then',
             '$oPlan.Item("events_laboratory")',
             '$oPlan.Item("upgrade_policy")',
         ):
@@ -239,6 +271,9 @@ class RunVillageReadinessStaticTest(unittest.TestCase):
         self.assertIn("without building coordinates", identity_slice)
         self.assertNotIn("ConvertFromVillagePos", identity_slice)
         self.assertNotIn("LocateTownHall", identity_slice)
+        self.assertNotIn("Collect(", identity_slice)
+        self.assertNotIn("BuildingClick", identity_slice)
+        self.assertNotRegex(identity_slice, r"\bLocate\w*\s*\(")
         readiness_returns = [match.start() for match in re.finditer(r"If \$bOwnVillageReadinessOnly Then Return", detector)]
         self.assertGreaterEqual(len(readiness_returns), 2)
         for locator in (
@@ -281,6 +316,9 @@ class RunVillageReadinessStaticTest(unittest.TestCase):
         gate = autoit_function(source("MyBot.run.au3"), "_RunExecutionRequireOwnVillageReady")
         self.assertIn("RunVillageReadinessIdentityVerified(", gate)
         self.assertNotIn("RunVillageReadinessValidate($g_iTownHallLevel, isInsideDiamond(", gate)
+        self.assertIn("HeroLoadoutValidateForDetectedTownHall", gate)
+        self.assertLess(gate.index("RunVillageReadinessValidate("), gate.index("HeroLoadoutValidateForDetectedTownHall"))
+        self.assertLess(gate.index("HeroLoadoutValidateForDetectedTownHall"), gate.rindex("Return True"))
 
     def test_identity_detector_uses_profile_level_and_rejects_conflicting_matches(self) -> None:
         detector = autoit_function(

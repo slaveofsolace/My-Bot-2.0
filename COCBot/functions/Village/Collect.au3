@@ -14,27 +14,32 @@
 ; ===============================================================================================================================
 #include-once
 
-Func Collect($bCheckTreasury = True)
-	If Not $g_bChkCollect Or Not $g_bRunState Then Return
+Func Collect($bCheckTreasury = True, $bCollectorsOnly = False)
+	Local $iCollectorClicks = 0
+	If Not $g_bChkCollect Or Not $g_bRunState Then Return SetExtended($iCollectorClicks, False)
 
 	ClearScreen()
 
 	StartGainCost()
 
-	If $g_bChkCollectCartFirst And ($g_iTxtCollectGold = 0 Or $g_aiCurrentLoot[$eLootGold] < Number($g_iTxtCollectGold) Or $g_iTxtCollectElixir = 0 Or $g_aiCurrentLoot[$eLootElixir] < Number($g_iTxtCollectElixir) Or $g_iTxtCollectDark = 0 Or $g_aiCurrentLoot[$eLootDarkElixir] < Number($g_iTxtCollectDark)) Then CollectLootCart()
+	If Not $bCollectorsOnly And $g_bChkCollectCartFirst And ($g_iTxtCollectGold = 0 Or $g_aiCurrentLoot[$eLootGold] < Number($g_iTxtCollectGold) Or $g_iTxtCollectElixir = 0 Or $g_aiCurrentLoot[$eLootElixir] < Number($g_iTxtCollectElixir) Or $g_iTxtCollectDark = 0 Or $g_aiCurrentLoot[$eLootDarkElixir] < Number($g_iTxtCollectDark)) Then CollectLootCart()
 
 	SetLog("Collecting Resources", $COLOR_INFO)
-	If _Sleep($DELAYCOLLECT2) Then Return
+	If _Sleep($DELAYCOLLECT2) Then Return SetExtended($iCollectorClicks, False)
 
-	Local $aGoldFull = _FullResPixelSearch($aIsGoldFull[0], $aIsGoldFull[0] + 4, $aIsGoldFull[1], 1, Hex(0x0D0D0D, 6), $aIsGoldFull[2], $aIsGoldFull[3])
-	Local $aElixirFull = _FullResPixelSearch($aIsElixirFull[0], $aIsElixirFull[0] + 4, $aIsElixirFull[1], 1, Hex(0x0D0D0D, 6), $aIsElixirFull[2], $aIsElixirFull[3])
-	Local $aDarkElixirFull = _FullResPixelSearch($aIsDarkElixirFull[0], $aIsDarkElixirFull[0] + 4, $aIsDarkElixirFull[1], 1, Hex(0x0D0D0D, 6), $aIsDarkElixirFull[2], $aIsDarkElixirFull[3])
+	; Lease one exact frame to every pre-click storage and collector decision. The helpers below must
+	; not recapture independently or a collector can be selected against different screen geometry.
+	ForceCaptureRegion()
+	_CaptureRegions()
+	Local $aGoldFull = _FullResPixelSearch($aIsGoldFull[0], $aIsGoldFull[0] + 4, $aIsGoldFull[1], 1, Hex(0x0D0D0D, 6), $aIsGoldFull[2], $aIsGoldFull[3], $g_bNoCapturePixel)
+	Local $aElixirFull = _FullResPixelSearch($aIsElixirFull[0], $aIsElixirFull[0] + 4, $aIsElixirFull[1], 1, Hex(0x0D0D0D, 6), $aIsElixirFull[2], $aIsElixirFull[3], $g_bNoCapturePixel)
+	Local $aDarkElixirFull = _FullResPixelSearch($aIsDarkElixirFull[0], $aIsDarkElixirFull[0] + 4, $aIsDarkElixirFull[1], 1, Hex(0x0D0D0D, 6), $aIsDarkElixirFull[2], $aIsDarkElixirFull[3], $g_bNoCapturePixel)
 
 	; Setup arrays, including default return values for $return
 	Local $sFileName = ""
 	Local $aCollectXY, $t
 
-	Local $aResult = returnMultipleMatchesOwnVillage($g_sImgCollectRessources)
+	Local $aResult = returnMultipleMatchesOwnVillage($g_sImgCollectRessources, 0, "", 0, 1000, False)
 
 	If UBound($aResult) > 1 Then ; we have an array with data of images found
 		For $i = 1 To UBound($aResult) - 1 ; loop through array rows
@@ -63,25 +68,35 @@ Func Collect($bCheckTreasury = True)
 			If IsArray($aCollectXY) Then ; found array of locations
 				$t = Random(0, UBound($aCollectXY) - 1, 1) ; SC May 2017 update only need to pick one of each to collect all
 				If $g_bDebugSetLog Then SetDebugLog($sFileName & " found, random pick(" & $aCollectXY[$t][0] & "," & $aCollectXY[$t][1] & ")", $COLOR_GREEN)
-				If _Sleep(1) Then Return
-				If IsMainPage() Then Click($aCollectXY[$t][0], $aCollectXY[$t][1], 1, 120, "#0430")
-				If _Sleep($DELAYCOLLECT2) Then Return
+				If _Sleep(1) Then Return SetExtended($iCollectorClicks, False)
+				If Not $g_bRunState Then Return SetExtended($iCollectorClicks, False)
+				If Not IsMainPage() Then Return SetExtended($iCollectorClicks, False)
+				If Click($aCollectXY[$t][0], $aCollectXY[$t][1], 1, 120, "#0430") Then $iCollectorClicks += 1
+				If _Sleep($DELAYCOLLECT2) Then Return SetExtended($iCollectorClicks, False)
 			EndIf
 		Next
 	EndIf
 
-	If _Sleep($DELAYCOLLECT3) Then Return
-	checkMainScreen(False) ; check if errors during function
+	If _Sleep($DELAYCOLLECT3) Then Return SetExtended($iCollectorClicks, False)
+	Local $bMainScreenReady = checkMainScreen(False) ; check if errors during function and prove return-home state
+	If Not $g_bRunState Then Return SetExtended($iCollectorClicks, False)
 
-	$aGoldFull = _FullResPixelSearch($aIsGoldFull[0], $aIsGoldFull[0] + 4, $aIsGoldFull[1], 1, Hex(0x0D0D0D, 6), $aIsGoldFull[2], $aIsGoldFull[3])
-	$aElixirFull = _FullResPixelSearch($aIsElixirFull[0], $aIsElixirFull[0] + 4, $aIsElixirFull[1], 1, Hex(0x0D0D0D, 6), $aIsElixirFull[2], $aIsElixirFull[3])
-	$aDarkElixirFull = _FullResPixelSearch($aIsDarkElixirFull[0], $aIsDarkElixirFull[0] + 4, $aIsDarkElixirFull[1], 1, Hex(0x0D0D0D, 6), $aIsDarkElixirFull[2], $aIsDarkElixirFull[3])
+	; Any collector click invalidates the decision frame. Re-prove the post-input screen once and
+	; share that fresh frame across all final storage checks (also safe after a no-action pass).
+	ForceCaptureRegion()
+	_CaptureRegions()
+	$aGoldFull = _FullResPixelSearch($aIsGoldFull[0], $aIsGoldFull[0] + 4, $aIsGoldFull[1], 1, Hex(0x0D0D0D, 6), $aIsGoldFull[2], $aIsGoldFull[3], $g_bNoCapturePixel)
+	$aElixirFull = _FullResPixelSearch($aIsElixirFull[0], $aIsElixirFull[0] + 4, $aIsElixirFull[1], 1, Hex(0x0D0D0D, 6), $aIsElixirFull[2], $aIsElixirFull[3], $g_bNoCapturePixel)
+	$aDarkElixirFull = _FullResPixelSearch($aIsDarkElixirFull[0], $aIsDarkElixirFull[0] + 4, $aIsDarkElixirFull[1], 1, Hex(0x0D0D0D, 6), $aIsDarkElixirFull[2], $aIsDarkElixirFull[3], $g_bNoCapturePixel)
 	Local $iAllResourcesFull = IsArray($aGoldFull) And IsArray($aElixirFull) And IsArray($aDarkElixirFull)
 
-	If Not $g_bChkCollectCartFirst And ($g_iTxtCollectGold = 0 Or $g_aiCurrentLoot[$eLootGold] < Number($g_iTxtCollectGold) Or $g_iTxtCollectElixir = 0 Or _
+	If Not $bCollectorsOnly And Not $g_bChkCollectCartFirst And ($g_iTxtCollectGold = 0 Or $g_aiCurrentLoot[$eLootGold] < Number($g_iTxtCollectGold) Or $g_iTxtCollectElixir = 0 Or _
 			$g_aiCurrentLoot[$eLootElixir] < Number($g_iTxtCollectElixir) Or $g_iTxtCollectDark = 0 Or $g_aiCurrentLoot[$eLootDarkElixir] < Number($g_iTxtCollectDark)) And Not $iAllResourcesFull Then CollectLootCart()
-	If $g_bChkTreasuryCollect > 0 And $bCheckTreasury And Not $iAllResourcesFull Then TreasuryCollect()
+	If Not $bCollectorsOnly And $g_bChkTreasuryCollect > 0 And $bCheckTreasury And Not $iAllResourcesFull Then TreasuryCollect()
 	EndGainCost("Collect")
+	; @extended is the exact number of clicks actually issued. A true screen proof with zero clicks is
+	; a valid no-collectors-found outcome, but must not be reported as a successful collection.
+	Return SetExtended($iCollectorClicks, $bMainScreenReady And $g_bRunState)
 EndFunc   ;==>Collect
 
 Func CollectLootCart()

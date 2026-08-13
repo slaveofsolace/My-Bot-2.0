@@ -60,6 +60,7 @@ REQUIRED_PATHS = (
     "My Bot 2.0.exe",
     "MyBot.run.au3",
     "MyBot.run.exe.config",
+    "MyBot.run.EngineProbe.exe.config",
     "MyBot.run.txt",
     "MyBot.run.version.au3",
     "upstreams.lock.json",

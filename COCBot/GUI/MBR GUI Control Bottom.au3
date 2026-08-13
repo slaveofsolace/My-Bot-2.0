@@ -95,9 +95,29 @@ Func Initiate(ByRef $sStartError)
 			Local $bTownHallCoordinatesValid = True
 			If $bTownHallCoordinatesRequired Then $bTownHallCoordinatesValid = isInsideDiamond($g_aiTownHallPos)
 			Local $bTownHallIdentityVerified = RunVillageReadinessIdentityVerified($g_iTownHallLevel)
+			Local $oPreparedIntent = RunExecutionPreparedIntent()
+			If Not IsObj($oPreparedIntent) Then
+				$sStartError = "Own-village preflight rejected: prepared run intent is unavailable"
+				RunEventLogPlanBlocked("", $sStartError)
+				Return False
+			EndIf
+			Local $iPlannedTownHall = RunIntentPlannedTownHall($oPreparedIntent)
 			If Not RunVillageReadinessValidate($g_iTownHallLevel, $bTownHallCoordinatesValid, $g_iMaxTHLevel, $sVillageReason, _
-					$bTownHallIdentityVerified, $bTownHallCoordinatesRequired) Then
+					$bTownHallIdentityVerified, $bTownHallCoordinatesRequired, $iPlannedTownHall, RunVillageReadinessIdentitySource()) Then
 				$sStartError = "Own-village preflight rejected: " & $sVillageReason
+				SetLog("Run Planner cannot start: " & $sStartError, $COLOR_ERROR)
+				RunEventLogPlanBlocked("", $sStartError)
+				Return False
+			EndIf
+			Local $oPlannedLoadout = $oPreparedIntent.Item("loadout")
+			If HeroLoadoutCount($oPlannedLoadout) > 0 And RunVillageReadinessIdentitySource() <> "template" Then
+				$sStartError = "Own-village preflight rejected: selected Heroes require a fresh visual Town Hall detection"
+				SetLog("Run Planner cannot start: " & $sStartError, $COLOR_ERROR)
+				RunEventLogPlanBlocked("", $sStartError)
+				Return False
+			EndIf
+			If Not HeroLoadoutValidateForDetectedTownHall($oPlannedLoadout, $g_iTownHallLevel, $sVillageReason) Then
+				$sStartError = "Own-village preflight rejected: Hero loadout does not match the current account: " & $sVillageReason
 				SetLog("Run Planner cannot start: " & $sStartError, $COLOR_ERROR)
 				RunEventLogPlanBlocked("", $sStartError)
 				Return False

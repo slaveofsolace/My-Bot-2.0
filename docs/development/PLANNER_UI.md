@@ -66,9 +66,12 @@ browser metadata matches both sources without rewriting it.
 - **Native acknowledgement**: distinguishes a queued request from the engine accepting, rejecting,
   or treating it as a no-op.
 - **Town Hall presets**: one compatibility-first starting point for TH2 through TH18. Selecting one
-  immediately loads every preset-owned field, including the complete Hero loadout, into the unsaved
+  immediately loads every preset-owned field, including its exact persisted Town Hall and complete Hero loadout, into the unsaved
   form. **Apply plan** remains the only write. Emulator choice and diagnostic acknowledgement are
   always preserved.
+- **Maintenance safety patches**: selecting a maintenance-only strategy loads its complete safe
+  companion settings into the visible draft and announces the unsaved changes. It never saves or
+  starts a run, and it preserves the chosen runtime instance and diagnostic acknowledgement.
 
 - **Left**: one entry per section — Battle, Heroes, Emulator, Army, Search, Pacing, Limits, Loot,
   Donate, Events, Upkeep, Notify, Debug. The chosen section lives in the URL, so a refresh keeps
@@ -89,7 +92,10 @@ current-client runtime proof. Named recipes are not wired. Scripted presets choo
 current Town Hall unlocks that also have CSV DROP actions; fallback presets explicitly choose their
 four-Hero loadout instead of silently retaining an unrelated manual selection.
 
-Custom plans display an explicit Hero receipt. In current-trained-army mode those Heroes are deployed
+Custom plans display an explicit Hero receipt. Town Hall 0 means detect the account Town Hall afresh
+at Start; it is not inferred from a screenshot while editing. A nonzero Town Hall must exactly match
+that fresh detection, and selected Heroes are checked against the detected Town Hall unlock catalog
+and the four-slot native actuator before any run action. In current-trained-army mode those Heroes are deployed
 when their attack-bar slots exist, but Hero Hall and Hero training are not opened or changed. Managed
 training mode may additionally wait for the selected Heroes.
 
@@ -115,7 +121,7 @@ config/run-plan.local.json   <-- the engine reads this to run
         |
         +--> RunPlanFile.au3 --> flat JSON parser --> tab synchronization
                                       |
-                                      +--> exact 44-key validator --> prepared RunIntent
+                                      +--> exact 45-key validator --> prepared RunIntent
 ```
 
 - **`config/run-plan.local.json`** is what the UI writes and the engine reads. It is local to each

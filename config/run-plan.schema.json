@@ -9,6 +9,7 @@
     "mode",
     "strategy",
     "attack_script",
+    "planned_town_hall",
     "army_manage_training",
     "duration_minutes",
     "max_battles",
@@ -30,6 +31,7 @@
       "maxLength": 80,
       "pattern": "^[^\\\\/:*?\"<>|]+$"
     },
+    "planned_town_hall": {"type": "integer", "minimum": 0, "maximum": 18},
     "army_manage_training": {"type": "boolean"},
     "duration_minutes": {"type": "integer", "minimum": 0, "maximum": 10080},
     "max_battles": {"type": "integer", "minimum": 0, "maximum": 100000},

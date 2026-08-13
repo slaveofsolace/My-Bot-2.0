@@ -6,6 +6,8 @@
 #include-once
 #include <StringConstants.au3>
 #include "RunIntent.au3"
+#include "HomeMaintenanceRoute.au3"
+#include "ClanRequestRoute.au3"
 
 ; Smart uses one concentrated deployment side. The actual BR/BL/TR/TL side is chosen after current-frame
 ; red-line extraction by SmartAttackPolicy; the legacy selector-5 DLL branch is not current-client proven.
@@ -28,6 +30,8 @@ EndFunc   ;==>RunExecutionHeroWaitMask
 Func RunExecutionContractValidate(ByRef $oIntent, ByRef $sError)
 	$sError = ""
 	If Not RunIntentValidate($oIntent, $sError) Then Return SetError(1, 0, False)
+	If HomeMaintenanceRouteSelected($oIntent) Then Return HomeMaintenanceRouteValidate($oIntent, $sError)
+	If ClanRequestRouteSelected($oIntent) Then Return ClanRequestRouteValidate($oIntent, $sError)
 
 	Local $sSurface = StringLower(StringStripWS(String($oIntent.Item("surface_id")), $STR_STRIPALL))
 	If $sSurface <> "regular" Then
@@ -80,21 +84,25 @@ Func RunExecutionContractValidate(ByRef $oIntent, ByRef $sError)
 			$sError = "Current-army mode cannot request troops before its terminal one-battle attempt"
 			Return SetError(5, 4, False)
 		EndIf
-		If $oPlan.Item("events_clan_games") Or $oPlan.Item("events_collect_resources") Then
-			$sError = "Current-army mode cannot run Clan Games or resource collection before its terminal battle"
+		If $oPlan.Item("events_collect_resources") Then
+			$sError = "Collector work requires the explicit Home maintenance - collectors only strategy"
 			Return SetError(5, 5, False)
+		EndIf
+		If $oPlan.Item("events_clan_games") Then
+			$sError = "Current-army mode cannot run Clan Games before its terminal battle"
+			Return SetError(5, 6, False)
 		EndIf
 		If StringLower(StringStripWS(String($oPlan.Item("events_laboratory")), $STR_STRIPALL)) <> "off" Then
 			$sError = "Current-army mode cannot enter the Laboratory before its terminal battle"
-			Return SetError(5, 6, False)
+			Return SetError(5, 7, False)
 		EndIf
 		If StringLower(StringStripWS(String($oPlan.Item("upgrade_policy")), $STR_STRIPALL)) <> "disabled" Then
 			$sError = "Current-army mode requires upgrades disabled before its terminal battle"
-			Return SetError(5, 7, False)
+			Return SetError(5, 8, False)
 		EndIf
 	ElseIf Not $bDiagnostic Then
 		$sError = "Training management still requires Allow unverified and a supervised diagnostic acknowledgement"
-		Return SetError(5, 8, False)
+		Return SetError(5, 9, False)
 	EndIf
 	If Int($oPlan.Item("search_max_seconds")) > 0 Then
 		$sError = "Search time limits are not wired to a safe search-loop exit yet; use 0"
@@ -150,8 +158,12 @@ Func RunExecutionContractValidate(ByRef $oIntent, ByRef $sError)
 		$sError = "The Clan Games point cap is not wired yet; use 0"
 		Return SetError(12, 0, False)
 	EndIf
-	If ($oPlan.Item("events_clan_games") Or $oPlan.Item("events_collect_resources")) And Not $bDiagnostic Then
-		$sError = "Clan Games and collector actions require Allow unverified and a supervised diagnostic acknowledgement"
+	If $oPlan.Item("events_collect_resources") Then
+		$sError = "Collector work requires the explicit Home maintenance - collectors only strategy"
+		Return SetError(12, 1, False)
+	EndIf
+	If $oPlan.Item("events_clan_games") And Not $bDiagnostic Then
+		$sError = "Clan Games requires Allow unverified and a supervised diagnostic acknowledgement"
 		Return SetError(12, 1, False)
 	EndIf
 	If StringLower(StringStripWS(String($oPlan.Item("events_laboratory")), $STR_STRIPALL)) <> "off" Then

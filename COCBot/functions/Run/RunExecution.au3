@@ -69,6 +69,51 @@ Func RunExecutionPlanActive()
 	Return $g_bRunExecutionActive
 EndFunc   ;==>RunExecutionPlanActive
 
+Func RunExecutionPreparedIntent()
+	If Not IsObj($g_oRunExecutionIntent) Then Return SetError(1, 0, 0)
+	Return $g_oRunExecutionIntent
+EndFunc   ;==>RunExecutionPreparedIntent
+
+Func HomeMaintenanceRouteActive()
+	Return $g_bRunExecutionActive And IsObj($g_oRunExecutionIntent) And HomeMaintenanceRouteSelected($g_oRunExecutionIntent)
+EndFunc   ;==>HomeMaintenanceRouteActive
+
+Func ClanRequestRouteActive()
+	Return $g_bRunExecutionActive And IsObj($g_oRunExecutionIntent) And ClanRequestRouteSelected($g_oRunExecutionIntent)
+EndFunc   ;==>ClanRequestRouteActive
+
+; Bind request-only work at the last native boundary that knows the actually loaded profile. The
+; browser plan intentionally carries no account identifier; using the live profile prevents a stale
+; saved plan from naming or switching another account. Repeated Apply/Load accepts only the same id.
+Func RunExecutionBindCurrentProfileForHomeRoute(ByRef $oIntent, ByRef $sError)
+	$sError = ""
+	Local $bClanRequest = ClanRequestRouteSelected($oIntent)
+	Local $bCollectors = HomeMaintenanceRouteSelected($oIntent)
+	If Not $bClanRequest And Not $bCollectors Then Return True
+	Local $sRouteName = $bClanRequest ? "Clan request" : "Collectors-only maintenance"
+	Local $sActiveProfile = StringStripWS(String($g_sProfileCurrentName), $STR_STRIPLEADING + $STR_STRIPTRAILING)
+	If $sActiveProfile = "" Or StringLen($sActiveProfile) > 64 Or _
+			Not StringRegExp($sActiveProfile, "^[A-Za-z0-9_. -]+$") Then
+		$sError = $sRouteName & " cannot bind an empty or unsafe active profile/account"
+		Return SetError(1, 0, False)
+	EndIf
+	Local $sBound = StringStripWS(String($oIntent.Item("profile_id")), $STR_STRIPLEADING + $STR_STRIPTRAILING)
+	If $sBound = "" Then
+		If Not RunIntentSetProfile($oIntent, $sActiveProfile) Then
+			$sError = $sRouteName & " could not bind the active profile/account at Start"
+			Return SetError(2, 0, False)
+		EndIf
+		Return True
+	EndIf
+	Local $bMatches = $bClanRequest ? ClanRequestRouteAccountMatches($oIntent, $sActiveProfile) : _
+			HomeMaintenanceRouteAccountMatches($oIntent, $sActiveProfile)
+	If Not $bMatches Then
+		$sError = $sRouteName & " plan is bound to a different active profile/account"
+		Return SetError(3, 0, False)
+	EndIf
+	Return True
+EndFunc   ;==>RunExecutionBindCurrentProfileForHomeRoute
+
 Func RunExecutionMessage()
 	Return $g_sRunExecutionMessage
 EndFunc   ;==>RunExecutionMessage
@@ -86,8 +131,215 @@ EndFunc   ;==>RunExecutionShouldManageTraining
 ; inherited stone/tree zoom anchors, so requiring legacy village calibration would restart CoC even
 ; after the main-screen pixel and chat image have already proven readiness.
 Func RunExecutionSkipVillageZoomCalibration()
-	Return $g_bRunExecutionPrepared And Not $g_bRunExecutionManageTraining
+	If Not $g_bRunExecutionPrepared Or $g_bRunExecutionManageTraining Then Return False
+	If IsObj($g_oRunExecutionIntent) And HomeMaintenanceRouteSelected($g_oRunExecutionIntent) Then Return False
+	If IsObj($g_oRunExecutionIntent) And ClanRequestRouteSelected($g_oRunExecutionIntent) Then Return False
+	Return True
 EndFunc   ;==>RunExecutionSkipVillageZoomCalibration
+
+; Passive combat and both single-purpose Home routes suppress profile-owned pending actions.
+; Unlike passive combat, collectors and Clan request still need Home Village calibration above.
+Func RunExecutionSkipPendingNotifications()
+	Return $g_bRunExecutionPrepared And Not $g_bRunExecutionManageTraining
+EndFunc   ;==>RunExecutionSkipPendingNotifications
+
+Func _HomeMaintenanceRouteFail($sReason)
+	If RunControlStopRequested() Or Not $g_bRunState Then Return False
+	Local $sFailure = "Home maintenance failed: " & $sReason
+	SetLog("Run Planner: " & $sFailure, $COLOR_ERROR)
+	RunEventLogRunFailed("regular", $RUN_VERIFICATION_DIAGNOSTIC, $sFailure)
+	RunExecutionCancelPrepared($sFailure)
+	btnStop()
+	RunControlReportRunFailure($sFailure)
+	Return False
+EndFunc   ;==>_HomeMaintenanceRouteFail
+
+Func HomeMaintenanceRouteExecute()
+	If Not HomeMaintenanceRouteActive() Then Return False
+	If RunControlStopRequested() Or Not $g_bRunState Then Return False
+	If Not HomeMaintenanceRouteAccountMatches($g_oRunExecutionIntent, $g_sProfileCurrentName) Then _
+		Return _HomeMaintenanceRouteFail("the active profile no longer matches the account bound at Start")
+
+	SetLog("Run Planner: starting one collectors-only Home Village pass", $COLOR_ACTION)
+	RunEventLogMaintenanceCollectorsStarted()
+	If Not _RunExecutionRequireOwnVillageReady() Then Return False
+
+	; Collectors-only mode suppresses Loot Cart and Treasury entry even if the legacy profile enables them.
+	; Collect returns True only after it re-proves the own-village main screen following every click.
+	Local $bCollectorScreenReady = Collect(False, True)
+	Local $iCollectorClicks = @extended
+	If Not $bCollectorScreenReady Then
+		If RunControlStopRequested() Or Not $g_bRunState Then Return False
+		Return _HomeMaintenanceRouteFail("collector recognition did not return to a proven Home Village screen")
+	EndIf
+	If RunControlStopRequested() Or Not $g_bRunState Then Return False
+
+	RunEventLogMaintenanceHomeVerified($iCollectorClicks)
+	If $iCollectorClicks > 0 Then
+		RunEventLogMaintenanceCollectorsCompleted($iCollectorClicks)
+	Else
+		RunEventLogMaintenanceCollectorsNoneActionable()
+	EndIf
+	Local $sReason = ($iCollectorClicks > 0) ? "home-maintenance-complete" : "home-maintenance-none-actionable"
+	If Not RunSessionRequestStop($g_oRunExecutionSession, $sReason) Then _
+		Return _HomeMaintenanceRouteFail("the run session refused its one-pass completion")
+	RunEventLogRunStopping("regular", $RUN_VERIFICATION_DIAGNOSTIC, $sReason)
+	$g_sRunExecutionMessage = ($iCollectorClicks > 0) ? _
+			("Completed collectors-only Home maintenance; collector clicks=" & $iCollectorClicks) : _
+			"Completed Home maintenance with no actionable collector click"
+	btnStop()
+	Return True
+EndFunc   ;==>HomeMaintenanceRouteExecute
+
+Func _ClanRequestRouteFail($sReason, $bIrreversibleOutcome = False)
+	If (RunControlStopRequested() Or Not $g_bRunState) And Not $bIrreversibleOutcome Then Return False
+	Local $sFailure = "Clan request failed: " & $sReason
+	SetLog("Run Planner: " & $sFailure, $COLOR_ERROR)
+	RunEventLogRunFailed("regular", $RUN_VERIFICATION_DIAGNOSTIC, $sFailure)
+	RunExecutionCancelPrepared($sFailure)
+	btnStop()
+	RunControlReportRunFailure($sFailure)
+	Return False
+EndFunc   ;==>_ClanRequestRouteFail
+
+Func _ClanRequestLiveStopRequested()
+	Return RunControlStopRequested() Or Not $g_bRunState
+EndFunc   ;==>_ClanRequestLiveStopRequested
+
+Func _ClanRequestLiveOpenArmyOverview()
+	If _ClanRequestLiveStopRequested() Then Return False
+	If Not checkMainScreen(False) Then Return False
+	; The third argument is deliberately False: Hero-order inspection enters Hero Hall/zoom/building paths.
+	If Not OpenArmyOverview(True, "ClanRequestRoute", False) Then Return False
+	If _Sleep(400, True, True, False) Then Return False
+	If _ClanRequestLiveStopRequested() Then Return False
+	Return True
+EndFunc   ;==>_ClanRequestLiveOpenArmyOverview
+
+Func _ClanRequestLiveParseObservation(ByRef $aMatches, $bSendButton = False)
+	If Not IsArray($aMatches) Or UBound($aMatches, 1) <> 1 Then Return 0
+	Local $aResult = $aMatches[0]
+	If Not IsArray($aResult) Or UBound($aResult) < 2 Then Return 0
+	Local $aPoint = StringSplit(String($aResult[1]), ",", $STR_NOCOUNT)
+	If Not IsArray($aPoint) Or UBound($aPoint) <> 2 Then Return 0
+	If $bSendButton Then Return ClanRequestObservationCreate($CLAN_REQUEST_STATE_SEND_READY, Int($aPoint[0]), Int($aPoint[1]))
+
+	Local $sObject = StringLower(String($aResult[0]))
+	If StringInStr($sObject, "available", 0) > 0 Then _
+		Return ClanRequestObservationCreate($CLAN_REQUEST_STATE_AVAILABLE, Int($aPoint[0]), Int($aPoint[1]))
+	If StringInStr($sObject, "alreadymade", 0) > 0 Or StringInStr($sObject, "already", 0) > 0 Then _
+		Return ClanRequestObservationCreate($CLAN_REQUEST_STATE_ALREADY_MADE, Int($aPoint[0]), Int($aPoint[1]))
+	If StringInStr($sObject, "fullorunavail", 0) > 0 Or StringInStr($sObject, "full", 0) > 0 Then _
+		Return ClanRequestObservationCreate($CLAN_REQUEST_STATE_FULL_OR_UNAVAILABLE, Int($aPoint[0]), Int($aPoint[1]))
+	Return 0
+EndFunc   ;==>_ClanRequestLiveParseObservation
+
+Func _ClanRequestLiveDetectState($sPhase)
+	Local $sSearchDiamond = GetDiamondFromRect2(734, 455 + $g_iMidOffsetY, 773, 485 + $g_iMidOffsetY)
+	Local $iAttempts = (StringLower(String($sPhase)) = "after") ? 8 : 1
+	For $iAttempt = 1 To $iAttempts
+		; findMultiple receives True so every decision is made from a new framebuffer, never a cached request state.
+		Local $aRequestButton = findMultiple($g_sImgRequestCCButton, $sSearchDiamond, $sSearchDiamond, 0, 1000, 1, _
+				"objectname,objectpoints", True)
+		Local $oObservation = _ClanRequestLiveParseObservation($aRequestButton)
+		If IsObj($oObservation) Then Return $oObservation
+		If $iAttempt < $iAttempts Then
+			If _ClanRequestLiveStopRequested() Then ExitLoop
+			If _Sleep(250, True, True, False) Then ExitLoop
+			If _ClanRequestLiveStopRequested() Then ExitLoop
+		EndIf
+	Next
+	Return 0
+EndFunc   ;==>_ClanRequestLiveDetectState
+
+Func _ClanRequestLiveOpenDialog($iRequestX, $iRequestY)
+	If _ClanRequestLiveStopRequested() Then Return 0
+	Click(Int($iRequestX), Int($iRequestY), 1, 120, "#ClanRequestOpen")
+	Local $sSendArea = GetDiamondFromRect("220,150,650,650")
+	For $iAttempt = 1 To 6
+		If _ClanRequestLiveStopRequested() Then Return 0
+		Local $aSendButton = findMultiple($g_sImgSendRequestButton, $sSendArea, $sSendArea, 0, 1000, 1, _
+				"objectname,objectpoints", True)
+		Local $oSend = _ClanRequestLiveParseObservation($aSendButton, True)
+		If IsObj($oSend) Then Return $oSend
+		If $iAttempt < 6 Then
+			If _Sleep(250, True, True, False) Then Return 0
+			If _ClanRequestLiveStopRequested() Then Return 0
+		EndIf
+	Next
+	Return 0
+EndFunc   ;==>_ClanRequestLiveOpenDialog
+
+Func _ClanRequestLiveIssueSend($iSendX, $iSendY)
+	; ClanRequestRouteRunAdapter performs the immediate Stop poll and latches Send before this callback.
+	; Keep this callback to one command: no request text, no OCR, no retry, and no fallback coordinates.
+	Return Click(Int($iSendX), Int($iSendY), 1, 120, "#ClanRequestSend")
+EndFunc   ;==>_ClanRequestLiveIssueSend
+
+Func _ClanRequestLiveCloseAndProveHome()
+	; The Send dialog may still be open on an error; successful Send leaves Army Overview open.
+	; At most two close commands are permitted, with a fresh Home screen proof after each boundary.
+	If _ClanRequestLiveStopRequested() Then Return False
+	If checkMainScreen(False) Then Return _RunExecutionRequireOwnVillageReady()
+	For $iClose = 1 To 2
+		If _ClanRequestLiveStopRequested() Then Return False
+		CloseWindow2()
+		; Cleanup remains bounded even if Stop arrived after Send; disabling the run-state early return
+		; lets this one close settle without re-entering any planner or village work.
+		_Sleep(300, True, False, False)
+		If _ClanRequestLiveStopRequested() Then Return False
+		If checkMainScreen(False) Then Return _RunExecutionRequireOwnVillageReady()
+	Next
+	Return False
+EndFunc   ;==>_ClanRequestLiveCloseAndProveHome
+
+Func _ClanRequestRouteRequestStop($sReason, $sMessage)
+	If Not RunSessionRequestStop($g_oRunExecutionSession, $sReason) Then _
+		Return _ClanRequestRouteFail("the run session refused its request-only completion")
+	RunEventLogRunStopping("regular", $RUN_VERIFICATION_DIAGNOSTIC, $sReason)
+	$g_sRunExecutionMessage = $sMessage
+	btnStop()
+	Return True
+EndFunc   ;==>_ClanRequestRouteRequestStop
+
+Func ClanRequestRouteExecute()
+	If Not ClanRequestRouteActive() Then Return False
+	If RunControlStopRequested() Or Not $g_bRunState Then Return False
+	If Not ClanRequestRouteAccountMatches($g_oRunExecutionIntent, $g_sProfileCurrentName) Then _
+		Return _ClanRequestRouteFail("the active profile no longer matches the account bound at Start")
+
+	SetLog("Run Planner: starting one request-only Home Village pass", $COLOR_ACTION)
+	RunEventLogClanRequestStarted()
+	If Not _RunExecutionRequireOwnVillageReady() Then Return False
+
+	Local $oOutcome = ClanRequestRouteRunAdapter("_ClanRequestLiveOpenArmyOverview", "_ClanRequestLiveDetectState", _
+			"_ClanRequestLiveOpenDialog", "_ClanRequestLiveIssueSend", "_ClanRequestLiveStopRequested", _
+			"_ClanRequestLiveCloseAndProveHome")
+	If Not IsObj($oOutcome) Then Return _ClanRequestRouteFail("the request adapter returned no bounded outcome")
+	Local $sOutcome = String($oOutcome.Item("state"))
+	If $sOutcome = $CLAN_REQUEST_OUTCOME_CANCELLED Then Return False
+	If Not $oOutcome.Item("home_proven") Then
+		RunEventLogClanRequestUnconfirmed($oOutcome.Item("send_issued"), _
+				$oOutcome.Item("detail") & "; Home Village was not re-proven")
+		Return _ClanRequestRouteFail("Home Village could not be re-proven after the request dialog", $oOutcome.Item("send_issued"))
+	EndIf
+	RunEventLogClanRequestHomeVerified($sOutcome)
+
+	Switch $sOutcome
+		Case $CLAN_REQUEST_OUTCOME_COMMITTED
+			RunEventLogClanRequestCommitted()
+			Return _ClanRequestRouteRequestStop("clan-request-committed", _
+					"Completed request-only Home maintenance; one Send verified Available -> AlreadyMade")
+		Case $CLAN_REQUEST_OUTCOME_UNAVAILABLE
+			RunEventLogClanRequestUnavailable($oOutcome.Item("before_state"))
+			Return _ClanRequestRouteRequestStop("clan-request-unavailable", _
+					"Completed request-only Home maintenance; no request was available and no Send was issued")
+		Case $CLAN_REQUEST_OUTCOME_UNCONFIRMED
+			RunEventLogClanRequestUnconfirmed($oOutcome.Item("send_issued"), $oOutcome.Item("detail"))
+			Return _ClanRequestRouteFail($oOutcome.Item("detail") & "; Send will not be retried", $oOutcome.Item("send_issued"))
+	EndSwitch
+	Return _ClanRequestRouteFail("the request adapter returned an unknown terminal state")
+EndFunc   ;==>ClanRequestRouteExecute
 
 Func RunExecutionStandardDeploymentProofRequired()
 	If Not $g_bRunExecutionActive Or Not IsObj($g_oRunExecutionIntent) Then Return False
@@ -322,6 +574,10 @@ Func RunExecutionPrepareStart(ByRef $sError)
 	Else
 		Return True
 	EndIf
+	If Not RunExecutionBindCurrentProfileForHomeRoute($oIntent, $sError) Then
+		RunEventLogPlanBlocked($oIntent.Item("surface_id"), $sError)
+		Return SetError(1, 1, False)
+	EndIf
 
 	Local $sGateReason = ""
 	If Not RunIntentCanStart($oIntent, $sGateReason) Then
@@ -344,6 +600,7 @@ Func RunExecutionPrepareStart(ByRef $sError)
 	RunEventLogBindSession($sSessionId)
 	$g_bRunExecutionPrepared = True
 	$g_sRunExecutionMessage = "Prepared " & $oIntent.Item("surface_label")
+	RunEventLogPreflightStarted($oIntent.Item("surface_id"), RunIntentVerificationState($oIntent), RunIntentDescribe($oIntent))
 	Return True
 EndFunc   ;==>RunExecutionPrepareStart
 
@@ -371,6 +628,35 @@ Func _RunExecutionApplyIntent(ByRef $sError)
 	EndIf
 
 	Local $sStrategy = StringLower(String($oPlan.Item("strategy")))
+	If $sStrategy = $HOME_MAINTENANCE_COLLECTORS_STRATEGY Then
+		; This exact route owns no attack, training, donation, upgrade, account-switch, or event actuator.
+		; Apply only the collector flag and explicit safety disables; the captured profile snapshot
+		; restores every overridden field through the normal Stop lifecycle.
+		$g_bChkDonate = False
+		$g_bDonateLikeCrazy = False
+		$g_bRequestTroopsEnable = False
+		$g_bChkSwitchAcc = False
+		$g_bChkClanGamesEnabled = 0
+		$g_bChkCollect = True
+		$g_bAutoLabUpgradeEnable = False
+		$g_bAutoUpgradeWallsEnable = False
+		$g_bAutoUpgradeEnabled = False
+		Return True
+	EndIf
+	If $sStrategy = $CLAN_REQUEST_ROUTE_STRATEGY Then
+		; Request-only means exactly that: no donations, training, collectors, upgrades, events,
+		; matchmaking, or account switching may be inherited from the active profile.
+		$g_bChkDonate = False
+		$g_bDonateLikeCrazy = False
+		$g_bRequestTroopsEnable = True
+		$g_bChkSwitchAcc = False
+		$g_bChkClanGamesEnabled = 0
+		$g_bChkCollect = False
+		$g_bAutoLabUpgradeEnable = False
+		$g_bAutoUpgradeWallsEnable = False
+		$g_bAutoUpgradeEnabled = False
+		Return True
+	EndIf
 	Local $iAlgorithm = ($sStrategy = "legacy.csv") ? 1 : 0
 	Local $sAttackScript = StringStripWS(String($oPlan.Item("attack_script")), $STR_STRIPLEADING + $STR_STRIPTRAILING)
 	If $iAlgorithm = 1 And StringLower($sAttackScript) <> "profile-current" Then
@@ -620,6 +906,14 @@ EndFunc   ;==>RunExecutionCheckStop
 
 Func RunExecutionCancelPrepared($sReason)
 	Local $sCancelledSessionId = RunExecutionSessionId()
+	; Prepared sessions can already have performed explicit readiness/recovery work. If they never
+	; reached running, close the recorded session as failed rather than silently releasing its ID.
+	If $g_bRunExecutionPrepared And Not $g_bRunExecutionActive And IsObj($g_oRunExecutionSession) Then
+		RunSessionFail($g_oRunExecutionSession, $sReason)
+		If IsObj($g_oRunExecutionIntent) Then _
+			RunEventLogRunFailed($g_oRunExecutionIntent.Item("surface_id"), RunIntentVerificationState($g_oRunExecutionIntent), _
+					"Preflight failed: " & $sReason)
+	EndIf
 	If IsObj($g_oRunExecutionIntent) Then
 		Local $oPlan = $g_oRunExecutionIntent.Item("plan")
 		If $oPlan.Item("notify_on_error") Then SetLog("Run notification: " & $sReason, $COLOR_ERROR)

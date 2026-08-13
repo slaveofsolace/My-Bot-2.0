@@ -32,6 +32,11 @@ Func RunIntentCreate(ByRef $oPlan, $sSurfaceId, ByRef $oLoadout, ByRef $sError)
 	$sError = ""
 	If Not RunPlanValidate($oPlan, $sError) Then Return SetError(1, 0, 0)
 	If Not HeroLoadoutValidate($oLoadout, $sError) Then Return SetError(2, 0, 0)
+	Local $iPlannedTownHall = Int($oPlan.Item("planned_town_hall"))
+	If Int($oLoadout.Item("town_hall")) <> $iPlannedTownHall Then
+		$sError = "Hero loadout Town Hall does not match the run plan"
+		Return SetError(2, 1, 0)
+	EndIf
 
 	Local $iSurface = CurrentGameFindBattleSurface($sSurfaceId)
 	If $iSurface < 0 Then
@@ -70,6 +75,7 @@ Func RunIntentCreate(ByRef $oPlan, $sSurfaceId, ByRef $oLoadout, ByRef $sError)
 	$oIntent.Add("schema_version", 1)
 	$oIntent.Add("surface_id", $g_aCurrentGameBattleSurfaces[$iSurface][$eGameBattleId])
 	$oIntent.Add("surface_label", $g_aCurrentGameBattleSurfaces[$iSurface][$eGameBattleLabel])
+	$oIntent.Add("planned_town_hall", $iPlannedTownHall)
 	$oIntent.Add("plan", $oPlan)
 	$oIntent.Add("route", $oRoute)
 	$oIntent.Add("quota", $oQuota)
@@ -94,7 +100,7 @@ Func RunIntentValidate(ByRef $oIntent, ByRef $sError)
 		Return SetError(1, 0, False)
 	EndIf
 
-	Local $aRequired = ["schema_version", "surface_id", "surface_label", "plan", "route", "quota", "loadout", "pacing", "profile_id"]
+	Local $aRequired = ["schema_version", "surface_id", "surface_label", "planned_town_hall", "plan", "route", "quota", "loadout", "pacing", "profile_id"]
 	For $i = 0 To UBound($aRequired) - 1
 		If Not $oIntent.Exists($aRequired[$i]) Then
 			$sError = "Missing run intent field: " & $aRequired[$i]
@@ -121,6 +127,12 @@ Func RunIntentValidate(ByRef $oIntent, ByRef $sError)
 	If Not HeroLoadoutValidate($oLoadout, $sError) Then
 		$sError = "Invalid Hero loadout: " & $sError
 		Return SetError(6, 0, False)
+	EndIf
+	Local $iPlannedTownHall = Int($oPlan.Item("planned_town_hall"))
+	If Int($oIntent.Item("planned_town_hall")) <> $iPlannedTownHall Or _
+			Int($oLoadout.Item("town_hall")) <> $iPlannedTownHall Then
+		$sError = "Run intent Town Hall, plan, and Hero loadout do not match"
+		Return SetError(6, 1, False)
 	EndIf
 	Local $oPacing = $oIntent.Item("pacing")
 	If Not RunPacingValidate($oPacing, $sError) Then
@@ -177,6 +189,12 @@ Func RunIntentManagesTraining(ByRef $oIntent)
 	Local $oPlan = $oIntent.Item("plan")
 	Return $oPlan.Item("army_manage_training")
 EndFunc   ;==>RunIntentManagesTraining
+
+Func RunIntentPlannedTownHall(ByRef $oIntent)
+	Local $sError = ""
+	If Not RunIntentValidate($oIntent, $sError) Then Return SetError(1, 0, 0)
+	Return Int($oIntent.Item("planned_town_hall"))
+EndFunc   ;==>RunIntentPlannedTownHall
 
 ; Every gate an intent must clear before a session may open. Diagnostic mode relaxes the evidence gate only;
 ; the quota gate stays hard because attacking a surface with no attacks left is a client error, not a missing fixture.

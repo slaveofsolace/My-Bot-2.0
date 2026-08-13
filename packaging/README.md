@@ -41,6 +41,10 @@ never omitted. `MyBot.run.txt` must exist and remain exactly zero bytes. Every p
 `.exe`, `.dll`, and `.sys` must have matching bytes and SHA-256 in binary provenance. ZIP entries
 are sorted and assigned a fixed timestamp; the PE bytes themselves are preserved exactly.
 
+Mutable profiles are intentionally outside that allowlist and outside the replaceable application
+directory. Installed releases use `%LOCALAPPDATA%\My Bot 2.0\Profiles`; upgrades and uninstall retain
+that directory.
+
 `LocalRuntime` creates a local-use package only. It is not permission to redistribute the inherited
 ImgLoc component. `PublicDistribution` fails unless the release operator has actual written
 permission or has validated a clearly licensed replacement and supplies the exact acknowledgement
@@ -56,6 +60,18 @@ to `%LOCALAPPDATA%\Programs\My Bot 2.0`. It creates a per-user Start-menu shortc
 Apps uninstall entry; it does not require administrator permission. After installation, open Start
 and type `My Bot 2.0`.
 
+On the first install, the installer creates and selects a `MyVillage` profile under
+`%LOCALAPPDATA%\My Bot 2.0\Profiles`. To copy a compatible profile set from this source baseline,
+run the extracted command with an explicit source:
+
+```powershell
+& ".\Install My Bot 2.0.cmd" -ProfileSourceDirectory "C:\path\to\My-Bot-2.0\Profiles"
+```
+
+The migration validates `profile.ini` and its selected profile directory, copies through an isolated
+stage, and refuses any existing target content. It never overwrites or removes the source.
+
 The installer refuses to update while an executable from the installed directory is running. Use
 the Start-menu uninstall shortcut, Windows Installed apps, or `Uninstall My Bot 2.0.cmd` from the
-extracted package to remove the per-user installation.
+extracted package to remove the per-user installation. Profile data remains under
+`%LOCALAPPDATA%\My Bot 2.0\Profiles` after uninstall.

@@ -116,6 +116,13 @@ Local $aAvailable = HeroLoadoutAvailable(18)
 AssertTrue(UBound($aAvailable) = 6, "all six Heroes are available at Town Hall 18")
 Local $aEarly = HeroLoadoutAvailable(4)
 AssertTrue(UBound($aEarly) = 1, "only the Barbarian King is available at Town Hall 4")
+Local $oDetectedLoadout = HeroLoadoutCreate(0)
+AssertTrue(HeroLoadoutAdd($oDetectedLoadout, "archer-queen", $sError), "auto-TH plan may defer Queen validation: " & $sError)
+AssertTrue(Not HeroLoadoutValidateForDetectedTownHall($oDetectedLoadout, 7, $sError), "fresh TH7 rejects a locked Queen")
+AssertTrue(HeroLoadoutValidateForDetectedTownHall($oDetectedLoadout, 8, $sError), "fresh TH8 accepts an unlocked Queen: " & $sError)
+Local $oUnsupportedLoadout = HeroLoadoutCreate(0)
+AssertTrue(HeroLoadoutAdd($oUnsupportedLoadout, "dragon-duke", $sError), "auto-TH plan may carry a catalog Hero pending detection")
+AssertTrue(Not HeroLoadoutValidateForDetectedTownHall($oUnsupportedLoadout, 18, $sError), "fresh TH18 still rejects a Hero without an actuator")
 
 ; ---------------------------------------------------------------------------------------------------------------
 ; Attack quota: a published maximum is not a remaining count.
@@ -145,6 +152,7 @@ AssertTrue(BattleQuotaIsExhausted($oLegend), "quota reports exhaustion")
 ; Run intent: exact surface binding and the diagnostic escape hatch.
 ; ---------------------------------------------------------------------------------------------------------------
 Local $oPlan = RunPlanCreateDefault("legend", "fixture-strategy")
+AssertTrue(RunPlanSetPlannedTownHall($oPlan, 18, $sError), "intent fixture pins TH18: " & $sError)
 AssertTrue(Not $oPlan.Item("army_manage_training"), "default plan preserves the trained army")
 AssertTrue($oPlan.Item("max_battles") = 1, "default current-army plan is bounded to one battle")
 Local $oIntentLoadout = HeroLoadoutCreate(18)
@@ -163,6 +171,7 @@ Local $aSavedHeroes = ["barbarian-king", "archer-queen"]
 Json_ObjPut($oSavedPlan, "run.surface", "regular")
 Json_ObjPut($oSavedPlan, "run.strategy", "legacy.csv")
 Json_ObjPut($oSavedPlan, "run.attack_script", "Barch four fingers")
+Json_ObjPut($oSavedPlan, "run.town_hall", 18)
 Json_ObjPut($oSavedPlan, "run.heroes", $aSavedHeroes)
 Json_ObjPut($oSavedPlan, "runtime.emulator", "auto")
 Json_ObjPut($oSavedPlan, "runtime.instance", "")
@@ -193,7 +202,7 @@ Json_ObjPut($oSavedPlan, "donate.request_when_short", False)
 Json_ObjPut($oSavedPlan, "events.clan_games", False)
 Json_ObjPut($oSavedPlan, "events.clan_games_point_cap", 0)
 Json_ObjPut($oSavedPlan, "events.laboratory", "off")
-Json_ObjPut($oSavedPlan, "events.collect_resources", True)
+Json_ObjPut($oSavedPlan, "events.collect_resources", False)
 Json_ObjPut($oSavedPlan, "notify.on_stop", False)
 Json_ObjPut($oSavedPlan, "notify.on_error", True)
 Json_ObjPut($oSavedPlan, "notify.channel", "log-only")
@@ -216,6 +225,8 @@ AssertTrue($oSavedEnginePlan.Item("attack_script") = "Barch four fingers", "save
 AssertTrue(RunIntentManagesTraining($oSavedIntent), "saved training-management choice reaches the intent")
 Local $oSavedLoadout = $oSavedIntent.Item("loadout")
 AssertTrue(HeroLoadoutCount($oSavedLoadout) = 2, "saved Hero list reaches the loadout")
+AssertTrue($oSavedLoadout.Item("town_hall") = 18, "saved Town Hall constrains the Hero loadout")
+AssertTrue($oSavedIntent.Item("planned_town_hall") = 18, "saved Town Hall reaches the intent")
 Local $oSavedPacing = $oSavedIntent.Item("pacing")
 AssertTrue(RunPacingSettleMilliseconds($oSavedPacing) = 400, "saved pacing reaches the intent")
 AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "unsupported planner values are blocked rather than ignored")
@@ -271,6 +282,7 @@ AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "current-ar
 AssertTrue(StringInStr($sError, "exactly one battle") > 0, "current-army rejection names its one-battle boundary")
 $oSavedEnginePlan.Item("max_battles") = 1
 AssertTrue(Not RunIntentManagesTraining($oSavedIntent), "current-army intent explicitly disables training management")
+$oSavedEnginePlan.Item("events_collect_resources") = True
 AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "current-army mode refuses pre-battle resource collection")
 $oSavedEnginePlan.Item("events_collect_resources") = False
 AssertTrue(RunExecutionContractValidate($oSavedIntent, $sError), "one current trained army is accepted for exactly one battle: " & $sError)
@@ -309,10 +321,18 @@ $oSavedEnginePlan.Item("army_manage_training") = True
 $oSavedEnginePlan.Item("max_battles") = 12
 FileDelete($sSavedPlanPath)
 
-; The immediately preceding planner contract had 43 keys and always managed profile training.
+; The immediately preceding planner contract had 44 keys and inferred Town Hall from the profile.
+$oSavedPlan.Remove("run.town_hall")
+AssertTrue(FileWrite($sSavedPlanPath, Json_Encode($oSavedPlan)) > 0, "legacy 44-key planner fixture is written")
+Local $oLegacyTrainingIntent = RunPlanFileLoadIntent($sSavedPlanPath, $sError)
+AssertTrue(IsObj($oLegacyTrainingIntent), "legacy 44-key plan is upgraded losslessly: " & $sError)
+AssertTrue(RunIntentPlannedTownHall($oLegacyTrainingIntent) = 0, "legacy plan migrates to detect Town Hall at Start")
+FileDelete($sSavedPlanPath)
+
+; The 43-key contract also always managed profile training.
 $oSavedPlan.Remove("army.manage_training")
 AssertTrue(FileWrite($sSavedPlanPath, Json_Encode($oSavedPlan)) > 0, "legacy 43-key planner fixture is written")
-Local $oLegacyTrainingIntent = RunPlanFileLoadIntent($sSavedPlanPath, $sError)
+$oLegacyTrainingIntent = RunPlanFileLoadIntent($sSavedPlanPath, $sError)
 AssertTrue(IsObj($oLegacyTrainingIntent), "legacy 43-key plan is upgraded losslessly: " & $sError)
 AssertTrue(RunIntentManagesTraining($oLegacyTrainingIntent), "legacy plan preserves inherited training management")
 FileDelete($sSavedPlanPath)
@@ -424,6 +444,7 @@ AssertTrue(RunPacingRestIsDue($oPacing, 0, 100 * 60000), "the next rest falls du
 ; An intent always carries pacing, so nothing downstream has to check whether it is there.
 Local $oPacingLoadout = HeroLoadoutCreate(18)
 Local $oPacingPlan = RunPlanCreateDefault("regular", "fixture-strategy")
+AssertTrue(RunPlanSetPlannedTownHall($oPacingPlan, 18, $sError), "pacing fixture pins TH18: " & $sError)
 AssertTrue(RunPlanSetStopConditions($oPacingPlan, 1, 1, False, 1), "intent fixture receives bounded stop conditions")
 Local $oPacingIntent = RunIntentCreate($oPacingPlan, "regular", $oPacingLoadout, $sError)
 AssertTrue(IsObj($oPacingIntent), "intent is created for the pacing check: " & $sError)
@@ -434,7 +455,7 @@ AssertTrue(RunPacingSettleMilliseconds($oAttached) = 500, "the intent holds the 
 AssertTrue(Not RunIntentSetPacing($oPacingIntent, 200, 500, 1, 30, 0, $sError), "the intent refuses out-of-range pacing")
 AssertTrue(RunPacingSettleMilliseconds($oAttached) = 500, "a refused change leaves the intent's pacing alone")
 AssertTrue(StringInStr(RunIntentDescribe($oPacingIntent), "500ms settle") > 0, "the intent describes its pacing")
-AssertTrue(StringInStr(RunIntentDescribe($oPacingIntent), "Plan: REGULAR / fixture-strategy / 1 min / 1 battle / 1 failure max") > 0, "the intent describes its actual run limits")
+AssertTrue(StringInStr(RunIntentDescribe($oPacingIntent), "Plan: REGULAR / fixture-strategy / planned TH18 / 1 min / 1 battle / 1 failure max") > 0, "the intent describes its actual run limits")
 AssertTrue(StringInStr(RunIntentDescribe($oPacingIntent), "Surface quota: Unlimited attacks") > 0, "the intent labels the separate surface quota")
 
 ; An intent with pacing stripped out must not validate, or the required-field list is decorative.

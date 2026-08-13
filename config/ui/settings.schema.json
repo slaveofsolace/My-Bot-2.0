@@ -101,6 +101,8 @@
         "description": {"type": "string", "minLength": 30, "maxLength": 800},
         "availability": {"enum": ["available", "gated", "planned", "unsupported"]},
         "runtime_verified": {"type": "boolean"},
+        "unlock_town_hall": {"type": "integer", "minimum": 2, "maximum": 99},
+        "active_slot_eligible": {"type": "boolean"},
         "capability_ids": {
           "type": "array",
           "uniqueItems": true,

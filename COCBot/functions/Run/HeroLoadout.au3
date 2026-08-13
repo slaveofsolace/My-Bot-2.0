@@ -203,6 +203,33 @@ Func HeroLoadoutAvailable($iTownHall)
 	Return StringSplit($sAvailable, $HERO_LOADOUT_SEPARATOR, $STR_NOCOUNT)
 EndFunc   ;==>HeroLoadoutAvailable
 
+; Plans with Town Hall 0 deliberately defer unlock checks until Start. Once own-village identity is
+; freshly proven, validate the same selection against that exact account before any routed action.
+Func HeroLoadoutValidateForDetectedTownHall(ByRef $oLoadout, $iDetectedTownHall, ByRef $sError)
+	$sError = ""
+	If Not HeroLoadoutValidate($oLoadout, $sError) Then Return SetError(1, 0, False)
+	Local $iTownHall = Int(Number($iDetectedTownHall))
+	If $iTownHall < 2 Or $iTownHall > $CURRENT_GAME_MAX_TOWN_HALL Then
+		$sError = "Freshly detected Town Hall is outside the current Hero catalog"
+		Return SetError(2, 0, False)
+	EndIf
+	Local $aIds = HeroLoadoutIds($oLoadout)
+	For $i = 0 To UBound($aIds) - 1
+		If Not CurrentGameHeroIsUnlocked($aIds[$i], $iTownHall) Then
+			$sError = $aIds[$i] & " unlocks at Town Hall " & CurrentGameGetHeroUnlockTH($aIds[$i]) & _
+					", but the current account was freshly detected as TH" & $iTownHall
+			Return SetError(3, $i, False)
+		EndIf
+		; The generated catalog already models Dragon Duke, but the inherited attack-bar actuator
+		; still owns only King, Queen, Prince, Warden, and Champion.
+		If _CurrentGameNormalizeId($aIds[$i]) = "dragon-duke" Then
+			$sError = "Dragon Duke is not present in the inherited deployment actuator"
+			Return SetError(4, $i, False)
+		EndIf
+	Next
+	Return True
+EndFunc   ;==>HeroLoadoutValidateForDetectedTownHall
+
 Func HeroLoadoutDescribe(ByRef $oLoadout)
 	Local $sError
 	If Not HeroLoadoutValidate($oLoadout, $sError) Then Return SetError(1, 0, $sError)

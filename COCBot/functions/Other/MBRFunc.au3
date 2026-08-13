@@ -201,9 +201,9 @@ Func MBRFuncProbeEngine(ByRef $sError, $iTimeoutMs = 15000)
 		Return False
 	EndIf
 	If $bProbeExited Then
-		$sError = "Managed engine startup failed; check Windows Security and .NET health, then restart My Bot 2.0"
+		$sError = "Managed engine startup failed; check Windows Security and .NET health, restart Windows once, then relaunch My Bot 2.0"
 	Else
-		$sError = "Managed engine did not answer within " & Int($iTimeoutMs / 1000) & " seconds; check Windows Security and .NET health, then restart My Bot 2.0"
+		$sError = "Managed engine did not answer within " & Int($iTimeoutMs / 1000) & " seconds; check Windows Security and .NET health, restart Windows once, then relaunch My Bot 2.0"
 	EndIf
 	MBRFuncMarkUnavailable($sError)
 	Return False

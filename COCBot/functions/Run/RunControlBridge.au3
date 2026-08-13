@@ -23,6 +23,10 @@ Global $g_bRunControlStartInProgress = False
 Global $g_bRunControlStopRequested = False
 Global $g_hRunControlOwnerMutex = 0
 
+Func RunControlStopRequested()
+	Return $g_bRunControlStopRequested
+EndFunc   ;==>RunControlStopRequested
+
 Func RunControlCommandPath()
 	Return @ScriptDir & "\" & $RUN_CONTROL_COMMAND_FILE_NAME
 EndFunc   ;==>RunControlCommandPath
@@ -97,9 +101,13 @@ Func RunControlWriteStatus($bForce = False)
 	$sJson &= _RunEventJsonString("profile") & ":" & _RunEventJsonString($g_sProfileCurrentName) & ","
 	$sJson &= _RunEventJsonString("emulator") & ":" & _RunEventJsonString($g_sAndroidEmulator) & ","
 	$sJson &= _RunEventJsonString("instance") & ":" & _RunEventJsonString($g_sAndroidInstance) & ","
-	Local $bWindowAttached = IsHWnd($g_hAndroidWindow)
-	Local $bAdbReady = $g_bAndroidInitialized And StringLen($g_sAndroidAdbDevice) > 0
-	Local $bGameReady = $g_bRunState And $g_bMainWindowOk
+	; A stale/destroyed HWND can remain handle-typed after the emulator exits. Publish attachment
+	; only while the exact window still exists and belongs to a live process.
+	Local $bWindowAttached = IsHWnd($g_hAndroidWindow) And WinExists($g_hAndroidWindow) = 1 And WinGetProcess($g_hAndroidWindow) > 0
+	; An initialized ADB executable/device string proves configuration, not an attached emulator.
+	; A server-only `adb devices` result must therefore remain not-ready when the native window is absent.
+	Local $bAdbReady = $bWindowAttached And $g_bAndroidInitialized And StringLen($g_sAndroidAdbDevice) > 0
+	Local $bGameReady = $bAdbReady And $g_bRunState And $g_bMainWindowOk
 	; Preserve emulator_attached for v1 clients while publishing the actual readiness stages.
 	$sJson &= _RunEventJsonString("emulator_attached") & ":" & _RunControlBool($bWindowAttached) & ","
 	$sJson &= _RunEventJsonString("window_attached") & ":" & _RunControlBool($bWindowAttached) & ","

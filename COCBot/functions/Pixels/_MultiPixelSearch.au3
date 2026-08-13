@@ -122,10 +122,10 @@ Func WaitforPixel($iLeft, $iTop, $iRight, $iBottom, $firstColor, $iColorVariatio
 	Return False
 EndFunc   ;==>WaitforPixel
 
-Func _FullResPixelSearch($iLeft, $iRight, $iY, $xSkip, $firstColor, $FullColor, $iColorVariation)
+Func _FullResPixelSearch($iLeft, $iRight, $iY, $xSkip, $firstColor, $FullColor, $iColorVariation, $bNeedCapture = $g_bCapturePixel)
 	For $x = $iLeft To $iRight
-		If _ColorCheck(_GetPixelColor($x, $iY, $g_bCapturePixel), $firstColor, $iColorVariation) Then
-			If Not _ColorCheck(_GetPixelColor($x + $xSkip, $iY, $g_bCapturePixel), Hex($FullColor, 6), $iColorVariation) Then ContinueLoop
+		If _ColorCheck(_GetPixelColor($x, $iY, $bNeedCapture), $firstColor, $iColorVariation) Then
+			If Not _ColorCheck(_GetPixelColor($x + $xSkip, $iY, $bNeedCapture), Hex($FullColor, 6), $iColorVariation) Then ContinueLoop
 			Local $Pos[2] = [$x + $xSkip, $iY]
 			Return $Pos
 		EndIf

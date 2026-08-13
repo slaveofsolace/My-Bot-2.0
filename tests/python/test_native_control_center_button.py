@@ -45,7 +45,7 @@ class NativeControlCenterButtonTests(unittest.TestCase):
         self.assertIn("$SM_XVIRTUALSCREEN", helper)
         self.assertIn("$SM_CXVIRTUALSCREEN", helper)
         self.assertIn("Local $aVirtual = _VirtualDesktopHorizontalBounds()", dock)
-        self.assertIn("If $iX < $aVirtual[0] Then Return False", dock)
+        self.assertIn("If $iX < $aVirtual[0] Then Return SetExtended(0, False)", dock)
         self.assertNotIn("$iWorkRight - $aController[2]", dock)
 
     def test_exact_dock_pair_minimizes_and_restores_as_one_background_unit(self):
@@ -100,6 +100,27 @@ class NativeControlCenterButtonTests(unittest.TestCase):
         )
         minimized_case = synchronize_body[synchronize_body.index("Case $g_iPairMinimized"):]
         self.assertIn("$g_iPairVisibilityState = $g_iPairVisible", minimized_case)
+
+    def test_dock_keeper_uses_adaptive_low_resource_backoff(self):
+        launcher = (ROOT / "My Bot 2.0.au3").read_text(encoding="utf-8-sig")
+        keeper = launcher[launcher.index("Func _KeepDocked"):launcher.index("EndFunc   ;==>_KeepDocked")]
+        delay = launcher[
+            launcher.index("Func _AdaptiveDockPollDelay"):
+            launcher.index("EndFunc   ;==>_AdaptiveDockPollDelay")
+        ]
+        dock = launcher[launcher.index("Func _DockController"):launcher.index("EndFunc   ;==>_DockController")]
+        strip = launcher[launcher.index("Func _DockControlStrip"):launcher.index("EndFunc   ;==>_DockControlStrip")]
+
+        self.assertIn("Global Const $g_iDockTransitionPollMs = 1000", launcher)
+        self.assertIn("Global Const $g_iDockStablePollMs = 5000", launcher)
+        self.assertIn("Local $sPreviousDockState", keeper)
+        self.assertIn("_AdaptiveDockPollDelay($sDockState, $sPreviousDockState, $bNeedsFastPoll)", keeper)
+        self.assertIn("$iDockAction > 0", keeper)
+        self.assertIn("$bStateChanged = $sState <> $sPreviousState", delay)
+        self.assertIn("If $bNeedsFastPoll Or $bStateChanged Then Return $g_iDockTransitionPollMs", delay)
+        self.assertIn("Return $g_iDockStablePollMs", delay)
+        self.assertIn("Return SetExtended($iStripAction, True)", dock)
+        self.assertIn("Return SetExtended(0, True)", strip)
 
 
 if __name__ == "__main__":

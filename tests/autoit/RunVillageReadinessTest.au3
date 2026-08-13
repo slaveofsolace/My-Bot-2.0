@@ -23,6 +23,15 @@ AssertTrue(RunVillageReadinessValidate(17, True, 17, $sError, RunVillageReadines
 	"supported TH with fresh identity and valid coordinates is ready: " & $sError)
 AssertTrue(RunVillageReadinessValidate(17, True, 17, $sError, RunVillageReadinessIdentityVerified(17), False), _
 	"identity-only current-army readiness does not require legacy coordinates: " & $sError)
+AssertTrue(RunVillageReadinessValidate(17, True, 17, $sError, True, False, 17, "template"), _
+	"freshly detected TH17 matches a plan pinned to TH17: " & $sError)
+AssertTrue(Not RunVillageReadinessValidate(17, True, 17, $sError, True, False, 16, "template"), _
+	"planned Town Hall mismatch fails closed")
+AssertTrue(StringInStr($sError, "planned TH16") > 0 And StringInStr($sError, "TH17") > 0, _
+	"Town Hall mismatch names both plan and account")
+AssertTrue(Not RunVillageReadinessValidate(17, True, 17, $sError, True, False, 17, "main-screen-profile"), _
+	"a pinned Town Hall cannot be authorized by profile attestation")
+AssertTrue(StringInStr($sError, "fresh own-village template") > 0, "pinned-plan evidence error is actionable")
 AssertTrue(Not RunVillageReadinessValidate(0, True, 17, $sError, True), "unknown Town Hall level is rejected")
 AssertTrue(StringInStr($sError, "not detected") > 0, "unknown-level error is actionable")
 AssertTrue(Not RunVillageReadinessValidate(18, True, 17, $sError, True), "Town Hall above the engine maximum is rejected")

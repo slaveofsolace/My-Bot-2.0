@@ -39,9 +39,25 @@ class MaintenanceCancellationTests(unittest.TestCase):
 
     def test_collectors_poll_stop_after_recognition_and_before_click(self) -> None:
         body = function_body(source("COCBot/functions/Village/Collect.au3"), "Collect")
-        click = body.index('If IsMainPage() Then Click($aCollectXY[$t][0], $aCollectXY[$t][1]')
+        click = body.index('If Click($aCollectXY[$t][0], $aCollectXY[$t][1]')
         stop_poll = body.rfind("If _Sleep(1) Then Return", 0, click)
-        self.assertGreater(stop_poll, click - 200)
+        state_gate = body.rfind("If Not $g_bRunState Then Return SetExtended($iCollectorClicks, False)", 0, click)
+        page_gate = body.rfind("If Not IsMainPage() Then Return SetExtended($iCollectorClicks, False)", 0, click)
+        click_count = body.index("Then $iCollectorClicks += 1", click)
+        self.assertEqual([stop_poll, state_gate, page_gate, click, click_count], sorted([stop_poll, state_gate, page_gate, click, click_count]))
+        self.assertGreater(stop_poll, click - 300)
+
+    def test_common_click_reports_only_an_accepted_input_command(self) -> None:
+        click = function_body(source("COCBot/functions/Other/Click.au3"), "Click")
+        android_click = function_body(source("COCBot/functions/Android/Android.au3"), "AndroidClick")
+        minitouch = function_body(source("COCBot/functions/Android/Android.au3"), "AndroidMinitouchClick")
+        self.assertIn("If TestCapture() Then Return False", click)
+        self.assertIn("If RunPacingGateAction() Then Return False", click)
+        self.assertIn("Return SetError($iAndroidError, $iAndroidExtended, $bAndroidIssued = True)", click)
+        self.assertIn("Return $bIssued", click)
+        self.assertIn("Return AndroidMinitouchClick", android_click)
+        self.assertIn("Return False ; if need to clear screen do not click", minitouch)
+        self.assertIn("Return True", minitouch)
 
     def test_loot_cart_polls_stop_before_irreversible_collect_button(self) -> None:
         body = function_body(source("COCBot/functions/Village/Collect.au3"), "CollectLootCart")

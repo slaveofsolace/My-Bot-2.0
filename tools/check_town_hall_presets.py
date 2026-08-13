@@ -75,6 +75,8 @@ def main() -> int:
             errors.append(f"{prefix} is a partial preset and leaves fields unchanged: {', '.join(missing_owned)}")
         if "run.heroes" not in values:
             errors.append(f"{prefix} must explicitly select its complete Hero loadout")
+        if values.get("run.town_hall") != preset.get("town_hall"):
+            errors.append(f"{prefix} must own and persist its exact Town Hall identity")
         selected_heroes = values.get("run.heroes", [])
         if not isinstance(selected_heroes, list):
             errors.append(f"{prefix} run.heroes must be a list")

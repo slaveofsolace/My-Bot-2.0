@@ -321,11 +321,11 @@ Func _RunPlanFileModeForSurface($sSurface)
 	Return ""
 EndFunc   ;==>_RunPlanFileModeForSurface
 
-; The exact contract. 44 keys: 39 run settings plus the five pacing settings the cloud surface adds.
+; The exact contract. 45 keys: 40 run settings plus the five pacing settings the cloud surface adds.
 ; If a setting is added to config/ui/run-planner.settings.json it MUST be added here too, or every
 ; saved plan is refused.
 Func _RunPlanFileRequiredKeys()
-	Local $aKeys = ["run.surface", "run.strategy", "run.attack_script", "run.heroes", "runtime.emulator", "runtime.instance", "run.duration_minutes", "run.max_battles", "run.stop_on_star_bonus", "run.max_failures", _
+	Local $aKeys = ["run.surface", "run.strategy", "run.attack_script", "run.town_hall", "run.heroes", "runtime.emulator", "runtime.instance", "run.duration_minutes", "run.max_battles", "run.stop_on_star_bonus", "run.max_failures", _
 		"target.gold", "target.elixir", "target.dark_elixir", "upgrade.policy", "account.queue", "army.source", "army.recipe_name", "army.manage_training", "army.wait_for_full", "army.train_spells", "army.train_sieges", _
 		"search.min_gold", "search.min_elixir", "search.min_dark", "search.max_seconds", "search.town_hall_filter", "donate.mode", "donate.keep_army", "donate.max_per_run", "donate.request_when_short", _
 		"events.clan_games", "events.clan_games_point_cap", "events.laboratory", "events.collect_resources", "notify.on_stop", "notify.on_error", "notify.channel", "run.diagnostic_mode", "run.diagnostic_note", _
@@ -333,14 +333,14 @@ Func _RunPlanFileRequiredKeys()
 	Return $aKeys
 EndFunc   ;==>_RunPlanFileRequiredKeys
 
-; Plans saved by the preceding 43-key build managed the active profile's training implicitly. The
-; explicit True value preserves that behaviour. The older 42-key build also did not carry a one-run
-; script override, so its preserve sentinel is installed first. Unknown or otherwise incomplete
-; documents remain strict failures below.
+; Current plans own run.town_hall. The preceding 44-key build did not, so migrate it to explicit
+; auto-detect (0). Earlier 43/42-key migrations retain their original meanings before that final
+; addition. Unknown or otherwise incomplete documents remain strict failures below.
 Func _RunPlanFileNormalizeCurrentContract(ByRef $oJson)
 	If Not IsObj($oJson) Then Return False
 	If $oJson.Count = 42 And Not $oJson.Exists("run.attack_script") Then $oJson.Add("run.attack_script", "profile-current")
 	If $oJson.Count = 43 And Not $oJson.Exists("army.manage_training") Then $oJson.Add("army.manage_training", True)
+	If $oJson.Count = 44 And Not $oJson.Exists("run.town_hall") Then $oJson.Add("run.town_hall", 0)
 	Return True
 EndFunc   ;==>_RunPlanFileNormalizeCurrentContract
 
@@ -422,10 +422,15 @@ EndFunc   ;==>_RunPlanFileAssignBoolean
 ;
 ; The array branch is kept as defence in case the parser is ever changed to return real arrays.
 Func _RunPlanFileBuildLoadout(ByRef $oJson, ByRef $sError)
-	Local $oLoadout = HeroLoadoutCreate()
+	Local $iPlannedTownHall = _RunPlanFileRequireInteger($oJson, "run.town_hall", $sError)
+	If @error Or $iPlannedTownHall > $CURRENT_GAME_MAX_TOWN_HALL Then
+		If $sError = "" Then $sError = "run.town_hall exceeds the current Town Hall catalog"
+		Return SetError(1, 0, 0)
+	EndIf
+	Local $oLoadout = HeroLoadoutCreate($iPlannedTownHall)
 	If Not IsObj($oLoadout) Then
 		$sError = "Unable to create a Hero loadout"
-		Return SetError(1, 0, 0)
+		Return SetError(2, 0, 0)
 	EndIf
 	Local $vHeroes = $oJson.Item("run.heroes")
 	Local $aHeroes
@@ -436,17 +441,17 @@ Func _RunPlanFileBuildLoadout(ByRef $oJson, ByRef $sError)
 		$aHeroes = $vHeroes
 	Else
 		$sError = "run.heroes must be a list"
-		Return SetError(2, 0, 0)
+		Return SetError(3, 0, 0)
 	EndIf
 
 	For $i = 0 To UBound($aHeroes) - 1
 		If Not IsString($aHeroes[$i]) Then
 			$sError = "run.heroes must contain Hero identifiers"
-			Return SetError(3, $i, 0)
+			Return SetError(4, $i, 0)
 		EndIf
 		Local $sHero = StringStripWS($aHeroes[$i], 3)
 		If $sHero = "" Then ContinueLoop
-		If Not HeroLoadoutAdd($oLoadout, $sHero, $sError) Then Return SetError(4, $i, 0)
+		If Not HeroLoadoutAdd($oLoadout, $sHero, $sError) Then Return SetError(5, $i, 0)
 	Next
 	Return $oLoadout
 EndFunc   ;==>_RunPlanFileBuildLoadout
@@ -504,7 +509,7 @@ Func RunPlanFileLoadIntent($sPath, ByRef $sError)
 		If Not _RunPlanFileAssignString($oPlan, $oJson, $aStrings[$i][0], $aStrings[$i][1], $sError) Then Return SetError(7, $i, 0)
 	Next
 	; pacing.* is deliberately absent from this table - it belongs to the intent, not the plan.
-	Local $aIntegers[12][2] = [["duration_minutes", "run.duration_minutes"], ["max_battles", "run.max_battles"], ["max_failures", "run.max_failures"], ["target_gold", "target.gold"], ["target_elixir", "target.elixir"], ["target_dark_elixir", "target.dark_elixir"], ["search_min_gold", "search.min_gold"], ["search_min_elixir", "search.min_elixir"], ["search_min_dark", "search.min_dark"], ["search_max_seconds", "search.max_seconds"], ["donate_max_per_run", "donate.max_per_run"], ["events_clan_games_point_cap", "events.clan_games_point_cap"]]
+	Local $aIntegers[13][2] = [["planned_town_hall", "run.town_hall"], ["duration_minutes", "run.duration_minutes"], ["max_battles", "run.max_battles"], ["max_failures", "run.max_failures"], ["target_gold", "target.gold"], ["target_elixir", "target.elixir"], ["target_dark_elixir", "target.dark_elixir"], ["search_min_gold", "search.min_gold"], ["search_min_elixir", "search.min_elixir"], ["search_min_dark", "search.min_dark"], ["search_max_seconds", "search.max_seconds"], ["donate_max_per_run", "donate.max_per_run"], ["events_clan_games_point_cap", "events.clan_games_point_cap"]]
 	For $i = 0 To UBound($aIntegers) - 1
 		If Not _RunPlanFileAssignInteger($oPlan, $oJson, $aIntegers[$i][0], $aIntegers[$i][1], $sError) Then Return SetError(8, $i, 0)
 	Next
@@ -518,7 +523,6 @@ Func RunPlanFileLoadIntent($sPath, ByRef $sError)
 	If Not IsObj($oLoadout) Then Return SetError(11, 0, 0)
 	Local $oIntent = RunIntentCreate($oPlan, $sSurface, $oLoadout, $sError)
 	If Not IsObj($oIntent) Then Return SetError(12, 0, 0)
-
 	If Not _RunPlanFileApplyPacing($oIntent, $oJson, $sError) Then Return SetError(13, 0, 0)
 
 	Local $bDiagnostic = _RunPlanFileRequireBoolean($oJson, "run.diagnostic_mode", $sError)

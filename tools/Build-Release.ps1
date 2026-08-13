@@ -75,6 +75,7 @@ $runtimeFiles = @(
     "My Bot 2.0.au3",
     "MyBot.run.au3",
     "MyBot.run.EngineProbe.au3",
+    "MyBot.run.EngineProbe.exe.config",
     "MyBot.run.MiniGui.au3",
     "MyBot.run.Watchdog.au3",
     "MyBot.run.Wmi.au3",

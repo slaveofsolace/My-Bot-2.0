@@ -72,6 +72,8 @@ Func _RunPlannerHandlerFor($sSettingId)
 			Return "cmbRunPlannerSurface"
 		Case "run.heroes"
 			Return "cmbRunPlannerHeroes"
+		Case "run.town_hall"
+			Return "inpRunPlannerTownHall"
 		Case "run.strategy"
 			Return "cmbRunPlannerStrategy"
 		Case "runtime.emulator"

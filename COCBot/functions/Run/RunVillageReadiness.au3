@@ -51,7 +51,7 @@ Func RunVillageReadinessIdentitySource()
 EndFunc   ;==>RunVillageReadinessIdentitySource
 
 Func RunVillageReadinessValidate($iTownHallLevel, $bTownHallCoordinatesValid, $iMaxTownHallLevel, ByRef $sError, _
-		$bTownHallIdentityVerified = False, $bTownHallCoordinatesRequired = True)
+		$bTownHallIdentityVerified = False, $bTownHallCoordinatesRequired = True, $iPlannedTownHall = 0, $sIdentitySource = "")
 	$sError = ""
 	Local $iLevel = Int(Number($iTownHallLevel))
 	Local $iMaximum = Int(Number($iMaxTownHallLevel))
@@ -75,6 +75,17 @@ Func RunVillageReadinessValidate($iTownHallLevel, $bTownHallCoordinatesValid, $i
 	If $bTownHallCoordinatesRequired And Not $bTownHallCoordinatesValid Then
 		$sError = "the own-village Town Hall coordinates are invalid; locate the Town Hall and retry"
 		Return SetError(5, 0, False)
+	EndIf
+	Local $iPlanned = Int(Number($iPlannedTownHall))
+	If $iPlanned > 0 Then
+		If $sIdentitySource <> "template" Then
+			$sError = "the planned Town Hall requires a fresh own-village template detection before Start"
+			Return SetError(6, 0, False)
+		EndIf
+		If $iLevel <> $iPlanned Then
+			$sError = "planned TH" & $iPlanned & " does not match freshly detected own-village TH" & $iLevel
+			Return SetError(7, 0, False)
+		EndIf
 	EndIf
 	Return True
 EndFunc   ;==>RunVillageReadinessValidate

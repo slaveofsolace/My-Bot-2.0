@@ -12,6 +12,7 @@ import planner_ui  # noqa: E402
 
 
 PRESETS = json.loads((ROOT / "config" / "ui" / "run-planner.presets.json").read_text(encoding="utf-8"))
+SETTINGS_SCHEMA = json.loads((ROOT / "config" / "ui" / "settings.schema.json").read_text(encoding="utf-8"))
 PLANNER_JS = (ROOT / "ui" / "planner.js").read_text(encoding="utf-8")
 PLANNER_HTML = (ROOT / "ui" / "planner.html").read_text(encoding="utf-8")
 EXECUTION = (ROOT / "COCBot" / "functions" / "Run" / "RunExecution.au3").read_text(encoding="utf-8")
@@ -19,6 +20,14 @@ CONTRACT = (ROOT / "COCBot" / "functions" / "Run" / "RunExecutionContract.au3").
 
 
 class CustomPlanHeroContract(unittest.TestCase):
+    def test_hero_option_unlock_metadata_is_declared_by_the_ui_schema(self):
+        option_properties = SETTINGS_SCHEMA["$defs"]["option"]["properties"]
+        self.assertEqual(
+            option_properties["unlock_town_hall"],
+            {"type": "integer", "minimum": 2, "maximum": 99},
+        )
+        self.assertEqual(option_properties["active_slot_eligible"], {"type": "boolean"})
+
     def test_every_town_hall_preset_replaces_a_contaminated_hero_selection(self):
         preserved = set(PRESETS["preserved_settings"])
         setting_ids = set(planner_ui.default_plan())
@@ -27,7 +36,9 @@ class CustomPlanHeroContract(unittest.TestCase):
                 values = {**PRESETS["common_values"], **preset["values"]}
                 self.assertEqual(set(values), setting_ids - preserved)
                 self.assertIn("run.heroes", values)
+                self.assertEqual(values["run.town_hall"], preset["town_hall"])
                 plan = planner_ui.default_plan()
+                plan["run.town_hall"] = 18
                 plan["run.heroes"] = ["barbarian-king", "archer-queen", "minion-prince", "grand-warden"]
                 plan.update(values)
                 clean, adjustments, rejected = planner_ui.validate_plan(plan)
@@ -37,7 +48,34 @@ class CustomPlanHeroContract(unittest.TestCase):
                 with tempfile.TemporaryDirectory() as folder:
                     target = pathlib.Path(folder) / "plan.json"
                     planner_ui.write_plan_atomic(clean, target)
-                    self.assertEqual(json.loads(target.read_text(encoding="utf-8"))["run.heroes"], values["run.heroes"])
+                    persisted = json.loads(target.read_text(encoding="utf-8"))
+                    self.assertEqual(persisted["run.heroes"], values["run.heroes"])
+                    self.assertEqual(persisted["run.town_hall"], preset["town_hall"])
+
+    def test_custom_town_hall_zero_defers_unlock_validation_to_fresh_start_detection(self):
+        plan = planner_ui.default_plan()
+        plan["run.town_hall"] = 0
+        plan["run.heroes"] = ["archer-queen"]
+        clean, adjustments, rejected = planner_ui.validate_plan(plan)
+        self.assertFalse(adjustments)
+        self.assertFalse(rejected)
+        self.assertEqual(clean["run.town_hall"], 0)
+        main = (ROOT / "MyBot.run.au3").read_text(encoding="utf-8-sig")
+        self.assertIn("HeroLoadoutValidateForDetectedTownHall", main)
+        self.assertIn("selected Heroes require a fresh visual Town Hall detection", main)
+
+    def test_collectors_strategy_loads_only_a_visible_unsaved_safety_patch(self):
+        self.assertIn("const STRATEGY_SAFETY_PATCHES", PLANNER_JS)
+        self.assertIn("'home.collectors':", PLANNER_JS)
+        self.assertIn("function applyStrategySafetyPatch(strategyId)", PLANNER_JS)
+        body = PLANNER_JS.split("function applyStrategySafetyPatch(strategyId)", 1)[1].split("function ", 1)[0]
+        self.assertIn("loaded ${changes.length} unsaved change", body)
+        self.assertIn("PLAN[id] = clone(value)", body)
+        for forbidden in ("fetch(", "savePlan(", "sendControl("):
+            self.assertNotIn(forbidden, body)
+        patch = PLANNER_JS.split("'home.collectors':", 1)[1].split("},", 1)[0]
+        for preserved in ("runtime.emulator", "runtime.instance", "run.diagnostic_mode", "run.diagnostic_note"):
+            self.assertNotIn(preserved, patch)
 
     def test_custom_plan_shows_an_explicit_hero_receipt(self):
         self.assertIn('Custom plan — your settings', PLANNER_HTML)

@@ -119,8 +119,15 @@ Func RunEventLogPlanBlocked($sSurfaceId, $sReason)
 EndFunc   ;==>RunEventLogPlanBlocked
 
 Func RunEventLogPlanFileLoaded($sSummary)
-	Return RunEventLogWrite("session.ready", "info", $sSummary)
+	Return RunEventLogWrite("plan.loaded", "info", $sSummary)
 EndFunc   ;==>RunEventLogPlanFileLoaded
+
+; A prepared session may open/recover the selected emulator, prove Home, and normalize camera zoom
+; before it is allowed to become running. Record that bounded preflight without calling it started.
+Func RunEventLogPreflightStarted($sSurfaceId, $sVerificationState, $sDescription)
+	_RunEventLogSetRunContext($sSurfaceId, $sVerificationState)
+	Return RunEventLogWrite("session.preparing", "info", "Preflight started: " & $sDescription, $sSurfaceId, $sVerificationState)
+EndFunc   ;==>RunEventLogPreflightStarted
 
 Func RunEventLogRestStarted($iMinutes)
 	Return RunEventLogWrite("pacing.rest.started", "info", "Resting " & $iMinutes & " minutes")
@@ -204,6 +211,67 @@ Func RunEventLogSpellRetained($sSpellName, $sReason)
 	Return RunEventLogWrite("combat.spell-retained", "warning", $sSpellName & " retained: " & $sReason, _
 			$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
 EndFunc   ;==>RunEventLogSpellRetained
+
+Func RunEventLogMaintenanceCollectorsStarted()
+	If Not $g_bRunEventSessionBound Then Return False
+	Return RunEventLogWrite("maintenance.collectors.started", "info", _
+			"Collectors-only Home Village pass started", $g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogMaintenanceCollectorsStarted
+
+Func RunEventLogMaintenanceHomeVerified($iCollectorClicks)
+	If Not $g_bRunEventSessionBound Then Return False
+	Return RunEventLogWrite("maintenance.home-verified", "info", _
+			"Home Village main screen re-proven; collector_clicks=" & Int($iCollectorClicks), _
+			$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogMaintenanceHomeVerified
+
+Func RunEventLogMaintenanceCollectorsCompleted($iCollectorClicks)
+	If Not $g_bRunEventSessionBound Then Return False
+	If Int($iCollectorClicks) < 1 Then Return False
+	Return RunEventLogWrite("maintenance.collectors.completed", "info", _
+			"Collector clicks completed; collector_clicks=" & Int($iCollectorClicks), _
+			$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogMaintenanceCollectorsCompleted
+
+Func RunEventLogMaintenanceCollectorsNoneActionable()
+	If Not $g_bRunEventSessionBound Then Return False
+	Return RunEventLogWrite("maintenance.collectors.none-actionable", "warning", _
+			"No collector click was issued; recognition returned none or storage/threshold guards skipped every match; collector_clicks=0", _
+			$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogMaintenanceCollectorsNoneActionable
+
+Func RunEventLogClanRequestStarted()
+	If Not $g_bRunEventSessionBound Then Return False
+	Return RunEventLogWrite("maintenance.clan-request.started", "info", _
+			"Request-only Home Village pass started", $g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogClanRequestStarted
+
+Func RunEventLogClanRequestUnavailable($sBeforeState)
+	If Not $g_bRunEventSessionBound Then Return False
+	Return RunEventLogWrite("maintenance.clan-request.unavailable", "warning", _
+			"No Send issued; fresh request state=" & $sBeforeState, $g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogClanRequestUnavailable
+
+Func RunEventLogClanRequestUnconfirmed($bSendIssued, $sDetail)
+	If Not $g_bRunEventSessionBound Then Return False
+	Return RunEventLogWrite("maintenance.clan-request.unconfirmed", "error", _
+			"send_issued=" & ($bSendIssued ? "true" : "false") & "; " & $sDetail, _
+			$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogClanRequestUnconfirmed
+
+Func RunEventLogClanRequestCommitted()
+	If Not $g_bRunEventSessionBound Then Return False
+	Return RunEventLogWrite("maintenance.clan-request.committed", "info", _
+			"One Send committed; fresh state changed Available -> AlreadyMade", _
+			$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogClanRequestCommitted
+
+Func RunEventLogClanRequestHomeVerified($sOutcome)
+	If Not $g_bRunEventSessionBound Then Return False
+	Return RunEventLogWrite("maintenance.clan-request.home-verified", "info", _
+			"Home Village main screen re-proven after request outcome=" & $sOutcome, _
+			$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogClanRequestHomeVerified
 
 Func RunEventLogRunStopping($sSurfaceId, $sVerificationState, $sReason)
 	Return RunEventLogWrite("session.stopping", "info", "Stop condition: " & $sReason, $sSurfaceId, $sVerificationState)

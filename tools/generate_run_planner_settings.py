@@ -138,7 +138,7 @@ def build_hero_options(heroes: dict) -> list[dict]:
         hid = hero["id"]
         unlock = hero["unlock_town_hall"]
         supported_by_inherited_engine = hid != "dragon-duke"
-        options.append(option(
+        hero_option = option(
             value=hid,
             label=hero["label"],
             summary=f"Unlocks at Town Hall {unlock}. Movement: {hero['movement']}.",
@@ -156,7 +156,12 @@ def build_hero_options(heroes: dict) -> list[dict]:
             capability_ids=["heroes.dragon-duke"] if hid == "dragon-duke" else ["heroes.six-slot-layout"],
             prerequisites=[f"Town Hall {unlock} or above"],
             recommended=(hid == "barbarian-king"),
-        ))
+        )
+        # Machine-readable unlock data keeps the browser and loopback validator on the same
+        # official current-client catalog as the native HeroLoadout contract.
+        hero_option["unlock_town_hall"] = unlock
+        hero_option["active_slot_eligible"] = bool(hero.get("active_slot_eligible"))
+        options.append(hero_option)
     return options
 
 
@@ -306,7 +311,24 @@ def main() -> int:
                                    "mechanics on that run, not strategy quality or every Town Hall and army.",
                                    "available", [], ["A ready trained army", "A supervised diagnostic operator"],
                                    runtime_verified=True,
-                                   warning="Runtime-observed on one TH17 current-army battle; quality, other Town Halls, and other armies remain unverified."),
+                                    warning="Runtime-observed on one TH17 current-army battle; quality, other Town Halls, and other armies remain unverified."),
+                             option("home.collectors", "Home maintenance - collectors only",
+                                    "Empty Home Village mines and collectors once, without matchmaking.",
+                                    "Runs one bounded collector pass, re-proves the Home Village screen, then stops. "
+                                   "It cannot search, attack, train, donate, upgrade, enter the Laboratory, run Clan "
+                                   "Games, rotate accounts, collect the Loot Cart, or enter the Treasury.",
+                                   "gated", ["village.collectors"], ["Collect collectors enabled", "A supervised diagnostic operator"],
+                                    disabled_reason="Current-client collector and full-storage handling still need a supervised runtime receipt.",
+                                    warning="Diagnostic only until a supervised current-client collector pass is recorded."),
+                            option("home.clan-request", "Home maintenance - Clan request only",
+                                   "Request Clan Castle reinforcements once, without donating or matchmaking.",
+                                   "Runs one bounded request-only pass on the exact active profile and emulator instance. "
+                                   "It requires a fresh Available button, permits one Send, proves the fresh transition "
+                                   "to AlreadyMade, re-proves Home Village, then stops. It never enters donation, army "
+                                   "editing, training, collectors, upgrades, events, account rotation, or battle paths.",
+                                   "gated", [], ["Request when available enabled", "Exact emulator instance", "A supervised diagnostic operator"],
+                                   disabled_reason="Current-client Clan request recognition still needs a supervised runtime receipt.",
+                                   warning="Diagnostic only: this may post one real Clan request. Send is never retried."),
                             option("legacy.smart-farm", "Smart farm",
                                    "Targets collectors and storages based on the base layout.",
                                    "Reads the base to choose where to drop, which needs current building recognition "
@@ -348,6 +370,23 @@ def main() -> int:
                     "active at once, so this is a selection rather than a fixed list."
                 ),
                 "settings": [
+                    {
+                        "id": "run.town_hall",
+                        "type": "integer",
+                        "label": "Planned Town Hall",
+                        "summary": "Exact Home Village Town Hall expected for this run; zero detects it at Start.",
+                        "description": (
+                            "Every Town Hall starting point writes its exact level here. A Custom plan may keep zero, "
+                            "which means the native engine must freshly detect the current account before validating "
+                            "Hero unlocks. A nonzero value must exactly match that fresh detection or Start fails "
+                            "before training, maintenance, search, or deployment."
+                        ),
+                        "default": 0,
+                        "required": False,
+                        "engine_binding": "RunPlan.planned_town_hall",
+                        "unit": "Town Hall (0 = detect at Start)",
+                        "validation": {"minimum": 0, "maximum": 18, "step": 1},
+                    },
                     {
                         "id": "run.heroes",
                         "type": "multi-select",
@@ -930,9 +969,9 @@ def main() -> int:
                     {
                         "id": "donate.request_when_short",
                         "type": "boolean",
-                        "label": "Request when empty",
-                        "summary": "Ask the clan for Clan Castle troops.",
-                        "description": "Posts a request when the Clan Castle is empty, so a defending or attacking castle troop is available.",
+                        "label": "Request when available",
+                        "summary": "Ask the clan for Clan Castle reinforcements when the request button is available.",
+                        "description": "Allows the explicit request-only route to post at most one request after fresh Available recognition.",
                         "default": False,
                         "required": False,
                         "engine_binding": "RunPlan.donate_request_when_short",
@@ -1028,8 +1067,8 @@ def main() -> int:
                         "label": "Collect collectors",
                         "summary": "Empty mines and collectors each pass.",
                         "description": (
-                            "Tapping collectors is low risk and adds up. It is skipped automatically when storages "
-                            "are already full, so it costs nothing to leave on."
+                            "This is executed only by Home maintenance - collectors only. The route skips full "
+                            "storages, Loot Cart, Treasury, matchmaking, donations, upgrades, Laboratory, and Clan Games."
                         ),
                         "default": False,
                         "required": False,
@@ -1038,8 +1077,8 @@ def main() -> int:
                         "runtime_verified": False,
                         "capability_ids": ["village.collectors"],
                         "prerequisites": ["Current home-village collector recognition"],
-                        "disabled_reason": "Collector tapping exists in the inherited engine but lacks a current-client fixture and run receipt.",
-                        "warning": "Use a supervised diagnostic until collector and full-storage handling are observed.",
+                        "disabled_reason": "The bounded route is wired, but collector and full-storage handling lack a supervised current-client receipt.",
+                        "warning": "Select Home maintenance - collectors only and use a supervised diagnostic.",
                     },
                 ],
             },
