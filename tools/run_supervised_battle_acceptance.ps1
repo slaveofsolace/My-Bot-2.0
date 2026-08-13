@@ -193,7 +193,7 @@ try {
 
     Require-ExactlyOneEvent $result.events 'combat.decision' '^Smart side .+ selected:' 'Smart side selection'
     Require-ExactlyOneEvent $result.events 'combat.decision' '^Smart combat started from ' 'Smart combat start'
-    Require-ExactlyOneEvent $result.events 'combat.zoom-verified' '^Enemy zoom-out verified with [5-9][0-9]+ deployable red-line points$' 'enemy zoom proof'
+    Require-ExactlyOneEvent $result.events 'combat.zoom-verified' '^Enemy zoom-out verified with (?:[5-9][0-9]|[1-9][0-9]{2,}) deployable red-line points$' 'enemy zoom proof'
     Require-ExactlyOneEvent $result.events 'combat.deployment-verified' '^Deployment verified: [1-9][0-9]* deployable troops reduced to 0$' 'troop deployment proof'
     $heroNames = @{
         'barbarian-king' = 'Barbarian King'

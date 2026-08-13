@@ -17,7 +17,7 @@ class SupervisedBattleAcceptanceContract(unittest.TestCase):
         for marker in (
             "combat.zoom-verified",
             "combat.deployment-verified",
-            "Enemy zoom-out verified with [5-9][0-9]+ deployable red-line points",
+            "Enemy zoom-out verified with (?:[5-9][0-9]|[1-9][0-9]{2,}) deployable red-line points",
             "Deployment verified: [1-9][0-9]* deployable troops reduced to 0",
         ):
             self.assertIn(marker, SCRIPT)
@@ -25,6 +25,12 @@ class SupervisedBattleAcceptanceContract(unittest.TestCase):
         self.assertIn("could not send enemy zoom-out gesture", SCRIPT)
         self.assertIn("lost the attack page after zoom-out", SCRIPT)
         self.assertIn("could not prove deployable red-line geometry after zoom-out", SCRIPT)
+
+    def test_zoom_proof_accepts_fifty_or_more_points(self):
+        pattern = r"^Enemy zoom-out verified with (?:[5-9][0-9]|[1-9][0-9]{2,}) deployable red-line points$"
+        self.assertRegex("Enemy zoom-out verified with 50 deployable red-line points", pattern)
+        self.assertRegex("Enemy zoom-out verified with 240 deployable red-line points", pattern)
+        self.assertNotRegex("Enemy zoom-out verified with 49 deployable red-line points", pattern)
 
     def test_requires_smart_side_heroes_and_both_spell_receipts(self):
         self.assertIn("$plan.'run.strategy' -ne 'smart.local'", SCRIPT)
