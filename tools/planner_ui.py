@@ -599,7 +599,11 @@ def health_payload() -> dict:
         ).decode("ascii").rstrip("="),
         "build_sha256": SERVICE_BUILD_SHA256,
         "service_pid": os.getpid(),
-        "owner_token": SERVICE_OWNER_TOKEN,
+        # Never publish the launch capability itself. Native ownership recovery reads the raw,
+        # unguessable token from its atomic local receipt and compares this digest. Loopback health
+        # is deliberately treated as public and spoofable.
+        "owner_token": hashlib.sha256(SERVICE_OWNER_TOKEN.encode("ascii")).hexdigest(),
+        "owner_token_kind": "sha256",
         "sections": len(metadata.get("sections", [])),
         "settings": len(settings),
         "plan": plan_status(),
@@ -1088,7 +1092,11 @@ def selftest() -> int:
                 "health endpoint identifies the loaded service build",
             )
             check(health["service_pid"] == os.getpid(), "health endpoint reports the serving process id")
-            check(health["owner_token"] == "selftest-owner", "health endpoint carries the launch ownership token")
+            check(
+                health["owner_token"] == hashlib.sha256(b"selftest-owner").hexdigest()
+                and health["owner_token_kind"] == "sha256",
+                "health endpoint carries only a digest of the launch ownership token",
+            )
 
             connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
             connection.request("GET", "/api/health")

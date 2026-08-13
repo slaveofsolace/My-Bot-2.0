@@ -43,6 +43,12 @@ Global Const $g_iErrorAlreadyExists = 183
 Global Const $g_sRecoveryLogPath = @ScriptDir & "\artifacts\launcher-recovery.log"
 Global Const $g_sPlannerServiceName = "my-bot-control-center"
 Global Const $g_sPlannerScriptPath = @ScriptDir & "\tools\planner_ui.py"
+Global Const $g_sPlannerOwnershipSchema = "my-bot-planner-owner-v1"
+Global Const $g_sPlannerOwnershipReceipt = $g_sUserDataRoot & "\planner-owner-v1.json"
+Global Const $g_iPlannerHealthResolveTimeoutMs = 200
+Global Const $g_iPlannerHealthConnectTimeoutMs = 300
+Global Const $g_iPlannerHealthSendTimeoutMs = 300
+Global Const $g_iPlannerHealthReceiveTimeoutMs = 500
 Global Const $g_iLauncherErrorTimeoutSec = 15
 Global Const $g_iControlStripHeight = 34
 Global Const $g_iControlStripGap = 4
@@ -54,6 +60,7 @@ Global Const $g_iPairMinimizing = 1
 Global Const $g_iPairMinimized = 2
 Global Const $g_iPairRestoring = 3
 Global $g_iPairVisibilityState = $g_iPairVisible
+Global $g_bPlannerHealthComError = False
 
 _CloseOwnedAutoItErrorDialogs()
 If _CommandLineHas("/recover") Or _CommandLineHas("/repair") Then
@@ -197,9 +204,12 @@ EndFunc   ;==>_ProfilesRootToken
 Func _RecoverBotStack()
 	_RecoveryLog("recovery requested")
 	_CloseOwnedAutoItErrorDialogs()
+	; Prove and close the planner while its recorded backend parent is still alive. Closing the
+	; backend first would discard the strongest part of the ownership chain and make a stale PID look
+	; more trustworthy than it is.
+	Local $bPlannerClosed = _CloseOwnedPlannerService()
 	_CloseExactPathProcesses("MyBot.run.MiniGui.exe", $g_sControllerPath)
 	_CloseExactPathProcesses("MyBot.run.exe", $g_sHostPath)
-	Local $bPlannerClosed = _CloseOwnedPlannerService()
 	_CloseExactPathProcesses("My Bot 2.0.exe", @ScriptFullPath, @AutoItPID)
 
 	Local $hController = _FindControllerWindow()
@@ -210,50 +220,244 @@ Func _RecoverBotStack()
 	Return $bRecovered
 EndFunc   ;==>_RecoverBotStack
 
-; The planner service can outlive a backend that was force-closed. Recovery runs elevated, but it
-; still proves the loopback service name, exact checkout root, current script hash, reported PID,
-; and pythonw image before closing anything. A foreign listener is logged and left untouched.
+Func _PlannerReceiptString($sReceipt, $sName)
+	Local $aValue = StringRegExp($sReceipt, '"' & $sName & '"\s*:\s*"([A-Za-z0-9_-]+)"', $STR_REGEXPARRAYMATCH)
+	If @error Or Not IsArray($aValue) Or UBound($aValue) <> 1 Then Return ""
+	Return $aValue[0]
+EndFunc   ;==>_PlannerReceiptString
+
+Func _PlannerReceiptInt($sReceipt, $sName)
+	Local $aValue = StringRegExp($sReceipt, '"' & $sName & '"\s*:\s*([0-9]+)', $STR_REGEXPARRAYMATCH)
+	If @error Or Not IsArray($aValue) Or UBound($aValue) <> 1 Then Return 0
+	Return Int($aValue[0])
+EndFunc   ;==>_PlannerReceiptInt
+
+Func _ReadPlannerOwnershipReceipt()
+	If Not FileExists($g_sPlannerOwnershipReceipt) Then Return ""
+	If Not _PlannerReceiptPathSafe(True) Then Return ""
+	Local $sReceipt = FileRead($g_sPlannerOwnershipReceipt)
+	If @error Or StringLen($sReceipt) > 4096 Then Return ""
+	Return $sReceipt
+EndFunc   ;==>_ReadPlannerOwnershipReceipt
+
+Func _PlannerReceiptPathSafe($bRequireReceipt = False)
+	Local $aParent = DllCall("kernel32.dll", "dword", "GetFileAttributesW", "wstr", $g_sUserDataRoot)
+	If @error Or Not IsArray($aParent) Or $aParent[0] = 0xFFFFFFFF Then Return False
+	If BitAND($aParent[0], 0x10) = 0 Or BitAND($aParent[0], 0x400) <> 0 Then Return False
+	If Not FileExists($g_sPlannerOwnershipReceipt) Then Return Not $bRequireReceipt
+	Local $aReceipt = DllCall("kernel32.dll", "dword", "GetFileAttributesW", "wstr", $g_sPlannerOwnershipReceipt)
+	If @error Or Not IsArray($aReceipt) Or $aReceipt[0] = 0xFFFFFFFF Then Return False
+	Return BitAND($aReceipt[0], 0x10) = 0 And BitAND($aReceipt[0], 0x400) = 0
+EndFunc   ;==>_PlannerReceiptPathSafe
+
+Func _StringSha256($sText)
+	Local $vHash = _Crypt_HashData(StringToBinary(String($sText), 4), $CALG_SHA_256)
+	If @error Or Not IsBinary($vHash) Then Return ""
+	Return StringLower(StringTrimLeft(String($vHash), 2))
+EndFunc   ;==>_StringSha256
+
+Func _LauncherPathToken($sPath)
+	Local $sEncoded = _Base64Encode(StringToBinary(String($sPath), 4), 0)
+	If @error Then Return ""
+	$sEncoded = StringReplace(StringReplace($sEncoded, @CR, ""), @LF, "")
+	$sEncoded = StringReplace(StringReplace($sEncoded, "+", "-"), "/", "_")
+	Return StringRegExpReplace($sEncoded, "=+$", "")
+EndFunc   ;==>_LauncherPathToken
+
+Func _ProcessCreationId($iPid)
+	Local $aOpen = DllCall("kernel32.dll", "handle", "OpenProcess", "dword", 0x1000, "bool", False, "dword", $iPid)
+	If @error Or Not IsArray($aOpen) Or Not $aOpen[0] Then Return ""
+	Local $hProcess = $aOpen[0]
+	Local $tCreated = DllStructCreate("dword Low;dword High")
+	Local $tExit = DllStructCreate("dword Low;dword High")
+	Local $tKernel = DllStructCreate("dword Low;dword High")
+	Local $tUser = DllStructCreate("dword Low;dword High")
+	Local $aTimes = DllCall("kernel32.dll", "bool", "GetProcessTimes", "handle", $hProcess, "struct*", $tCreated, _
+		"struct*", $tExit, "struct*", $tKernel, "struct*", $tUser)
+	DllCall("kernel32.dll", "bool", "CloseHandle", "handle", $hProcess)
+	If @error Or Not IsArray($aTimes) Or Not $aTimes[0] Then Return ""
+	Return StringLower(Hex(DllStructGetData($tCreated, "High"), 8) & Hex(DllStructGetData($tCreated, "Low"), 8))
+EndFunc   ;==>_ProcessCreationId
+
+Func _ProcessParentPid($iPid)
+	Local $aSnapshot = DllCall("kernel32.dll", "handle", "CreateToolhelp32Snapshot", "dword", 0x2, "dword", 0)
+	If @error Or Not IsArray($aSnapshot) Or $aSnapshot[0] = -1 Then Return 0
+	Local $hSnapshot = $aSnapshot[0]
+	Local $tEntry = DllStructCreate("dword Size;dword Usage;dword ProcessId;ptr DefaultHeap;dword ModuleId;dword Threads;" & _
+		"dword ParentProcessId;long PriClassBase;dword Flags;wchar ExeFile[260]")
+	DllStructSetData($tEntry, "Size", DllStructGetSize($tEntry))
+	Local $aNext = DllCall("kernel32.dll", "bool", "Process32FirstW", "handle", $hSnapshot, "struct*", $tEntry)
+	While Not @error And IsArray($aNext) And $aNext[0]
+		If DllStructGetData($tEntry, "ProcessId") = $iPid Then
+			Local $iParent = DllStructGetData($tEntry, "ParentProcessId")
+			DllCall("kernel32.dll", "bool", "CloseHandle", "handle", $hSnapshot)
+			Return $iParent
+		EndIf
+		$aNext = DllCall("kernel32.dll", "bool", "Process32NextW", "handle", $hSnapshot, "struct*", $tEntry)
+	WEnd
+	DllCall("kernel32.dll", "bool", "CloseHandle", "handle", $hSnapshot)
+	Return 0
+EndFunc   ;==>_ProcessParentPid
+
+Func _ProcessCommandLine($iPid)
+	Local $oWmi = ObjGet("winmgmts:{impersonationLevel=impersonate}!\\.\root\cimv2")
+	If @error Or Not IsObj($oWmi) Then Return ""
+	Local $oProcesses = $oWmi.ExecQuery("SELECT CommandLine FROM Win32_Process WHERE ProcessId = " & Int($iPid))
+	If @error Or Not IsObj($oProcesses) Then Return ""
+	For $oProcess In $oProcesses
+		Return String($oProcess.CommandLine)
+	Next
+	Return ""
+EndFunc   ;==>_ProcessCommandLine
+
+; The service proof is sufficient even after its backend parent has crashed: PID plus creation
+; FILETIME, image, parent id, exact command digest/arguments, script build, and profile root all have
+; to agree with the backend's unguessable receipt.
+Func _PlannerReceiptMatchesService($sReceipt, $iServicePid, $sOwnerToken)
+	If _PlannerReceiptString($sReceipt, "schema") <> $g_sPlannerOwnershipSchema Then Return False
+	If Not StringRegExp($sOwnerToken, "^[0-9a-f]{64}$") Then Return False
+	If _PlannerReceiptString($sReceipt, "health_token") <> _StringSha256($sOwnerToken) Then Return False
+	If _PlannerReceiptInt($sReceipt, "service_pid") <> $iServicePid Then Return False
+	Local $iBackendPid = _PlannerReceiptInt($sReceipt, "backend_pid")
+	If $iBackendPid <= 0 Or _PlannerReceiptInt($sReceipt, "parent_pid") <> $iBackendPid Then Return False
+	If Not ProcessExists($iServicePid) Then Return False
+	If _PlannerReceiptString($sReceipt, "service_created") <> _ProcessCreationId($iServicePid) Then Return False
+	If _ProcessParentPid($iServicePid) <> $iBackendPid Then Return False
+	Local $sImage = _ProcessImagePath($iServicePid)
+	If Not StringRegExp(StringLower($sImage), "\\pythonw\.exe$") Then Return False
+	If _PlannerReceiptString($sReceipt, "python_image_token") <> _LauncherPathToken($sImage) Then Return False
+	If _PlannerReceiptString($sReceipt, "script_path_token") <> _LauncherPathToken($g_sPlannerScriptPath) Then Return False
+	If _PlannerReceiptString($sReceipt, "profiles_root_token") <> _ProfilesRootToken($g_sProfilesRoot) Then Return False
+	If _PlannerReceiptString($sReceipt, "build_sha256") <> _FileSha256($g_sPlannerScriptPath) Then Return False
+	Local $sCommand = _ProcessCommandLine($iServicePid)
+	If $sCommand = "" Or _PlannerReceiptString($sReceipt, "command_sha256") <> _StringSha256($sCommand) Then Return False
+	If StringInStr($sCommand, '"' & $g_sPlannerScriptPath & '"') = 0 Then Return False
+	If StringInStr($sCommand, '--owner-token "' & $sOwnerToken & '"') = 0 Then Return False
+	If StringInStr($sCommand, '--profiles-root "' & $g_sProfilesRoot & '"') = 0 Then Return False
+	Return True
+EndFunc   ;==>_PlannerReceiptMatchesService
+
+Func _PlannerReceiptMatchesLiveBackend($sReceipt)
+	Local $iBackendPid = _PlannerReceiptInt($sReceipt, "backend_pid")
+	If $iBackendPid <= 0 Or Not ProcessExists($iBackendPid) Then Return False
+	If StringLower(_ProcessImagePath($iBackendPid)) <> StringLower($g_sHostPath) Then Return False
+	If _PlannerReceiptString($sReceipt, "backend_created") <> _ProcessCreationId($iBackendPid) Then Return False
+	Return True
+EndFunc   ;==>_PlannerReceiptMatchesLiveBackend
+
+Func _PlannerHealthComError($oError)
+	$g_bPlannerHealthComError = True
+	Return
+EndFunc   ;==>_PlannerHealthComError
+
+; Recovery must remain bounded even if a foreign listener accepts the fixed loopback port and never
+; sends a response. WinHTTP supplies explicit per-stage millisecond timeouts; direct mode prevents a
+; user/system proxy from becoming part of the local ownership decision.
+Func _ReadPlannerHealthBounded(ByRef $sHealth, $sUrl = "")
+	$sHealth = ""
+	If $sUrl = "" Then $sUrl = $g_sControlCenterUrl & "api/health"
+	$g_bPlannerHealthComError = False
+	Local $oErrorSink = ObjEvent("AutoIt.Error", "_PlannerHealthComError")
+	Local $oRequest = ObjCreate("WinHttp.WinHttpRequest.5.1")
+	If @error Or Not IsObj($oRequest) Then Return False
+	$oRequest.SetProxy(1)
+	$oRequest.SetTimeouts($g_iPlannerHealthResolveTimeoutMs, $g_iPlannerHealthConnectTimeoutMs, _
+		$g_iPlannerHealthSendTimeoutMs, $g_iPlannerHealthReceiveTimeoutMs)
+	$oRequest.Open("GET", $sUrl, True)
+	$oRequest.SetRequestHeader("Host", "127.0.0.1:8765")
+	$oRequest.Send()
+	If $g_bPlannerHealthComError Then Return False
+	Local $bCompleted = $oRequest.WaitForResponse(1)
+	If $g_bPlannerHealthComError Or Not $bCompleted Then
+		$oRequest.Abort()
+		Return False
+	EndIf
+	If Int($oRequest.Status) <> 200 Then Return False
+	$sHealth = String($oRequest.ResponseText)
+	Return $sHealth <> ""
+EndFunc   ;==>_ReadPlannerHealthBounded
+
+; Loopback health is not authority. Recovery requires the exact, atomically persisted ownership
+; receipt plus a live process/lineage match, then uses health only as a second-channel liveness proof.
 Func _CloseOwnedPlannerService()
-	Local $vHealth = InetRead($g_sControlCenterUrl & "api/health", 1)
-	If @error Or Not IsBinary($vHealth) Or BinaryLen($vHealth) = 0 Then Return True
-	Local $sHealth = BinaryToString($vHealth, 4)
-	If StringInStr($sHealth, """service"": """ & $g_sPlannerServiceName & """") = 0 Then
-		_RecoveryLog("refused planner service: unexpected service identity")
+	Local $sReceipt = _ReadPlannerOwnershipReceipt()
+	If $sReceipt = "" Then
+		Local $sUnownedHealth = ""
+		If _ReadPlannerHealthBounded($sUnownedHealth) Then
+			_RecoveryLog("refused planner service: loopback health has no safe ownership receipt")
+			Return False
+		EndIf
+		Return True
+	EndIf
+	Local $sHealth = ""
+	Local $bHealthAvailable = _ReadPlannerHealthBounded($sHealth)
+	Local $sOwnerToken = _PlannerReceiptString($sReceipt, "token")
+	Local $sHealthToken = _PlannerReceiptString($sReceipt, "health_token")
+	If $sOwnerToken = "" Or $sHealthToken = "" Or _StringSha256($sOwnerToken) <> $sHealthToken Then
+		_RecoveryLog("refused planner service: invalid ownership token receipt")
 		Return False
 	EndIf
-	Local $sJsonRoot = StringReplace(@ScriptDir, "\", "\\")
-	If StringInStr($sHealth, """repo_root"": """ & $sJsonRoot & """") = 0 Then
-		_RecoveryLog("refused planner service: repository root mismatch")
+	Local $iPid = _PlannerReceiptInt($sReceipt, "service_pid")
+	If $iPid <= 0 Or Not _PlannerReceiptMatchesService($sReceipt, $iPid, $sOwnerToken) Then
+		_RecoveryLog("refused planner service: receipt or service identity mismatch")
 		Return False
 	EndIf
-	Local $sProfilesRootToken = _ProfilesRootToken($g_sProfilesRoot)
-	If $sProfilesRootToken = "" Or StringInStr($sHealth, """profiles_root_token"": """ & $sProfilesRootToken & """") = 0 Then
-		_RecoveryLog("refused planner service: profiles root mismatch")
-		Return False
+	Local $bLiveBackend = _PlannerReceiptMatchesLiveBackend($sReceipt)
+	Local $bObservedForeignHealth = False
+	If $bHealthAvailable Then
+		Local $sJsonRoot = StringReplace(@ScriptDir, "\", "\\")
+		Local $sProfilesRootToken = _ProfilesRootToken($g_sProfilesRoot)
+		Local $sScriptHash = _FileSha256($g_sPlannerScriptPath)
+		Local $aHealthPid = StringRegExp($sHealth, """service_pid""\s*:\s*([0-9]+)", $STR_REGEXPARRAYMATCH)
+		Local $iHealthPidError = @error
+		Local $bHealthPidMatches = False
+		If $iHealthPidError = 0 Then
+			If IsArray($aHealthPid) Then
+				If UBound($aHealthPid) = 1 Then $bHealthPidMatches = Int($aHealthPid[0]) = $iPid
+			EndIf
+		EndIf
+		Local $bHealthMatches = StringInStr($sHealth, """service"": """ & $g_sPlannerServiceName & """") > 0 And _
+			StringInStr($sHealth, """repo_root"": """ & $sJsonRoot & """") > 0 And _
+			$sProfilesRootToken <> "" And StringInStr($sHealth, """profiles_root_token"": """ & $sProfilesRootToken & """") > 0 And _
+			$sScriptHash <> "" And StringInStr(StringLower($sHealth), """build_sha256"": """ & $sScriptHash & """") > 0 And _
+			StringInStr($sHealth, """owner_token_kind"": ""sha256""") > 0 And _
+			StringInStr(StringLower($sHealth), """owner_token"": """ & $sHealthToken & """") > 0 And $bHealthPidMatches
+		; A live backend needs matching health. An orphan is recoverable from its stronger persisted
+		; service identity even if a foreign listener races onto the fixed loopback port.
+		If $bLiveBackend And Not $bHealthMatches Then
+			_RecoveryLog("refused planner service: live owner health does not match receipt")
+			Return False
+		EndIf
+		If Not $bLiveBackend And Not $bHealthMatches Then
+			$bObservedForeignHealth = True
+			_RecoveryLog("orphan recovery observed a foreign loopback listener; exact planner will close but recovery remains unresolved")
+		EndIf
+	ElseIf $bLiveBackend Then
+		_RecoveryLog("recovering unresponsive planner with exact live-owner receipt")
+	Else
+		_RecoveryLog("recovering orphaned planner with exact service receipt")
 	EndIf
-	Local $sScriptHash = _FileSha256($g_sPlannerScriptPath)
-	If $sScriptHash = "" Or StringInStr(StringLower($sHealth), """build_sha256"": """ & $sScriptHash & """") = 0 Then
-		_RecoveryLog("refused planner service: script build mismatch")
-		Return False
-	EndIf
-	Local $aPid = StringRegExp($sHealth, """service_pid""\s*:\s*([0-9]+)", $STR_REGEXPARRAYMATCH)
-	If @error Or Not IsArray($aPid) Or UBound($aPid) <> 1 Then
-		_RecoveryLog("refused planner service: missing service pid")
-		Return False
-	EndIf
-	Local $iPid = Int($aPid[0])
-	If $iPid <= 0 Or Not ProcessExists($iPid) Then Return True
-	If Not StringRegExp(StringLower(_ProcessImagePath($iPid)), "\\pythonw\.exe$") Then
-		_RecoveryLog("refused planner service: pid " & $iPid & " is not pythonw.exe")
-		Return False
-	EndIf
+	; Re-read the exact receipt and service identity immediately before close. A changed receipt,
+	; reparented process, or reused PID fails closed.
+	If _ReadPlannerOwnershipReceipt() <> $sReceipt Or Not _PlannerReceiptMatchesService($sReceipt, $iPid, $sOwnerToken) Then Return False
 	_RecoveryLog("closing verified planner service; pid=" & $iPid)
 	If Not ProcessClose($iPid) Then Return False
 	For $i = 1 To 40
-		If Not ProcessExists($iPid) Then Return True
+		If Not ProcessExists($iPid) Then ExitLoop
 		Sleep(50)
 	Next
-	Return Not ProcessExists($iPid)
+	If ProcessExists($iPid) Then Return False
+	If _ReadPlannerOwnershipReceipt() <> $sReceipt Or Not _PlannerReceiptPathSafe(True) Then Return False
+	Local $bReceiptDeleted = FileDelete($g_sPlannerOwnershipReceipt) = 1 Or Not FileExists($g_sPlannerOwnershipReceipt)
+	If Not $bReceiptDeleted Then Return False
+	; One bounded post-close read prevents a truthful close from being reported as complete while a
+	; different service still owns the fixed port. It is observed and logged, never terminated.
+	Local $sRemainingHealth = ""
+	If _ReadPlannerHealthBounded($sRemainingHealth) Then
+		_RecoveryLog("recovery unresolved: foreign planner listener still answers on 127.0.0.1:8765")
+		Return False
+	EndIf
+	Return True
 EndFunc   ;==>_CloseOwnedPlannerService
 
 Func _CloseOwnedAutoItErrorDialogs()

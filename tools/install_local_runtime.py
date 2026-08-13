@@ -254,11 +254,30 @@ def assert_profiles_junction(link: Path, profiles_root: Path) -> None:
         raise ValueError(f"Installed Profiles junction targets {actual}, expected {expected}")
 
 
+_CMD_JUNCTION_METACHARACTERS = frozenset('&|<>^()%!"\r\n')
+
+
+def assert_cmd_safe_junction_path(path: Path, label: str) -> None:
+    """Reject path text that cmd.exe could parse instead of passing to mklink."""
+    value = str(path)
+    unsafe = sorted(set(value).intersection(_CMD_JUNCTION_METACHARACTERS))
+    if unsafe:
+        rendered = ", ".join(repr(character) for character in unsafe)
+        raise ValueError(f"Unsafe cmd.exe character in {label}: {rendered}")
+
+
 def create_profiles_junction(install_root: Path, profiles_root: Path) -> Path:
     link = install_root / "Profiles"
+    # mklink is a cmd.exe built-in, so cmd parses the command line after
+    # subprocess has quoted it. Validate every path before filesystem access or
+    # process creation. Spaces remain valid for the normal installation path.
+    assert_cmd_safe_junction_path(install_root, "install directory")
+    assert_cmd_safe_junction_path(link, "Profiles junction")
+    assert_cmd_safe_junction_path(profiles_root, "Profiles target")
     if os.path.lexists(link):
         raise ValueError(f"Refusing to replace an existing installed Profiles entry: {link}")
     target = profiles_root.resolve(strict=True)
+    assert_cmd_safe_junction_path(target, "resolved Profiles target")
     command = Path(os.environ["SystemRoot"]) / "System32" / "cmd.exe"
     result = subprocess.run(
         [str(command), "/d", "/c", "mklink", "/J", str(link), str(target)],

@@ -22,6 +22,8 @@ Global Const $RUN_PLANNER_HEALTH_URL = "http://127.0.0.1:8765/api/health"
 Global Const $RUN_PLANNER_SERVICE_NAME = "my-bot-control-center"
 Global Const $RUN_PLANNER_BRIDGE_VERSION = "autoit-control-file-v1"
 Global Const $RUN_PLANNER_HEALTH_PROTOCOL = "my-bot-control-center-health-v2"
+Global Const $RUN_PLANNER_OWNERSHIP_SCHEMA = "my-bot-planner-owner-v1"
+Global Const $RUN_PLANNER_OWNERSHIP_RECEIPT = @LocalAppDataDir & "\My Bot 2.0\planner-owner-v1.json"
 Global $g_oRunPlannerIntent = 0
 Global $g_sRunPlannerHeroIds = ""
 Global $g_iRunPlannerObservedServicePid = 0
@@ -51,6 +53,173 @@ Func _RunPlannerScriptBuildHash()
 	If @error Or Not IsBinary($vHash) Then Return ""
 	Return StringLower(StringTrimLeft(String($vHash), 2))
 EndFunc   ;==>_RunPlannerScriptBuildHash
+
+Func _RunPlannerHashText($sText)
+	Local $vHash = _Crypt_HashData(StringToBinary(String($sText), 4), $CALG_SHA_256)
+	If @error Or Not IsBinary($vHash) Then Return ""
+	Return StringLower(StringTrimLeft(String($vHash), 2))
+EndFunc   ;==>_RunPlannerHashText
+
+Func _RunPlannerPathToken($sPath)
+	Local $sEncoded = _Base64Encode(StringToBinary(String($sPath), 4), 0)
+	If @error Then Return ""
+	$sEncoded = StringReplace(StringReplace($sEncoded, @CR, ""), @LF, "")
+	$sEncoded = StringReplace(StringReplace($sEncoded, "+", "-"), "/", "_")
+	Return StringRegExpReplace($sEncoded, "=+$", "")
+EndFunc   ;==>_RunPlannerPathToken
+
+; A PID is not an identity: Windows may reuse it. Pair it with the kernel creation FILETIME and
+; compare the pair immediately before any close.
+Func _RunPlannerProcessCreationId($iPid)
+	Local $aOpen = DllCall("kernel32.dll", "handle", "OpenProcess", "dword", 0x1000, "bool", False, "dword", $iPid)
+	If @error Or Not IsArray($aOpen) Or Not $aOpen[0] Then Return ""
+	Local $hProcess = $aOpen[0]
+	Local $tCreated = DllStructCreate("dword Low;dword High")
+	Local $tExit = DllStructCreate("dword Low;dword High")
+	Local $tKernel = DllStructCreate("dword Low;dword High")
+	Local $tUser = DllStructCreate("dword Low;dword High")
+	Local $aTimes = DllCall("kernel32.dll", "bool", "GetProcessTimes", "handle", $hProcess, "struct*", $tCreated, _
+		"struct*", $tExit, "struct*", $tKernel, "struct*", $tUser)
+	DllCall("kernel32.dll", "bool", "CloseHandle", "handle", $hProcess)
+	If @error Or Not IsArray($aTimes) Or Not $aTimes[0] Then Return ""
+	Return StringLower(Hex(DllStructGetData($tCreated, "High"), 8) & Hex(DllStructGetData($tCreated, "Low"), 8))
+EndFunc   ;==>_RunPlannerProcessCreationId
+
+Func _RunPlannerProcessImagePath($iPid)
+	Local $aOpen = DllCall("kernel32.dll", "handle", "OpenProcess", "dword", 0x1000, "bool", False, "dword", $iPid)
+	If @error Or Not IsArray($aOpen) Or Not $aOpen[0] Then Return ""
+	Local $hProcess = $aOpen[0]
+	Local $tPath = DllStructCreate("wchar[32768]")
+	Local $aQuery = DllCall("kernel32.dll", "bool", "QueryFullProcessImageNameW", "handle", $hProcess, "dword", 0, _
+		"struct*", $tPath, "dword*", 32768)
+	DllCall("kernel32.dll", "bool", "CloseHandle", "handle", $hProcess)
+	If @error Or Not IsArray($aQuery) Or Not $aQuery[0] Then Return ""
+	Return DllStructGetData($tPath, 1)
+EndFunc   ;==>_RunPlannerProcessImagePath
+
+Func _RunPlannerParentPid($iPid)
+	Local $aSnapshot = DllCall("kernel32.dll", "handle", "CreateToolhelp32Snapshot", "dword", 0x2, "dword", 0)
+	If @error Or Not IsArray($aSnapshot) Or $aSnapshot[0] = -1 Then Return 0
+	Local $hSnapshot = $aSnapshot[0]
+	Local $tEntry = DllStructCreate("dword Size;dword Usage;dword ProcessId;ptr DefaultHeap;dword ModuleId;dword Threads;" & _
+		"dword ParentProcessId;long PriClassBase;dword Flags;wchar ExeFile[260]")
+	DllStructSetData($tEntry, "Size", DllStructGetSize($tEntry))
+	Local $aNext = DllCall("kernel32.dll", "bool", "Process32FirstW", "handle", $hSnapshot, "struct*", $tEntry)
+	While Not @error And IsArray($aNext) And $aNext[0]
+		If DllStructGetData($tEntry, "ProcessId") = $iPid Then
+			Local $iParent = DllStructGetData($tEntry, "ParentProcessId")
+			DllCall("kernel32.dll", "bool", "CloseHandle", "handle", $hSnapshot)
+			Return $iParent
+		EndIf
+		$aNext = DllCall("kernel32.dll", "bool", "Process32NextW", "handle", $hSnapshot, "struct*", $tEntry)
+	WEnd
+	DllCall("kernel32.dll", "bool", "CloseHandle", "handle", $hSnapshot)
+	Return 0
+EndFunc   ;==>_RunPlannerParentPid
+
+Func _RunPlannerReceiptString($sReceipt, $sName)
+	Local $aValue = StringRegExp($sReceipt, '"' & $sName & '"\s*:\s*"([A-Za-z0-9_-]+)"', $STR_REGEXPARRAYMATCH)
+	If @error Or Not IsArray($aValue) Or UBound($aValue) <> 1 Then Return ""
+	Return $aValue[0]
+EndFunc   ;==>_RunPlannerReceiptString
+
+Func _RunPlannerReceiptInt($sReceipt, $sName)
+	Local $aValue = StringRegExp($sReceipt, '"' & $sName & '"\s*:\s*([0-9]+)', $STR_REGEXPARRAYMATCH)
+	If @error Or Not IsArray($aValue) Or UBound($aValue) <> 1 Then Return 0
+	Return Int($aValue[0])
+EndFunc   ;==>_RunPlannerReceiptInt
+
+Func _RunPlannerReadOwnershipReceipt()
+	If Not FileExists($RUN_PLANNER_OWNERSHIP_RECEIPT) Then Return ""
+	If Not _RunPlannerReceiptPathSafe(True) Then Return ""
+	Local $sReceipt = FileRead($RUN_PLANNER_OWNERSHIP_RECEIPT)
+	If @error Or StringLen($sReceipt) > 4096 Then Return ""
+	Return $sReceipt
+EndFunc   ;==>_RunPlannerReadOwnershipReceipt
+
+Func _RunPlannerReceiptPathSafe($bRequireReceipt = False)
+	Local $sParent = @LocalAppDataDir & "\My Bot 2.0"
+	Local $aParent = DllCall("kernel32.dll", "dword", "GetFileAttributesW", "wstr", $sParent)
+	If @error Or Not IsArray($aParent) Or $aParent[0] = 0xFFFFFFFF Then Return False
+	If BitAND($aParent[0], 0x10) = 0 Or BitAND($aParent[0], 0x400) <> 0 Then Return False
+	If Not FileExists($RUN_PLANNER_OWNERSHIP_RECEIPT) Then Return Not $bRequireReceipt
+	Local $aReceipt = DllCall("kernel32.dll", "dword", "GetFileAttributesW", "wstr", $RUN_PLANNER_OWNERSHIP_RECEIPT)
+	If @error Or Not IsArray($aReceipt) Or $aReceipt[0] = 0xFFFFFFFF Then Return False
+	Return BitAND($aReceipt[0], 0x10) = 0 And BitAND($aReceipt[0], 0x400) = 0
+EndFunc   ;==>_RunPlannerReceiptPathSafe
+
+Func _RunPlannerReceiptOwnedByCurrentBackend($sReceipt, $iPid, $sOwnerToken)
+	If _RunPlannerReceiptString($sReceipt, "schema") <> $RUN_PLANNER_OWNERSHIP_SCHEMA Then Return False
+	If _RunPlannerReceiptString($sReceipt, "token") <> $sOwnerToken Then Return False
+	If _RunPlannerReceiptString($sReceipt, "health_token") <> _RunPlannerHashText($sOwnerToken) Then Return False
+	If _RunPlannerReceiptInt($sReceipt, "service_pid") <> $iPid Then Return False
+	If _RunPlannerReceiptInt($sReceipt, "backend_pid") <> @AutoItPID Then Return False
+	If _RunPlannerReceiptString($sReceipt, "backend_created") <> _RunPlannerProcessCreationId(@AutoItPID) Then Return False
+	Return True
+EndFunc   ;==>_RunPlannerReceiptOwnedByCurrentBackend
+
+Func _RunPlannerReceiptMatchesLiveService($sReceipt, $iPid, $sOwnerToken)
+	If Not _RunPlannerReceiptOwnedByCurrentBackend($sReceipt, $iPid, $sOwnerToken) Then Return False
+	If Not ProcessExists($iPid) Then Return False
+	If _RunPlannerReceiptString($sReceipt, "service_created") <> _RunPlannerProcessCreationId($iPid) Then Return False
+	If _RunPlannerReceiptInt($sReceipt, "parent_pid") <> @AutoItPID Or _RunPlannerParentPid($iPid) <> @AutoItPID Then Return False
+	Local $sImage = _RunPlannerProcessImagePath($iPid)
+	If Not StringRegExp(StringLower($sImage), "\\pythonw\.exe$") Then Return False
+	If _RunPlannerReceiptString($sReceipt, "python_image_token") <> _RunPlannerPathToken($sImage) Then Return False
+	If _RunPlannerReceiptString($sReceipt, "script_path_token") <> _RunPlannerPathToken(@ScriptDir & "\tools\planner_ui.py") Then Return False
+	If _RunPlannerReceiptString($sReceipt, "profiles_root_token") <> _RunPlannerPathToken($g_sProfilePath) Then Return False
+	If _RunPlannerReceiptString($sReceipt, "build_sha256") <> _RunPlannerScriptBuildHash() Then Return False
+	Local $sCommand = ProcessGetCommandLine($iPid)
+	If @error Or $sCommand = "" Or $sCommand = "-1" Then Return False
+	If _RunPlannerReceiptString($sReceipt, "command_sha256") <> _RunPlannerHashText($sCommand) Then Return False
+	If StringInStr($sCommand, '"' & @ScriptDir & '\tools\planner_ui.py"') = 0 Then Return False
+	If StringInStr($sCommand, '--owner-token "' & $sOwnerToken & '"') = 0 Then Return False
+	If StringInStr($sCommand, '--profiles-root "' & $g_sProfilePath & '"') = 0 Then Return False
+	Return True
+EndFunc   ;==>_RunPlannerReceiptMatchesLiveService
+
+Func _RunPlannerWriteOwnershipReceipt($iPid, $sOwnerToken, $sExpectedCommand)
+	Local $sServiceCreated = _RunPlannerProcessCreationId($iPid)
+	Local $sBackendCreated = _RunPlannerProcessCreationId(@AutoItPID)
+	Local $iParentPid = _RunPlannerParentPid($iPid)
+	Local $sImage = _RunPlannerProcessImagePath($iPid)
+	Local $sCommand = ProcessGetCommandLine($iPid)
+	If $sServiceCreated = "" Or $sBackendCreated = "" Or $iParentPid <> @AutoItPID Then Return False
+	If Not StringRegExp(StringLower($sImage), "\\pythonw\.exe$") Then Return False
+	If @error Or $sCommand = "" Or $sCommand = "-1" Then Return False
+	If _RunPlannerHashText($sCommand) <> _RunPlannerHashText($sExpectedCommand) Then Return False
+
+	Local $sHealthToken = _RunPlannerHashText($sOwnerToken)
+	Local $sReceipt = '{"schema":"' & $RUN_PLANNER_OWNERSHIP_SCHEMA & '","token":"' & $sOwnerToken & _
+		'","health_token":"' & $sHealthToken & '","service_pid":' & $iPid & ',"service_created":"' & $sServiceCreated & _
+		'","backend_pid":' & @AutoItPID & ',"backend_created":"' & $sBackendCreated & '","parent_pid":' & $iParentPid & _
+		',"python_image_token":"' & _RunPlannerPathToken($sImage) & '","script_path_token":"' & _
+		_RunPlannerPathToken(@ScriptDir & "\tools\planner_ui.py") & '","profiles_root_token":"' & _RunPlannerPathToken($g_sProfilePath) & _
+		'","command_sha256":"' & _RunPlannerHashText($sCommand) & '","build_sha256":"' & _RunPlannerScriptBuildHash() & '"}'
+	If StringInStr($sReceipt, ':""') Then Return False
+	DirCreate(@LocalAppDataDir & "\My Bot 2.0")
+	If Not _RunPlannerReceiptPathSafe(False) Then Return False
+	Local $sTemporary = $RUN_PLANNER_OWNERSHIP_RECEIPT & ".tmp." & StringLeft($sOwnerToken, 16)
+	If FileExists($sTemporary) Then Return False
+	Local $hReceipt = FileOpen($sTemporary, 10)
+	If $hReceipt = -1 Then Return False
+	Local $bWritten = FileWrite($hReceipt, $sReceipt) = 1
+	FileFlush($hReceipt)
+	FileClose($hReceipt)
+	If Not $bWritten Or Not FileMove($sTemporary, $RUN_PLANNER_OWNERSHIP_RECEIPT, 1) Then
+		FileDelete($sTemporary)
+		Return False
+	EndIf
+	Return _RunPlannerReadOwnershipReceipt() = $sReceipt
+EndFunc   ;==>_RunPlannerWriteOwnershipReceipt
+
+Func _RunPlannerDeleteOwnedReceipt($iPid, $sOwnerToken)
+	Local $sReceipt = _RunPlannerReadOwnershipReceipt()
+	If $sReceipt = "" Then Return True
+	If Not _RunPlannerReceiptOwnedByCurrentBackend($sReceipt, $iPid, $sOwnerToken) Then Return False
+	If Not _RunPlannerReceiptPathSafe(True) Or _RunPlannerReadOwnershipReceipt() <> $sReceipt Then Return False
+	Return FileDelete($RUN_PLANNER_OWNERSHIP_RECEIPT) = 1 Or Not FileExists($RUN_PLANNER_OWNERSHIP_RECEIPT)
+EndFunc   ;==>_RunPlannerDeleteOwnedReceipt
 
 Func _RunPlannerReadHealth(ByRef $oPayload)
 	$oPayload = 0
@@ -89,8 +258,26 @@ Func _RunPlannerServiceHealthy()
 	Return True
 EndFunc   ;==>_RunPlannerServiceHealthy
 
+; A matching build/root response is only a compatibility signal. Reuse requires the exact receipt
+; created by this backend plus its raw token, process creation identity, parent, image and command.
+Func _RunPlannerAdoptOwnedHealthyService()
+	If Not _RunPlannerServiceHealthy() Then Return False
+	Local $iPid = $g_iRunPlannerObservedServicePid
+	Local $sReceipt = _RunPlannerReadOwnershipReceipt()
+	Local $sOwnerToken = _RunPlannerReceiptString($sReceipt, "token")
+	If $sReceipt = "" Or $sOwnerToken = "" Then Return False
+	If $g_sRunPlannerObservedOwnerToken <> _RunPlannerHashText($sOwnerToken) Then Return False
+	If Not _RunPlannerReceiptMatchesLiveService($sReceipt, $iPid, $sOwnerToken) Then Return False
+	$g_iRunPlannerOwnedServicePid = $iPid
+	$g_sRunPlannerOwnedServiceToken = $sOwnerToken
+	Return True
+EndFunc   ;==>_RunPlannerAdoptOwnedHealthyService
+
 Func _RunPlannerNewOwnerToken()
-	Return StringLower(Hex(@AutoItPID, 8) & "-" & Hex(Random(0, 0x7FFFFFFF, 1), 8) & "-" & @YEAR & @MON & @MDAY & @HOUR & @MIN & @SEC & @MSEC)
+	Local $tEntropy = DllStructCreate("byte[32]")
+	Local $aRandom = DllCall("bcrypt.dll", "long", "BCryptGenRandom", "ptr", 0, "struct*", $tEntropy, "ulong", 32, "ulong", 0x2)
+	If @error Or Not IsArray($aRandom) Or $aRandom[0] <> 0 Then Return ""
+	Return StringLower(Hex(DllStructGetData($tEntropy, 1)))
 EndFunc   ;==>_RunPlannerNewOwnerToken
 
 Func _RunPlannerPythonExecutable()
@@ -107,7 +294,11 @@ EndFunc   ;==>_RunPlannerPythonExecutable
 
 Func _RunPlannerStartService(ByRef $sError)
 	$sError = ""
-	If _RunPlannerServiceHealthy() Then Return True
+	If _RunPlannerServiceHealthy() Then
+		If _RunPlannerAdoptOwnedHealthyService() Then Return True
+		$sError = "Planner service ownership could not be verified"
+		Return False
+	EndIf
 	Local $sScript = @ScriptDir & "\tools\planner_ui.py"
 	If Not FileExists($sScript) Then
 		$sError = "Planner service script is missing"
@@ -115,7 +306,12 @@ Func _RunPlannerStartService(ByRef $sError)
 	EndIf
 	Local $sPython = _RunPlannerPythonExecutable()
 	Local $sOwnerToken = _RunPlannerNewOwnerToken()
-	Local $iPid = Run('"' & $sPython & '" "' & $sScript & '" --no-browser --owner-token "' & $sOwnerToken & '" --profiles-root "' & $g_sProfilePath & '"', @ScriptDir, @SW_HIDE)
+	If $sOwnerToken = "" Then
+		$sError = "Secure planner ownership token could not be created"
+		Return False
+	EndIf
+	Local $sCommand = '"' & $sPython & '" "' & $sScript & '" --no-browser --owner-token "' & $sOwnerToken & '" --profiles-root "' & $g_sProfilePath & '"'
+	Local $iPid = Run($sCommand, @ScriptDir, @SW_HIDE)
 	If $iPid = 0 Then
 		$sError = "Python could not start the planner service"
 		Return False
@@ -123,15 +319,22 @@ Func _RunPlannerStartService(ByRef $sError)
 	For $i = 1 To 25
 		Sleep(200)
 		If _RunPlannerServiceHealthy() Then
-			If $g_iRunPlannerObservedServicePid = $iPid And $g_sRunPlannerObservedOwnerToken = $sOwnerToken Then
+			If $g_iRunPlannerObservedServicePid = $iPid And $g_sRunPlannerObservedOwnerToken = _RunPlannerHashText($sOwnerToken) Then
+				If Not _RunPlannerWriteOwnershipReceipt($iPid, $sOwnerToken, $sCommand) Then
+					If ProcessExists($iPid) Then ProcessClose($iPid)
+					$sError = "Planner ownership receipt could not be secured"
+					Return False
+				EndIf
 				$g_iRunPlannerOwnedServicePid = $iPid
 				$g_sRunPlannerOwnedServiceToken = $sOwnerToken
 				Return True
 			EndIf
-			; Another exact service won the port race. The process returned by Run is ours, but it is not
-			; the serving process, so close only that launch and safely reuse the verified service.
+			; Another service won the port race. Close only the process returned by our Run call, then
+			; reuse the listener only if it has this backend's complete ownership receipt.
 			If ProcessExists($iPid) Then ProcessClose($iPid)
-			Return True
+			If _RunPlannerAdoptOwnedHealthyService() Then Return True
+			$sError = "Planner service ownership could not be verified"
+			Return False
 		EndIf
 		If Not ProcessExists($iPid) Then ExitLoop
 	Next
@@ -153,18 +356,24 @@ Func RunPlannerStopOwnedService()
 	Local $sOwnerToken = $g_sRunPlannerOwnedServiceToken
 	If $iPid <= 0 Or $sOwnerToken = "" Then Return True
 	If Not ProcessExists($iPid) Then
+		Local $bReceiptRemoved = _RunPlannerDeleteOwnedReceipt($iPid, $sOwnerToken)
 		$g_iRunPlannerOwnedServicePid = 0
 		$g_sRunPlannerOwnedServiceToken = ""
-		Return True
+		Return $bReceiptRemoved
 	EndIf
 
+	Local $sReceipt = _RunPlannerReadOwnershipReceipt()
+	If $sReceipt = "" Or Not _RunPlannerReceiptMatchesLiveService($sReceipt, $iPid, $sOwnerToken) Then Return False
 	Local $oPayload = 0
 	If Not _RunPlannerReadHealth($oPayload) Then Return False
 	If Json_ObjGet($oPayload, "service") <> $RUN_PLANNER_SERVICE_NAME Then Return False
 	If _RunPlannerNormalizeRoot(Json_ObjGet($oPayload, "repo_root")) <> _RunPlannerNormalizeRoot(@ScriptDir) Then Return False
 	If _RunPlannerNormalizeRoot(Json_ObjGet($oPayload, "profiles_root")) <> _RunPlannerNormalizeRoot($g_sProfilePath) Then Return False
 	If Int(Json_ObjGet($oPayload, "service_pid")) <> $iPid Then Return False
-	If String(Json_ObjGet($oPayload, "owner_token")) <> $sOwnerToken Then Return False
+	If String(Json_ObjGet($oPayload, "owner_token_kind")) <> "sha256" Then Return False
+	If String(Json_ObjGet($oPayload, "owner_token")) <> _RunPlannerHashText($sOwnerToken) Then Return False
+	; Recheck the PID/creation pair directly before closing so a stale receipt cannot target a reused PID.
+	If Not _RunPlannerReceiptMatchesLiveService($sReceipt, $iPid, $sOwnerToken) Then Return False
 
 	If Not ProcessClose($iPid) Then Return False
 	For $i = 1 To 20
@@ -172,6 +381,7 @@ Func RunPlannerStopOwnedService()
 		Sleep(50)
 	Next
 	If ProcessExists($iPid) Then Return False
+	If Not _RunPlannerDeleteOwnedReceipt($iPid, $sOwnerToken) Then Return False
 	$g_iRunPlannerOwnedServicePid = 0
 	$g_sRunPlannerOwnedServiceToken = ""
 	Return True

@@ -99,7 +99,11 @@ class ExternalProfileRoutingSourceTests(unittest.TestCase):
         )
         self.assertGreaterEqual(PLANNER_CONTROL.count(expected), 2)
         self.assertIn('"""profiles_root_token"": """ & $sProfilesRootToken & """"', LAUNCHER)
-        self.assertIn("refused planner service: profiles root mismatch", LAUNCHER)
+        self.assertIn(
+            '_PlannerReceiptString($sReceipt, "profiles_root_token") <> _ProfilesRootToken($g_sProfilesRoot)',
+            LAUNCHER,
+        )
+        self.assertIn("refused planner service: receipt or service identity mismatch", LAUNCHER)
 
 
 class ExternalProfileRoutingPlannerTests(unittest.TestCase):

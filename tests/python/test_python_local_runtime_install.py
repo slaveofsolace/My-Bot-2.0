@@ -256,6 +256,59 @@ class PythonLocalRuntimeInstall(unittest.TestCase):
         finally:
             installer.delete_registry_tree(key_path)
 
+    @unittest.skipUnless(os.name == "nt", "mklink junction creation is Windows-specific")
+    def test_junction_creation_rejects_cmd_metacharacters_before_process_creation(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mybot-junction-command-safety-") as folder:
+            root = Path(folder)
+            profiles = root / "external profiles with spaces"
+            profiles.mkdir()
+
+            # A normal install directory containing spaces must remain supported.
+            safe_install = root / "installed app with spaces"
+            safe_install.mkdir()
+            link = installer.create_profiles_junction(safe_install, profiles)
+            installer.assert_profiles_junction(link, profiles)
+            installer.detach_profiles_junction(safe_install, profiles)
+            self.assertFalse(os.path.lexists(link))
+
+            marker = root / "command-must-not-run.txt"
+            hostile_parts = ("&", "|", "<", ">", "^", "%", "!", "(", ")", '"', "\r", "\n")
+            for metacharacter in hostile_parts:
+                with self.subTest(metacharacter=repr(metacharacter)):
+                    hostile_install = root / f"hostile{metacharacter}install"
+                    with mock.patch.object(
+                        installer.subprocess,
+                        "run",
+                        side_effect=AssertionError("cmd.exe must not be started"),
+                    ) as run:
+                        with self.assertRaisesRegex(ValueError, "Unsafe cmd.exe character"):
+                            installer.create_profiles_junction(hostile_install, profiles)
+                        run.assert_not_called()
+                    self.assertFalse(os.path.lexists(hostile_install / "Profiles"))
+                    self.assertFalse(marker.exists())
+
+            # Re-check after canonicalization: a safe-looking alias can resolve
+            # to a target whose name contains cmd.exe syntax.
+            path_type = type(profiles)
+            original_resolve = path_type.resolve
+
+            def resolve_to_hostile_target(path: Path, strict: bool = False) -> Path:
+                if path == profiles:
+                    return root / "canonical&target"
+                return original_resolve(path, strict=strict)
+
+            with mock.patch.object(path_type, "resolve", resolve_to_hostile_target):
+                with mock.patch.object(
+                    installer.subprocess,
+                    "run",
+                    side_effect=AssertionError("cmd.exe must not be started"),
+                ) as run:
+                    with self.assertRaisesRegex(ValueError, "resolved Profiles target"):
+                        installer.create_profiles_junction(safe_install, profiles)
+                    run.assert_not_called()
+            self.assertFalse(os.path.lexists(safe_install / "Profiles"))
+            self.assertFalse(marker.exists())
+
     @unittest.skipUnless(os.name == "nt", "junction verification is Windows-specific")
     def test_foreign_junction_fails_closed_and_legacy_real_profiles_are_preserved(self) -> None:
         key_id = uuid.uuid4().hex
