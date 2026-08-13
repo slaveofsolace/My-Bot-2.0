@@ -49,6 +49,39 @@ class MaintenanceCancellationTests(unittest.TestCase):
         stop_poll = body.rfind("If _Sleep(1) Then Return", 0, click)
         self.assertGreater(stop_poll, click - 120)
 
+    def test_donation_entry_and_each_unit_type_fail_closed_when_stopped(self) -> None:
+        text = source("COCBot/functions/Village/DonateCC.au3")
+        self.assertIn("If Not $g_bRunState Then Return", function_body(text, "DonateCC")[:100])
+        for name in ("DonateTroopType", "DonateSpellType", "DonateSiegeType"):
+            body = function_body(text, name)
+            self.assertIn("If Not $g_bRunState Or", body[:700], name)
+
+    def test_donation_loops_poll_each_click_and_account_only_emitted_commands(self) -> None:
+        text = source("COCBot/functions/Village/DonateCC.au3")
+        expected_clicks = {
+            "DonateTroopType": "PureClickTrain(",
+            "DonateSpellType": "Click($g_iDonationWindowX + 43 + ($Slot * 68), $g_iDonationWindowY + 324",
+            "DonateSiegeType": "Click($g_iDonationWindowX + 43 + ($Slot * 68), $g_iDonationWindowY + 117",
+        }
+        for name, click_token in expected_clicks.items():
+            body = function_body(text, name)
+            loop = body.index("Local $iDonated = 0")
+            click = body.index(click_token, loop)
+            poll = body.rfind("If _Sleep(1) Then ExitLoop", loop, click)
+            increment = body.index("$iDonated += 1", click)
+            assign = body.index("$Quant = $iDonated", increment)
+            zero_return = body.index("If $Quant = 0 Then Return", assign)
+            self.assertGreater(poll, loop, name)
+            self.assertLess(click, increment, name)
+            self.assertLess(increment, assign, name)
+            self.assertLess(assign, zero_return, name)
+
+    def test_spell_debug_capture_cannot_record_a_fake_donation(self) -> None:
+        body = function_body(source("COCBot/functions/Village/DonateCC.au3"), "DonateSpellType")
+        debug = body.index("If $g_bDebugOCRdonate Then", body.index("Spells Condition Matched"))
+        debug_end = body.index("EndIf", debug)
+        self.assertIn("Return", body[debug:debug_end])
+
 
 if __name__ == "__main__":
     unittest.main()

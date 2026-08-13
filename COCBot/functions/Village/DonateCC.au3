@@ -148,6 +148,7 @@ Func getArmyRequest($aiDonateCoords, $bNeedCapture = True)
 EndFunc   ;==>getArmyRequest
 
 Func DonateCC($bUpdateStats = True)
+	If Not $g_bRunState Then Return
 
 	Local $bDonateTroop = ($g_aiPrepDon[0] = 1)
 	Local $bDonateAllTroop = ($g_aiPrepDon[1] = 1)
@@ -848,7 +849,7 @@ Func DonateTroopType(Const $iTroopIndex, $Quant = 0, Const $bDonateAll = False, 
 	Local $sTextToAll = ""
 	Local $bUnityDonationCost = 0
 
-	If $g_iTotalDonateTroopCapacity = 0 Then Return
+	If Not $g_bRunState Or $g_iTotalDonateTroopCapacity = 0 Then Return
 	If $g_bDebugSetLog Then SetDebugLog("$DonateTroopType Start: " & $g_asTroopNames[$iTroopIndex], $COLOR_DEBUG)
 
 	; Space to donate troop?
@@ -935,15 +936,19 @@ Func DonateTroopType(Const $iTroopIndex, $Quant = 0, Const $bDonateAll = False, 
 		SetLog("Donating " & $Quant & " " & ($Quant > 1 ? $g_asTroopNamesPlural[$iTroopIndex] : $g_asTroopNames[$iTroopIndex]) & ($bDonateAll ? " (to all requests)" : ""), $COLOR_SUCCESS)
 		SetLog("Cost : " & _NumberFormat($Quant * $bUnityDonationCost) & " " & ($bIsDarkElixir = True ? "Dark Elixir" : "Elixir"), $COLOR_SUCCESS)
 
+		Local $iDonated = 0
 		For $i = 0 To ($Quant - 1)
 			If _ColorCheck(_GetPixelColor($g_iDonationWindowX + 30 + ($Slot * 68), $g_iDonationWindowY + 159 + $YComp, True), Hex(0x6F6F6F, 6), 20) Or _
 					Not _ColorCheck(_GetPixelColor($g_iDonationWindowX, $g_iDonationWindowY + 100, True), Hex(0xE7E7E7, 6), 10) Then
-				$Quant = $i + 1
 				ExitLoop
 			EndIf
+			If _Sleep(1) Then ExitLoop
 			Local $g_iTrainClickDelayfinal = Random($DELAYDONATECC5 - 5, $DELAYDONATECC5 + 5, 1)     ; 15ms +/- 5 ms
 			PureClickTrain($g_iDonationWindowX + 43 + ($Slot * 68), $g_iDonationWindowY + 117 + $YComp, 1, $g_iTrainClickDelayfinal)     ;Click once.
+			$iDonated += 1
 		Next
+		$Quant = $iDonated
+		If $Quant = 0 Then Return
 		$g_bFullArmy = False
 		If $g_iCommandStop = 3 Then $g_iCommandStop = 0
 
@@ -984,7 +989,7 @@ Func DonateSpellType(Const $iSpellIndex, $Quant = 0, Const $bDonateAll = False, 
 	Local $donateposinrow = -1
 	Local $bUnityDonationCost = 0
 
-	If $g_iTotalDonateSpellCapacity = 0 Then Return
+	If Not $g_bRunState Or $g_iTotalDonateSpellCapacity = 0 Then Return
 	If $g_bDebugSetLog Then SetDebugLog("DonateSpellType Start: " & $g_asSpellNames[$iSpellIndex], $COLOR_DEBUG)
 
 	; Space to donate spell?
@@ -1054,25 +1059,25 @@ Func DonateSpellType(Const $iSpellIndex, $Quant = 0, Const $bDonateAll = False, 
 			SetLog("pos in row: " & $donateposinrow, $COLOR_ERROR)
 			SetLog("coordinate: " & $g_iDonationWindowX + 43 + ($Slot * 68) & "," & $g_iDonationWindowY + 324, $COLOR_ERROR)
 			SaveDebugImage("LiveDonateCC-r" & $donaterow & "-c" & $donateposinrow & "-" & $g_asSpellNames[$iSpellIndex] & "_")
+			Return
 		EndIf
-		If Not $g_bDebugOCRdonate Then
 
-			SetLog("Donating " & $Quant & " " & $g_asSpellNames[$iSpellIndex] & " Spell" & ($Quant > 1 ? "s" : "") & ($bDonateAll ? " (to all requests)" : ""), $COLOR_GREEN)
-			SetLog("Cost : " & _NumberFormat($Quant * $bUnityDonationCost) & " " & ($bIsDarkElixir = True ? "Dark Elixir" : "Elixir"), $COLOR_SUCCESS)
+		SetLog("Donating " & $Quant & " " & $g_asSpellNames[$iSpellIndex] & " Spell" & ($Quant > 1 ? "s" : "") & ($bDonateAll ? " (to all requests)" : ""), $COLOR_GREEN)
+		SetLog("Cost : " & _NumberFormat($Quant * $bUnityDonationCost) & " " & ($bIsDarkElixir = True ? "Dark Elixir" : "Elixir"), $COLOR_SUCCESS)
 
-			For $i = 0 To ($Quant - 1)
-				If _ColorCheck(_GetPixelColor($g_iDonationWindowX + 30 + ($Slot * 68), $g_iDonationWindowY + 367, True), Hex(0x6F6F6F, 6), 20) Or _
-						Not _ColorCheck(_GetPixelColor($g_iDonationWindowX, $g_iDonationWindowY + 100, True), Hex(0xE7E7E7, 6), 10) Then
-					$Quant = $i + 1
-					ExitLoop
-				EndIf
-				Click($g_iDonationWindowX + 43 + ($Slot * 68), $g_iDonationWindowY + 324, 1, $DELAYDONATECC6, "#0600")
-			Next
-			$g_bFullArmySpells = False
-			$g_bFullArmy = False
-			If $g_iCommandStop = 3 Then $g_iCommandStop = 0
-
-		EndIf
+		Local $iDonated = 0
+		For $i = 0 To ($Quant - 1)
+			If _ColorCheck(_GetPixelColor($g_iDonationWindowX + 30 + ($Slot * 68), $g_iDonationWindowY + 367, True), Hex(0x6F6F6F, 6), 20) Or _
+					Not _ColorCheck(_GetPixelColor($g_iDonationWindowX, $g_iDonationWindowY + 100, True), Hex(0xE7E7E7, 6), 10) Then ExitLoop
+			If _Sleep(1) Then ExitLoop
+			Click($g_iDonationWindowX + 43 + ($Slot * 68), $g_iDonationWindowY + 324, 1, $DELAYDONATECC6, "#0600")
+			$iDonated += 1
+		Next
+		$Quant = $iDonated
+		If $Quant = 0 Then Return
+		$g_bFullArmySpells = False
+		$g_bFullArmy = False
+		If $g_iCommandStop = 3 Then $g_iCommandStop = 0
 
 		; Adjust Values for donated spells to prevent a Double ghost donate to stats and train
 		If $iSpellIndex >= $eSpellLightning And $iSpellIndex <= $eSpellOvergrowth Then
@@ -1111,7 +1116,7 @@ Func DonateSiegeType(Const $iSiegeIndex, $Quant = 0, $bDonateAll = False, $bNewS
 	Local $sTextToAll = ""
 	Local $bUnityDonationCost = 0
 
-	If $g_iTotalDonateSiegeMachineCapacity < 1 Then Return
+	If Not $g_bRunState Or $g_iTotalDonateSiegeMachineCapacity < 1 Then Return
 	If $g_bDebugSetLog Then SetDebugLog("DonateSiegeType Start: " & $g_asSiegeMachineNames[$iSiegeIndex], $COLOR_DEBUG)
 
 	If $Quant = 0 Then $Quant = Number($g_iTotalDonateSiegeMachineCapacity)
@@ -1167,9 +1172,14 @@ Func DonateSiegeType(Const $iSiegeIndex, $Quant = 0, $bDonateAll = False, $bNewS
 		SetLog("Donating " & $Quant & " " & ($g_asSiegeMachineNames[$iSiegeIndex]) & ($bDonateAll ? " (to all requests)" : ""), $COLOR_GREEN)
 		SetLog("Cost : " & _NumberFormat($Quant * $bUnityDonationCost) & " Elixir", $COLOR_SUCCESS)
 
+		Local $iDonated = 0
 		For $i = 0 To ($Quant - 1)
+			If _Sleep(1) Then ExitLoop
 			Click($g_iDonationWindowX + 43 + ($Slot * 68), $g_iDonationWindowY + 117 + $YComp, 1, $DELAYDONATECC6, "#0600")
+			$iDonated += 1
 		Next
+		$Quant = $iDonated
+		If $Quant = 0 Then Return
 		$g_bFullArmy = False
 		If $g_iCommandStop = 3 Then $g_iCommandStop = 0
 
