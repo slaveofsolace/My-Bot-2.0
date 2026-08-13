@@ -11,6 +11,7 @@
 * Fixed the legacy ADB zoom wrapper's false numeric failure and removed the foreground-focus requirement for exact BlueStacks ADB background control.
 * Added paired dock minimize/restore controls so the pinned Mini controller and its exact BlueStacks instance behave as one background unit.
 * Fixed the current matchmaking confirmation path so legitimate gray transition screens do not cancel the run.
+* Made Return Home, game reload, and emulator reboot recovery poll Stop immediately before each click or process mutation.
 * Added current-client Treasure Hunt chest tapping and preserved the legacy hammer/lock fallback.
 * Recorded one bounded Standard Regular Battle and a separate Smart deployment run; they used different opponents and are not presented as a strategy comparison.
 * Added TH2-TH18 planner presets with explicit script preview and one-run selection.

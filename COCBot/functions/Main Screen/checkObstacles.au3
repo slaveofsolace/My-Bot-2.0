@@ -373,12 +373,14 @@ Func _checkObstacles($bBuilderBase = False, $bRecursive = False) ;Checks if some
 	EndIf
 	If _CheckPixel($aEndFightSceneBtn, $g_bCapturePixel) Then
 		SetDebugLog("checkObstacles: Found End Fight Scene to close")
+		If _Sleep(1) Then Return True
 		PureClickP($aEndFightSceneBtn, 1, 120, "#0137") ;If in that victory or defeat scene
 		If _Sleep($DELAYCHECKOBSTACLES1) Then Return
 		Return True
 	EndIf
 	If _CheckPixel($aSurrenderButton, $g_bCapturePixel) Then
 		SetDebugLog("checkObstacles: Found End Battle to close")
+		If _Sleep(1) Then Return True
 		ReturnHome(False, False) ;If End battle is available
 		Return True
 	EndIf
@@ -388,6 +390,7 @@ Func _checkObstacles($bBuilderBase = False, $bRecursive = False) ;Checks if some
 	; already in progress, then click the exact matched button rather than a hard-coded coordinate.
 	Local $aCompletedBattleReturn = findButton("ReturnHome", Default, 1, True, False, False)
 	If IsArray($aCompletedBattleReturn) And UBound($aCompletedBattleReturn) >= 2 Then
+		If _Sleep(1) Then Return True
 		SetLog("Completed battle summary detected; returning to the Home Village", $COLOR_INFO)
 		ClickP($aCompletedBattleReturn, 1, 120, "#0138")
 		If _Sleep($DELAYCHECKOBSTACLES2) Then Return
@@ -397,6 +400,7 @@ Func _checkObstacles($bBuilderBase = False, $bRecursive = False) ;Checks if some
 		$aMessage = _PixelSearch(23, 566 + $g_iBottomOffsetY, 36, 580 + $g_iBottomOffsetY, Hex(0xDADDCC, 6), 10, True)
 		If IsArray($aMessage) Then
 			SetDebugLog("checkObstacles: Found Return Home button")
+			If _Sleep(1) Then Return True
 			PureClick(67, 602 + $g_iBottomOffsetY, 1, 120, "#0138") ;Check if Return Home button available
 			If _Sleep($DELAYCHECKOBSTACLES2) Then Return
 			Return True
@@ -406,6 +410,7 @@ Func _checkObstacles($bBuilderBase = False, $bRecursive = False) ;Checks if some
 		$aMessage = _PixelSearch(23, 566 + $g_iBottomOffsetY, 36, 580 + $g_iBottomOffsetY, Hex(0xDADDCC, 6), 10, True)
 		If IsArray($aMessage) Then
 			SetDebugLog("checkObstacles: Found Post Defense Summary to close")
+			If _Sleep(1) Then Return True
 			PureClick(62, 607 + $g_iBottomOffsetY, 1, 120, "#0138") ;Check if Return Home button available
 			If _Sleep($DELAYCHECKOBSTACLES2) Then Return
 			Return True
@@ -450,16 +455,26 @@ EndFunc   ;==>_checkObstacles
 ; It's more easy to restart CoC app than click the message restarting the game :/
 Func checkObstacles_ReloadCoC($bRecursive = False)
 	If TestCapture() Then Return "Reload CoC"
+	If _Sleep(1) Then
+		SetDebugLog("checkObstacles: Reload CoC cancelled before mutation")
+		Return True
+	EndIf
 	ForceCaptureRegion(True)
 	OcrForceCaptureRegion(True)
 
 	If ProfileSwitchAccountEnabled() And $g_bChkSharedPrefs And HaveSharedPrefs() Then
 		PushSharedPrefs()
-		If Not $bRecursive Then OpenCoC()
+		If Not $bRecursive Then
+			If _Sleep(1) Then Return True
+			OpenCoC()
+		EndIf
 		Return True
 	EndIf
 
-	If Not $bRecursive Then CloseCoC(True)
+	If Not $bRecursive Then
+		If _Sleep(1) Then Return True
+		CloseCoC(True)
+	EndIf
 
 	If _Sleep($DELAYCHECKOBSTACLES3) Then Return
 	Return True
@@ -468,11 +483,16 @@ EndFunc   ;==>checkObstacles_ReloadCoC
 ; It's more easy to restart Emu than click the message restarting the game :/
 Func checkObstacles_RebootAndroid($IsGfx = True, $IsNetwork = False, $IsErrorWindow = False)
 	If TestCapture() Then Return "Reboot Android"
+	If _Sleep(1) Then
+		SetDebugLog("checkObstacles: Reboot Android cancelled before mutation")
+		Return True
+	EndIf
 	ForceCaptureRegion(True)
 	OcrForceCaptureRegion(True)
 	$g_bGfxError = $IsGfx
 	$g_bNetworkError = $IsNetwork
 	$g_bErrorWindow = $IsErrorWindow
+	If _Sleep(1) Then Return True
 	CheckAndroidReboot()
 	Return True
 EndFunc   ;==>checkObstacles_RebootAndroid
