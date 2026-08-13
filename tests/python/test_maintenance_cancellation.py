@@ -82,6 +82,37 @@ class MaintenanceCancellationTests(unittest.TestCase):
         debug_end = body.index("EndIf", debug)
         self.assertIn("Return", body[debug:debug_end])
 
+    def test_laboratory_upgrade_polls_stop_and_restores_uncommitted_time(self) -> None:
+        body = function_body(source("COCBot/functions/Village/Laboratory.au3"), "LaboratoryUpgrade")
+        self.assertIn("If Not $debug And Not $g_bRunState Then Return False", body[:160])
+        final_click = body.index('Click(630, 545 + $g_iMidOffsetY, 1, 120, "#0202")')
+        stop_poll = body.rfind("If _Sleep(1) Then", 0, final_click)
+        restore = body.rfind("$g_sLabUpgradeTime = $sPreviousLabUpgradeTime", 0, final_click)
+        self.assertGreater(stop_poll, final_click - 320)
+        self.assertGreater(restore, stop_poll)
+        self.assertIn("$g_iLaboratoryElixirCost = $iPreviousLaboratoryElixirCost", body[restore:final_click])
+        self.assertIn("$g_iLaboratoryDElixirCost = $iPreviousLaboratoryDElixirCost", body[restore:final_click])
+
+    def test_builder_base_upgrade_confirmation_polls_stop(self) -> None:
+        text = source("COCBot/functions/Village/BuilderBase/SuggestedUpgrades.au3")
+        main = function_body(text, "MainSuggestedUpgradeCode")
+        self.assertIn("If Not $g_bRunState Then Return False", main[:100])
+        upgrade = function_body(text, "GetUpgradeButton")
+        self.assertIn("If Not $g_bRunState Then Return False", upgrade[:100])
+        final_click = upgrade.index("ClickP($aUpgradeButton)")
+        stop_poll = upgrade.rfind("If _Sleep(1) Then Return False", 0, final_click)
+        self.assertGreater(stop_poll, final_click - 100)
+
+    def test_builder_base_new_building_confirmations_poll_stop(self) -> None:
+        body = function_body(source("COCBot/functions/Village/BuilderBase/SuggestedUpgrades.au3"), "NewBuildings")
+        self.assertIn("If Not $g_bRunState Then Return False", body[:100])
+        confirmations = [match.start() for match in re.finditer(r'QuickMIS\("BC1", \$g_sImgAutoUpgradeNewBldgYes', body)]
+        self.assertEqual(3, len(confirmations))
+        for confirmation in confirmations:
+            click = body.index("Click($g_iQuickMISX, $g_iQuickMISY)", confirmation)
+            stop_poll = body.rfind("If _Sleep(1) Then Return False", confirmation, click)
+            self.assertGreater(stop_poll, confirmation)
+
 
 if __name__ == "__main__":
     unittest.main()

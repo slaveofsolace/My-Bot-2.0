@@ -15,6 +15,7 @@
 * Replaced raw screenshot intake with a dependency-free pixel-diff gate that commits only solid-mask redacted fixture derivatives, and mapped one shared maintenance fixture to collector, donation, and home-upgrade recognition.
 * Prevented home Auto Upgrade from restoring a stopped run to running, and added immediate Stop polls before collector and final upgrade clicks.
 * Made troop, spell, and siege donation loops stop between individual donations and account only for click commands actually emitted.
+* Made Laboratory and Builder Base upgrade paths fail closed on Stop immediately before resource-spending and new-building confirmation clicks.
 * Added current-client Treasure Hunt chest tapping and preserved the legacy hammer/lock fallback.
 * Recorded one bounded Standard Regular Battle and a separate Smart deployment run; they used different opponents and are not presented as a strategy comparison.
 * Added TH2-TH18 planner presets with explicit script preview and one-run selection.

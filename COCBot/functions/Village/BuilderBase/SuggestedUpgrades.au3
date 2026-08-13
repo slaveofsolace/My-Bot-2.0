@@ -56,6 +56,7 @@ EndFunc   ;==>chkPlacingNewBuildings
 
 ; MAIN CODE
 Func MainSuggestedUpgradeCode($bDebugImage = $g_bDebugImageSave)
+	If Not $g_bRunState Then Return False
 
 	; If is not selected return
 	If Not $g_iChkBBSuggestedUpgrades Then Return
@@ -285,6 +286,8 @@ Func IsWallDetected()
 EndFunc   ;==>IsWallDetected
 
 Func GetUpgradeButton($sUpgButton = "", $Debug = False, $bDebugImage = $g_bDebugImageSave, $bWallUpgrade = False)
+	If Not $g_bRunState Then Return False
+
 	Local $sIconBarDiamond = GetDiamondFromRect2(140, 500 + $g_iBottomOffsetY, 720, 590 + $g_iBottomOffsetY)
 	Local $sUpgradeButtonDiamond = GetDiamondFromRect2(350, 470 + $g_iMidOffsetY, 805, 600 + $g_iMidOffsetY)
 
@@ -384,6 +387,7 @@ Func GetUpgradeButton($sUpgButton = "", $Debug = False, $bDebugImage = $g_bDebug
 
 			EndIf
 
+			If _Sleep(1) Then Return False
 			ClickP($aUpgradeIcon)
 
 			; wait for Upgrade Window to open
@@ -397,6 +401,7 @@ Func GetUpgradeButton($sUpgButton = "", $Debug = False, $bDebugImage = $g_bDebug
 			Local $aUpgradeButton = decodeSingleCoord(findImage("GetUpgradeButon", $sUpgButton, $sUpgradeButtonDiamond, 1, True))
 			If IsArray($aUpgradeButton) And UBound($aUpgradeButton) = 2 Then
 
+				If _Sleep(1) Then Return False
 				ClickP($aUpgradeButton)
 
 				If isGemOpen(True) Then
@@ -419,12 +424,14 @@ Func GetUpgradeButton($sUpgButton = "", $Debug = False, $bDebugImage = $g_bDebug
 EndFunc   ;==>GetUpgradeButton
 
 Func NewBuildings($aResult, $bDebugImage = $g_bDebugImageSave)
+	If Not $g_bRunState Then Return False
 
 	Local $sImgDir = @ScriptDir & "\imgxml\Resources\BuildersBase\AutoUpgrade\NewBuildings\Buildings\*"
 
 	If UBound($aResult) = 3 And $aResult[2] = "New" Then
 
 		; The $g_iQuickMISX and $g_iQuickMISY haves the coordinates compansation from 'New' | GetIconPosition()
+		If _Sleep(1) Then Return False
 		Click($aResult[0], $aResult[1], 1)
 		If _Sleep(3000) Then Return
 
@@ -490,6 +497,7 @@ Func NewBuildings($aResult, $bDebugImage = $g_bDebugImageSave)
 
 						If $bDebugImage Then SaveDebugPointImage("Tile", $aiPoint)
 
+						If _Sleep(1) Then Return False
 						Click($ClocksCoordinates[$i][1] + 70, $ClocksCoordinates[$i][2] - 77, 1)
 						If _Sleep(4000) Then Return
 
@@ -498,6 +506,7 @@ Func NewBuildings($aResult, $bDebugImage = $g_bDebugImageSave)
 
 						; Lets search for the Correct Symbol on field
 						If QuickMIS("BC1", $g_sImgAutoUpgradeNewBldgYes, 80, 60, 800, 570 + $g_iMidOffsetY) Then
+							If _Sleep(1) Then Return False
 							Click($g_iQuickMISX, $g_iQuickMISY)
 							SetLog("Placed a new Building on Builder Base!", $COLOR_INFO)
 
@@ -518,6 +527,7 @@ Func NewBuildings($aResult, $bDebugImage = $g_bDebugImageSave)
 								Zoomout()
 								If _Sleep(250) Then Return
 								If QuickMIS("BC1", $g_sImgAutoUpgradeNewBldgYes, 80, 60, 800, 570 + $g_iMidOffsetY) Then
+									If _Sleep(1) Then Return False
 									Click($g_iQuickMISX, $g_iQuickMISY)
 									SetLog("Placed a new Building on Builder Base!", $COLOR_INFO)
 									If _Sleep(1000) Then Return
@@ -535,6 +545,7 @@ Func NewBuildings($aResult, $bDebugImage = $g_bDebugImageSave)
 									ClickDrag($g_iQuickMISX + 15, $g_iQuickMISY + 36, $g_iQuickMISX + 15 + 40, $g_iQuickMISY + 36 + 30, 500)
 									If _Sleep(Random(1500, 2000, 1)) Then Return
 									If QuickMIS("BC1", $g_sImgAutoUpgradeNewBldgYes, 80, 60, 800, 570 + $g_iMidOffsetY) Then
+										If _Sleep(1) Then Return False
 										Click($g_iQuickMISX, $g_iQuickMISY)
 										SetLog("Placed a new Building on Builder Base!", $COLOR_INFO)
 										If _Sleep(1000) Then Return False

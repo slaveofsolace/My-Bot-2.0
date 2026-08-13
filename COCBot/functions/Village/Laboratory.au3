@@ -175,14 +175,26 @@ EndFunc   ;==>Laboratory
 
 ; start a given upgrade
 Func LaboratoryUpgrade($name, $aCoords, $sCostResult, $debug = False)
+	If Not $debug And Not $g_bRunState Then Return False
+
 	SetLog("Selected upgrade: " & $name & " Cost: " & _NumberFormat($sCostResult, True), $COLOR_INFO)
+	If Not $debug And _Sleep(1) Then Return False
 	ClickP($aCoords) ; click troop
 	If _Sleep(2000) Then Return
 
+	Local $sPreviousLabUpgradeTime = $g_sLabUpgradeTime
+	Local $iPreviousLaboratoryElixirCost = $g_iLaboratoryElixirCost
+	Local $iPreviousLaboratoryDElixirCost = $g_iLaboratoryDElixirCost
 	If Not (SetLabUpgradeTime($name)) Then
 		SetDebugLog("Couldn't read upgrade time.  Continue anyway.", $COLOR_ERROR)
 	EndIf
-	If _Sleep($DELAYLABUPGRADE1) Then Return
+	If _Sleep($DELAYLABUPGRADE1) Then
+		$g_sLabUpgradeTime = $sPreviousLabUpgradeTime
+		$g_iLaboratoryElixirCost = $iPreviousLaboratoryElixirCost
+		$g_iLaboratoryDElixirCost = $iPreviousLaboratoryDElixirCost
+		If ProfileSwitchAccountEnabled() Then SwitchAccountVariablesReload("Save")
+		Return False
+	EndIf
 
 	LabStatusGUIUpdate()
 	If $debug = True Then ; if debugging, do not actually click it
@@ -190,6 +202,13 @@ Func LaboratoryUpgrade($name, $aCoords, $sCostResult, $debug = False)
 		CloseWindow()
 		Return True ; return true as if we really started an upgrade
 	Else
+		If _Sleep(1) Then
+			$g_sLabUpgradeTime = $sPreviousLabUpgradeTime
+			$g_iLaboratoryElixirCost = $iPreviousLaboratoryElixirCost
+			$g_iLaboratoryDElixirCost = $iPreviousLaboratoryDElixirCost
+			If ProfileSwitchAccountEnabled() Then SwitchAccountVariablesReload("Save")
+			Return False
+		EndIf
 		Click(630, 545 + $g_iMidOffsetY, 1, 120, "#0202") ; Everything is good - Click the upgrade button
 		If _Sleep(500) Then Return
 		If isGemOpen(True) = False Then ; check for gem window
@@ -214,6 +233,10 @@ Func LaboratoryUpgrade($name, $aCoords, $sCostResult, $debug = False)
 			CloseWindow()
 			Return True ; upgrade started
 		Else
+			$g_sLabUpgradeTime = $sPreviousLabUpgradeTime
+			$g_iLaboratoryElixirCost = $iPreviousLaboratoryElixirCost
+			$g_iLaboratoryDElixirCost = $iPreviousLaboratoryDElixirCost
+			If ProfileSwitchAccountEnabled() Then SwitchAccountVariablesReload("Save")
 			SetLog("Oops, Gems required for " & $name & " Upgrade, try again.", $COLOR_ERROR)
 			Return False
 		EndIf
