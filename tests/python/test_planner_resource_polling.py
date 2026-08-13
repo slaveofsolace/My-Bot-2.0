@@ -10,8 +10,8 @@ class PlannerResourcePollingTests(unittest.TestCase):
     def test_idle_and_hidden_views_use_slow_polling(self):
         control = PLANNER.split("function controlPollDelay()", 1)[1].split("}", 1)[0]
         events = PLANNER.split("function eventPollDelay()", 1)[1].split("}", 1)[0]
-        self.assertIn("document.hidden ? 5000 : 2000", control)
-        self.assertIn("document.hidden ? 15000 : 5000", events)
+        self.assertIn("document.hidden ? 15000 : 5000", control)
+        self.assertIn("document.hidden ? 60000 : 15000", events)
 
     def test_active_control_stays_responsive(self):
         control = PLANNER.split("function controlPollDelay()", 1)[1].split("}", 1)[0]
@@ -19,6 +19,11 @@ class PlannerResourcePollingTests(unittest.TestCase):
         self.assertIn("CONTROL_PENDING", control)
         self.assertIn("document.hidden ? 1500 : 500", control)
         self.assertIn("document.hidden ? 5000 : 1500", events)
+
+    def test_command_submission_wakes_control_polling_immediately(self):
+        sender = PLANNER.split("async function sendControl(action)", 1)[1].split("$('controlStart').onclick", 1)[0]
+        self.assertIn("clearTimeout(CONTROL_TIMER)", sender)
+        self.assertIn("CONTROL_TIMER = setTimeout(pollControl, 0)", sender)
 
     def test_visibility_transition_restarts_pollers(self):
         self.assertIn("document.addEventListener('visibilitychange'", PLANNER)

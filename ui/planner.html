@@ -141,25 +141,27 @@
     <div class="plan-layout">
       <nav class="plan-groups" id="planGroupNav" aria-label="Plan groups"></nav>
       <section class="plan-editor" id="panel" aria-label="Plan settings"></section>
-      <aside class="plan-receipt" aria-labelledby="planReceiptTitle">
-        <div class="panel-heading">
-          <h3 id="planReceiptTitle">Plan receipt</h3>
+      <details class="plan-receipt" open>
+        <summary>
+          <span id="planReceiptTitle">Plan receipt</span>
           <span class="state-label" id="visiblePlanState">Loading</span>
+        </summary>
+        <div class="plan-receipt-body" aria-labelledby="planReceiptTitle">
+          <div id="planSummary" class="summary-list"></div>
+          <div class="plan-fingerprint">
+            <span>Visible plan fingerprint</span>
+            <code id="visiblePlanHash">Calculating</code>
+            <small>Changes here do not reach Start until Apply succeeds.</small>
+          </div>
+          <div id="banner" class="evidence-receipt" aria-labelledby="bannerText">
+            <strong id="bannerText">Evidence scope is loading.</strong>
+          </div>
+          <div class="validation" id="planValidation">
+            <h4>Before apply</h4>
+            <ul id="validationList"></ul>
+          </div>
         </div>
-        <div id="planSummary" class="summary-list"></div>
-        <div class="plan-fingerprint">
-          <span>Visible plan fingerprint</span>
-          <code id="visiblePlanHash">Calculating</code>
-          <small>Changes here do not reach Start until Apply succeeds.</small>
-        </div>
-        <div id="banner" class="evidence-receipt" aria-labelledby="bannerText">
-          <strong id="bannerText">Evidence scope is loading.</strong>
-        </div>
-        <div class="validation" id="planValidation">
-          <h4>Before apply</h4>
-          <ul id="validationList"></ul>
-        </div>
-      </aside>
+      </details>
     </div>
 
     <div class="plan-actions" aria-label="Plan actions">

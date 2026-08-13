@@ -1297,7 +1297,7 @@ async function pollControl() {
 
 function controlPollDelay() {
   if (CONTROL_PENDING || ['starting', 'running', 'stopping'].includes(CONTROL.state)) return document.hidden ? 1500 : 500;
-  return document.hidden ? 5000 : 2000;
+  return document.hidden ? 15000 : 5000;
 }
 
 function refreshInstanceControl() {
@@ -1350,6 +1350,8 @@ async function sendControl(action) {
     CONTROL_PENDING = replacingStart ? previousPending : null;
   }
   renderControl();
+  clearTimeout(CONTROL_TIMER);
+  CONTROL_TIMER = setTimeout(pollControl, 0);
 }
 
 $('controlStart').onclick = () => sendControl('start');
@@ -1514,7 +1516,7 @@ async function pollEvents() {
 
 function eventPollDelay() {
   if (['starting', 'running', 'stopping'].includes(CONTROL.state)) return document.hidden ? 5000 : 1500;
-  return document.hidden ? 15000 : 5000;
+  return document.hidden ? 60000 : 15000;
 }
 
 async function loadNativeLog({ automatic = false } = {}) {
