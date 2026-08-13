@@ -2,6 +2,7 @@
 * Added the local Control Center and Run Planner.
 * Reworked the Control Center into Run, Strategy, Village, Evidence, and System workspaces with true light/dark palettes and a compact current-client capability ledger.
 * Changed Smart Hero abilities to a role-specific elapsed-plus-destruction phase quorum with a later deadline fallback; the revised policy is diagnostic until fresh supervised proof.
+* Recorded a bounded TH17 Smart mechanics run for the current policy: 240 verified red-line points, deterministic BL-side selection, 23-to-zero troop deployment, four selected Hero phase commands, Rage three-to-zero, one proven Freeze decrement, two stars/55 percent, and automatic one-battle stop. This is not a strategy-quality or all-Town-Hall claim, and no human visual receipt is asserted.
 * Added a live Native log modal and download in the browser Control Center.
 * Added a visible AutoIt companion button that opens the browser Control Center without modifying the pinned Mini controller.
 * Bound BlueStacks capture, input, and native-controller docking to the same explicit instance; the web planner now shows the attached instance as a select rather than accepting arbitrary text.

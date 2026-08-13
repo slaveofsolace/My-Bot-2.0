@@ -517,8 +517,14 @@ def main() -> int:
     if standard_option.get("availability") != "available" or standard_option.get("runtime_verified") is not True:
         errors.append("legacy.standard must expose the completed supervised deployment proof")
     smart_option = strategy_options.get("smart.local", {})
-    if smart_option.get("availability") != "gated" or smart_option.get("runtime_verified") is not False:
-        errors.append("smart.local must remain a selectable diagnostic option until its deterministic policy has fresh live proof")
+    if smart_option.get("availability") != "available" or smart_option.get("runtime_verified") is not True:
+        errors.append("smart.local must expose its completed bounded TH17 mechanics proof")
+    smart_copy = " ".join(
+        str(smart_option.get(field, "")).lower()
+        for field in ("description", "warning")
+    )
+    if "one bounded supervised th17 run" not in smart_copy or "not strategy quality" not in smart_copy:
+        errors.append("smart.local must keep its single-run mechanics proof narrower than a quality claim")
     for strategy_id in ("legacy.smart-farm", "builder.baby-dragon"):
         if strategy_options.get(strategy_id, {}).get("availability") not in {"planned", "unsupported"}:
             errors.append(f"{strategy_id}: strategy with no native adapter must not remain selectable")

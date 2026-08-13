@@ -152,13 +152,14 @@ army to match.
 | Game model through July 2026 | Catalogued from official sources |
 | LDPlayer 9 and MuMu Player 12 adapters | Written, **never run on real hardware** |
 | Screen recognition for the current client | Regular Battle TH17 path proven; the broader fixture catalog is still incomplete |
-| Attack execution | Standard completed one supervised TH17 battle; Smart troop/Hero deployment was observed, while its new ability and spell policy still needs a fresh supervised battle |
+| Attack execution | Standard completed one supervised TH17 battle; one later Smart TH17 run verified the current zoom, side, troop, Hero-command, Rage, Freeze-proof, accounting, and one-battle-stop mechanics |
 
 **The honest summary:** the bounded Standard Regular Battle path has live TH17 evidence for zoom,
 red-line geometry, troop and Hero deployment, battle accounting, Return Home, and automatic stop.
-The earlier Smart battle used a different opponent and did not use Hero abilities or spells, so it is
-deployment evidence, not an A/B result or proof that the policy improves outcomes. Other surfaces and
-most recognition fixtures remain unverified; CI does not substitute for those runs.
+A later bounded Smart run exercised the current role-specific Hero phase policy and quantity-proved
+Rage plus one Freeze decrement. It is one mechanics observation, not an A/B result or proof that the
+policy improves outcomes. Other Town Halls, armies, surfaces, and most recognition fixtures remain
+unverified; CI does not substitute for those runs.
 
 ---
 
@@ -462,16 +463,14 @@ Until these exist there is no way to build recognition templates, and no way to 
 from unverified to verified.
 
 Regular Battle with Standard deployment has bounded TH17 live proof. A later Smart run from the
-reviewed `978228d5` source/binary pair zoomed the current battle surface, deployed the full trained
-army and all four selected Heroes, issued all four Hero ability commands, proved two exact Rage
-quantity decrements, visibly consumed one Freeze, reached three stars/100 percent, returned home and
-stopped on the one-battle limit. The compact-bar OCR did not stabilize the Freeze count at exactly
-five-to-four, so that cast is human-visual confirmation plus an issued-command event, not an exact
-automated decrement receipt. Since that run, Hero activation changed from independent elapsed-or-
-destruction thresholds to a role-specific phase quorum plus a later deadline fallback. The earlier
-run therefore does not prove the revised policy. It remains one supervised Smart-path observation,
-not strategy superiority, every base layout, every Town Hall policy, other battle surfaces, CSV
-scripts or the still-missing fixture matrix.
+reviewed `10bef479` binary/source chain exercised the current role-specific phase policy: three enemy
+zoom gestures produced 240 red-line points, the local policy selected the BL side nearest the Town
+Hall, 23 deployable troops reached zero, all four selected Heroes received phase commands, Rage was
+quantity-proved from three to zero, and Freeze was quantity-proved from five to four before a later
+unconfirmed Freeze disabled further clicks. The battle completed at two stars/55 percent, returned
+home, and stopped on the one-battle limit. This is one automated mechanics observation without a
+stored human visual receipt—not strategy superiority, every base layout, every Town Hall policy,
+other battle surfaces, CSV scripts, or the still-missing fixture matrix.
 
 </details>
 

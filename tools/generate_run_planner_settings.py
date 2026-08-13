@@ -299,13 +299,14 @@ def main() -> int:
                             option("smart.local", "Smart Attack (research-guided)",
                                    "Concentrates the current army using a Town Hall-aware local policy.",
                                    "The deterministic Town Hall policy is versioned in config/game/smart-attack-"
-                                   "strategies.json and executed locally. Deployment, ability, and spell actions can "
-                                   "be planned and issued by the implementation, but the current deterministic "
-                                   "ability and spell policy has only static test evidence; a fresh supervised run "
-                                   "is still required to confirm it on the live client.",
-                                   "gated", [], ["A ready trained army", "A supervised diagnostic operator"],
-                                   warning="Live confirmation of deterministic ability and spell actions is pending.",
-                                   disabled_reason="Implemented for supervised diagnostics; live confirmation of the deterministic ability and spell policy is pending."),
+                                   "strategies.json and executed locally. One bounded supervised TH17 run verified "
+                                   "three zoom gestures, 240 red-line points, deterministic BL-side selection, "
+                                   "23-to-zero troop deployment, four selected Hero phase commands, Rage 3-to-zero, "
+                                   "one proven Freeze decrement, and an automatic one-battle stop. This verifies the "
+                                   "mechanics on that run, not strategy quality or every Town Hall and army.",
+                                   "available", [], ["A ready trained army", "A supervised diagnostic operator"],
+                                   runtime_verified=True,
+                                   warning="Runtime-observed on one TH17 current-army battle; quality, other Town Halls, and other armies remain unverified."),
                             option("legacy.smart-farm", "Smart farm",
                                    "Targets collectors and storages based on the base layout.",
                                    "Reads the base to choose where to drop, which needs current building recognition "

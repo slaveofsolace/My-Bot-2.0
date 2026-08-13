@@ -1,0 +1,126 @@
+{
+  "schema_version": 1,
+  "artifact_id": "smart-one-battle.pie64.20260812",
+  "captured_at": "2026-08-13T04:10:06Z",
+  "commit_sha": "10bef479cff0c932c4aa0c71bf8435c4e5bec79c",
+  "redacted": true,
+  "scope": "One bounded supervised Smart mechanics run on a TH17 current army. This does not claim strategy quality, all Town Halls or armies, or human visual acceptance.",
+  "environment": {
+    "os": "Windows 11",
+    "os_version": "10.0.26200",
+    "autoit_version": "3.3.16.1",
+    "emulator": "BlueStacks5",
+    "emulator_version": "5.22.252.1008",
+    "instance_index": 0,
+    "instance_name": "Pie64",
+    "game_version": "18.400.9"
+  },
+  "binary": {
+    "path": "MyBot.run.exe",
+    "sha256": "451eb26eb4a3b68426b53ab8cbd7227a85da33a60d3b5fd60b1ed03cd670f89c",
+    "bytes": 3264512
+  },
+  "plan": {
+    "before_sha256": "4393d147b0b5aece367a0a17193d7fd403adde70e6237f6c9aeb24647efe8fcd",
+    "after_sha256": "4393d147b0b5aece367a0a17193d7fd403adde70e6237f6c9aeb24647efe8fcd",
+    "preserved": true,
+    "bounded_controls": {
+      "surface": "regular",
+      "strategy": "smart.local",
+      "duration_minutes": 15,
+      "max_battles": 1,
+      "max_failures": 1,
+      "army_source": "current",
+      "manage_training": false,
+      "heroes_selected": 4,
+      "diagnostic_mode": true
+    }
+  },
+  "run_window": {
+    "started_at": "2026-08-13T04:04:43Z",
+    "completed_at": "2026-08-13T04:10:06Z"
+  },
+  "observations": {
+    "route": {
+      "surface": "regular",
+      "strategy": "smart.local",
+      "base_state": "live",
+      "zoom_gestures": 3,
+      "red_line_points": 240,
+      "selected_side": "BL",
+      "selection_reason": "nearest-median-to-town-hall"
+    },
+    "deployment": {
+      "army_capacity": "340/340",
+      "electro_dragons": 9,
+      "balloons": 14,
+      "siege": "Stone Slammer",
+      "deployable_troops_before": 23,
+      "deployable_troops_after": 0,
+      "empty_bar_reads": 2,
+      "selected_heroes_deployed": 4
+    },
+    "hero_phase_commands": [
+      {"hero": "Grand Warden", "elapsed_ms": 21391, "destruction_percent": 45},
+      {"hero": "Archer Queen", "elapsed_ms": 29875, "destruction_percent": 45},
+      {"hero": "Minion Prince", "elapsed_ms": 33860, "destruction_percent": 45},
+      {"hero": "Royal Champion", "elapsed_ms": 37625, "destruction_percent": 45}
+    ],
+    "spells": {
+      "rage_quantity_proof": ["3->2", "2->1", "1->0"],
+      "freeze_quantity_proof": ["5->4"],
+      "later_freeze_unconfirmed": true,
+      "further_freeze_clicks_disabled": true
+    },
+    "battle": {
+      "battle_count": 1,
+      "stars": 2,
+      "destruction_percent": 55,
+      "gold": 360039,
+      "elixir": 521119,
+      "dark_elixir": 6725,
+      "search_count": 1
+    },
+    "final": {
+      "state": "idle",
+      "session_cleared": true,
+      "plan_active": false,
+      "stop_reason": "battle-limit"
+    }
+  },
+  "event_summary": {
+    "session_ref": "session-1",
+    "event_count": 22,
+    "first_sequence": 1,
+    "last_sequence": 22,
+    "types": [
+      "session.started",
+      "combat.zoom-verified",
+      "combat.decision",
+      "combat.deployment-verified",
+      "combat.spell-command",
+      "combat.spell-cast",
+      "combat.hero-ability",
+      "combat.spell-unconfirmed",
+      "battle.completed",
+      "session.stopping",
+      "session.completed"
+    ]
+  },
+  "assertions": {
+    "plan_preserved": true,
+    "session_correlated": true,
+    "event_sequence_strictly_increasing": true,
+    "exactly_one_battle": true,
+    "deployment_quantity_proved": true,
+    "all_selected_hero_phase_commands_recorded": true,
+    "rage_inventory_decrease_proved": true,
+    "freeze_inventory_decrease_proved": true,
+    "uncertain_followup_spell_failed_closed": true,
+    "emulator_process_stable": true,
+    "new_emulator_crash_events": 0,
+    "human_visual_review": false,
+    "strategy_quality_verified": false
+  },
+  "privacy": "Only allowlisted operational state is retained. Native session, request, process, profile, path, player, account, clan, chat, payment, machine, and operator identifiers are omitted."
+}

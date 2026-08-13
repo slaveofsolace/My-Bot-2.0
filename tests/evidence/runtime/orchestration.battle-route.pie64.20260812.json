@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "evidence_id": "orchestration.battle-route.pie64.20260812",
+  "capability_id": "orchestration.battle-route",
+  "test_type": "route-execution",
+  "result": "passed",
+  "captured_at": "2026-08-13T04:10:06Z",
+  "commit_sha": "10bef479cff0c932c4aa0c71bf8435c4e5bec79c",
+  "redacted": true,
+  "environment": {
+    "os": "Windows 11",
+    "os_version": "10.0.26200",
+    "autoit_version": "3.3.16.1",
+    "emulator": "BlueStacks5",
+    "emulator_version": "5.22.252.1008",
+    "instance_index": 0,
+    "instance_name": "Pie64",
+    "game_version": "18.400.9"
+  },
+  "binary": {
+    "path": "MyBot.run.exe",
+    "sha256": "451eb26eb4a3b68426b53ab8cbd7227a85da33a60d3b5fd60b1ed03cd670f89c",
+    "bytes": 3264512
+  },
+  "checks": [
+    {
+      "id": "route.selected",
+      "result": "passed",
+      "details": "The local Smart policy classified a live TH17 base after three accepted zoom gestures and 240 red-line points, then deterministically selected the BL side nearest the Town Hall."
+    },
+    {
+      "id": "route.executed",
+      "result": "passed",
+      "details": "The run quantity-proved 23 deployable troops to zero in two reads, recorded all four selected Hero phase commands, proved Rage 3-to-zero and Freeze 5-to-4, and disabled further Freeze clicks when a later decrement was not confirmed."
+    },
+    {
+      "id": "route.completed",
+      "result": "passed",
+      "details": "Exactly one battle completed at two stars and 55 percent, telemetry recorded one search and credited loot, and the engine stopped itself on battle-limit with the session cleared and BlueStacks stable."
+    }
+  ],
+  "reviewer": {
+    "name": "My Bot 2.0 automated runtime review",
+    "reviewed_at": "2026-08-13T04:30:00Z"
+  },
+  "artifact_refs": [
+    {
+      "kind": "repository",
+      "path": "tests/evidence/runtime/artifacts/smart-one-battle.pie64.20260812.json",
+      "sha256": "56749b471d705cd7d667e59509c3361e169e17e5c299597dbe1db299f9da6d51",
+      "bytes": 4079
+    }
+  ],
+  "notes": "Automated mechanics evidence from one bounded TH17 current-army Smart battle. This does not establish strategy superiority, other Town Halls or armies, broader fixture coverage, or human visual acceptance."
+}

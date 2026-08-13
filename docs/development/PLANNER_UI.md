@@ -286,11 +286,11 @@ surface can be promoted from diagnostic to verified.
 
 An early 2026-08-12 Regular Battle reached matchmaking but did not prove troop deployment. After the
 enemy-view and actor-slot fixes, a later supervised Standard run did prove visible deployment, battle
-telemetry, Return Home, and a clean one-battle stop. A separate Smart run proved troop and selected-Hero
-deployment, but it used a different opponent and issued no Hero abilities or spells. A later Smart run
-did issue all selected Hero abilities and Rage/Freeze commands, but the policy has since changed to a
-role-specific phase quorum plus deadline fallback. Those runs are observations, not a strategy-quality
-comparison or proof of the revised policy.
+telemetry, Return Home, and a clean one-battle stop. A later bounded Smart run exercised the current
+role-specific phase policy and proved the zoom, deterministic side selection, 23-to-zero troop
+deployment, four selected Hero phase commands, Rage three-to-zero, one Freeze decrement, battle
+telemetry, Return Home, and a clean one-battle stop. These are mechanics observations on different
+opponents, not a strategy-quality comparison.
 The permanent `tools/run_supervised_battle_acceptance.ps1` gate now accepts only Smart mode and
 refuses to pass unless the current binary matches provenance, exactly one battle is recorded, the
 native log proves enemy zoom plus two independent empty troop-bar reads, deterministic side/start
@@ -308,9 +308,10 @@ with one detected Town Hall chooses the nearest valid side; dead or uncertain ba
 longest valid side with a fixed tie order. The protected legacy selector-5 branch is not used.
 The tactical Hero policy now requires both the role's elapsed and destruction milestones for its
 normal phase trigger; a later deadline can prevent an otherwise usable ability being wasted. Rage and
-Freeze retain safe-target and inventory-decrement gates. The revised rules have static contract tests
-but remain diagnostic until a fresh supervised battle records the phase reasons and confirms spell
-inventory changes.
+Freeze retain safe-target and inventory-decrement gates. One TH17 current-army run recorded all four
+phase reasons, proved all three Rage decrements and one Freeze decrement, and failed closed after a
+later Freeze could not be confirmed. That narrows the remaining uncertainty to other Town Halls,
+armies, layouts, strategy quality, and human visual acceptance.
 
 The browser header includes a bounded, sanitized **Native log** modal with refresh and tail download.
 The pinned upstream Mini GUI cannot be rebuilt without tripping the inherited ImgLoc identity guard,

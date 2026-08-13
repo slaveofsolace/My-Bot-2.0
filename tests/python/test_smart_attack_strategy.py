@@ -13,7 +13,7 @@ class SmartAttackStrategyTests(unittest.TestCase):
         self.assertFalse(catalog["runtime_network_access"])
         self.assertEqual(catalog["runtime_side_policy"]["legacy_selector_override"], 0)
         self.assertFalse(catalog["safety"]["strategy_quality_verified"])
-        self.assertEqual(catalog["safety"]["hero_ability_and_spell_policy_status"], "implemented-diagnostic")
+        self.assertEqual(catalog["safety"]["hero_ability_and_spell_policy_status"], "runtime-observed-th17")
         self.assertGreaterEqual(len(catalog["sources"]), 3)
         policies = catalog["town_hall_policies"]
         self.assertEqual([policy["town_hall"] for policy in policies], list(range(2, 19)))
@@ -29,9 +29,9 @@ class SmartAttackStrategyTests(unittest.TestCase):
         self.assertFalse(catalog["safety"]["uses_llm_in_actuator_loop"])
         self.assertFalse(catalog["safety"]["trains_recommended_army"])
         th17 = next(policy for policy in policies if policy["town_hall"] == 17)
-        self.assertIn("Smart EDragon/Balloon", th17["reason"])
-        self.assertIn("one star, 58% destruction", th17["reason"])
-        self.assertIn("separate Standard run", th17["reason"])
+        self.assertIn("Smart TH17 EDragon/Balloon", th17["reason"])
+        self.assertIn("two stars, 55% destruction", th17["reason"])
+        self.assertIn("not a controlled quality comparison", th17["reason"])
 
     def test_runtime_maps_smart_to_bounded_local_actuator(self):
         contract = (ROOT / "COCBot/functions/Run/RunExecutionContract.au3").read_text(encoding="utf-8", errors="replace")
@@ -58,11 +58,12 @@ class SmartAttackStrategyTests(unittest.TestCase):
                 if setting["id"] == "run.strategy":
                     options = setting["options"]
         smart = next(option for option in options if option["value"] == "smart.local")
-        self.assertEqual(smart["availability"], "gated")
-        self.assertFalse(smart["runtime_verified"])
+        self.assertEqual(smart["availability"], "available")
+        self.assertTrue(smart["runtime_verified"])
         self.assertIn("local", smart["description"].lower())
-        self.assertIn("static test evidence", smart["description"].lower())
-        self.assertIn("live confirmation", smart["disabled_reason"].lower())
+        self.assertIn("one bounded supervised th17 run", smart["description"].lower())
+        self.assertIn("not strategy quality", smart["description"].lower())
+        self.assertIn("other town halls", smart["warning"].lower())
 
     def test_each_town_hall_preset_uses_its_smart_policy_and_exact_hero_plan(self):
         catalog = json.loads((ROOT / "config/game/smart-attack-strategies.json").read_text(encoding="utf-8"))
