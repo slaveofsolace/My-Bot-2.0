@@ -167,6 +167,12 @@ unverified; CI does not substitute for those runs.
 
 You need **Windows 10 or 11**, an **Android emulator**, and **AutoIt**.
 
+For an internally reviewed LocalRuntime ZIP, extract it and double-click **`Install My Bot 2.0.cmd`**.
+The per-user installer verifies the package, installs it under `%LOCALAPPDATA%\Programs\My Bot 2.0`,
+and registers **My Bot 2.0** in the Start menu and Windows Installed apps. You can then press the
+Windows key, type `My Bot 2.0`, and launch it normally. The LocalRuntime package is not a public
+distribution grant for inherited ImgLoc binaries; see the redistribution boundary below.
+
 <details>
 <summary><b>Step 1 &nbsp;·&nbsp; Install AutoIt</b></summary>
 

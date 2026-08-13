@@ -58,6 +58,12 @@ Keep the original folder untouched. Use a separate copy for each experimental br
 
 ## 4. Run the application or source
 
+For an extracted, internally reviewed LocalRuntime package, double-click `Install My Bot 2.0.cmd`.
+It installs for the current Windows user under `%LOCALAPPDATA%\Programs\My Bot 2.0` and creates a
+Start-menu entry. Afterward, press the Windows key and type `My Bot 2.0`. Use Windows Installed apps
+or the Start-menu uninstall shortcut to remove it. The installer deliberately refuses source-tree
+folders and packages whose release manifest, marker, or launcher provenance is invalid.
+
 For normal use, run:
 
 ```text

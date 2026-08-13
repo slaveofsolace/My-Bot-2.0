@@ -70,6 +70,8 @@ $runtimeDirectories = @(
 )
 
 $runtimeFiles = @(
+    "Install My Bot 2.0.cmd",
+    "Uninstall My Bot 2.0.cmd",
     "My Bot 2.0.au3",
     "MyBot.run.au3",
     "MyBot.run.EngineProbe.au3",
@@ -86,6 +88,7 @@ $runtimeFiles = @(
     "docs\INSTALL.md",
     "packaging\README.md",
     "tools\planner_ui.py",
+    "tools\Install-LocalRuntime.ps1",
     "config\account-queue.schema.json",
     "config\battle-route.schema.json",
     "config\binary-provenance.json",

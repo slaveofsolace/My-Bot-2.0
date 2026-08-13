@@ -47,3 +47,15 @@ permission or has validated a clearly licensed replacement and supplies the exac
 token printed in the script. That switch records an operator assertion; it does not create rights.
 
 The workflow performs no code signing and makes no signing claim.
+
+## Install the reviewed LocalRuntime package
+
+Extract the ZIP, then double-click `Install My Bot 2.0.cmd`. The installer verifies the clean
+LocalRuntime manifest, zero-byte engine marker, and launcher provenance before copying the package
+to `%LOCALAPPDATA%\Programs\My Bot 2.0`. It creates a per-user Start-menu shortcut and Windows
+Apps uninstall entry; it does not require administrator permission. After installation, open Start
+and type `My Bot 2.0`.
+
+The installer refuses to update while an executable from the installed directory is running. Use
+the Start-menu uninstall shortcut, Windows Installed apps, or `Uninstall My Bot 2.0.cmd` from the
+extracted package to remove the per-user installation.
