@@ -5,8 +5,10 @@ let FILTER = '';
 let PLAN_WRITTEN = false;
 let BOOT_READY = false;
 let ACTIVE_VIEW = 'run';
+const VIEW_IDS = ['run', 'plan', 'village', 'activity', 'diagnostics'];
 let ACTIVE_GROUP = 'match';
 let SELECTED_PRESET = 'custom';
+let CAPABILITY_CATALOG = { capabilities: [], status_definitions: {} };
 
 let CONTROL = { connected: false, state: 'offline' };
 let CONTROL_PENDING = null;
@@ -57,6 +59,29 @@ const PLAN_GROUPS = [
     label: 'Advanced',
     description: 'Tune emulator pacing and explicitly authorize diagnostic work.',
     sections: ['pacing', 'diagnostics'],
+  },
+];
+
+const CAPABILITY_GROUPS = [
+  {
+    label: 'Farming and battles',
+    ids: ['battle.regular-ranked-split', 'battle.revenge', 'battle.legend-tiers', 'battle.fast-forward'],
+  },
+  {
+    label: 'Army and Heroes',
+    ids: ['army.training', 'army.recipes', 'army.cookbook', 'heroes.six-slot-layout', 'heroes.dragon-duke', 'heroes.hero-journey'],
+  },
+  {
+    label: 'Home Village',
+    ids: ['village.collectors', 'village.donations', 'village.upgrades-home', 'village.laboratory', 'village.town-hall-18', 'village.guardians'],
+  },
+  {
+    label: 'Builder Base and Capital',
+    ids: ['builder-base.upgrades', 'builder-base.battles', 'builder-base.additional-builder', 'clan-capital.upgrades'],
+  },
+  {
+    label: 'Events, accounts, and recovery',
+    ids: ['events.clan-games', 'orchestration.multi-account', 'orchestration.account-queue', 'runtime.recovery', 'chat.global-chat'],
   },
 ];
 
@@ -115,9 +140,9 @@ function matchingPresetForPlan(plan = PLAN) {
 }
 
 function setView(view, { updateHash = false, focusHeading = false } = {}) {
-  if (!['run', 'plan', 'diagnostics'].includes(view)) view = 'run';
+  if (!VIEW_IDS.includes(view)) view = 'run';
   ACTIVE_VIEW = view;
-  for (const name of ['run', 'plan', 'diagnostics']) {
+  for (const name of VIEW_IDS) {
     const panel = $(`view${name[0].toUpperCase()}${name.slice(1)}`);
     const button = $(`view${name[0].toUpperCase()}${name.slice(1)}Button`);
     panel.hidden = name !== view;
@@ -155,7 +180,7 @@ function setGroup(groupId, { updateHash = false, focusGroup = false } = {}) {
 
 function applyLocation() {
   const [viewToken, groupToken] = location.hash.replace(/^#/, '').split('/');
-  const view = ['run', 'plan', 'diagnostics'].includes(viewToken) ? viewToken : 'run';
+  const view = VIEW_IDS.includes(viewToken) ? viewToken : 'run';
   if (groupToken && PLAN_GROUPS.some(group => group.id === groupToken)) ACTIVE_GROUP = groupToken;
   setView(view);
   if (BOOT_READY && view === 'plan') setGroup(ACTIVE_GROUP);
@@ -180,7 +205,7 @@ for (const button of viewButtons) {
   button.onkeydown = event => handleRovingKeys(event, viewButtons);
 }
 $('editPlan').onclick = () => setView('plan', { updateHash: true, focusHeading: true });
-$('openDiagnostics').onclick = () => setView('diagnostics', { updateHash: true, focusHeading: true });
+$('openDiagnostics').onclick = () => setView('activity', { updateHash: true, focusHeading: true });
 window.addEventListener('hashchange', applyLocation);
 
 function initializePlanGroupNav() {
@@ -1331,6 +1356,83 @@ $('controlStart').onclick = () => sendControl('start');
 $('controlPause').onclick = () => sendControl(CONTROL.state === 'paused' ? 'resume' : 'pause');
 $('controlStop').onclick = () => sendControl('stop');
 
+function capabilityLabel(id) {
+  const labels = {
+    'battle.regular-ranked-split': 'Regular and Ranked battle routing',
+    'battle.revenge': 'Revenge battles',
+    'battle.legend-tiers': 'Legend League tiers',
+    'battle.fast-forward': 'Battle speed-up',
+    'army.training': 'Army training',
+    'army.recipes': 'Army recipes',
+    'army.cookbook': 'Army Cookbook',
+    'heroes.six-slot-layout': 'Six-Hero roster and four active slots',
+    'heroes.dragon-duke': 'Dragon Duke',
+    'heroes.hero-journey': 'Hero Journey',
+    'village.collectors': 'Collectors and mines',
+    'village.donations': 'Donate and request',
+    'village.upgrades-home': 'Home Village upgrades',
+    'village.laboratory': 'Laboratory research',
+    'village.town-hall-18': 'Town Hall 18 recognition',
+    'village.guardians': 'Guardians',
+    'builder-base.upgrades': 'Builder Base upgrades',
+    'builder-base.battles': 'Builder Base battles',
+    'builder-base.additional-builder': 'Additional Builder',
+    'clan-capital.upgrades': 'Clan Capital upgrades',
+    'events.clan-games': 'Clan Games',
+    'orchestration.multi-account': 'Multi-account rotation',
+    'orchestration.account-queue': 'Account queue',
+    'runtime.recovery': 'Interruption and restart recovery',
+    'chat.global-chat': 'Global Chat handling',
+  };
+  return labels[id] || id;
+}
+
+function capabilityPublicState(status) {
+  if (status === 'supported') return 'Supported';
+  if (status === 'legacy-implemented') return 'Inherited';
+  if (['adapter-added', 'engine-added'].includes(status)) return 'Implemented';
+  if (status === 'fixture-required') return 'Fixture required';
+  return 'Unavailable';
+}
+
+function renderCapabilities() {
+  const root = $('capabilityList');
+  root.replaceChildren();
+  const byId = new Map((CAPABILITY_CATALOG.capabilities || []).map(item => [item.id, item]));
+  for (const group of CAPABILITY_GROUPS) {
+    const section = document.createElement('section');
+    section.className = 'capability-group';
+    const heading = document.createElement('h4');
+    heading.textContent = group.label;
+    section.append(heading);
+    for (const id of group.ids) {
+      const capability = byId.get(id);
+      if (!capability) continue;
+      const row = document.createElement('div');
+      row.className = 'capability-row';
+      const name = document.createElement('strong');
+      name.textContent = capabilityLabel(id);
+      const state = document.createElement('span');
+      state.className = `capability-state status-${capability.status}`;
+      state.textContent = capabilityPublicState(capability.status);
+      const reason = document.createElement('p');
+      reason.className = 'sr-only';
+      reason.textContent = CAPABILITY_CATALOG.status_definitions?.[capability.status]
+        || 'No reviewed current-client proof statement is available.';
+      state.setAttribute('aria-label', `${state.textContent}. ${reason.textContent}`);
+      row.append(name, state, reason);
+      section.append(row);
+    }
+    root.append(section);
+  }
+  if (!root.children.length) {
+    const empty = document.createElement('p');
+    empty.className = 'empty-state';
+    empty.textContent = 'The capability catalog did not load.';
+    root.append(empty);
+  }
+}
+
 function eventDate(event) {
   const candidate = event.timestamp ?? event.at;
   if (candidate == null) return null;
@@ -1626,6 +1728,7 @@ async function boot() {
       throw new Error('Planner metadata was incomplete.');
     }
     META = metadataPayload.metadata;
+    CAPABILITY_CATALOG = metadataPayload.capabilities || CAPABILITY_CATALOG;
     PLAN = plan;
     SAVED = clone(plan);
     enforceNativeFixedValues(PLAN);
@@ -1637,6 +1740,7 @@ async function boot() {
     initializePresets();
     initializePlanGroupNav();
     drawPlanPanel();
+    renderCapabilities();
     EVENTS = [];
     EVENTS_ERROR = '';
     renderActivity();

@@ -33,6 +33,7 @@ class SupervisedBattleAcceptanceContract(unittest.TestCase):
         self.assertIn("Smart side .+ selected:", SCRIPT)
         self.assertIn("Smart combat started from", SCRIPT)
         self.assertIn("ability command issued:", SCRIPT)
+        self.assertIn("(?:phase|deadline|battle-end deadline);", SCRIPT)
         self.assertIn("ability not issued:", SCRIPT)
         self.assertIn("Require-ProvenSpellCast $result.events 'Rage'", SCRIPT)
         self.assertIn("Test-ProvenSpellCast $result.events 'Freeze'", SCRIPT)

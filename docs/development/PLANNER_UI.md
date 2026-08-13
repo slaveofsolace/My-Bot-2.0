@@ -287,8 +287,10 @@ surface can be promoted from diagnostic to verified.
 An early 2026-08-12 Regular Battle reached matchmaking but did not prove troop deployment. After the
 enemy-view and actor-slot fixes, a later supervised Standard run did prove visible deployment, battle
 telemetry, Return Home, and a clean one-battle stop. A separate Smart run proved troop and selected-Hero
-deployment, but it used a different opponent and issued no Hero abilities or spells. Those two results
-are not a strategy-quality comparison.
+deployment, but it used a different opponent and issued no Hero abilities or spells. A later Smart run
+did issue all selected Hero abilities and Rage/Freeze commands, but the policy has since changed to a
+role-specific phase quorum plus deadline fallback. Those runs are observations, not a strategy-quality
+comparison or proof of the revised policy.
 The permanent `tools/run_supervised_battle_acceptance.ps1` gate now accepts only Smart mode and
 refuses to pass unless the current binary matches provenance, exactly one battle is recorded, the
 native log proves enemy zoom plus two independent empty troop-bar reads, deterministic side/start
@@ -304,8 +306,11 @@ Continue-button path; that separate recovery does not count as attack evidence.
 calls an LLM. The current adapter scores the four current-frame red-line sides itself. A live base
 with one detected Town Hall chooses the nearest valid side; dead or uncertain bases choose the
 longest valid side with a fixed tie order. The protected legacy selector-5 branch is not used.
-The new tactical Hero-ability and Rage/Freeze rules have static contract tests but remain labelled
-diagnostic until a supervised battle records the commands and confirms spell inventory changes.
+The tactical Hero policy now requires both the role's elapsed and destruction milestones for its
+normal phase trigger; a later deadline can prevent an otherwise usable ability being wasted. Rage and
+Freeze retain safe-target and inventory-decrement gates. The revised rules have static contract tests
+but remain diagnostic until a fresh supervised battle records the phase reasons and confirms spell
+inventory changes.
 
 The browser header includes a bounded, sanitized **Native log** modal with refresh and tail download.
 The pinned upstream Mini GUI cannot be rebuilt without tripping the inherited ImgLoc identity guard,

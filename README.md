@@ -467,9 +467,11 @@ army and all four selected Heroes, issued all four Hero ability commands, proved
 quantity decrements, visibly consumed one Freeze, reached three stars/100 percent, returned home and
 stopped on the one-battle limit. The compact-bar OCR did not stabilize the Freeze count at exactly
 five-to-four, so that cast is human-visual confirmation plus an issued-command event, not an exact
-automated decrement receipt. This proves one supervised Smart path, not strategy superiority, every
-base layout, every Town Hall policy, other battle surfaces, CSV scripts or the still-missing fixture
-matrix.
+automated decrement receipt. Since that run, Hero activation changed from independent elapsed-or-
+destruction thresholds to a role-specific phase quorum plus a later deadline fallback. The earlier
+run therefore does not prove the revised policy. It remains one supervised Smart-path observation,
+not strategy superiority, every base layout, every Town Hall policy, other battle surfaces, CSV
+scripts or the still-missing fixture matrix.
 
 </details>
 

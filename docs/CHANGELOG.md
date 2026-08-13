@@ -1,5 +1,7 @@
 * My Bot 2.0 v2.0.0 **
 * Added the local Control Center and Run Planner.
+* Reworked the Control Center into Run, Strategy, Village, Evidence, and System workspaces with true light/dark palettes and a compact current-client capability ledger.
+* Changed Smart Hero abilities to a role-specific elapsed-plus-destruction phase quorum with a later deadline fallback; the revised policy is diagnostic until fresh supervised proof.
 * Added a live Native log modal and download in the browser Control Center.
 * Added a visible AutoIt companion button that opens the browser Control Center without modifying the pinned Mini controller.
 * Bound BlueStacks capture, input, and native-controller docking to the same explicit instance; the web planner now shows the attached instance as a select rather than accepting arbitrary text.

@@ -14,7 +14,8 @@
 ; Existing MyBot hero index order used here:
 ;   0 King, 1 Queen, 2 Minion Prince, 3 Grand Warden, 4 Royal Champion.
 ; Hero damage is total enemy-base destruction/progress (0..100), not the
-; individual Hero's lost health. Each Hero has a deterministic milestone.
+; individual Hero's lost health. Each Hero has a deterministic phase milestone
+; plus a later deadline fallback so abilities are not wasted at battle end.
 ;
 ; Spell schedule callers must pass the number of that spell already cast as the
 ; zero-based ordinal and evaluate only the next ordinal once per actuator tick.
@@ -81,6 +82,15 @@ Global Const $SMART_ATTACK_HERO_WARDEN_ELAPSED_MS = 10000
 Global Const $SMART_ATTACK_HERO_WARDEN_DAMAGE_PERCENT = 12
 Global Const $SMART_ATTACK_HERO_CHAMPION_ELAPSED_MS = 30000
 Global Const $SMART_ATTACK_HERO_CHAMPION_DAMAGE_PERCENT = 45
+
+; Deadline fallbacks are deliberately later than the phase milestones. Normal
+; activation requires both elapsed and destruction evidence; only the deadline
+; can activate when destruction telemetry is unavailable or the push stalls.
+Global Const $SMART_ATTACK_HERO_KING_DEADLINE_MS = 65000
+Global Const $SMART_ATTACK_HERO_QUEEN_DEADLINE_MS = 48000
+Global Const $SMART_ATTACK_HERO_PRINCE_DEADLINE_MS = 36000
+Global Const $SMART_ATTACK_HERO_WARDEN_DEADLINE_MS = 20000
+Global Const $SMART_ATTACK_HERO_CHAMPION_DEADLINE_MS = 58000
 
 ; SmartAttackPolicySelectAttackBarSlot result indexes. Input is the seven-column
 ; final GetAttackBar shape: troop index, slot, amount, X, Y, OCR X, OCR Y.
@@ -226,33 +236,39 @@ Func SmartAttackPolicyTargetSafetyDecision(ByRef $aPoint, $bSafeCoordinate)
 	Return $aDecision
 EndFunc   ;==>SmartAttackPolicyTargetSafetyDecision
 
-; Returns [elapsed threshold ms, enemy-base destruction threshold percent], or
-; [-1,-1] for an unknown Hero ordinal.
+; Returns [elapsed threshold ms, enemy-base destruction threshold percent,
+; deadline ms], or [-1,-1,-1] for an unknown Hero ordinal.
 Func SmartAttackPolicyHeroAbilityThresholds($iHeroIndex)
-	Local $aThresholds[2] = [-1, -1]
+	Local $aThresholds[3] = [-1, -1, -1]
 	Switch $iHeroIndex
 		Case $SMART_ATTACK_HERO_KING
 			$aThresholds[0] = $SMART_ATTACK_HERO_KING_ELAPSED_MS
 			$aThresholds[1] = $SMART_ATTACK_HERO_KING_DAMAGE_PERCENT
+			$aThresholds[2] = $SMART_ATTACK_HERO_KING_DEADLINE_MS
 		Case $SMART_ATTACK_HERO_QUEEN
 			$aThresholds[0] = $SMART_ATTACK_HERO_QUEEN_ELAPSED_MS
 			$aThresholds[1] = $SMART_ATTACK_HERO_QUEEN_DAMAGE_PERCENT
+			$aThresholds[2] = $SMART_ATTACK_HERO_QUEEN_DEADLINE_MS
 		Case $SMART_ATTACK_HERO_PRINCE
 			$aThresholds[0] = $SMART_ATTACK_HERO_PRINCE_ELAPSED_MS
 			$aThresholds[1] = $SMART_ATTACK_HERO_PRINCE_DAMAGE_PERCENT
+			$aThresholds[2] = $SMART_ATTACK_HERO_PRINCE_DEADLINE_MS
 		Case $SMART_ATTACK_HERO_WARDEN
 			$aThresholds[0] = $SMART_ATTACK_HERO_WARDEN_ELAPSED_MS
 			$aThresholds[1] = $SMART_ATTACK_HERO_WARDEN_DAMAGE_PERCENT
+			$aThresholds[2] = $SMART_ATTACK_HERO_WARDEN_DEADLINE_MS
 		Case $SMART_ATTACK_HERO_CHAMPION
 			$aThresholds[0] = $SMART_ATTACK_HERO_CHAMPION_ELAPSED_MS
 			$aThresholds[1] = $SMART_ATTACK_HERO_CHAMPION_DAMAGE_PERCENT
+			$aThresholds[2] = $SMART_ATTACK_HERO_CHAMPION_DEADLINE_MS
 	EndSwitch
 	Return $aThresholds
 EndFunc   ;==>SmartAttackPolicyHeroAbilityThresholds
 
 ; Stable integration API. iDamagePercent means total enemy-base destruction,
 ; matching the battle percentage display. Returns "" while not due or on
-; invalid/unknown input; otherwise: "damage", "elapsed", "damage+elapsed".
+; invalid/unknown input; otherwise "phase" or "deadline". The phase trigger
+; requires BOTH time and destruction proof; it never substitutes Hero health.
 Func SmartAttackPolicyHeroAbilityReason($iHeroIndex, $iElapsedMs, $iDamagePercent)
 	Local $aDecision = SmartAttackPolicyHeroAbilityDecision($iHeroIndex, $iElapsedMs, $iDamagePercent)
 	Return $aDecision[$SMART_ATTACK_HERO_REASON]
@@ -260,7 +276,8 @@ EndFunc   ;==>SmartAttackPolicyHeroAbilityReason
 
 ; Output: [ACTIVATE, REASON, ELAPSED_THRESHOLD_MS, DAMAGE_THRESHOLD_PERCENT,
 ;          ELAPSED_DUE, DAMAGE_DUE]. A sensor may pass -1 for an unknown elapsed
-; or damage value; the other independently proven threshold can still trigger.
+; or damage value. Unknown destruction cannot satisfy the phase quorum, but the
+; later role-specific deadline remains available.
 Func SmartAttackPolicyHeroAbilityDecision($iHeroIndex, $iElapsedMs, $iDamagePercent)
 	Local $aDecision[$SMART_ATTACK_HERO_RESULT_SIZE] = [False, "", -1, -1, False, False]
 	Local $aThresholds = SmartAttackPolicyHeroAbilityThresholds($iHeroIndex)
@@ -275,13 +292,10 @@ Func SmartAttackPolicyHeroAbilityDecision($iHeroIndex, $iElapsedMs, $iDamagePerc
 
 	If $aDecision[$SMART_ATTACK_HERO_DAMAGE_DUE] And $aDecision[$SMART_ATTACK_HERO_ELAPSED_DUE] Then
 		$aDecision[$SMART_ATTACK_HERO_ACTIVATE] = True
-		$aDecision[$SMART_ATTACK_HERO_REASON] = "damage+elapsed"
-	ElseIf $aDecision[$SMART_ATTACK_HERO_DAMAGE_DUE] Then
+		$aDecision[$SMART_ATTACK_HERO_REASON] = "phase"
+	ElseIf IsNumber($iElapsedMs) And $iElapsedMs >= $aThresholds[2] Then
 		$aDecision[$SMART_ATTACK_HERO_ACTIVATE] = True
-		$aDecision[$SMART_ATTACK_HERO_REASON] = "damage"
-	ElseIf $aDecision[$SMART_ATTACK_HERO_ELAPSED_DUE] Then
-		$aDecision[$SMART_ATTACK_HERO_ACTIVATE] = True
-		$aDecision[$SMART_ATTACK_HERO_REASON] = "elapsed"
+		$aDecision[$SMART_ATTACK_HERO_REASON] = "deadline"
 	EndIf
 	Return $aDecision
 EndFunc   ;==>SmartAttackPolicyHeroAbilityDecision

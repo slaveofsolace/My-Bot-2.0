@@ -206,8 +206,8 @@ try {
         if (-not $heroNames.ContainsKey([string]$heroId)) { throw "Unknown selected hero in saved plan: $heroId" }
         $heroName = $heroNames[[string]$heroId]
         Require-ExactlyOneEvent $result.events 'combat.hero-ability' `
-            ('^{0} ability command issued:' -f [regex]::Escape($heroName)) `
-            "$heroName Smart ability command"
+            ('^{0} ability command issued: (?:phase|deadline|battle-end deadline);' -f [regex]::Escape($heroName)) `
+            "$heroName phase-owned Smart ability command"
     }
     if (@($result.events | Where-Object {$_.type -eq 'combat.hero-ability' -and $_.message -match ' ability not issued:'}).Count) {
         throw "At least one selected hero ability was not issued"

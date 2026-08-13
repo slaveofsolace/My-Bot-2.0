@@ -16,7 +16,7 @@
     <span class="brand-mark" aria-hidden="true">2.0</span>
     <div>
       <h1>My Bot 2.0</h1>
-      <p>Local automation control center</p>
+      <p>Local operations</p>
     </div>
   </div>
 
@@ -56,9 +56,11 @@
 
 <div class="app-shell">
 <nav class="view-nav" aria-label="Control center views">
-  <button id="viewRunButton" type="button" data-view="run" aria-current="page" disabled>Run<span>Saved plan and controls</span></button>
-  <button id="viewPlanButton" type="button" data-view="plan" disabled>Plan<span>Build and apply a plan</span></button>
-  <button id="viewDiagnosticsButton" type="button" data-view="diagnostics" disabled>Diagnostics<span>Health, activity, and logs</span></button>
+  <button id="viewRunButton" type="button" data-view="run" aria-current="page" disabled>Run</button>
+  <button id="viewPlanButton" type="button" data-view="plan" disabled>Strategy</button>
+  <button id="viewVillageButton" type="button" data-view="village" disabled>Village</button>
+  <button id="viewActivityButton" type="button" data-view="activity" disabled>Evidence</button>
+  <button id="viewDiagnosticsButton" type="button" data-view="diagnostics" disabled>System</button>
 </nav>
 
 <div class="app-stage">
@@ -76,7 +78,7 @@
     <header class="view-heading">
       <div>
         <h2 id="runTitle" tabindex="-1">Run</h2>
-        <p>Review the saved plan before starting the native engine.</p>
+        <p>The applied plan, engine binding, and next safe action.</p>
       </div>
       <button id="editPlan" type="button" disabled>Edit plan</button>
     </header>
@@ -103,7 +105,7 @@
       <section class="work-panel" aria-labelledby="recentActivityTitle">
         <div class="panel-heading">
           <h3 id="recentActivityTitle">Recent activity</h3>
-          <button class="text-button" id="openDiagnostics" type="button" disabled>View diagnostics</button>
+          <button class="text-button" id="openDiagnostics" type="button" disabled>Open activity</button>
         </div>
         <ol class="activity-list" id="recentEvents"><li class="empty-state">Loading activity.</li></ol>
       </section>
@@ -113,8 +115,8 @@
   <section class="view-panel" id="viewPlan" aria-labelledby="planTitle" hidden>
     <header class="view-heading plan-heading">
       <div>
-        <h2 id="planTitle" tabindex="-1">Plan</h2>
-        <p>Build one run, apply it to disk, then return to Run to start it.</p>
+        <h2 id="planTitle" tabindex="-1">Strategy</h2>
+        <p>Choose the exact work for one run. Applying saves it; starting remains separate.</p>
       </div>
       <label class="search-control" for="filter">
         <span>Find a setting</span>
@@ -168,17 +170,47 @@
     </div>
   </section>
 
+  <section class="view-panel" id="viewVillage" aria-labelledby="villageTitle" hidden>
+    <header class="view-heading">
+      <div>
+        <h2 id="villageTitle" tabindex="-1">Village</h2>
+        <p>The full repeatable game loop, with current-client proof kept separate from inherited code.</p>
+      </div>
+    </header>
+
+    <section class="capability-ledger" aria-labelledby="capabilityLedgerTitle">
+      <div class="ledger-heading">
+        <h3 id="capabilityLedgerTitle">Capability ledger</h3>
+        <p>Implemented means a native path exists. Supported requires reviewed fixtures and runtime evidence.</p>
+      </div>
+      <div id="capabilityList" class="capability-list"><p class="empty-state">Loading capabilities.</p></div>
+    </section>
+  </section>
+
+  <section class="view-panel" id="viewActivity" aria-labelledby="activityTitle" hidden>
+    <header class="view-heading">
+      <div>
+        <h2 id="activityTitle" tabindex="-1">Evidence</h2>
+        <p>Issued commands and confirmed outcomes from the bounded event stream.</p>
+      </div>
+    </header>
+
+    <section class="activity-ledger" aria-label="Run activity">
+      <ol class="activity-list" id="events"><li class="empty-state">Loading activity.</li></ol>
+    </section>
+  </section>
+
   <section class="view-panel" id="viewDiagnostics" aria-labelledby="diagnosticsTitle" hidden>
     <header class="view-heading">
       <div>
-        <h2 id="diagnosticsTitle" tabindex="-1">Diagnostics</h2>
-        <p>Inspect current health and event history. Raw output stays collapsed until you need it.</p>
+        <h2 id="diagnosticsTitle" tabindex="-1">System</h2>
+        <p>Connection health, proof boundaries, source lineage, and raw diagnostics.</p>
       </div>
       <button id="exportDiagnostics" type="button" disabled>Export diagnostics</button>
     </header>
 
-    <div class="diagnostics-layout">
-      <section class="work-panel" aria-labelledby="healthTitle">
+    <div class="system-layout">
+      <section class="system-section" aria-labelledby="healthTitle">
         <h3 id="healthTitle">Startup health</h3>
         <ol class="health-list">
           <li id="healthUi" data-state="waiting"><span>Control center</span><strong>Loading</strong></li>
@@ -188,9 +220,18 @@
         </ol>
       </section>
 
-      <section class="work-panel activity-panel" aria-labelledby="activityTitle">
-        <h3 id="activityTitle">Activity</h3>
-        <ol class="activity-list" id="events"><li class="empty-state">Loading activity.</li></ol>
+      <section class="system-section" aria-labelledby="proofTitle">
+        <h3 id="proofTitle">Proof language</h3>
+        <dl class="proof-terms">
+          <div><dt>Implemented</dt><dd>Code and contract checks exist.</dd></div>
+          <div><dt>Observed</dt><dd>A supervised action ran, but its evidence package is incomplete.</dd></div>
+          <div><dt>Proven</dt><dd>The exact client, binding, commands, and result were reviewed.</dd></div>
+          <div><dt>Stale</dt><dd>A relevant client, strategy, fixture, or actuator changed.</dd></div>
+        </dl>
+      </section>
+      <section class="system-section source-lineage" aria-labelledby="lineageTitle">
+        <h3 id="lineageTitle">Source lineage</h3>
+        <p>My Bot 2.0 is an independent downstream project. Original MyBot.run authors and contributors retain their copyright. Required notices, upstream links, and inherited-binary restrictions remain part of the source and release records.</p>
       </section>
     </div>
 

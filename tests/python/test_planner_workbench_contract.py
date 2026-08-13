@@ -11,8 +11,10 @@ METADATA = json.loads((ROOT / "config" / "ui" / "run-planner.settings.json").rea
 
 
 class PlannerWorkbenchContract(unittest.TestCase):
-    def test_three_views_and_five_plan_groups_are_stable(self):
-        self.assertEqual(re.findall(r'data-view="([^"]+)"', HTML), ["run", "plan", "diagnostics"])
+    def test_five_views_and_five_plan_groups_are_stable(self):
+        self.assertEqual(re.findall(r'data-view="([^"]+)"', HTML), ["run", "plan", "village", "activity", "diagnostics"])
+        self.assertIn("const VIEW_IDS = ['run', 'plan', 'village', 'activity', 'diagnostics'];", JS)
+        self.assertIn("renderCapabilities();", JS)
         prefix = JS.split("const $ =", 1)[0]
         self.assertEqual(re.findall(r"id: '([^']+)'", prefix), ["match", "runtime", "targets", "between", "advanced"])
 
