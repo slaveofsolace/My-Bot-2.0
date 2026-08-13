@@ -16,6 +16,7 @@ Merge note (cloud base + Windows hardening):
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import http.client
 import json
@@ -77,6 +78,41 @@ DIAGNOSTIC_ENGINE_FIELDS = {
     "message", "last_seen_at", "age_seconds",
 }
 DIAGNOSTIC_EVENT_FIELDS = {"timestamp_ms", "type", "severity", "message", "surface_id", "verification_state"}
+
+
+def validated_external_profiles_root(value: str, *, local_app_data: str | os.PathLike[str] | None = None) -> Path:
+    """Resolve an existing profile directory confined below the current user's LOCALAPPDATA."""
+    if not isinstance(value, str) or not value or "\x00" in value:
+        raise ValueError("profiles root must be a non-empty absolute directory")
+    candidate = Path(value)
+    if not candidate.is_absolute():
+        raise ValueError("profiles root must be absolute")
+    try:
+        resolved = candidate.resolve(strict=True)
+    except OSError as exc:
+        raise ValueError("profiles root does not exist") from exc
+    if not resolved.is_dir():
+        raise ValueError("profiles root is not a directory")
+
+    local_value = local_app_data if local_app_data is not None else os.environ.get("LOCALAPPDATA", "")
+    if not local_value:
+        raise ValueError("LOCALAPPDATA is unavailable")
+    local_candidate = Path(local_value)
+    if not local_candidate.is_absolute():
+        raise ValueError("LOCALAPPDATA is not absolute")
+    try:
+        local_root = local_candidate.resolve(strict=True)
+    except OSError as exc:
+        raise ValueError("LOCALAPPDATA does not exist") from exc
+    if not local_root.is_dir():
+        raise ValueError("LOCALAPPDATA is not a directory")
+    try:
+        relative = resolved.relative_to(local_root)
+    except ValueError as exc:
+        raise ValueError("profiles root must remain below LOCALAPPDATA") from exc
+    if not relative.parts:
+        raise ValueError("profiles root cannot be LOCALAPPDATA itself")
+    return resolved
 
 
 def read_json(path: Path, default):
@@ -557,6 +593,10 @@ def health_payload() -> dict:
         "bridge": BRIDGE_PROTOCOL,
         "protocol": HEALTH_PROTOCOL,
         "repo_root": SERVICE_REPO_ROOT,
+        "profiles_root": str(PROFILES_ROOT.resolve()),
+        "profiles_root_token": base64.urlsafe_b64encode(
+            str(PROFILES_ROOT.resolve()).encode("utf-8")
+        ).decode("ascii").rstrip("="),
         "build_sha256": SERVICE_BUILD_SHA256,
         "service_pid": os.getpid(),
         "owner_token": SERVICE_OWNER_TOKEN,
@@ -1210,13 +1250,21 @@ def selftest() -> int:
 
 
 def main() -> int:
-    global SERVICE_OWNER_TOKEN
+    global PROFILES_ROOT, SERVICE_OWNER_TOKEN
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--no-browser", action="store_true")
     parser.add_argument("--owner-token", default="", help=argparse.SUPPRESS)
+    parser.add_argument("--profiles-root", default="", help=argparse.SUPPRESS)
     parser.add_argument("--selftest", action="store_true", help="check the complete local server contract")
     args = parser.parse_args()
+
+    if args.profiles_root:
+        try:
+            PROFILES_ROOT = validated_external_profiles_root(args.profiles_root)
+        except ValueError as exc:
+            print(f"invalid profiles root: {exc}")
+            return 2
 
     if args.selftest:
         return selftest()
@@ -1237,6 +1285,7 @@ def main() -> int:
     print(f"My Bot 2.0 Control Center on {url}")
     print(f"  plan file   {PLAN_PATH.relative_to(ROOT)}")
     print(f"  event feed  {EVENTS_PATH.relative_to(ROOT)}")
+    print(f"  profile root {PROFILES_ROOT}")
     print(f"  engine link {CONTROL_STATUS_PATH.relative_to(ROOT)}")
     print(f"  service pid {os.getpid()}")
     print(f"  build       {SERVICE_BUILD_SHA256[:16]}")

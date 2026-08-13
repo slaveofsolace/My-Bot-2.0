@@ -15,6 +15,7 @@
 #include <StringConstants.au3>
 #include <WinAPIGdi.au3>
 #include <WindowsConstants.au3>
+#include "COCBot\functions\Other\Base64.au3"
 
 Opt("MustDeclareVars", 1)
 Opt("GUIOnEventMode", 1)
@@ -179,11 +180,19 @@ Func _IsSafeProfileName($sProfile)
 EndFunc   ;==>_IsSafeProfileName
 
 Func _BuildControllerArguments($sProfile)
-	; The first parse must leave literal quotes around the path in Mini's $CmdLine value. Mini then
-	; rebuilds the backend command without its own quoting, and the second parse consumes these quotes.
-	; This keeps a path such as "My Bot 2.0\Profiles" intact through both exact pinned executables.
-	Return '"' & $sProfile & '" ' & '"/profiles=\"' & $g_sProfilesRoot & '\"" /nowatchdog'
+	; The exact pinned Mini recognizes this profile as its only positional value and forwards it to
+	; the backend. Its package-local Profiles view is the installer-verified junction to user data.
+	Return $sProfile & " /nowatchdog"
 EndFunc   ;==>_BuildControllerArguments
+
+Func _ProfilesRootToken($sPath)
+	Local $sCanonical = _LauncherCanonicalDirectory($sPath)
+	If @error Or $sCanonical = "" Then Return ""
+	Local $sEncoded = _Base64Encode(StringToBinary($sCanonical, 4), 0)
+	$sEncoded = StringReplace(StringReplace($sEncoded, @CR, ""), @LF, "")
+	$sEncoded = StringReplace(StringReplace($sEncoded, "+", "-"), "/", "_")
+	Return StringRegExpReplace($sEncoded, "=+$", "")
+EndFunc   ;==>_ProfilesRootToken
 
 Func _RecoverBotStack()
 	_RecoveryLog("recovery requested")
@@ -215,6 +224,11 @@ Func _CloseOwnedPlannerService()
 	Local $sJsonRoot = StringReplace(@ScriptDir, "\", "\\")
 	If StringInStr($sHealth, """repo_root"": """ & $sJsonRoot & """") = 0 Then
 		_RecoveryLog("refused planner service: repository root mismatch")
+		Return False
+	EndIf
+	Local $sProfilesRootToken = _ProfilesRootToken($g_sProfilesRoot)
+	If $sProfilesRootToken = "" Or StringInStr($sHealth, """profiles_root_token"": """ & $sProfilesRootToken & """") = 0 Then
+		_RecoveryLog("refused planner service: profiles root mismatch")
 		Return False
 	EndIf
 	Local $sScriptHash = _FileSha256($g_sPlannerScriptPath)
@@ -312,8 +326,40 @@ Func _ValidateInstallation()
 	If Not FileExists($g_sEngineMarkerPath) Or FileGetSize($g_sEngineMarkerPath) <> 0 Then
 		Return _InstallError("The empty MyBot.run.txt engine marker is missing or invalid.", $g_sEngineMarkerPath)
 	EndIf
+	If Not _InstalledProfilesJunctionMatches() Then
+		Return _InstallError("The installed Profiles junction is missing or targets another directory.", @ScriptDir & "\Profiles")
+	EndIf
 	Return True
 EndFunc   ;==>_ValidateInstallation
+
+Func _InstalledProfilesJunctionMatches()
+	Local $sLink = @ScriptDir & "\Profiles"
+	Local $aAttributes = DllCall("kernel32.dll", "dword", "GetFileAttributesW", "wstr", $sLink)
+	If @error Or Not IsArray($aAttributes) Or $aAttributes[0] = 0xFFFFFFFF Then Return False
+	If BitAND($aAttributes[0], 0x400) = 0 Then Return False
+	Local $sActual = _LauncherCanonicalDirectory($sLink)
+	If @error Or $sActual = "" Then Return False
+	Local $sExpected = _LauncherCanonicalDirectory($g_sProfilesRoot)
+	If @error Or $sExpected = "" Then Return False
+	Return StringLower($sActual) = StringLower($sExpected)
+EndFunc   ;==>_InstalledProfilesJunctionMatches
+
+Func _LauncherCanonicalDirectory($sPath)
+	Local $aHandle = DllCall("kernel32.dll", "handle", "CreateFileW", "wstr", $sPath, "dword", 0, "dword", 0x7, "ptr", 0, "dword", 3, "dword", 0x02000000, "ptr", 0)
+	If @error Or Not IsArray($aHandle) Or $aHandle[0] = -1 Then Return SetError(1, 0, "")
+	Local $hDirectory = $aHandle[0]
+	Local $tFinal = DllStructCreate("wchar[32768]")
+	Local $aFinal = DllCall("kernel32.dll", "dword", "GetFinalPathNameByHandleW", "handle", $hDirectory, "struct*", $tFinal, "dword", 32768, "dword", 0)
+	Local $iFinalError = @error
+	DllCall("kernel32.dll", "bool", "CloseHandle", "handle", $hDirectory)
+	If $iFinalError Or Not IsArray($aFinal) Or $aFinal[0] = 0 Or $aFinal[0] >= 32768 Then Return SetError(2, 0, "")
+	Local $sFinal = DllStructGetData($tFinal, 1)
+	If StringLeft($sFinal, 4) = "\\?\" Then $sFinal = StringTrimLeft($sFinal, 4)
+	While StringLen($sFinal) > 3 And StringRight($sFinal, 1) = "\"
+		$sFinal = StringTrimRight($sFinal, 1)
+	WEnd
+	Return SetError(0, 0, $sFinal)
+EndFunc   ;==>_LauncherCanonicalDirectory
 
 Func _InstallError($sMessage, $sPath)
 	_ShowError($sMessage & @CRLF & @CRLF & "Reinstall or restore it beside this launcher:" & @CRLF & $sPath)

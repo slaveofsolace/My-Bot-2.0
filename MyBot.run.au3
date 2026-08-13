@@ -201,6 +201,16 @@ EndFunc   ;==>InitializeBot
 Func ProcessCommandLine()
 
 	; Handle Command Line Launch Options and fill $g_asCmdLine
+	Local $bProfilesOptionSeen = False
+	If @Compiled Then
+		Local $sInstalledProfilesRoot = _InstalledBackendProfilesRoot()
+		If @error Or $sInstalledProfilesRoot = "" Then
+			ConsoleWrite("My Bot 2.0 refused a missing or mismatched installed Profiles junction." & @CRLF)
+			Exit 10
+		EndIf
+		$g_sProfilePath = $sInstalledProfilesRoot
+		$bProfilesOptionSeen = True
+	EndIf
 	If $CmdLine[0] > 0 Then
 		For $i = 1 To $CmdLine[0]
 			Local $bOptionDetected = True
@@ -245,11 +255,18 @@ Func ProcessCommandLine()
 							SetDebugLog("GUI Process doesn't exist: " & $guidpid)
 						EndIf
 					ElseIf StringInStr($CmdLine[$i], "/profiles=") = 1 Then
+						If $bProfilesOptionSeen Then
+							ConsoleWrite("My Bot 2.0 refused duplicate profiles options." & @CRLF)
+							Exit 10
+						EndIf
+						$bProfilesOptionSeen = True
 						Local $sProfilePath = StringMid($CmdLine[$i], 11)
+						; Preserve the upstream legacy switch contract for direct/source launches.
 						If StringInStr(FileGetAttrib($sProfilePath), "D") Then
 							$g_sProfilePath = $sProfilePath
 						Else
-							SetLog("Profiles Path doesn't exist: " & $sProfilePath, $COLOR_ERROR) ;
+							ConsoleWrite("Profiles Path doesn't exist: " & $sProfilePath & @CRLF)
+							Exit 10
 						EndIf
 					Else
 						$bOptionDetected = False
@@ -272,6 +289,47 @@ Func ProcessCommandLine()
 		$g_sProfileCurrentName = "<No Profiles>"
 	EndIf
 EndFunc   ;==>ProcessCommandLine
+
+Func _InstalledBackendProfilesRoot()
+	Local $sLink = @ScriptDir & "\Profiles"
+	Local $aAttributes = DllCall("kernel32.dll", "dword", "GetFileAttributesW", "wstr", $sLink)
+	If @error Or Not IsArray($aAttributes) Or $aAttributes[0] = 0xFFFFFFFF Or BitAND($aAttributes[0], 0x400) = 0 Then Return SetError(1, 0, "")
+	Local $sActual = _CanonicalDirectoryPath($sLink)
+	If @error Or $sActual = "" Then Return SetError(2, 0, "")
+	Local $sExpected = _CanonicalDirectoryPath(@LocalAppDataDir & "\My Bot 2.0\Profiles")
+	If @error Or $sExpected = "" Or StringLower($sActual) <> StringLower($sExpected) Then Return SetError(3, 0, "")
+	Return SetError(0, 0, $sActual)
+EndFunc   ;==>_InstalledBackendProfilesRoot
+
+Func _CanonicalDirectoryPath($sPath)
+	Local $sFull = _GetFullPathName($sPath)
+	If @error Or $sFull = "" Then Return SetError(1, 0, "")
+	While StringLen($sFull) > 3 And StringRight($sFull, 1) = "\"
+		$sFull = StringTrimRight($sFull, 1)
+	WEnd
+	If Not FileExists($sFull) Or StringInStr(FileGetAttrib($sFull), "D") = 0 Then Return SetError(2, 0, "")
+	Local $aHandle = DllCall("kernel32.dll", "handle", "CreateFileW", "wstr", $sFull, "dword", 0, "dword", 0x7, "ptr", 0, "dword", 3, "dword", 0x02000000, "ptr", 0)
+	If @error Or Not IsArray($aHandle) Or $aHandle[0] = -1 Then Return SetError(3, 0, "")
+	Local $hDirectory = $aHandle[0]
+	Local $tFinal = DllStructCreate("wchar[32768]")
+	Local $aFinal = DllCall("kernel32.dll", "dword", "GetFinalPathNameByHandleW", "handle", $hDirectory, "struct*", $tFinal, "dword", 32768, "dword", 0)
+	Local $iFinalError = @error
+	DllCall("kernel32.dll", "bool", "CloseHandle", "handle", $hDirectory)
+	If $iFinalError Or Not IsArray($aFinal) Or $aFinal[0] = 0 Or $aFinal[0] >= 32768 Then Return SetError(4, 0, "")
+	Local $sFinal = DllStructGetData($tFinal, 1)
+	If StringLeft($sFinal, 4) = "\\?\" Then $sFinal = StringTrimLeft($sFinal, 4)
+	While StringLen($sFinal) > 3 And StringRight($sFinal, 1) = "\"
+		$sFinal = StringTrimRight($sFinal, 1)
+	WEnd
+	Return SetError(0, 0, $sFinal)
+EndFunc   ;==>_CanonicalDirectoryPath
+
+Func _GetFullPathName($sPath)
+	Local $tFull = DllStructCreate("wchar[32768]")
+	Local $aFull = DllCall("kernel32.dll", "dword", "GetFullPathNameW", "wstr", $sPath, "dword", 32768, "struct*", $tFull, "ptr", 0)
+	If @error Or Not IsArray($aFull) Or $aFull[0] = 0 Or $aFull[0] >= 32768 Then Return SetError(1, 0, "")
+	Return SetError(0, 0, DllStructGetData($tFull, 1))
+EndFunc   ;==>_GetFullPathName
 
 ; #FUNCTION# ====================================================================================================================
 ; Name ..........: InitializeAndroid

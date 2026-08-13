@@ -57,7 +57,11 @@ are sorted and assigned a fixed timestamp; the PE bytes themselves are preserved
 
 Mutable profiles are intentionally outside that allowlist and outside the replaceable application
 directory. Installed releases use `%LOCALAPPDATA%\My Bot 2.0\Profiles`; upgrades and uninstall retain
-that directory.
+that directory. `Profiles` is forbidden from the package manifest. After payload activation, the
+installer creates an application-local directory junction to the persistent root and verifies its
+exact canonical target before registration. Launcher, pinned Mini, backend, and Control Center then
+use the same tree without unsupported Mini arguments. Rollback, update, and uninstall detach the
+verified junction before recursive removal and never traverse the persistent target.
 
 `LocalRuntime` creates a local-use package only. It is not permission to redistribute the inherited
 ImgLoc component. The Python boundary has no PublicDistribution mode and fails on every other mode.

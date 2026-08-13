@@ -4,6 +4,8 @@ import hashlib
 import importlib.util
 import json
 import os
+import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -125,6 +127,14 @@ class PythonLocalRuntimeInstall(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "duplicate path"):
                 installer.validate_package(duplicate)
 
+            profiles = self.create_package(base / "profiles")
+            manifest_path = profiles / "release-manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["files"].append({"path": "Profiles/profile.ini", "bytes": 0, "sha256": "0" * 64})
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "must exclude the mutable Profiles tree"):
+                installer.validate_package(profiles)
+
     def test_validate_rejects_false_clean_string_and_unsafe_paths(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mybot-python-installer-") as folder:
             package = self.create_package(Path(folder))
@@ -205,6 +215,89 @@ class PythonLocalRuntimeInstall(unittest.TestCase):
                     self.assertFalse((programs / ".My Bot 2.0.previous").exists())
                     self.assertFalse((programs / ".My Bot 2.0.repair-required.json").exists())
                     self.assertFalse(any(programs.glob(".My Bot 2.0.install-*")))
+        finally:
+            installer.delete_registry_tree(key_path)
+
+    @unittest.skipUnless(os.name == "nt", "junction lifecycle is Windows-specific")
+    def test_profiles_junction_survives_update_rollback_and_uninstall_without_target_loss(self) -> None:
+        key_id = uuid.uuid4().hex
+        key_path = rf"Software\MyBot2.0.Tests\{key_id}"
+        try:
+            with tempfile.TemporaryDirectory(prefix="mybot-python-junction-") as folder:
+                root = Path(folder)
+                with self.isolated_environment(root, key_id) as (local, _roaming):
+                    install_root = local / "Programs" / "My Bot 2.0"
+                    profiles = local / "My Bot 2.0" / "Profiles"
+                    common = ["--install-directory", str(install_root), "--no-launch"]
+                    old = self.create_package(root / "old", marker=b"-old")
+                    self.assertEqual(installer.main(["--package-root", str(old), *common]), 0)
+                    link = install_root / "Profiles"
+                    self.assertTrue(installer.is_directory_junction(link))
+                    installer.assert_profiles_junction(link, profiles)
+                    sentinel = profiles / "MyVillage" / "persistent-sentinel.txt"
+                    sentinel.write_text("keep", encoding="utf-8")
+
+                    new = self.create_package(root / "new", marker=b"-new")
+                    self.assertEqual(installer.main(["--package-root", str(new), *common]), 0)
+                    installer.assert_profiles_junction(link, profiles)
+                    self.assertEqual(sentinel.read_text(encoding="utf-8"), "keep")
+                    new_launcher = (install_root / "My Bot 2.0.exe").read_bytes()
+
+                    failed = self.create_package(root / "failed", marker=b"-failed")
+                    with mock.patch.dict(os.environ, {"MYBOT_TEST_INSTALL_FAILURE_POINT": "after-registration"}):
+                        self.assertEqual(installer.main(["--package-root", str(failed), *common]), 1)
+                    self.assertEqual((install_root / "My Bot 2.0.exe").read_bytes(), new_launcher)
+                    installer.assert_profiles_junction(link, profiles)
+                    self.assertEqual(sentinel.read_text(encoding="utf-8"), "keep")
+
+                    self.assertEqual(installer.main(["--uninstall", "--install-directory", str(install_root)]), 0)
+                    self.assertFalse(install_root.exists())
+                    self.assertEqual(sentinel.read_text(encoding="utf-8"), "keep")
+        finally:
+            installer.delete_registry_tree(key_path)
+
+    @unittest.skipUnless(os.name == "nt", "junction verification is Windows-specific")
+    def test_foreign_junction_fails_closed_and_legacy_real_profiles_are_preserved(self) -> None:
+        key_id = uuid.uuid4().hex
+        key_path = rf"Software\MyBot2.0.Tests\{key_id}"
+        try:
+            with tempfile.TemporaryDirectory(prefix="mybot-python-legacy-") as folder:
+                root = Path(folder)
+                with self.isolated_environment(root, key_id) as (local, _roaming):
+                    install_root = local / "Programs" / "My Bot 2.0"
+                    legacy = install_root / "Profiles"
+                    (legacy / "LegacyVillage").mkdir(parents=True)
+                    (legacy / "MyVillage").mkdir()
+                    (legacy / "profile.ini").write_text(
+                        "[general]\r\ndefaultprofile=LegacyVillage\r\n", encoding="utf-8"
+                    )
+                    (legacy / "MyVillage" / "legacy-only.txt").write_text("legacy", encoding="utf-8")
+                    package = self.create_package(root / "package")
+                    common = ["--install-directory", str(install_root), "--no-launch"]
+                    self.assertEqual(installer.main(["--package-root", str(package), *common]), 0)
+                    profiles = local / "My Bot 2.0" / "Profiles"
+                    self.assertEqual((profiles / "MyVillage" / "legacy-only.txt").read_text(), "legacy")
+                    preserved = list((local / "My Bot 2.0").glob("Profiles.local-preserved-*"))
+                    self.assertEqual(len(preserved), 1)
+                    self.assertIn("LegacyVillage", (preserved[0] / "profile.ini").read_text())
+
+                    link = install_root / "Profiles"
+                    installer.detach_profiles_junction(install_root, profiles)
+                    foreign = root / "foreign"
+                    foreign.mkdir()
+                    foreign_sentinel = foreign / "do-not-delete.txt"
+                    foreign_sentinel.write_text("safe", encoding="utf-8")
+                    command = Path(os.environ["SystemRoot"]) / "System32" / "cmd.exe"
+                    result = subprocess.run(
+                        [str(command), "/d", "/c", "mklink", "/J", str(link), str(foreign)],
+                        capture_output=True, text=True, check=False,
+                    )
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertEqual(installer.main(["--uninstall", "--install-directory", str(install_root)]), 1)
+                    self.assertEqual(foreign_sentinel.read_text(), "safe")
+                    self.assertTrue(install_root.exists())
+                    link.rmdir()
+                    shutil.rmtree(install_root)
         finally:
             installer.delete_registry_tree(key_path)
 

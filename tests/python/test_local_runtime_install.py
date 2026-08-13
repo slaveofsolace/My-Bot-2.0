@@ -13,6 +13,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 INSTALLER = (ROOT / "tools" / "Install-LocalRuntime.ps1").read_text(encoding="utf-8")
+PYTHON_INSTALLER = (ROOT / "tools" / "install_local_runtime.py").read_text(encoding="utf-8")
 INSTALL_CMD = (ROOT / "Install My Bot 2.0.cmd").read_text(encoding="utf-8")
 UNINSTALL_CMD = (ROOT / "Uninstall My Bot 2.0.cmd").read_text(encoding="utf-8")
 PACKAGER = (ROOT / "tools" / "Build-Release.ps1").read_text(encoding="utf-8")
@@ -32,62 +33,35 @@ class LocalRuntimeInstallContract(unittest.TestCase):
         ):
             self.assertIn(name, PACKAGER)
 
-    def test_installer_is_per_user_and_registers_windows_search(self) -> None:
-        self.assertIn('Join-Path $env:LOCALAPPDATA "Programs"', INSTALLER)
-        self.assertIn('Microsoft\\Windows\\Start Menu\\Programs\\My Bot 2.0', INSTALLER)
-        self.assertIn('$shell.CreateShortcut($shortcutPath)', INSTALLER)
-        self.assertIn('HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\MyBot2.0', INSTALLER)
+    def test_powershell_compatibility_entrypoint_delegates_to_python(self) -> None:
+        self.assertIn('Join-Path $PSScriptRoot "install_local_runtime.py"', INSTALLER)
+        self.assertIn('Get-Command "py.exe"', INSTALLER)
+        self.assertIn('Get-Command "python.exe"', INSTALLER)
+        self.assertIn('& $python @arguments', INSTALLER)
+        self.assertIn("MYBOT_RUN_PYTHON_INTEGRATION", INSTALLER)
         self.assertNotIn("#RequireAdmin", INSTALLER)
 
-    def test_install_fails_closed_on_unreviewed_or_changed_package(self) -> None:
-        self.assertIn("Assert-LocalRuntimePackage", INSTALLER)
-        self.assertIn("Assert-ManifestFileSet", INSTALLER)
-        self.assertIn("The package manifest contains a duplicate path", INSTALLER)
-        self.assertIn("Package file SHA-256 mismatch", INSTALLER)
-        self.assertIn("The package contains a file not recorded by the manifest", INSTALLER)
-        self.assertIn("A package file recorded by the manifest is missing", INSTALLER)
-        self.assertIn('mode -cne "LocalRuntime"', INSTALLER)
-        self.assertIn("source_tree_clean -ne $true", INSTALLER)
-        self.assertIn("MyBot.run.txt must remain exactly zero bytes", INSTALLER)
-        self.assertIn("does not match binary provenance", INSTALLER)
-        self.assertIn('"MyBot.run.EngineProbe.exe.config"', INSTALLER)
+    def test_python_installer_owns_integrity_and_transaction(self) -> None:
+        for literal in (
+            "validate_package(package_root)",
+            "copy_payload(package_root, stage)",
+            "owned_processes(install_root)",
+            "install_registration(install_root",
+            "assert_registration(install_root",
+            "restore_registration(snapshot",
+            "create_profiles_junction(install_root, profiles_root)",
+            "remove_install_payload(install_root, profiles_root",
+        ):
+            self.assertIn(literal, PYTHON_INSTALLER)
+        self.assertIn("manifest must exclude the mutable Profiles tree", PYTHON_INSTALLER)
         self.assertIn("$g_sEngineProbeConfigPath", LAUNCHER)
 
-    def test_install_is_staged_and_refuses_to_update_running_owned_processes(self) -> None:
-        self.assertIn("Get-OwnedRunningProcesses", INSTALLER)
-        self.assertIn("Close the installed My Bot 2.0 before updating it", INSTALLER)
-        self.assertIn('.My Bot 2.0.install-', INSTALLER)
-        self.assertIn('.My Bot 2.0.previous', INSTALLER)
-        self.assertIn("Move-Item -LiteralPath $stage -Destination $installRoot", INSTALLER)
-
-    def test_payload_and_windows_registration_commit_as_one_recoverable_transaction(self) -> None:
-        transaction = INSTALLER[INSTALLER.index("$parent = Split-Path -Parent $installRoot") :]
-        install_payload = transaction.index("Move-Item -LiteralPath $stage -Destination $installRoot")
-        register = transaction.index("Install-Registration")
-        verify = transaction.index("Assert-Registration")
-        delete_backup = transaction.index("Remove-Item -LiteralPath $backup -Recurse -Force")
-        self.assertLess(install_payload, register)
-        self.assertLess(register, verify)
-        self.assertLess(verify, delete_backup)
-        self.assertIn("Save-RegistrationSnapshot", transaction)
-        self.assertIn("Restore-RegistrationSnapshot", transaction)
-        self.assertIn("$priorPayloadMoved", transaction)
-        self.assertIn("$newPayloadInstalled", transaction)
-        self.assertIn(".My Bot 2.0.repair-required.json", transaction)
-        self.assertIn("preserved_payload_backup", transaction)
-        self.assertIn("registration_snapshot", transaction)
-
-    def test_registration_verification_reads_back_shortcuts_and_uninstall_key(self) -> None:
-        verification = INSTALLER[
-            INSTALLER.index("function Assert-Registration") : INSTALLER.index("if ($Uninstall) {")
-        ]
-        self.assertIn("$installedShortcut.TargetPath", verification)
-        self.assertIn("$installedShortcut.WorkingDirectory", verification)
-        self.assertIn("$installedUninstallShortcut.TargetPath", verification)
-        self.assertIn("$installedUninstallShortcut.WorkingDirectory", verification)
-        self.assertIn("Get-ItemProperty -LiteralPath $uninstallRegistryPath", verification)
-        self.assertIn("$registration.InstallLocation", verification)
-        self.assertIn("$registration.UninstallString", verification)
+    def test_profiles_junction_is_detached_before_every_recursive_remove(self) -> None:
+        removal = PYTHON_INSTALLER[PYTHON_INSTALLER.index("def remove_install_payload") :]
+        self.assertLess(removal.index("detach_profiles_junction"), removal.index("shutil.rmtree(install_root)"))
+        self.assertNotIn("shutil.rmtree(install_root)", PYTHON_INSTALLER[: PYTHON_INSTALLER.index("def remove_install_payload")])
+        self.assertIn("migrate_legacy_installed_profiles", PYTHON_INSTALLER)
+        self.assertIn("Conflicting legacy profile data was preserved", PYTHON_INSTALLER)
 
     def test_behavioral_powershell_gate_is_explicit_bounded_and_windowless(self) -> None:
         self.assertEqual(POWERSHELL_INTEGRATION_ENV, "MYBOT_RUN_POWERSHELL_INTEGRATION")
@@ -96,13 +70,10 @@ class LocalRuntimeInstallContract(unittest.TestCase):
             self.assertNotEqual(POWERSHELL_NO_WINDOW, 0)
 
     def test_registration_failure_injection_is_confined_to_an_isolated_test_root(self) -> None:
-        self.assertIn('$integrationTestEnabled = [string]$env:MYBOT_RUN_POWERSHELL_INTEGRATION -ceq "1"', INSTALLER)
-        self.assertIn("MYBOT_INSTALL_TEST_ROOT", INSTALLER)
-        self.assertIn("MYBOT_TEST_UNINSTALL_REGISTRY_PATH", INSTALLER)
-        self.assertIn("HKCU:\\Software\\MyBot2.0.Tests", INSTALLER)
-        self.assertIn("MYBOT_TEST_INSTALL_FAILURE_POINT", INSTALLER)
-        self.assertIn('"after-registration"', INSTALLER)
-        self.assertIn("Injected installer integration failure after registration mutation", INSTALLER)
+        self.assertIn("MYBOT_INSTALL_TEST_ROOT", PYTHON_INSTALLER)
+        self.assertIn("MYBOT_TEST_UNINSTALL_REGISTRY_PATH", PYTHON_INSTALLER)
+        self.assertIn("MYBOT_TEST_INSTALL_FAILURE_POINT", PYTHON_INSTALLER)
+        self.assertIn('"after-registration"', PYTHON_INSTALLER)
 
     def test_launcher_creates_and_selects_a_persistent_first_run_profile(self) -> None:
         self.assertIn('@LocalAppDataDir & "\\My Bot 2.0"', LAUNCHER)
@@ -112,49 +83,21 @@ class LocalRuntimeInstallContract(unittest.TestCase):
         self.assertIn('"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"', LAUNCHER)
         self.assertIn("Local $sLaunchProfile = _PrepareUserProfile()", LAUNCHER)
 
-    def test_launcher_preserves_quoted_profiles_path_through_pinned_mini(self) -> None:
+    def test_launcher_passes_only_supported_pinned_mini_arguments(self) -> None:
         self.assertIn("Func _BuildControllerArguments($sProfile)", LAUNCHER)
-        self.assertIn(
-            r"""Return '"' & $sProfile & '" ' & '"/profiles=\"' & $g_sProfilesRoot & '\"" /nowatchdog'""",
-            LAUNCHER,
-        )
+        self.assertIn('Return $sProfile & " /nowatchdog"', LAUNCHER)
+        self.assertNotIn("/profiles64=", LAUNCHER)
+        self.assertIn("_InstalledProfilesJunctionMatches()", LAUNCHER)
         self.assertIn(
             "ShellExecute($g_sControllerPath, _BuildControllerArguments($sLaunchProfile)",
             LAUNCHER,
         )
 
-    def test_installer_migrates_profiles_only_to_an_empty_persistent_root(self) -> None:
-        self.assertIn("[string]$ProfileSourceDirectory", INSTALLER)
-        self.assertIn('Join-Path $env:LOCALAPPDATA $productName', INSTALLER)
-        self.assertIn('$profilesRoot = Join-Path $userDataRoot "Profiles"', INSTALLER)
-        self.assertIn("Assert-ProfileDirectory -Root $sourceRoot", INSTALLER)
-        self.assertIn("Profile migration will not overwrite existing per-user data", INSTALLER)
-        self.assertIn(".Profiles.migration-", INSTALLER)
-        self.assertIn(
-            "Copy-Item -LiteralPath $_.FullName -Destination $profileStage -Recurse",
-            INSTALLER,
-        )
-        self.assertNotIn(
-            "Copy-Item -LiteralPath $_.FullName -Destination $profileStage -Recurse -Force",
-            INSTALLER,
-        )
-        self.assertIn("Move-Item -LiteralPath $profileStage -Destination $profilesRoot", INSTALLER)
-
-    def test_installer_validates_default_profile_and_retains_data_on_uninstall(self) -> None:
-        self.assertIn("function Test-SafeProfileName", INSTALLER)
-        self.assertIn("function Get-DefaultProfileName", INSTALLER)
-        self.assertIn("function Assert-ProfileDirectory", INSTALLER)
-        self.assertIn('defaultprofile=MyVillage', INSTALLER)
-        self.assertIn('Write-Host "Profiles were retained at $profilesRoot"', INSTALLER)
-        install_flow = INSTALLER[INSTALLER.index("Assert-LocalRuntimePackage\n") :]
-        self.assertLess(
-            install_flow.index("Assert-LocalRuntimePackage\n"),
-            install_flow.index("Initialize-UserProfiles\n"),
-        )
-        uninstall_flow = INSTALLER[
-            INSTALLER.index("if ($Uninstall) {") : INSTALLER.index("Assert-LocalRuntimePackage\n")
-        ]
-        self.assertNotIn("Remove-Item -LiteralPath $profilesRoot", uninstall_flow)
+    def test_installer_migrates_and_preserves_legacy_profiles_without_overwrite(self) -> None:
+        self.assertIn("def migrate_legacy_installed_profiles", PYTHON_INSTALLER)
+        self.assertIn("if os.path.lexists(target):", PYTHON_INSTALLER)
+        self.assertIn("Profiles.local-preserved-", PYTHON_INSTALLER)
+        self.assertIn("shutil.copy2(source, target)", PYTHON_INSTALLER)
 
     def test_command_launchers_prefer_non_clr_python_installer(self) -> None:
         for source in (INSTALL_CMD, UNINSTALL_CMD):
@@ -179,6 +122,7 @@ class LocalRuntimePowerShellIntegration(unittest.TestCase):
         (package / "tools").mkdir(parents=True)
         (package / "config").mkdir()
         shutil.copy2(ROOT / "tools" / "Install-LocalRuntime.ps1", package / "tools" / "Install-LocalRuntime.ps1")
+        shutil.copy2(ROOT / "tools" / "install_local_runtime.py", package / "tools" / "install_local_runtime.py")
         payloads = {
             "My Bot 2.0.exe": b"launcher-fixture" + marker,
             "MyBot.run.exe": b"controller-fixture" + marker,

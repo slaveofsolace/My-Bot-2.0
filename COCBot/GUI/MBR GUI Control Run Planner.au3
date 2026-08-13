@@ -79,6 +79,7 @@ Func _RunPlannerServiceHealthy()
 	If Json_ObjGet($oPayload, "bridge") <> $RUN_PLANNER_BRIDGE_VERSION Then Return False
 	If Json_ObjGet($oPayload, "protocol") <> $RUN_PLANNER_HEALTH_PROTOCOL Then Return False
 	If _RunPlannerNormalizeRoot(Json_ObjGet($oPayload, "repo_root")) <> _RunPlannerNormalizeRoot(@ScriptDir) Then Return False
+	If _RunPlannerNormalizeRoot(Json_ObjGet($oPayload, "profiles_root")) <> _RunPlannerNormalizeRoot($g_sProfilePath) Then Return False
 	Local $sExpectedBuild = _RunPlannerScriptBuildHash()
 	If $sExpectedBuild = "" Or StringLower(String(Json_ObjGet($oPayload, "build_sha256"))) <> $sExpectedBuild Then Return False
 	Local $iServicePid = Int(Json_ObjGet($oPayload, "service_pid"))
@@ -114,7 +115,7 @@ Func _RunPlannerStartService(ByRef $sError)
 	EndIf
 	Local $sPython = _RunPlannerPythonExecutable()
 	Local $sOwnerToken = _RunPlannerNewOwnerToken()
-	Local $iPid = Run('"' & $sPython & '" "' & $sScript & '" --no-browser --owner-token "' & $sOwnerToken & '"', @ScriptDir, @SW_HIDE)
+	Local $iPid = Run('"' & $sPython & '" "' & $sScript & '" --no-browser --owner-token "' & $sOwnerToken & '" --profiles-root "' & $g_sProfilePath & '"', @ScriptDir, @SW_HIDE)
 	If $iPid = 0 Then
 		$sError = "Python could not start the planner service"
 		Return False
@@ -161,6 +162,7 @@ Func RunPlannerStopOwnedService()
 	If Not _RunPlannerReadHealth($oPayload) Then Return False
 	If Json_ObjGet($oPayload, "service") <> $RUN_PLANNER_SERVICE_NAME Then Return False
 	If _RunPlannerNormalizeRoot(Json_ObjGet($oPayload, "repo_root")) <> _RunPlannerNormalizeRoot(@ScriptDir) Then Return False
+	If _RunPlannerNormalizeRoot(Json_ObjGet($oPayload, "profiles_root")) <> _RunPlannerNormalizeRoot($g_sProfilePath) Then Return False
 	If Int(Json_ObjGet($oPayload, "service_pid")) <> $iPid Then Return False
 	If String(Json_ObjGet($oPayload, "owner_token")) <> $sOwnerToken Then Return False
 

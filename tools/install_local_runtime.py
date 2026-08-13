@@ -97,6 +97,8 @@ def validate_package(package_root: Path) -> dict:
         if not isinstance(record, dict):
             raise ValueError("The package manifest contains a non-object file record.")
         relative = normalized_relative(record.get("path", ""))
+        if relative.casefold() == "profiles" or relative.casefold().startswith("profiles/"):
+            raise ValueError("The LocalRuntime package manifest must exclude the mutable Profiles tree.")
         key = relative.casefold()
         if key in expected:
             raise ValueError(f"The package manifest contains a duplicate path: {relative}")
@@ -107,6 +109,10 @@ def validate_package(package_root: Path) -> dict:
         if not isinstance(digest, str) or re.fullmatch(r"[0-9a-fA-F]{64}", digest) is None:
             raise ValueError(f"The package manifest contains an invalid SHA-256: {relative}")
         expected[key] = (relative, byte_count, digest.lower())
+
+    packaged_profiles = package_root / "Profiles"
+    if os.path.lexists(packaged_profiles):
+        raise ValueError("The LocalRuntime package must not contain a Profiles entry.")
 
     actual: dict[str, Path] = {}
     for path in sorted(package_root.rglob("*"), key=lambda item: item.as_posix().casefold()):
@@ -218,6 +224,134 @@ def initialize_profiles(user_data_root: Path, source: Path | None) -> Path:
             )
     validate_profiles(profiles_root)
     return profiles_root
+
+
+def is_reparse_point(path: Path) -> bool:
+    try:
+        return bool(getattr(path.lstat(), "st_file_attributes", 0) & FILE_ATTRIBUTE_REPARSE_POINT)
+    except OSError:
+        return False
+
+
+def is_directory_junction(path: Path) -> bool:
+    if not os.path.lexists(path) or not is_reparse_point(path):
+        return False
+    checker = getattr(os.path, "isjunction", None)
+    if checker is not None:
+        return bool(checker(path))
+    return getattr(path.lstat(), "st_reparse_tag", 0) == 0xA0000003
+
+
+def assert_profiles_junction(link: Path, profiles_root: Path) -> None:
+    if not is_directory_junction(link):
+        raise ValueError(f"Installed Profiles is not a directory junction: {link}")
+    expected = profiles_root.resolve(strict=True)
+    try:
+        actual = link.resolve(strict=True)
+    except OSError as error:
+        raise ValueError(f"Installed Profiles junction has no valid target: {link}") from error
+    if os.path.normcase(str(actual)) != os.path.normcase(str(expected)):
+        raise ValueError(f"Installed Profiles junction targets {actual}, expected {expected}")
+
+
+def create_profiles_junction(install_root: Path, profiles_root: Path) -> Path:
+    link = install_root / "Profiles"
+    if os.path.lexists(link):
+        raise ValueError(f"Refusing to replace an existing installed Profiles entry: {link}")
+    target = profiles_root.resolve(strict=True)
+    command = Path(os.environ["SystemRoot"]) / "System32" / "cmd.exe"
+    result = subprocess.run(
+        [str(command), "/d", "/c", "mklink", "/J", str(link), str(target)],
+        cwd=install_root,
+        capture_output=True,
+        text=True,
+        timeout=15,
+        creationflags=CREATE_NO_WINDOW,
+        check=False,
+    )
+    if result.returncode != 0:
+        detail = (result.stdout + result.stderr).strip()
+        raise ValueError(f"Could not create the installed Profiles junction: {detail}")
+    assert_profiles_junction(link, target)
+    return link
+
+
+def detach_profiles_junction(install_root: Path, profiles_root: Path) -> bool:
+    link = install_root / "Profiles"
+    if not os.path.lexists(link):
+        return False
+    assert_profiles_junction(link, profiles_root)
+    link.rmdir()
+    if os.path.lexists(link):
+        raise ValueError(f"Installed Profiles junction could not be detached: {link}")
+    return True
+
+
+def assert_no_reparse_tree(root: Path) -> None:
+    if is_reparse_point(root):
+        raise ValueError(f"Legacy Profiles contains a reparse point: {root}")
+    for path in root.rglob("*"):
+        if path.is_symlink() or is_reparse_point(path):
+            raise ValueError(f"Legacy Profiles contains a reparse point: {path}")
+
+
+def migrate_legacy_installed_profiles(
+    install_root: Path, profiles_root: Path, user_data_root: Path
+) -> Path | None:
+    """Copy missing legacy data without overwrite and preserve the source on any collision."""
+    legacy = install_root / "Profiles"
+    if not os.path.lexists(legacy):
+        return None
+    if is_directory_junction(legacy):
+        assert_profiles_junction(legacy, profiles_root)
+        return None
+    if not legacy.is_dir() or is_reparse_point(legacy):
+        raise ValueError(f"Installed Profiles is neither the expected junction nor a real directory: {legacy}")
+    assert_no_reparse_tree(legacy)
+
+    conflicts = False
+    for source in sorted(legacy.rglob("*"), key=lambda item: item.as_posix().casefold()):
+        relative = source.relative_to(legacy)
+        target = profiles_root / relative
+        if not os.path.lexists(target):
+            continue
+        if source.is_dir() != target.is_dir():
+            conflicts = True
+        elif source.is_file() and (source.stat().st_size != target.stat().st_size or sha256(source) != sha256(target)):
+            conflicts = True
+
+    preserved: Path | None = None
+    if conflicts:
+        preserved = user_data_root / f"Profiles.local-preserved-{uuid.uuid4().hex}"
+        shutil.copytree(legacy, preserved, symlinks=False)
+        assert_no_reparse_tree(preserved)
+
+    for source in sorted(legacy.rglob("*"), key=lambda item: (len(item.parts), item.as_posix().casefold())):
+        relative = source.relative_to(legacy)
+        target = profiles_root / relative
+        if os.path.lexists(target):
+            continue
+        if source.is_dir():
+            target.mkdir()
+        elif target.parent.is_dir():
+            shutil.copy2(source, target)
+    validate_profiles(profiles_root)
+    return preserved
+
+
+def remove_install_payload(install_root: Path, profiles_root: Path, *, allow_legacy: bool) -> None:
+    if not install_root.is_dir():
+        return
+    link = install_root / "Profiles"
+    if os.path.lexists(link):
+        if is_directory_junction(link):
+            detach_profiles_junction(install_root, profiles_root)
+        elif allow_legacy and link.is_dir() and not is_reparse_point(link):
+            assert_no_reparse_tree(link)
+            shutil.rmtree(link)
+        else:
+            raise ValueError(f"Refusing to remove an unverified installed Profiles entry: {link}")
+    shutil.rmtree(install_root)
 
 
 if os.name == "nt":
@@ -654,11 +788,15 @@ def install(args: argparse.Namespace) -> None:
         running = owned_processes(install_root)
         if running:
             raise ValueError(f"Close My Bot 2.0 before uninstalling. Running PID(s): {', '.join(map(str, running))}")
+        profiles_root = initialize_profiles(user_data_root, None)
+        preserved = migrate_legacy_installed_profiles(install_root, profiles_root, user_data_root)
         remove_registration(shortcut, uninstall_shortcut, key_path)
         if install_root.is_dir():
-            shutil.rmtree(install_root)
+            remove_install_payload(install_root, profiles_root, allow_legacy=True)
         print(f"{PRODUCT_NAME} was removed for the current Windows user.")
-        print(f"Profiles were retained at {user_data_root / 'Profiles'}")
+        print(f"Profiles were retained at {profiles_root}")
+        if preserved is not None:
+            print(f"Conflicting legacy profile data was preserved at {preserved}")
         return
 
     validate_package(package_root)
@@ -673,6 +811,7 @@ def install(args: argparse.Namespace) -> None:
         )
     source = Path(args.profile_source_directory) if args.profile_source_directory else None
     profiles_root = initialize_profiles(user_data_root, source)
+    legacy_preserved = migrate_legacy_installed_profiles(install_root, profiles_root, user_data_root)
 
     parent = install_root.parent
     parent.mkdir(parents=True, exist_ok=True)
@@ -691,12 +830,14 @@ def install(args: argparse.Namespace) -> None:
             prior_moved = True
         stage.replace(install_root)
         new_installed = True
+        create_profiles_junction(install_root, profiles_root)
+        assert_profiles_junction(install_root / "Profiles", profiles_root)
         install_registration(install_root, shortcut, uninstall_shortcut, key_path)
         if os.environ.get("MYBOT_TEST_INSTALL_FAILURE_POINT") == "after-registration":
             raise RuntimeError("Injected installer integration failure after registration mutation.")
         assert_registration(install_root, shortcut, uninstall_shortcut, key_path)
         if backup.exists():
-            shutil.rmtree(backup)
+            remove_install_payload(backup, profiles_root, allow_legacy=True)
         repair.unlink(missing_ok=True)
     except Exception as install_error:
         rollback_errors: list[str] = []
@@ -706,7 +847,7 @@ def install(args: argparse.Namespace) -> None:
             rollback_errors.append(f"Registration rollback failed: {error}")
         if new_installed and install_root.exists():
             try:
-                shutil.rmtree(install_root)
+                remove_install_payload(install_root, profiles_root, allow_legacy=False)
             except Exception as error:  # pragma: no cover
                 rollback_errors.append(f"New payload rollback failed: {error}")
         if prior_moved and backup.exists():
@@ -741,6 +882,8 @@ def install(args: argparse.Namespace) -> None:
 
     print(f"{PRODUCT_NAME} {PRODUCT_VERSION} installed at {install_root}")
     print(f"Profiles: {profiles_root}")
+    if legacy_preserved is not None:
+        print(f"Conflicting legacy profile data was preserved at {legacy_preserved}")
     print("Open Start and type: My Bot 2.0")
     if not args.no_launch:
         subprocess.Popen(

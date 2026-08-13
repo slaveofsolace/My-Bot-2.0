@@ -95,9 +95,13 @@ The launcher requests elevation and starts the exact pinned MyBot.run v8.2
 `MyBot.run.MiniGui.exe`. The Mini GUI stays visible and functional as the native safety controller
 for Start, Stop, Pause and Resume. It launches `MyBot.run.exe` as the modern `/ng` backend and
 passes its exact process ID through `/guipid`. The launcher also selects the validated per-user
-default profile and forwards the quoted `%LOCALAPPDATA%\My Bot 2.0\Profiles` path through the exact
-Mini GUI to the backend. The browser Control Center remains the primary planner, and the backend
-performs the automation work.
+default profile and passes only that profile plus `/nowatchdog` to the exact Mini GUI. The installer
+creates `Profiles` beside the installed executables as a verified directory junction to
+`%LOCALAPPDATA%\My Bot 2.0\Profiles`, so the unchanged Mini and backend read the same persistent
+tree. Launcher and compiled backend resolve the junction and refuse startup unless its canonical
+target is exactly that per-user directory. The backend passes that same resolved root explicitly to
+the browser Control Center. The upstream `/profiles=` switch remains available only for compatible
+direct source launches.
 
 The launcher snaps the Mini GUI beside the selected exact BlueStacks top-level window. It keeps
 both windows independent and does not embed, reparent, or rename BlueStacks. This external
