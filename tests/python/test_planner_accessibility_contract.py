@@ -73,6 +73,18 @@ class PlannerAccessibilityContract(unittest.TestCase):
         self.assertNotIn("gradient", CSS.lower())
         self.assertNotIn("backdrop-filter", CSS.lower())
 
+    def test_visible_theme_and_text_controls_keep_touch_size(self):
+        self.assertIn(".text-button {\n  min-height: 44px;", CSS)
+        self.assertIn(".theme-control select { min-width: 88px; min-height: 44px;", CSS)
+
+    def test_compact_controls_keep_full_touch_targets(self):
+        self.assertRegex(CSS, r"\.revert\s*\{[^}]*min-height:\s*44px")
+        self.assertRegex(CSS, r"\.switch\s*\{[^}]*min-height:\s*44px")
+        self.assertRegex(CSS, r"\.switch input\s*\{[^}]*height:\s*44px")
+        self.assertRegex(CSS, r"\.chip\s*\{[^}]*min-height:\s*44px")
+        self.assertRegex(CSS, r"\.setting-help summary\s*\{[^}]*min-height:\s*44px")
+        self.assertRegex(CSS, r"\.raw-log summary\s*\{[^}]*min-height:\s*44px")
+
 
 if __name__ == "__main__":
     unittest.main()

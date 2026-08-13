@@ -155,8 +155,8 @@ summary:focus-visible {
 .primary-action:hover:not(:disabled) { border-color: var(--action-hover); background: var(--action-hover); }
 .danger-action { border-color: var(--danger); color: var(--danger); }
 .text-button {
-  min-height: 34px;
-  padding: 4px 2px;
+  min-height: 44px;
+  padding: 8px 2px;
   border-color: transparent;
   background: transparent;
   color: var(--ink-muted);
@@ -260,7 +260,7 @@ input:disabled { background: var(--surface-muted); color: var(--ink-muted); curs
 .control-ack.notice.error { color: var(--danger); }
 
 .theme-control { display: grid; gap: 3px; color: var(--ink-muted); font-size: 11px; }
-.theme-control select { min-width: 88px; min-height: 38px; background: transparent; }
+.theme-control select { min-width: 88px; min-height: 44px; background: transparent; }
 
 .app-shell {
   display: grid;
@@ -543,8 +543,8 @@ input:disabled { background: var(--surface-muted); color: var(--ink-muted); curs
 .row-summary { display: block; margin-top: 4px; color: var(--ink-muted); font-size: 12px; font-weight: 400; }
 
 .revert {
-  min-height: 28px;
-  padding: 2px 3px;
+  min-height: 44px;
+  padding: 8px 3px;
   border-color: transparent;
   background: transparent;
   color: var(--warning);
@@ -562,8 +562,8 @@ input:disabled { background: var(--surface-muted); color: var(--ink-muted); curs
 .field-message { flex-basis: 100%; margin: 0; color: var(--warning); font-size: 12px; }
 .field-message.fixed { color: var(--ink-muted); }
 
-.switch { position: relative; display: inline-flex; min-width: 44px; min-height: 28px; align-items: center; }
-.switch input { position: absolute; inset: 0; width: 44px; height: 28px; margin: 0; opacity: 0; cursor: pointer; }
+.switch { position: relative; display: inline-flex; min-width: 44px; min-height: 44px; align-items: center; }
+.switch input { position: absolute; inset: 0; width: 44px; height: 44px; margin: 0; opacity: 0; cursor: pointer; }
 .switch-track { width: 44px; height: 24px; border: 1px solid var(--line-strong); border-radius: 12px; background: var(--surface-strong); }
 .switch-knob {
   position: absolute;
@@ -581,12 +581,12 @@ input:disabled { background: var(--surface-muted); color: var(--ink-muted); curs
 .switch input:disabled { cursor: not-allowed; }
 
 .chips { display: flex; flex-basis: 100%; flex-wrap: wrap; gap: 7px; }
-.chip { min-height: 38px; padding: 6px 10px; }
+.chip { min-height: 44px; padding: 8px 10px; }
 .chip[aria-pressed="true"] { border-color: var(--action); background: var(--action); color: var(--action-ink); font-weight: 700; }
 .chip:disabled { opacity: .55; }
 
 .setting-help { flex-basis: 100%; margin-top: 2px; }
-.setting-help summary { width: fit-content; cursor: pointer; color: var(--ink-muted); font-size: 12px; }
+.setting-help summary { display: inline-flex; width: fit-content; min-height: 44px; align-items: center; cursor: pointer; color: var(--ink-muted); font-size: 12px; }
 .setting-help-body { max-width: 70ch; padding-top: 7px; color: var(--ink-muted); font-size: 12px; }
 .setting-help-body p { margin: 0 0 7px; }
 .setting-help-body ul { margin: 0; padding-left: 19px; }
@@ -738,7 +738,7 @@ input:disabled { background: var(--surface-muted); color: var(--ink-muted); curs
   padding-top: 20px;
   border-top: 1px solid var(--line);
 }
-.raw-log summary { cursor: pointer; font: 620 18px/1.25 var(--font-display); }
+.raw-log summary { display: inline-flex; min-height: 44px; align-items: center; cursor: pointer; font: 620 18px/1.25 var(--font-display); }
 .raw-log > p { margin: 8px 0 0; color: var(--ink-muted); }
 .log-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; margin-top: 14px; }
 .log-toolbar a { display: inline-flex; align-items: center; justify-content: center; }
