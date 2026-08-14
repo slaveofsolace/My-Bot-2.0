@@ -49,8 +49,8 @@ Func HomeMaintenanceRouteValidate(ByRef $oIntent, ByRef $sError)
 
 	Local $oPlan = $oIntent.Item("plan")
 	If Not $oPlan.Item("events_collect_resources") And Not $oPlan.Item("events_collect_daily_reward") And _
-			Not $oPlan.Item("events_collect_loot_cart") Then
-		$sError = "Home maintenance requires at least one selected task: collectors, Loot Cart, or startup Daily Reward"
+			Not $oPlan.Item("events_collect_loot_cart") And Not $oPlan.Item("events_collect_treasury") Then
+		$sError = "Home maintenance requires at least one selected task: collectors, Loot Cart, Treasury, or startup Daily Reward"
 		Return SetError(4, 0, False)
 	EndIf
 	If StringLower(StringStripWS(String($oPlan.Item("attack_script")), $STR_STRIPALL)) <> "profile-current" Then

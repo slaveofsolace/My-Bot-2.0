@@ -246,6 +246,147 @@ Func _LootCartLiveProveHome()
 	Return False
 EndFunc   ;==>_LootCartLiveProveHome
 
+Func _TreasuryLiveStopRequested()
+	Return RunControlStopRequested() Or Not $g_bRunState
+EndFunc   ;==>_TreasuryLiveStopRequested
+
+Func _TreasuryLiveDetectCastle()
+	If _TreasuryLiveStopRequested() Then Return 0
+	If Not IsMainPage(1) Then Return 0
+
+	; Refuse a transfer when any Home resource storage is already visibly full. One shared fresh frame
+	; feeds all three decisions so a later input is never authorized from mixed geometry.
+	ForceCaptureRegion()
+	_CaptureRegions()
+	Local $aGoldFull = _FullResPixelSearch($aIsGoldFull[0], $aIsGoldFull[0] + 4, $aIsGoldFull[1], 1, _
+			Hex(0x0D0D0D, 6), $aIsGoldFull[2], $aIsGoldFull[3], $g_bNoCapturePixel)
+	Local $aElixirFull = _FullResPixelSearch($aIsElixirFull[0], $aIsElixirFull[0] + 4, $aIsElixirFull[1], 1, _
+			Hex(0x0D0D0D, 6), $aIsElixirFull[2], $aIsElixirFull[3], $g_bNoCapturePixel)
+	Local $aDarkFull = _FullResPixelSearch($aIsDarkElixirFull[0], $aIsDarkElixirFull[0] + 4, $aIsDarkElixirFull[1], 1, _
+			Hex(0x0D0D0D, 6), $aIsDarkElixirFull[2], $aIsDarkElixirFull[3], $g_bNoCapturePixel)
+	If IsArray($aGoldFull) Or IsArray($aElixirFull) Or IsArray($aDarkFull) Then _
+		Return TreasuryObservationCreate($TREASURY_STATE_HOME_STORAGE_FULL)
+
+	If Not IsArray($g_aiClanCastlePos) Or UBound($g_aiClanCastlePos) < 2 Then _
+		Return TreasuryObservationCreate($TREASURY_STATE_CASTLE_MISSING)
+	If Int($g_aiClanCastlePos[0]) < 0 Or Int($g_aiClanCastlePos[1]) < 0 Or Not isInsideDiamond($g_aiClanCastlePos) Then _
+		Return TreasuryObservationCreate($TREASURY_STATE_CASTLE_MISSING)
+	Return TreasuryObservationCreate($TREASURY_STATE_CASTLE_READY, Int($g_aiClanCastlePos[0]), Int($g_aiClanCastlePos[1]))
+EndFunc   ;==>_TreasuryLiveDetectCastle
+
+Func _TreasuryLiveIssueCastle($iX, $iY)
+	If _TreasuryLiveStopRequested() Then Return False
+	Local $bIssued = BuildingClick(Int($iX), Int($iY), "#TreasuryCastle")
+	If $bIssued Then RunEventLogMaintenanceTreasuryCastleIssued()
+	Return $bIssued
+EndFunc   ;==>_TreasuryLiveIssueCastle
+
+Func _TreasuryLiveDetectEntry()
+	For $iAttempt = 1 To 6
+		If _TreasuryLiveStopRequested() Then Return 0
+		Local $aClanCastleInfo = BuildingInfo(242, 475 + $g_iBottomOffsetY)
+		If IsArray($aClanCastleInfo) And UBound($aClanCastleInfo) >= 3 And _
+				StringInStr(String($aClanCastleInfo[1]), "clan") > 0 Then
+			Local $aTreasury = findButton("Treasury", Default, 1, True)
+			If IsArray($aTreasury) And UBound($aTreasury, 1) = 2 Then _
+				Return TreasuryObservationCreate($TREASURY_STATE_ENTRY_READY, Int($aTreasury[0]), Int($aTreasury[1]))
+		EndIf
+		If $iAttempt < 6 Then
+			If _Sleep(250, True, True, False) Then Return 0
+			If _TreasuryLiveStopRequested() Then Return 0
+		EndIf
+	Next
+	Return TreasuryObservationCreate($TREASURY_STATE_ENTRY_MISSING)
+EndFunc   ;==>_TreasuryLiveDetectEntry
+
+Func _TreasuryLiveIssueEntry($iX, $iY)
+	If _TreasuryLiveStopRequested() Then Return False
+	Local $bIssued = Click(Int($iX), Int($iY), 1, 120, "#TreasuryEntry")
+	If $bIssued Then RunEventLogMaintenanceTreasuryEntryIssued()
+	Return $bIssued
+EndFunc   ;==>_TreasuryLiveIssueEntry
+
+Func _TreasuryLiveDetectCollect()
+	Local $bWindowSeen = False
+	Local $bFullSeen = False
+	For $iAttempt = 1 To 8
+		If _TreasuryLiveStopRequested() Then Return 0
+		If _CheckPixel($aTreasuryWindow, True) Then
+			$bWindowSeen = True
+			Local $aFull = _PixelSearch(695, 195 + $g_iMidOffsetY, 700, 320 + $g_iMidOffsetY, _
+					Hex(0x50BD10, 6), 20)
+			If IsArray($aFull) Then
+				$bFullSeen = True
+				Local $aCollect = findButton("Collect", Default, 1, True)
+				If IsArray($aCollect) And UBound($aCollect, 1) = 2 Then _
+					Return TreasuryObservationCreate($TREASURY_STATE_COLLECT_READY, Int($aCollect[0]), Int($aCollect[1]))
+			EndIf
+		EndIf
+		If $iAttempt < 8 Then
+			If _Sleep(250, True, True, False) Then Return 0
+			If _TreasuryLiveStopRequested() Then Return 0
+		EndIf
+	Next
+	If Not $bWindowSeen Then Return 0
+	If Not $bFullSeen Then Return TreasuryObservationCreate($TREASURY_STATE_NOT_FULL)
+	Return TreasuryObservationCreate($TREASURY_STATE_COLLECT_MISSING)
+EndFunc   ;==>_TreasuryLiveDetectCollect
+
+Func _TreasuryLiveIssueCollect($iX, $iY)
+	If _TreasuryLiveStopRequested() Then Return False
+	Local $bIssued = Click(Int($iX), Int($iY), 1, 130, "#TreasuryCollect")
+	If $bIssued Then RunEventLogMaintenanceTreasuryCollectIssued()
+	Return $bIssued
+EndFunc   ;==>_TreasuryLiveIssueCollect
+
+Func _TreasuryLiveDetectConfirm()
+	For $iAttempt = 1 To 6
+		If _TreasuryLiveStopRequested() Then Return 0
+		; A generic Okay target is accepted only while the exact Treasury window remains underneath it.
+		If _CheckPixel($aTreasuryWindow, True) Then
+			Local $aOkay = findButton("Okay", Default, 1, True)
+			If IsArray($aOkay) And UBound($aOkay, 1) = 2 Then _
+				Return TreasuryObservationCreate($TREASURY_STATE_CONFIRM_READY, Int($aOkay[0]), Int($aOkay[1]))
+		EndIf
+		If $iAttempt < 6 Then
+			If _Sleep(250, True, True, False) Then Return 0
+			If _TreasuryLiveStopRequested() Then Return 0
+		EndIf
+	Next
+	Return TreasuryObservationCreate($TREASURY_STATE_CONFIRM_MISSING)
+EndFunc   ;==>_TreasuryLiveDetectConfirm
+
+Func _TreasuryLiveIssueConfirm($iX, $iY)
+	If _TreasuryLiveStopRequested() Then Return False
+	Local $bIssued = Click(Int($iX), Int($iY), 1, 130, "#TreasuryConfirm")
+	If $bIssued Then RunEventLogMaintenanceTreasuryConfirmIssued()
+	Return $bIssued
+EndFunc   ;==>_TreasuryLiveIssueConfirm
+
+Func _TreasuryLiveCleanup()
+	If _TreasuryLiveStopRequested() Then Return TreasuryCleanupCreate(0, False, False)
+	; Test the Treasury marker before the permissive main-page predicate: the underlying village remains
+	; visible beneath some modals and must not be misreported as a clean Home state.
+	If Not _CheckPixel($aTreasuryWindow, True) Then
+		Return TreasuryCleanupCreate(0, False, IsMainPage(1))
+	EndIf
+
+	; Close only a still-recognized Treasury window, once. CloseWindow2 has no ClickAway fallback.
+	If _TreasuryLiveStopRequested() Then Return TreasuryCleanupCreate(0, False, False)
+	Local $bCloseIssued = CloseWindow2(1, 200)
+	If $bCloseIssued Then RunEventLogMaintenanceTreasuryCloseIssued()
+	If Not $bCloseIssued Or _TreasuryLiveStopRequested() Then Return TreasuryCleanupCreate(1, $bCloseIssued, False)
+
+	For $iAttempt = 1 To 8
+		If _TreasuryLiveStopRequested() Then Return TreasuryCleanupCreate(1, True, False)
+		If IsMainPage(1) Then Return TreasuryCleanupCreate(1, True, True)
+		If $iAttempt < 8 Then
+			If _Sleep(250, True, True, False) Then Return TreasuryCleanupCreate(1, True, False)
+		EndIf
+	Next
+	Return TreasuryCleanupCreate(1, True, False)
+EndFunc   ;==>_TreasuryLiveCleanup
+
 Func _HomeMaintenanceRouteFail($sReason, $bIrreversibleOutcome = False)
 	If (RunControlStopRequested() Or Not $g_bRunState) And Not $bIrreversibleOutcome Then Return False
 	Local $sFailure = "Home maintenance failed: " & $sReason
@@ -267,9 +408,11 @@ Func HomeMaintenanceRouteExecute()
 	Local $bCollectResources = $oPlan.Item("events_collect_resources")
 	Local $bCollectDailyReward = $oPlan.Item("events_collect_daily_reward")
 	Local $bCollectLootCart = $oPlan.Item("events_collect_loot_cart")
+	Local $bCollectTreasury = $oPlan.Item("events_collect_treasury")
 	SetLog("Run Planner: starting one bounded Home Village maintenance pass", $COLOR_ACTION)
 	If $bCollectResources Then RunEventLogMaintenanceCollectorsStarted()
 	If $bCollectLootCart Then RunEventLogMaintenanceLootCartStarted()
+	If $bCollectTreasury Then RunEventLogMaintenanceTreasuryStarted()
 	If Not _RunExecutionRequireOwnVillageReady() Then Return False
 
 	If $bCollectDailyReward Then
@@ -320,6 +463,41 @@ Func HomeMaintenanceRouteExecute()
 		EndSwitch
 	EndIf
 
+	Local $sTreasuryState = "disabled"
+	Local $bTreasuryInputIssued = False
+	If $bCollectTreasury Then
+		Local $oTreasury = TreasuryRouteRunAdapter("_TreasuryLiveDetectCastle", "_TreasuryLiveIssueCastle", _
+				"_TreasuryLiveDetectEntry", "_TreasuryLiveIssueEntry", "_TreasuryLiveDetectCollect", _
+				"_TreasuryLiveIssueCollect", "_TreasuryLiveDetectConfirm", "_TreasuryLiveIssueConfirm", _
+				"_TreasuryLiveStopRequested", "_TreasuryLiveCleanup")
+		If Not IsObj($oTreasury) Then Return _HomeMaintenanceRouteFail("the Treasury adapter returned no bounded outcome")
+		$sTreasuryState = String($oTreasury.Item("state"))
+		$bTreasuryInputIssued = $oTreasury.Item("castle_issued") Or $oTreasury.Item("entry_issued") Or _
+				$oTreasury.Item("collect_issued") Or $oTreasury.Item("confirm_issued") Or $oTreasury.Item("close_issued")
+		If $sTreasuryState = $TREASURY_OUTCOME_CANCELLED Then Return False
+		If Not $oTreasury.Item("home_proven") Then
+			RunEventLogMaintenanceTreasuryUnconfirmed($oTreasury.Item("collect_issued"), _
+					$oTreasury.Item("confirm_issued"), $oTreasury.Item("detail") & "; Home Village was not re-proven")
+			Return _HomeMaintenanceRouteFail("Home Village could not be re-proven after Treasury", _
+					$oTreasury.Item("confirm_issued"))
+		EndIf
+		RunEventLogMaintenanceTreasuryHomeVerified($sTreasuryState)
+		Switch $sTreasuryState
+			Case $TREASURY_OUTCOME_CONFIRM_ISSUED
+				; The contextual confirmation receipt was emitted at the accepted input boundary.
+			Case $TREASURY_OUTCOME_UNAVAILABLE
+				RunEventLogMaintenanceTreasuryUnavailable($oTreasury.Item("detail"))
+			Case $TREASURY_OUTCOME_UNCONFIRMED
+				RunEventLogMaintenanceTreasuryUnconfirmed($oTreasury.Item("collect_issued"), _
+						$oTreasury.Item("confirm_issued"), $oTreasury.Item("detail"))
+				Return _HomeMaintenanceRouteFail($oTreasury.Item("detail") & "; Treasury inputs will not be retried", _
+						$oTreasury.Item("confirm_issued"))
+			Case Else
+				Return _HomeMaintenanceRouteFail("the Treasury adapter returned an unknown terminal state", _
+						$oTreasury.Item("confirm_issued"))
+		EndSwitch
+	EndIf
+
 	Local $iCollectorClicks = 0
 	If $bCollectResources Then
 		; Home-maintenance collector mode suppresses Loot Cart and Treasury even if the legacy profile enables them.
@@ -334,7 +512,7 @@ Func HomeMaintenanceRouteExecute()
 	If RunControlStopRequested() Or Not $g_bRunState Then Return False
 
 	RunEventLogMaintenanceHomeVerified($iCollectorClicks, $bCollectDailyReward ? $g_sRunExecutionDailyRewardState : "disabled", _
-			$sLootCartState)
+			$sLootCartState, $sTreasuryState)
 	If $bCollectResources Then
 		If $iCollectorClicks > 0 Then
 			RunEventLogMaintenanceCollectorsCompleted($iCollectorClicks)
@@ -342,14 +520,14 @@ Func HomeMaintenanceRouteExecute()
 			RunEventLogMaintenanceCollectorsNoneActionable()
 		EndIf
 	EndIf
-	Local $bAnyInput = $iCollectorClicks > 0 Or $g_bRunExecutionDailyRewardClickIssued Or $bLootCartInputIssued
+	Local $bAnyInput = $iCollectorClicks > 0 Or $g_bRunExecutionDailyRewardClickIssued Or $bLootCartInputIssued Or $bTreasuryInputIssued
 	Local $sReason = $bAnyInput ? "home-maintenance-complete" : "home-maintenance-none-actionable"
 	If Not RunSessionRequestStop($g_oRunExecutionSession, $sReason) Then _
 		Return _HomeMaintenanceRouteFail("the run session refused its one-pass completion")
 	RunEventLogRunStopping("regular", $RUN_VERIFICATION_DIAGNOSTIC, $sReason)
 	$g_sRunExecutionMessage = "Completed Home maintenance; collector_clicks=" & $iCollectorClicks & _
 			"; daily_reward=" & ($bCollectDailyReward ? $g_sRunExecutionDailyRewardState : "disabled") & _
-			"; loot_cart=" & $sLootCartState
+			"; loot_cart=" & $sLootCartState & "; treasury=" & $sTreasuryState
 	btnStop()
 	Return True
 EndFunc   ;==>HomeMaintenanceRouteExecute

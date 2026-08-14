@@ -71,11 +71,18 @@ $oLootOnlyPlan.Item("events_collect_resources") = False
 $oLootOnlyPlan.Item("events_collect_loot_cart") = True
 AssertTrue(RunExecutionContractValidate($oLootOnly, $sError), "Home maintenance accepts an explicit Loot Cart-only pass: " & $sError)
 
+Local $oTreasuryOnly = CreateCollectorsIntent()
+Local $oTreasuryOnlyPlan = $oTreasuryOnly.Item("plan")
+$oTreasuryOnlyPlan.Item("events_collect_resources") = False
+$oTreasuryOnlyPlan.Item("events_collect_treasury") = True
+AssertTrue(RunExecutionContractValidate($oTreasuryOnly, $sError), "Home maintenance accepts an explicit Treasury-only pass: " & $sError)
+
 Local $oNoMaintenance = CreateCollectorsIntent()
 Local $oNoMaintenancePlan = $oNoMaintenance.Item("plan")
 $oNoMaintenancePlan.Item("events_collect_resources") = False
 $oNoMaintenancePlan.Item("events_collect_daily_reward") = False
 $oNoMaintenancePlan.Item("events_collect_loot_cart") = False
+$oNoMaintenancePlan.Item("events_collect_treasury") = False
 AssertTrue(Not RunExecutionContractValidate($oNoMaintenance, $sError), "Home maintenance rejects a pass with no selected work")
 
 Local $oBattleShaped = CreateCollectorsIntent()
@@ -104,6 +111,9 @@ AssertTrue(IsObj($oDailyIssuedEvent), "Daily Reward input is reported as issued 
 Local $oLootIssuedEvent = RunEventCreate("maintenance.loot-cart.collect-issued", 4, 1300, "home-fixture", "warning", _
 		"One Loot Cart Collect input was issued; collect_attempts=1", "profile-a", "regular", 0, 0, 0, 0, 0, $RUN_VERIFICATION_DIAGNOSTIC)
 AssertTrue(IsObj($oLootIssuedEvent), "Loot Cart input is reported as issued rather than falsely confirmed")
+Local $oTreasuryIssuedEvent = RunEventCreate("maintenance.treasury.confirm-issued", 5, 1400, "home-fixture", "warning", _
+		"One contextual Treasury confirmation input was issued; confirm_attempts=1", "profile-a", "regular", 0, 0, 0, 0, 0, $RUN_VERIFICATION_DIAGNOSTIC)
+AssertTrue(IsObj($oTreasuryIssuedEvent), "Treasury input is reported as issued rather than falsely confirmed")
 
 ConsoleWrite("Home maintenance route tests passed: " & $g_iAssertions & " assertions" & @CRLF)
 Exit 0

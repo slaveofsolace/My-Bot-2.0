@@ -79,6 +79,15 @@ class ManagedRewardSafetyTest(unittest.TestCase):
         self.assertNotIn("$g_bChkCollectCartFirst = True", RUN_EXECUTION)
         self.assertNotIn("$g_bChkTreasuryCollect = True", RUN_EXECUTION)
 
+    def test_explicit_treasury_route_does_not_reenable_the_legacy_reward_path(self) -> None:
+        home_start = RUN_EXECUTION.index("Func HomeMaintenanceRouteExecute()")
+        home_end = RUN_EXECUTION.index("EndFunc   ;==>HomeMaintenanceRouteExecute", home_start)
+        home = RUN_EXECUTION[home_start:home_end]
+        self.assertIn("TreasuryRouteRunAdapter", home)
+        self.assertNotIn("TreasuryCollect(", home)
+        self.assertNotIn("LocateClanCastle", home)
+        self.assertNotIn("$g_bChkTreasuryCollect = True", RUN_EXECUTION)
+
 
 if __name__ == "__main__":
     unittest.main()

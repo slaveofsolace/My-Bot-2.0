@@ -204,6 +204,7 @@ Json_ObjPut($oSavedPlan, "events.clan_games_point_cap", 0)
 Json_ObjPut($oSavedPlan, "events.laboratory", "off")
 Json_ObjPut($oSavedPlan, "events.collect_resources", False)
 Json_ObjPut($oSavedPlan, "events.collect_loot_cart", False)
+Json_ObjPut($oSavedPlan, "events.collect_treasury", False)
 Json_ObjPut($oSavedPlan, "events.collect_daily_reward", False)
 Json_ObjPut($oSavedPlan, "notify.on_stop", False)
 Json_ObjPut($oSavedPlan, "notify.on_error", True)
@@ -226,6 +227,7 @@ AssertTrue($oSavedEnginePlan.Item("army_recipe_name") = "farm", "saved army reci
 AssertTrue($oSavedEnginePlan.Item("attack_script") = "Barch four fingers", "saved attack script reaches RunPlan")
 AssertTrue(Not $oSavedEnginePlan.Item("events_collect_daily_reward"), "saved Daily Reward choice reaches RunPlan")
 AssertTrue(Not $oSavedEnginePlan.Item("events_collect_loot_cart"), "saved Loot Cart choice reaches RunPlan")
+AssertTrue(Not $oSavedEnginePlan.Item("events_collect_treasury"), "saved Treasury choice reaches RunPlan")
 AssertTrue(RunIntentManagesTraining($oSavedIntent), "saved training-management choice reaches the intent")
 Local $oSavedLoadout = $oSavedIntent.Item("loadout")
 AssertTrue(HeroLoadoutCount($oSavedLoadout) = 2, "saved Hero list reaches the loadout")
@@ -303,6 +305,10 @@ $oSavedEnginePlan.Item("events_collect_loot_cart") = True
 AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "current-army mode keeps Loot Cart collection outside the terminal path")
 $oSavedEnginePlan.Item("events_collect_loot_cart") = False
 AssertTrue(RunExecutionContractValidate($oSavedIntent, $sError), "one current trained army is accepted for exactly one battle: " & $sError)
+$oSavedEnginePlan.Item("events_collect_treasury") = True
+AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "current-army mode keeps Treasury collection outside the terminal path")
+$oSavedEnginePlan.Item("events_collect_treasury") = False
+AssertTrue(RunExecutionContractValidate($oSavedIntent, $sError), "restoring Treasury work clears the current-army side-effect gate: " & $sError)
 $oSavedEnginePlan.Item("army_wait_for_full") = False
 AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "current-army mode requires a fresh full-army readiness result")
 AssertTrue(StringInStr($sError, "Wait for full army") > 0, "current-army readiness rejection names the required setting")
@@ -338,10 +344,18 @@ $oSavedEnginePlan.Item("army_manage_training") = True
 $oSavedEnginePlan.Item("max_battles") = 12
 FileDelete($sSavedPlanPath)
 
-; The immediately preceding planner contract had 46 keys and never owned the bounded Loot Cart route.
+; The immediately preceding planner contract had 47 keys and never owned the bounded Treasury route.
+$oSavedPlan.Remove("events.collect_treasury")
+AssertTrue(FileWrite($sSavedPlanPath, Json_Encode($oSavedPlan)) > 0, "legacy 47-key planner fixture is written")
+Local $oLegacyTrainingIntent = RunPlanFileLoadIntent($sSavedPlanPath, $sError)
+AssertTrue(IsObj($oLegacyTrainingIntent), "legacy 47-key plan is upgraded losslessly: " & $sError)
+AssertTrue(Not $oLegacyTrainingIntent.Item("plan").Item("events_collect_treasury"), "legacy plan migrates Treasury to the no-collection default")
+FileDelete($sSavedPlanPath)
+
+; The preceding 46-key planner contract never owned the bounded Loot Cart route.
 $oSavedPlan.Remove("events.collect_loot_cart")
 AssertTrue(FileWrite($sSavedPlanPath, Json_Encode($oSavedPlan)) > 0, "legacy 46-key planner fixture is written")
-Local $oLegacyTrainingIntent = RunPlanFileLoadIntent($sSavedPlanPath, $sError)
+$oLegacyTrainingIntent = RunPlanFileLoadIntent($sSavedPlanPath, $sError)
 AssertTrue(IsObj($oLegacyTrainingIntent), "legacy 46-key plan is upgraded losslessly: " & $sError)
 AssertTrue(Not $oLegacyTrainingIntent.Item("plan").Item("events_collect_loot_cart"), "legacy plan migrates Loot Cart to the no-collection default")
 FileDelete($sSavedPlanPath)

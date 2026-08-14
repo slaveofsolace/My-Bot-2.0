@@ -1,4 +1,5 @@
 * My Bot 2.0 v2.0.0 **
+* Added a separate bounded Treasury Home-maintenance option: it requires an exact cached Clan Castle, a full Treasury, and non-full Home storages; permits at most one Castle, Treasury-entry, Collect, contextual Okay, and close input; never locates, retries, falls back, or uses gems; current-client recognition and transfer completion remain unverified.
 * Added a separate bounded Loot Cart Home-maintenance option: one exact cart-open input and one exact Collect input at most, no chat, fallback coordinates, confirmation clicks, retries, or gem conversion; current-client recognition and completion remain unverified until the named fixture and supervised receipt exist.
 * Added an explicit, one-pass Home-maintenance Daily Reward option: it may issue one recognized Claim input, never accepts a gem-conversion dialog, reports issued/unavailable/unconfirmed outcomes separately, and keeps all other managed routes reward-closed.
 * Added the local Control Center and Run Planner.

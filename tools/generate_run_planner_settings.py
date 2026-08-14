@@ -336,11 +336,11 @@ def main() -> int:
                                     warning="Historical TH17 mechanics evidence exists; bea12973 adds exact-current no-input managed-engine initialization, not gameplay proof."),
                              option("home.collectors", "Home maintenance",
                                     "Run selected one-shot Home Village collection tasks without matchmaking.",
-                                    "Runs a bounded Home pass for collectors, the Loot Cart, and, when explicitly enabled, "
-                                    "the startup Daily Reward. It re-proves Home and stops. It cannot search, attack, train, "
-                                    "donate, upgrade, enter the Laboratory, run Clan Games, rotate accounts, or enter the Treasury.",
-                                    "gated", ["village.collectors", "village.loot-cart", "events.daily-reward"], ["At least one Home task enabled", "A supervised diagnostic operator"],
-                                    disabled_reason="Current-client collector, Loot Cart, and Daily Reward handling still need supervised runtime receipts.",
+                                    "Runs a bounded Home pass for collectors, the Loot Cart, a full Treasury, and, when explicitly "
+                                    "enabled, the startup Daily Reward. It re-proves Home and stops. It cannot search, attack, "
+                                    "train, donate, upgrade, enter the Laboratory, run Clan Games, or rotate accounts.",
+                                    "gated", ["village.collectors", "village.loot-cart", "village.treasury", "events.daily-reward"], ["At least one Home task enabled", "A supervised diagnostic operator"],
+                                    disabled_reason="Current-client collector, Loot Cart, Treasury, and Daily Reward handling still need supervised runtime receipts.",
                                     warning="Diagnostic only until supervised current-client Home maintenance receipts are recorded."),
                             option("home.clan-request", "Home maintenance - Clan request only",
                                    "Request Clan Castle reinforcements once, without donating or matchmaking.",
@@ -1150,6 +1150,27 @@ def main() -> int:
                         "prerequisites": ["Current Loot Cart recognition", "Exact Collect-button recognition", "No-gems policy"],
                         "disabled_reason": "The bounded route needs one supervised current-client Loot Cart receipt.",
                         "warning": "This can transfer real Loot Cart resources. It never clicks confirmation or gem-conversion actions.",
+                    },
+                    {
+                        "id": "events.collect_treasury",
+                        "type": "boolean",
+                        "label": "Collect full Treasury",
+                        "summary": "Transfer a full Treasury through one exact, contextual confirmation.",
+                        "description": (
+                            "Only Home maintenance may use this. It requires an exact cached Clan Castle, refuses visibly "
+                            "full Home storages, verifies the selected building and Treasury window, requires the Treasury "
+                            "full indicator, and permits one Castle, entry, Collect, contextual Okay, and recognized close "
+                            "input. It never locates a building, retries, uses fallback coordinates, or uses gems."
+                        ),
+                        "default": False,
+                        "required": False,
+                        "engine_binding": "RunPlan.events_collect_treasury",
+                        "availability": "gated",
+                        "runtime_verified": False,
+                        "capability_ids": ["village.treasury"],
+                        "prerequisites": ["Current Treasury recognition", "Exact cached Clan Castle", "No-gems policy"],
+                        "disabled_reason": "The bounded route needs one supervised current-client Treasury receipt.",
+                        "warning": "This can transfer real Treasury resources after one contextual Okay input; it never uses gems.",
                     },
                 ],
             },

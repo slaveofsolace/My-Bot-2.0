@@ -328,14 +328,14 @@ Func _RunPlanFileRequiredKeys()
 	Local $aKeys = ["run.surface", "run.strategy", "run.attack_script", "run.town_hall", "run.heroes", "runtime.emulator", "runtime.instance", "run.duration_minutes", "run.max_battles", "run.stop_on_star_bonus", "run.max_failures", _
 		"target.gold", "target.elixir", "target.dark_elixir", "upgrade.policy", "account.queue", "army.source", "army.recipe_name", "army.manage_training", "army.wait_for_full", "army.train_spells", "army.train_sieges", _
 		"search.min_gold", "search.min_elixir", "search.min_dark", "search.max_seconds", "search.town_hall_filter", "donate.mode", "donate.keep_army", "donate.max_per_run", "donate.request_when_short", _
-		"events.clan_games", "events.clan_games_point_cap", "events.laboratory", "events.collect_resources", "events.collect_daily_reward", "events.collect_loot_cart", "notify.on_stop", "notify.on_error", "notify.channel", "run.diagnostic_mode", "run.diagnostic_note", _
+		"events.clan_games", "events.clan_games_point_cap", "events.laboratory", "events.collect_resources", "events.collect_daily_reward", "events.collect_loot_cart", "events.collect_treasury", "notify.on_stop", "notify.on_error", "notify.channel", "run.diagnostic_mode", "run.diagnostic_note", _
 		"pacing.action_delay_ms", "pacing.settle_ms", "pacing.retry_attempts", "pacing.break_every_minutes", "pacing.break_minutes"]
 	Return $aKeys
 EndFunc   ;==>_RunPlanFileRequiredKeys
 
-; Current plans own the explicit Loot Cart choice. The preceding 46-key build did not, so migrate it
-; to the safe default (False). Earlier Daily Reward/Town Hall/training/attack-script migrations retain
-; their original meanings before that final addition. Unknown or otherwise
+; Current plans own explicit Loot Cart and Treasury choices. The preceding 46/47-key builds did not,
+; so migrate each to the safe default (False). Earlier Daily Reward/Town Hall/training/attack-script migrations retain
+; their original meanings before those final additions. Unknown or otherwise
 ; incomplete documents remain strict failures below.
 Func _RunPlanFileNormalizeCurrentContract(ByRef $oJson)
 	If Not IsObj($oJson) Then Return False
@@ -344,6 +344,7 @@ Func _RunPlanFileNormalizeCurrentContract(ByRef $oJson)
 	If $oJson.Count = 44 And Not $oJson.Exists("run.town_hall") Then $oJson.Add("run.town_hall", 0)
 	If $oJson.Count = 45 And Not $oJson.Exists("events.collect_daily_reward") Then $oJson.Add("events.collect_daily_reward", False)
 	If $oJson.Count = 46 And Not $oJson.Exists("events.collect_loot_cart") Then $oJson.Add("events.collect_loot_cart", False)
+	If $oJson.Count = 47 And Not $oJson.Exists("events.collect_treasury") Then $oJson.Add("events.collect_treasury", False)
 	Return True
 EndFunc   ;==>_RunPlanFileNormalizeCurrentContract
 
@@ -516,7 +517,7 @@ Func RunPlanFileLoadIntent($sPath, ByRef $sError)
 	For $i = 0 To UBound($aIntegers) - 1
 		If Not _RunPlanFileAssignInteger($oPlan, $oJson, $aIntegers[$i][0], $aIntegers[$i][1], $sError) Then Return SetError(8, $i, 0)
 	Next
-	Local $aBooleans[13][2] = [["stop_on_star_bonus", "run.stop_on_star_bonus"], ["army_manage_training", "army.manage_training"], ["army_wait_for_full", "army.wait_for_full"], ["army_train_spells", "army.train_spells"], ["army_train_sieges", "army.train_sieges"], ["donate_keep_army", "donate.keep_army"], ["donate_request_when_short", "donate.request_when_short"], ["events_clan_games", "events.clan_games"], ["events_collect_resources", "events.collect_resources"], ["events_collect_daily_reward", "events.collect_daily_reward"], ["events_collect_loot_cart", "events.collect_loot_cart"], ["notify_on_stop", "notify.on_stop"], ["notify_on_error", "notify.on_error"]]
+	Local $aBooleans[14][2] = [["stop_on_star_bonus", "run.stop_on_star_bonus"], ["army_manage_training", "army.manage_training"], ["army_wait_for_full", "army.wait_for_full"], ["army_train_spells", "army.train_spells"], ["army_train_sieges", "army.train_sieges"], ["donate_keep_army", "donate.keep_army"], ["donate_request_when_short", "donate.request_when_short"], ["events_clan_games", "events.clan_games"], ["events_collect_resources", "events.collect_resources"], ["events_collect_daily_reward", "events.collect_daily_reward"], ["events_collect_loot_cart", "events.collect_loot_cart"], ["events_collect_treasury", "events.collect_treasury"], ["notify_on_stop", "notify.on_stop"], ["notify_on_error", "notify.on_error"]]
 	For $i = 0 To UBound($aBooleans) - 1
 		If Not _RunPlanFileAssignBoolean($oPlan, $oJson, $aBooleans[$i][0], $aBooleans[$i][1], $sError) Then Return SetError(9, $i, 0)
 	Next

@@ -42,6 +42,7 @@
     "events.collect_resources": false,
     "events.collect_daily_reward": false,
     "events.collect_loot_cart": false,
+    "events.collect_treasury": false,
     "upgrade.policy": "disabled",
     "account.queue": "",
     "notify.on_stop": true,

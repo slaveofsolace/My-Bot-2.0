@@ -1,6 +1,6 @@
 # Capturing current-client fixtures
 
-Recognition is blocked on 30 current-client fixtures. Until real captures, recognition assertions, and controlled runtime checks exist, the related capabilities remain unverified.
+Recognition is blocked on 31 current-client fixtures. Until real captures, recognition assertions, and controlled runtime checks exist, the related capabilities remain unverified.
 
 `tools/capture_fixture.py` validates dimensions, privacy-preserving pixel changes, paths, hashes, and metadata. It never edits an image and never copies the raw account capture into the repository.
 
@@ -51,6 +51,8 @@ For a genuinely anonymous capture, `--no-redaction-needed` is allowed only when 
 The Loot Cart uses its own `home.loot-cart` fixture. Its assertions must identify exactly one cart and one unambiguous Collect button; they must not rely on chat, a fallback coordinate, or a confirmation dialog.
 
 The startup Daily Reward uses its own `home.daily-reward` fixture. Its assertions must identify the modal and one unambiguous Claim button; they must not treat an Okay/Confirm conversion dialog as a claim target.
+
+Treasury uses its own `home.treasury.full` fixture. Its assertions must identify the selected Clan Castle, Treasury entry, full-state indicator, Collect button, and the contextual Treasury confirmation. It must also prove the Home storage-full indicators are absent; a generic Okay button or an inherited fallback coordinate is insufficient.
 
 Only the redacted derivative and schema-2 metadata are copied. The metadata records the raw SHA-256 but never its path.
 

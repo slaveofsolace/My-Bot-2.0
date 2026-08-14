@@ -218,11 +218,12 @@ Func RunEventLogMaintenanceCollectorsStarted()
 			"Collectors-only Home Village pass started", $g_sRunEventSurfaceId, $g_sRunEventVerificationState)
 EndFunc   ;==>RunEventLogMaintenanceCollectorsStarted
 
-Func RunEventLogMaintenanceHomeVerified($iCollectorClicks, $sDailyRewardState = "disabled", $sLootCartState = "disabled")
+Func RunEventLogMaintenanceHomeVerified($iCollectorClicks, $sDailyRewardState = "disabled", $sLootCartState = "disabled", $sTreasuryState = "disabled")
 	If Not $g_bRunEventSessionBound Then Return False
 	Return RunEventLogWrite("maintenance.home-verified", "info", _
 			"Home Village main screen re-proven; collector_clicks=" & Int($iCollectorClicks) & _
-			"; daily_reward=" & String($sDailyRewardState) & "; loot_cart=" & String($sLootCartState), _
+			"; daily_reward=" & String($sDailyRewardState) & "; loot_cart=" & String($sLootCartState) & _
+			"; treasury=" & String($sTreasuryState), _
 			$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
 EndFunc   ;==>RunEventLogMaintenanceHomeVerified
 
@@ -296,6 +297,70 @@ Func RunEventLogMaintenanceLootCartHomeVerified($sOutcome)
 			"Home Village passively re-proven after Loot Cart outcome=" & String($sOutcome), _
 			$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
 EndFunc   ;==>RunEventLogMaintenanceLootCartHomeVerified
+
+Func RunEventLogMaintenanceTreasuryStarted()
+	If Not $g_bRunEventSessionBound Then Return False
+	Return RunEventLogWrite("maintenance.treasury.started", "info", _
+			"Starting bounded Treasury route; max_castle=1; max_entry=1; max_collect=1; max_confirm=1; max_close=1; gems=false", _
+			$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogMaintenanceTreasuryStarted
+
+Func RunEventLogMaintenanceTreasuryCastleIssued()
+	If Not $g_bRunEventSessionBound Then Return False
+	Return RunEventLogWrite("maintenance.treasury.castle-issued", "info", _
+			"One exact cached Clan Castle selection input was issued; castle_attempts=1", _
+			$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogMaintenanceTreasuryCastleIssued
+
+Func RunEventLogMaintenanceTreasuryEntryIssued()
+	If Not $g_bRunEventSessionBound Then Return False
+	Return RunEventLogWrite("maintenance.treasury.entry-issued", "info", _
+			"One exact Treasury entry input was issued; entry_attempts=1", _
+			$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogMaintenanceTreasuryEntryIssued
+
+Func RunEventLogMaintenanceTreasuryCollectIssued()
+	If Not $g_bRunEventSessionBound Then Return False
+	Return RunEventLogWrite("maintenance.treasury.collect-issued", "warning", _
+			"One contextual Treasury Collect input was issued; collect_attempts=1; gems=false", _
+			$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogMaintenanceTreasuryCollectIssued
+
+Func RunEventLogMaintenanceTreasuryConfirmIssued()
+	If Not $g_bRunEventSessionBound Then Return False
+	Return RunEventLogWrite("maintenance.treasury.confirm-issued", "warning", _
+			"One contextual Treasury Okay input was issued; confirm_attempts=1; transfer_confirmed=false; gems=false", _
+			$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogMaintenanceTreasuryConfirmIssued
+
+Func RunEventLogMaintenanceTreasuryCloseIssued()
+	If Not $g_bRunEventSessionBound Then Return False
+	Return RunEventLogWrite("maintenance.treasury.close-issued", "info", _
+			"One recognized Treasury-window close input was issued; close_attempts=1", _
+			$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogMaintenanceTreasuryCloseIssued
+
+Func RunEventLogMaintenanceTreasuryUnavailable($sDetail)
+	If Not $g_bRunEventSessionBound Then Return False
+	Return RunEventLogWrite("maintenance.treasury.unavailable", "info", _
+			"No Treasury transfer was attempted; " & String($sDetail), _
+			$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogMaintenanceTreasuryUnavailable
+
+Func RunEventLogMaintenanceTreasuryUnconfirmed($bCollectIssued, $bConfirmIssued, $sDetail)
+	If Not $g_bRunEventSessionBound Then Return False
+	Return RunEventLogWrite("maintenance.treasury.unconfirmed", "error", _
+			"collect_issued=" & ($bCollectIssued ? "true" : "false") & "; confirm_issued=" & _
+			($bConfirmIssued ? "true" : "false") & "; retries=0; gems=false; " & String($sDetail), _
+			$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogMaintenanceTreasuryUnconfirmed
+
+Func RunEventLogMaintenanceTreasuryHomeVerified($sOutcome)
+	If Not $g_bRunEventSessionBound Then Return False
+	Return RunEventLogWrite("maintenance.treasury.home-verified", "info", _
+			"Home Village re-proven after Treasury outcome=" & String($sOutcome), _
+			$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogMaintenanceTreasuryHomeVerified
 
 Func RunEventLogMaintenanceCollectorsCompleted($iCollectorClicks)
 	If Not $g_bRunEventSessionBound Then Return False

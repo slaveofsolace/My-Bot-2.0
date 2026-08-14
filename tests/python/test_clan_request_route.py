@@ -51,6 +51,7 @@ def clan_request_plan() -> dict:
             "events.laboratory": "off",
             "events.collect_resources": False,
             "events.collect_loot_cart": False,
+            "events.collect_treasury": False,
             "upgrade.policy": "disabled",
             "account.queue": "",
             "runtime.emulator": "bluestacks5",
@@ -84,6 +85,7 @@ class ClanRequestRouteTests(unittest.TestCase):
             'Not $oPlan.Item("donate_request_when_short")',
             '$oPlan.Item("events_collect_resources")',
             '$oPlan.Item("events_collect_loot_cart")',
+            '$oPlan.Item("events_collect_treasury")',
             '$oPlan.Item("events_clan_games")',
             '$oPlan.Item("army_manage_training")',
             '$oPlan.Item("upgrade_policy")',
@@ -244,6 +246,7 @@ class ClanRequestRouteTests(unittest.TestCase):
             "'donate.request_when_short': true",
             "'events.collect_resources': false",
             "'events.collect_loot_cart': false",
+            "'events.collect_treasury': false",
             "'pacing.retry_attempts': 0",
             "'pacing.break_every_minutes': 0",
         ):

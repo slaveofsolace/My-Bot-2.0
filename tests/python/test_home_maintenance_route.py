@@ -56,6 +56,7 @@ def collectors_plan() -> dict:
             "events.laboratory": "off",
             "events.collect_resources": True,
             "events.collect_loot_cart": False,
+            "events.collect_treasury": False,
             "events.collect_daily_reward": False,
             "upgrade.policy": "disabled",
             "account.queue": "",
@@ -101,8 +102,9 @@ class HomeMaintenanceRouteTest(unittest.TestCase):
         nothing_selected = collectors_plan()
         nothing_selected["events.collect_resources"] = False
         nothing_selected["events.collect_loot_cart"] = False
+        nothing_selected["events.collect_treasury"] = False
         nothing_selected["events.collect_daily_reward"] = False
-        self.assertTrue(any("requires collectors, Loot Cart, or startup Daily Reward" in problem for problem in planner_ui.engine_preflight(nothing_selected)))
+        self.assertTrue(any("requires collectors, Loot Cart, Treasury, or startup Daily Reward" in problem for problem in planner_ui.engine_preflight(nothing_selected)))
 
     def test_daily_reward_only_plan_passes_server_preflight(self):
         plan = collectors_plan()
@@ -116,11 +118,19 @@ class HomeMaintenanceRouteTest(unittest.TestCase):
         plan["events.collect_loot_cart"] = True
         self.assertEqual(planner_ui.engine_preflight(plan), [])
 
+    def test_treasury_only_plan_passes_server_preflight(self):
+        plan = collectors_plan()
+        plan["events.collect_resources"] = False
+        plan["events.collect_treasury"] = True
+        self.assertEqual(planner_ui.engine_preflight(plan), [])
+
     def test_native_route_is_terminal_and_has_no_matchmaking_or_battle_calls(self):
         execution = source("COCBot/functions/Run/RunExecution.au3")
         route = autoit_function(execution, "HomeMaintenanceRouteExecute")
         self.assertIn("LootCartRouteRunAdapter", route)
+        self.assertIn("TreasuryRouteRunAdapter", route)
         self.assertLess(route.index("LootCartRouteRunAdapter"), route.index("Collect(False, True)"))
+        self.assertLess(route.index("TreasuryRouteRunAdapter"), route.index("Collect(False, True)"))
         self.assertIn("Collect(False, True)", route)
         self.assertIn("$iCollectorClicks = @extended", route)
         self.assertIn("RunEventLogMaintenanceHomeVerified($iCollectorClicks", route)
@@ -203,6 +213,12 @@ class HomeMaintenanceRouteTest(unittest.TestCase):
         self.assertIn("maintenance.loot-cart.unavailable", event_types)
         self.assertIn("maintenance.loot-cart.unconfirmed", event_types)
         self.assertIn("maintenance.loot-cart.home-verified", event_types)
+        self.assertIn("maintenance.treasury.started", event_types)
+        self.assertIn("maintenance.treasury.collect-issued", event_types)
+        self.assertIn("maintenance.treasury.confirm-issued", event_types)
+        self.assertIn("maintenance.treasury.unavailable", event_types)
+        self.assertIn("maintenance.treasury.unconfirmed", event_types)
+        self.assertIn("maintenance.treasury.home-verified", event_types)
 
         event_log = source("COCBot/functions/Run/RunEventLog.au3")
         completed = autoit_function(event_log, "RunEventLogMaintenanceCollectorsCompleted")
@@ -215,6 +231,7 @@ class HomeMaintenanceRouteTest(unittest.TestCase):
         presets = json.loads(source("config/ui/run-planner.presets.json"))
         self.assertFalse(presets["common_values"]["events.collect_resources"])
         self.assertFalse(presets["common_values"]["events.collect_loot_cart"])
+        self.assertFalse(presets["common_values"]["events.collect_treasury"])
 
 
 if __name__ == "__main__":
