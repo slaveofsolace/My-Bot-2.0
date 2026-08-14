@@ -102,7 +102,7 @@
     },
     {
       "id": "army.training.ready",
-      "status": "missing",
+      "status": "redacted",
       "purpose": "Current-client troop, spell, siege, and capacity readiness surfaces",
       "capability_ids": [
         "army.training"
