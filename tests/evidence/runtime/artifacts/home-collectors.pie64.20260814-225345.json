@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "artifact_id": "home-collectors.pie64.20260814-225345",
+  "captured_at": "2026-08-14T22:53:56Z",
+  "commit_sha": "6b038ea4e5646cf2a5f53f71c0cf28815e207e8e",
+  "redacted": true,
+  "scope": "One exact collectors-only Home Village pass in the reviewed installed LocalRuntime. Battles, search, training, donations, upgrades, account switching, premium-currency actions, Daily Reward, Loot Cart, and Treasury were disabled.",
+  "environment": {
+    "os": "Windows 11 Home",
+    "os_version": "10.0.26200",
+    "autoit_version": "3.3.16.1",
+    "emulator": "BlueStacks5",
+    "emulator_version": "5.22.252.1008",
+    "instance_index": 0,
+    "instance_name": "Pie64",
+    "game_version": "18.400.9"
+  },
+  "reviewed_install": {
+    "version": "2.0.0",
+    "architecture": "x86",
+    "source_commit": "e0bdd7dd778f2d7c2abe4f9db49018906e5a94b7",
+    "binary_commit": "6b038ea4e5646cf2a5f53f71c0cf28815e207e8e",
+    "release_manifest_sha256": "559202d8d09a6023be1faf6190fb8828f4546f2edea0a74d2e36c53810c78267",
+    "package_sha256": "6a2402d22a5921d51f348415762345f02247132c00d186f6a3528304160ad2ad",
+    "package_bytes": 32261330,
+    "manifest_records": 2582
+  },
+  "binary": {
+    "path": "MyBot.run.exe",
+    "sha256": "704e6596e6c59ee8178b2d3f8e28b052593484d9020147f8046a2c7409c62e77",
+    "bytes": 3333120
+  },
+  "plan": {
+    "strategy": "home.collectors",
+    "diagnostic_mode": true,
+    "exact_emulator_instance": true,
+    "collect_resources": true,
+    "daily_reward": false,
+    "loot_cart": false,
+    "treasury": false,
+    "max_battles": 0,
+    "training": false,
+    "donations": false,
+    "upgrades": false,
+    "account_queue": false,
+    "gem_actions_authorized": false
+  },
+  "recognition": {
+    "initial_screen": "home-village",
+    "home_signature_confirmed": true,
+    "strict_bubble_types_before": ["gold", "elixir", "dark-elixir"],
+    "accepted_clicks": 3,
+    "fresh_home_proof_before_every_click": true,
+    "home_reproved_after_final_click": true,
+    "raw_frames_retained": false,
+    "raw_frames_nonclaim": "Transient frames contained player and clan identifiers and were inspected in memory only. This artifact is redacted operational evidence, not a reusable fixture."
+  },
+  "resource_observation": {
+    "before": {"gold": 13553292, "elixir": 15340499, "dark_elixir": 166596, "gems": 3092},
+    "after": {"gold": 14249043, "elixir": 16036250, "dark_elixir": 174486, "gems": 3092},
+    "delta": {"gold": 695751, "elixir": 695751, "dark_elixir": 7890, "gems": 0},
+    "gems_unchanged": true
+  },
+  "completed_run": {
+    "start_http_status": 202,
+    "duration_ms": 11222,
+    "final_state": "idle",
+    "run_state": false,
+    "plan_active": false,
+    "last_outcome": "completed",
+    "engine_probe_state": "not-run",
+    "collector_clicks": 3,
+    "event_types": [
+      "session.preparing",
+      "session.started",
+      "maintenance.collectors.started",
+      "maintenance.home-verified",
+      "maintenance.collectors.completed",
+      "session.stopping",
+      "session.completed"
+    ]
+  },
+  "preservation": {
+    "external_profile_sha256": "157fed76c5fedf2dd18f2e6cdb1bd562b0396faa300a6630a68da825319abc0e",
+    "installed_english_sha256": "360f8055f331e09803ddd278411db71a6e4a7f77d57ca7080b672cd07659a0ad",
+    "emulator_identity_preserved": true,
+    "adb_server_identity_preserved": true
+  },
+  "forbidden_activity": {
+    "battle_events": 0,
+    "search_events": 0,
+    "training_events": 0,
+    "donation_events": 0,
+    "upgrade_events": 0,
+    "account_events": 0,
+    "gem_or_purchase_events": 0,
+    "gem_balance_changed": false
+  },
+  "assertions": {
+    "collectors_recognized": true,
+    "storage_state_confirmed": true,
+    "collectors_collected": true,
+    "home_restored": true,
+    "no_gem_action": true,
+    "configuration_preserved": true
+  },
+  "privacy": "Only allowlisted operational state, resource totals, durations, and integrity digests are retained. Raw frames, player and clan names, account and profile identifiers, request identifiers, process identifiers, creation timestamps, filesystem paths, machine identifiers, chat, payment information, and launch tokens are omitted."
+}
