@@ -147,28 +147,32 @@ army to match.
 |---|---|
 | Run engine — plan, intent, session, quota, loadout, events | Written, contract-tested |
 | Run Planner tab | Written, renders from generated metadata |
-| My Bot 2.0 launcher and local Control Center | The 2026-08-13 e05c415a LocalRuntime checkpoint installed and launched twice in a connected-but-idle state; current HEAD is post-checkpoint and unbuilt |
+| My Bot 2.0 launcher and local Control Center | The 2026-08-14 bea12973 LocalRuntime checkpoint installed, launched from its Windows shortcut, stayed connected and idle, and preserved all 2,578 manifest files |
+| Managed-engine initialization | Exact-current bea12973 passed the supervised no-input engine check after a fresh reboot, finalized its ownership receipt, and returned the same backend to idle without launching BlueStacks or ADB |
 | Windows compile — Au3Check, both AutoIt versions | Green |
 | Game model through July 2026 | Catalogued from official sources |
 | LDPlayer 9 and MuMu Player 12 adapters | Written, **never run on real hardware** |
 | Screen recognition for the current client | Historical TH17 observations exist; all required current-client fixtures remain missing for the current source revision |
-| Managed Start and attack execution | Unproved for both the 2026-08-13 e05c415a LocalRuntime checkpoint and the post-checkpoint, unbuilt current HEAD; older binaries completed bounded Standard and Smart TH17 observations only |
+| Managed Start and attack execution | Still unproved for bea12973 and the post-checkpoint, unbuilt current HEAD; the successful engine check intentionally returned before plan preparation, emulator attachment, or gameplay, while older binaries completed bounded Standard and Smart TH17 observations only |
 
-**The honest summary:** the 2026-08-13 e05c415a LocalRuntime checkpoint contains six reviewed x86 AutoIt
-targets and a 2,578-file integrity manifest. It installed successfully and completed two clean idle
-launches against the existing BlueStacks/Pie64 chain. Those launches remained connected-but-idle,
-the engine probe stayed `not-run`, and no managed Start or gameplay action occurred. They prove the
-package, installer, launcher chain, and idle host integrity—not farming, donation, request, upgrade,
-training, battle, or other account behavior.
+**The honest summary:** the 2026-08-14 bea12973 LocalRuntime checkpoint contains six reviewed x86 AutoIt
+targets and a 2,578-file integrity manifest. It installed successfully, launched from the searchable
+Windows shortcut, and stayed connected and idle without changing any manifest file. After a fresh
+reboot the same reviewed backend completed its supervised no-input managed-engine initialization,
+emitted the exact started/passed diagnostic events, finalized its launcher receipt, and returned to
+idle. BlueStacks was deliberately not launched. This proves the package, installer, launcher chain,
+idle host integrity, and managed-engine initialization—not farming, donation, request, upgrade,
+training, battle, emulator attachment, recognition, or other account behavior.
 
-Current HEAD now contains post-checkpoint source changes and has not been rebuilt. The historical ZIP
-therefore does not contain or verify current HEAD; a new compile and LocalRuntime package are required
-before any binary claim can be made for this revision.
+Current HEAD now contains post-checkpoint evidence-validation and documentation changes and has not
+been repackaged. The bea12973 ZIP remains the authoritative runtime checkpoint and binary ancestor,
+but it does not contain those later repository-only changes. A final package is still required before
+shipping current HEAD.
 
 Older reviewed binaries produced bounded TH17 observations for zoom,
 red-line geometry, troop and Hero deployment, battle accounting, Return Home, automatic stop, and
 part of the Smart spell policy. Those receipts are useful regression references, but they verify
-neither the historical checkpoint's managed Start/gameplay nor the post-checkpoint source revision,
+neither bea12973's managed Start/gameplay nor the post-checkpoint source revision,
 every required current-client fixture, or an improvement in strategy quality. Other Town Halls,
 armies, surfaces, and most gameplay scopes remain unverified; package integrity and CI do not
 substitute for those runs.

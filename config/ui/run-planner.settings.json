@@ -978,10 +978,10 @@
               "value": "regular",
               "label": "Regular Battles",
               "summary": "Unlimited attacks, no Trophy risk.",
-              "description": "Ordinary matchmaking. Attacks are unlimited and Trophies are not at stake, which makes this the surface to use while you are still confirming that a build behaves the way you expect. A bounded source adapter and an older-binary supervised gameplay receipt exist. The 2026-08-13 e05c415a LocalRuntime checkpoint passed install and idle-launch checks. This source revision is post-checkpoint and unbuilt; the checkpoint's managed Start path and gameplay were not exercised, and current-client fixtures and live human review are still absent.",
+              "description": "Ordinary matchmaking. Attacks are unlimited and Trophies are not at stake, which makes this the surface to use while you are still confirming that a build behaves the way you expect. A bounded source adapter and an older-binary supervised gameplay receipt exist. The 2026-08-14 bea12973 LocalRuntime checkpoint passed package installation, Windows shortcut launch, idle host integrity, and exact-current no-input managed-engine initialization. This source revision is post-checkpoint and unbuilt; managed Start and gameplay were not exercised, and current-client fixtures and live human review are still absent.",
               "availability": "gated",
               "runtime_verified": false,
-              "disabled_reason": "The 2026-08-13 e05c415a LocalRuntime checkpoint passed idle launch only. This post-checkpoint source revision is unbuilt; managed Start, gameplay, current-client fixtures, and live human review are still unproved.",
+              "disabled_reason": "The 2026-08-14 bea12973 LocalRuntime checkpoint passed no-input managed-engine initialization, but not managed Start or gameplay. This post-checkpoint source revision is unbuilt; current-client fixtures and live human review are still absent.",
               "capability_ids": [
                 "battle.regular-ranked-split"
               ],
@@ -1126,33 +1126,33 @@
               "value": "legacy.standard",
               "label": "Standard deployment",
               "summary": "The built-in side and line deployment routine.",
-              "description": "An older-binary supervised run confirmed Standard could issue the trained-army and selected-Hero deployment, observe an empty troop bar, and return home. That single completion confirms the route and actuator, not strategy quality; it did not exercise planned ability or spell actions. The 2026-08-13 e05c415a LocalRuntime checkpoint has install and idle-launch evidence only. This source revision is post-checkpoint and unbuilt; neither proves managed Start or current-client gameplay.",
+              "description": "An older-binary supervised run confirmed Standard could issue the trained-army and selected-Hero deployment, observe an empty troop bar, and return home. That single completion confirms the route and actuator, not strategy quality; it did not exercise planned ability or spell actions. The 2026-08-14 bea12973 LocalRuntime checkpoint passed install, idle launch, and exact-current no-input managed-engine initialization. This source revision is post-checkpoint and unbuilt; neither the checkpoint nor current source proves managed Start or current-client gameplay.",
               "availability": "gated",
               "runtime_verified": false,
-              "disabled_reason": "The 2026-08-13 e05c415a LocalRuntime checkpoint passed idle launch only. This post-checkpoint source revision is unbuilt; managed Start, gameplay, current-client fixtures, and live human review remain unproved.",
+              "disabled_reason": "The 2026-08-14 bea12973 LocalRuntime checkpoint passed no-input managed-engine initialization, but not managed Start or gameplay. This post-checkpoint source revision is unbuilt; current-client fixtures and live human review remain absent.",
               "capability_ids": [],
               "prerequisites": [
                 "A ready trained army",
                 "A supervised diagnostic operator"
               ],
               "recommended": false,
-              "warning": "The historical gameplay receipt proves an older build only; the 2026-08-13 e05c415a LocalRuntime checkpoint proves only install and idle launch."
+              "warning": "The historical gameplay receipt proves an older build only; the bea12973 checkpoint proves the current managed engine can initialize without emulator or game input."
             },
             {
               "value": "smart.local",
               "label": "Smart Attack (research-guided)",
               "summary": "Concentrates the current army using a Town Hall-aware local policy.",
-              "description": "The deterministic Town Hall policy is versioned in config/game/smart-attack-strategies.json and executed locally. One older-binary bounded supervised TH17 run observed three zoom gestures, 240 red-line points, deterministic BL-side selection, 23-to-zero troop deployment, four selected Hero phase commands, Rage 3-to-zero, one Freeze decrement, and an automatic one-battle stop. The 2026-08-13 e05c415a LocalRuntime checkpoint has install and idle-launch evidence only. This source revision is post-checkpoint and unbuilt; neither verifies managed Start, current-client gameplay, fixtures, live human review, strategy quality, or every Town Hall and army.",
+              "description": "The deterministic Town Hall policy is versioned in config/game/smart-attack-strategies.json and executed locally. One older-binary bounded supervised TH17 run observed three zoom gestures, 240 red-line points, deterministic BL-side selection, 23-to-zero troop deployment, four selected Hero phase commands, Rage 3-to-zero, one Freeze decrement, and an automatic one-battle stop. The 2026-08-14 bea12973 LocalRuntime checkpoint passed install, idle launch, and exact-current no-input managed-engine initialization. This source revision is post-checkpoint and unbuilt; neither the checkpoint nor current source verifies managed Start, current-client gameplay, fixtures, live human review, strategy quality, or every Town Hall and army.",
               "availability": "gated",
               "runtime_verified": false,
-              "disabled_reason": "The 2026-08-13 e05c415a LocalRuntime checkpoint passed idle launch only. This post-checkpoint source revision is unbuilt; managed Start, gameplay, current-client fixtures, and live human review remain unproved.",
+              "disabled_reason": "The 2026-08-14 bea12973 LocalRuntime checkpoint passed no-input managed-engine initialization, but not managed Start or gameplay. This post-checkpoint source revision is unbuilt; current-client fixtures and live human review remain absent.",
               "capability_ids": [],
               "prerequisites": [
                 "A ready trained army",
                 "A supervised diagnostic operator"
               ],
               "recommended": false,
-              "warning": "Historical TH17 mechanics evidence exists, but the 2026-08-13 e05c415a LocalRuntime checkpoint has only install and idle-launch evidence."
+              "warning": "Historical TH17 mechanics evidence exists; bea12973 adds exact-current no-input managed-engine initialization, not gameplay proof."
             },
             {
               "value": "home.collectors",
@@ -1800,10 +1800,10 @@
               "value": "bluestacks5",
               "label": "BlueStacks 5",
               "summary": "The inherited BlueStacks 5 backend.",
-              "description": "An older binary was exercised on BlueStacks 5.22.252.1008/Pie64 through exact window binding, ADB readiness, current-client game readiness, and bounded Start/Stop smoke tests. The 2026-08-13 e05c415a LocalRuntime checkpoint was then installed and launched twice against the existing BlueStacks/Pie64 chain in a connected-but-idle state. Its engine probe remained not-run, and no managed Start or gameplay was exercised. This source revision is post-checkpoint and unbuilt.",
+              "description": "An older binary was exercised on BlueStacks 5.22.252.1008/Pie64 through exact window binding, ADB readiness, current-client game readiness, and bounded Start/Stop smoke tests. The 2026-08-14 bea12973 LocalRuntime checkpoint was installed, launched through its Windows shortcut, and kept connected-but-idle. After a fresh reboot its exact backend passed the no-input managed-engine check while BlueStacks remained not launched. No managed Start, emulator attachment, or gameplay was exercised. This source revision is post-checkpoint and unbuilt.",
               "availability": "gated",
               "runtime_verified": false,
-              "disabled_reason": "The 2026-08-13 e05c415a LocalRuntime checkpoint passed connected idle launch only. This post-checkpoint source revision is unbuilt; managed Start, gameplay, current-client capture/input fixtures, and live human review remain unproved.",
+              "disabled_reason": "The 2026-08-14 bea12973 LocalRuntime checkpoint passed connected idle launch and no-input managed-engine initialization, but did not attach BlueStacks or run gameplay. This post-checkpoint source revision is unbuilt; capture/input fixtures and live human review remain absent.",
               "capability_ids": [
                 "emulator.bluestacks5"
               ],
@@ -1813,7 +1813,7 @@
                 "A supervised diagnostic operator"
               ],
               "recommended": false,
-              "warning": "Treat BlueStacks gameplay as unverified; the 2026-08-13 e05c415a LocalRuntime checkpoint has only connected idle-launch evidence."
+              "warning": "Treat BlueStacks gameplay as unverified; bea12973 proves engine initialization only, with BlueStacks deliberately not launched."
             },
             {
               "value": "memu",

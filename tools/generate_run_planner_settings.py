@@ -113,10 +113,11 @@ def build_surface_options(surfaces: dict) -> list[dict]:
         regular = sid == "regular"
         if regular:
             prose += (
-                " A bounded source adapter and an older-binary supervised gameplay receipt exist. The 2026-08-13 "
-                "e05c415a LocalRuntime checkpoint passed install and idle-launch checks. This source revision is "
-                "post-checkpoint and unbuilt; the checkpoint's managed Start path and gameplay were not exercised, "
-                "and current-client fixtures and live human review are still absent."
+                " A bounded source adapter and an older-binary supervised gameplay receipt exist. The 2026-08-14 "
+                "bea12973 LocalRuntime checkpoint passed package installation, Windows shortcut launch, idle host "
+                "integrity, and exact-current no-input managed-engine initialization. This source revision is "
+                "post-checkpoint and unbuilt; managed Start and gameplay were not exercised, and current-client "
+                "fixtures and live human review are still absent."
             )
             prerequisites = prerequisites + ["Allow unverified with a supervised diagnostic acknowledgement"]
         options.append(option(
@@ -126,9 +127,9 @@ def build_surface_options(surfaces: dict) -> list[dict]:
             description=prose,
             availability="gated" if regular else "planned",
             disabled_reason=(
-                "The 2026-08-13 e05c415a LocalRuntime checkpoint passed idle launch only. This post-checkpoint "
-                "source revision is unbuilt; managed Start, gameplay, current-client fixtures, and live human "
-                "review are still unproved."
+                "The 2026-08-14 bea12973 LocalRuntime checkpoint passed no-input managed-engine initialization, "
+                "but not managed Start or gameplay. This post-checkpoint source revision is unbuilt; current-client "
+                "fixtures and live human review are still absent."
             ) if regular else (
                 "The native execution contract has no adapter for this battle surface; selecting it cannot start a run."
             ),
@@ -312,25 +313,27 @@ def main() -> int:
                                    "An older-binary supervised run confirmed Standard could issue the trained-army and selected-"
                                    "Hero deployment, observe an empty troop bar, and return home. That single "
                                    "completion confirms the route and actuator, not strategy quality; it did not "
-                                   "exercise planned ability or spell actions. The 2026-08-13 e05c415a LocalRuntime "
-                                   "checkpoint has install and idle-launch evidence only. This source revision is "
-                                   "post-checkpoint and unbuilt; neither proves managed Start or current-client gameplay.",
+                                   "exercise planned ability or spell actions. The 2026-08-14 bea12973 LocalRuntime "
+                                   "checkpoint passed install, idle launch, and exact-current no-input managed-engine "
+                                   "initialization. This source revision is post-checkpoint and unbuilt; neither the "
+                                   "checkpoint nor current source proves managed Start or current-client gameplay.",
                                    "gated", [], ["A ready trained army", "A supervised diagnostic operator"],
-                                   disabled_reason="The 2026-08-13 e05c415a LocalRuntime checkpoint passed idle launch only. This post-checkpoint source revision is unbuilt; managed Start, gameplay, current-client fixtures, and live human review remain unproved.",
-                                   warning="The historical gameplay receipt proves an older build only; the 2026-08-13 e05c415a LocalRuntime checkpoint proves only install and idle launch."),
+                                   disabled_reason="The 2026-08-14 bea12973 LocalRuntime checkpoint passed no-input managed-engine initialization, but not managed Start or gameplay. This post-checkpoint source revision is unbuilt; current-client fixtures and live human review remain absent.",
+                                   warning="The historical gameplay receipt proves an older build only; the bea12973 checkpoint proves the current managed engine can initialize without emulator or game input."),
                             option("smart.local", "Smart Attack (research-guided)",
                                    "Concentrates the current army using a Town Hall-aware local policy.",
                                    "The deterministic Town Hall policy is versioned in config/game/smart-attack-"
                                    "strategies.json and executed locally. One older-binary bounded supervised TH17 run observed "
                                    "three zoom gestures, 240 red-line points, deterministic BL-side selection, "
                                    "23-to-zero troop deployment, four selected Hero phase commands, Rage 3-to-zero, "
-                                   "one Freeze decrement, and an automatic one-battle stop. The 2026-08-13 e05c415a "
-                                   "LocalRuntime checkpoint has install and idle-launch evidence only. This source "
-                                   "revision is post-checkpoint and unbuilt; neither verifies managed Start, current-"
+                                   "one Freeze decrement, and an automatic one-battle stop. The 2026-08-14 bea12973 "
+                                   "LocalRuntime checkpoint passed install, idle launch, and exact-current no-input "
+                                   "managed-engine initialization. This source revision is post-checkpoint and unbuilt; "
+                                   "neither the checkpoint nor current source verifies managed Start, current-"
                                    "client gameplay, fixtures, live human review, strategy quality, or every Town Hall and army.",
                                    "gated", [], ["A ready trained army", "A supervised diagnostic operator"],
-                                   disabled_reason="The 2026-08-13 e05c415a LocalRuntime checkpoint passed idle launch only. This post-checkpoint source revision is unbuilt; managed Start, gameplay, current-client fixtures, and live human review remain unproved.",
-                                    warning="Historical TH17 mechanics evidence exists, but the 2026-08-13 e05c415a LocalRuntime checkpoint has only install and idle-launch evidence."),
+                                   disabled_reason="The 2026-08-14 bea12973 LocalRuntime checkpoint passed no-input managed-engine initialization, but not managed Start or gameplay. This post-checkpoint source revision is unbuilt; current-client fixtures and live human review remain absent.",
+                                    warning="Historical TH17 mechanics evidence exists; bea12973 adds exact-current no-input managed-engine initialization, not gameplay proof."),
                              option("home.collectors", "Home maintenance - collectors only",
                                     "Empty Home Village mines and collectors once, without matchmaking.",
                                     "Runs one bounded collector pass, re-proves the Home Village screen, then stops. "
@@ -458,13 +461,14 @@ def main() -> int:
                                    "The inherited BlueStacks 5 backend.",
                                    "An older binary was exercised on BlueStacks 5.22.252.1008/Pie64 through exact window binding, ADB "
                                    "readiness, current-client game readiness, and bounded Start/Stop smoke tests. "
-                                   "The 2026-08-13 e05c415a LocalRuntime checkpoint was then installed and launched "
-                                   "twice against the existing BlueStacks/Pie64 chain in a connected-but-idle state. "
-                                   "Its engine probe remained not-run, and no managed Start or gameplay was exercised. "
-                                   "This source revision is post-checkpoint and unbuilt.",
+                                   "The 2026-08-14 bea12973 LocalRuntime checkpoint was installed, launched through "
+                                   "its Windows shortcut, and kept connected-but-idle. After a fresh reboot its exact "
+                                   "backend passed the no-input managed-engine check while BlueStacks remained not "
+                                   "launched. No managed Start, emulator attachment, or gameplay was exercised. This "
+                                   "source revision is post-checkpoint and unbuilt.",
                                    "gated", ["emulator.bluestacks5"], ["BlueStacks 5 installed", "Exact instance selected", "A supervised diagnostic operator"],
-                                   disabled_reason="The 2026-08-13 e05c415a LocalRuntime checkpoint passed connected idle launch only. This post-checkpoint source revision is unbuilt; managed Start, gameplay, current-client capture/input fixtures, and live human review remain unproved.",
-                                   warning="Treat BlueStacks gameplay as unverified; the 2026-08-13 e05c415a LocalRuntime checkpoint has only connected idle-launch evidence."),
+                                   disabled_reason="The 2026-08-14 bea12973 LocalRuntime checkpoint passed connected idle launch and no-input managed-engine initialization, but did not attach BlueStacks or run gameplay. This post-checkpoint source revision is unbuilt; capture/input fixtures and live human review remain absent.",
+                                   warning="Treat BlueStacks gameplay as unverified; bea12973 proves engine initialization only, with BlueStacks deliberately not launched."),
                             option("memu", "MEmu",
                                    "Inherited exact-instance MEmu backend.",
                                    "Discovers MEmu VM instances, reads their ADB host and port from VM information, "
