@@ -8,6 +8,7 @@
 #include "RunIntent.au3"
 #include "HomeMaintenanceRoute.au3"
 #include "ClanRequestRoute.au3"
+#include "LootCartRoute.au3"
 
 ; Smart uses one concentrated deployment side. The actual BR/BL/TR/TL side is chosen after current-frame
 ; red-line extraction by SmartAttackPolicy; the legacy selector-5 DLL branch is not current-client proven.
@@ -91,7 +92,7 @@ Func RunExecutionContractValidate(ByRef $oIntent, ByRef $sError)
 		$sError = "Current-army mode cannot request troops before its terminal one-battle attempt"
 		Return SetError(5, 4, False)
 	EndIf
-	If $oPlan.Item("events_collect_resources") Or $oPlan.Item("events_collect_daily_reward") Then
+	If $oPlan.Item("events_collect_resources") Or $oPlan.Item("events_collect_daily_reward") Or $oPlan.Item("events_collect_loot_cart") Then
 		$sError = "Home collection work requires the explicit Home maintenance strategy"
 		Return SetError(5, 5, False)
 	EndIf
@@ -161,7 +162,7 @@ Func RunExecutionContractValidate(ByRef $oIntent, ByRef $sError)
 		$sError = "The Clan Games point cap is not wired yet; use 0"
 		Return SetError(12, 0, False)
 	EndIf
-	If $oPlan.Item("events_collect_resources") Or $oPlan.Item("events_collect_daily_reward") Then
+	If $oPlan.Item("events_collect_resources") Or $oPlan.Item("events_collect_daily_reward") Or $oPlan.Item("events_collect_loot_cart") Then
 		$sError = "Home collection work requires the explicit Home maintenance strategy"
 		Return SetError(12, 1, False)
 	EndIf

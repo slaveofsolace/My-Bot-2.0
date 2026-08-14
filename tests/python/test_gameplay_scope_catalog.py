@@ -15,6 +15,7 @@ class GameplayScopeCatalogTests(unittest.TestCase):
     def test_a_to_z_native_scopes_fail_closed_until_evidence_exists(self):
         expected = {
             "village.collectors": "COCBot/functions/Village/Collect.au3",
+            "village.loot-cart": "COCBot/functions/Run/LootCartRoute.au3",
             "events.daily-reward": "COCBot/functions/Main Screen/checkObstacles.au3",
             "village.donations": "COCBot/functions/Village/DonateCC.au3",
             "village.clan-request": "COCBot/functions/Run/ClanRequestRoute.au3",
@@ -35,11 +36,12 @@ class GameplayScopeCatalogTests(unittest.TestCase):
                 self.assertTrue((ROOT / implementation).is_file())
                 self.assertEqual(capability["runtime_evidence"], "required")
                 self.assertTrue(self.policies[capability_id]["required_tests"])
-                if capability_id not in {"runtime.recovery", "village.clan-request", "events.daily-reward"}:
+                if capability_id not in {"runtime.recovery", "village.clan-request", "village.loot-cart", "events.daily-reward"}:
                     self.assertEqual(capability["status"], "legacy-implemented")
                 if capability_id != "runtime.recovery":
                     self.assertEqual(capability["fixture_status"], "required")
         self.assertEqual(self.capabilities["village.clan-request"]["status"], "engine-added")
+        self.assertEqual(self.capabilities["village.loot-cart"]["status"], "engine-added")
         self.assertEqual(self.capabilities["events.daily-reward"]["status"], "engine-added")
 
     def test_memu_is_static_only_and_names_exact_runtime_gate(self):
@@ -90,6 +92,7 @@ class GameplayScopeCatalogTests(unittest.TestCase):
             "donate.request_when_short": "village.clan-request",
             "events.clan_games": "events.clan-games",
             "events.collect_resources": "village.collectors",
+            "events.collect_loot_cart": "village.loot-cart",
             "events.collect_daily_reward": "events.daily-reward",
         }
         for setting_id, capability_id in expected.items():

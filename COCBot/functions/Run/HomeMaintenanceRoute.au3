@@ -1,7 +1,7 @@
 ; #FUNCTION# ====================================================================================================================
 ; Name ..........: Home maintenance route
 ; Description ...: Executes one explicit, diagnostic Home collection pass without entering matchmaking or other village work.
-; Remarks .......: This adapter owns only the selected collector and startup Daily Reward tasks. Donations, training, upgrades,
+; Remarks .......: This adapter owns only selected collectors, Loot Cart, and startup Daily Reward tasks. Donations, training, upgrades,
 ;                  Laboratory, Clan Games, account rotation, Heroes, and battle search remain outside this route.
 ; ===============================================================================================================================
 #include-once
@@ -48,8 +48,9 @@ Func HomeMaintenanceRouteValidate(ByRef $oIntent, ByRef $sError)
 	EndIf
 
 	Local $oPlan = $oIntent.Item("plan")
-	If Not $oPlan.Item("events_collect_resources") And Not $oPlan.Item("events_collect_daily_reward") Then
-		$sError = "Home maintenance requires at least one selected task: collectors or startup Daily Reward"
+	If Not $oPlan.Item("events_collect_resources") And Not $oPlan.Item("events_collect_daily_reward") And _
+			Not $oPlan.Item("events_collect_loot_cart") Then
+		$sError = "Home maintenance requires at least one selected task: collectors, Loot Cart, or startup Daily Reward"
 		Return SetError(4, 0, False)
 	EndIf
 	If StringLower(StringStripWS(String($oPlan.Item("attack_script")), $STR_STRIPALL)) <> "profile-current" Then

@@ -336,12 +336,11 @@ def main() -> int:
                                     warning="Historical TH17 mechanics evidence exists; bea12973 adds exact-current no-input managed-engine initialization, not gameplay proof."),
                              option("home.collectors", "Home maintenance",
                                     "Run selected one-shot Home Village collection tasks without matchmaking.",
-                                    "Runs a bounded Home pass for collectors and, when explicitly enabled, the startup "
-                                    "Daily Reward. It re-proves Home and stops. It cannot search, attack, train, donate, "
-                                    "upgrade, enter the Laboratory, run Clan Games, rotate accounts, collect the Loot "
-                                    "Cart, or enter the Treasury.",
-                                    "gated", ["village.collectors", "events.daily-reward"], ["At least one Home task enabled", "A supervised diagnostic operator"],
-                                    disabled_reason="Current-client collector and Daily Reward handling still need supervised runtime receipts.",
+                                    "Runs a bounded Home pass for collectors, the Loot Cart, and, when explicitly enabled, "
+                                    "the startup Daily Reward. It re-proves Home and stops. It cannot search, attack, train, "
+                                    "donate, upgrade, enter the Laboratory, run Clan Games, rotate accounts, or enter the Treasury.",
+                                    "gated", ["village.collectors", "village.loot-cart", "events.daily-reward"], ["At least one Home task enabled", "A supervised diagnostic operator"],
+                                    disabled_reason="Current-client collector, Loot Cart, and Daily Reward handling still need supervised runtime receipts.",
                                     warning="Diagnostic only until supervised current-client Home maintenance receipts are recorded."),
                             option("home.clan-request", "Home maintenance - Clan request only",
                                    "Request Clan Castle reinforcements once, without donating or matchmaking.",
@@ -1131,6 +1130,26 @@ def main() -> int:
                         "prerequisites": ["Current startup Daily Reward recognition", "No-gems policy"],
                         "disabled_reason": "The bounded route needs one supervised current-client claim receipt.",
                         "warning": "This can claim a real account reward. It never converts a full reward into gems.",
+                    },
+                    {
+                        "id": "events.collect_loot_cart",
+                        "type": "boolean",
+                        "label": "Collect Loot Cart",
+                        "summary": "Open one recognized Loot Cart and press its exact Collect button once.",
+                        "description": (
+                            "Only Home maintenance may use this. It requires exactly one fresh cart match, permits one "
+                            "cart-open input and one exact Collect input, passively re-proves Home, and stops. It never "
+                            "opens chat, uses fallback coordinates, accepts a confirmation, or converts anything into gems."
+                        ),
+                        "default": False,
+                        "required": False,
+                        "engine_binding": "RunPlan.events_collect_loot_cart",
+                        "availability": "gated",
+                        "runtime_verified": False,
+                        "capability_ids": ["village.loot-cart"],
+                        "prerequisites": ["Current Loot Cart recognition", "Exact Collect-button recognition", "No-gems policy"],
+                        "disabled_reason": "The bounded route needs one supervised current-client Loot Cart receipt.",
+                        "warning": "This can transfer real Loot Cart resources. It never clicks confirmation or gem-conversion actions.",
                     },
                 ],
             },

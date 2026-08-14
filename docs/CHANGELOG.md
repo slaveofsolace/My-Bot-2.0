@@ -1,4 +1,5 @@
 * My Bot 2.0 v2.0.0 **
+* Added a separate bounded Loot Cart Home-maintenance option: one exact cart-open input and one exact Collect input at most, no chat, fallback coordinates, confirmation clicks, retries, or gem conversion; current-client recognition and completion remain unverified until the named fixture and supervised receipt exist.
 * Added an explicit, one-pass Home-maintenance Daily Reward option: it may issue one recognized Claim input, never accepts a gem-conversion dialog, reports issued/unavailable/unconfirmed outcomes separately, and keeps all other managed routes reward-closed.
 * Added the local Control Center and Run Planner.
 * Reworked the Control Center into Run, Strategy, Village, Evidence, and System workspaces with warm field-manual light/dark palettes, horizontal navigation, one-column plan editing, a collapsible receipt, and a compact current-client capability ledger.

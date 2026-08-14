@@ -590,7 +590,7 @@ def main() -> int:
     for required in (
         'If Not $oPlan.Item("army_wait_for_full") Then',
         '$oPlan.Item("donate_request_when_short")',
-        'If $oPlan.Item("events_collect_resources") Or $oPlan.Item("events_collect_daily_reward") Then',
+        'If $oPlan.Item("events_collect_resources") Or $oPlan.Item("events_collect_daily_reward") Or $oPlan.Item("events_collect_loot_cart") Then',
         'If $oPlan.Item("events_clan_games") Then',
         'Home collection work requires the explicit Home maintenance strategy',
         '$oPlan.Item("events_laboratory")',

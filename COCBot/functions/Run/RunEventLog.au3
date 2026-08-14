@@ -218,11 +218,11 @@ Func RunEventLogMaintenanceCollectorsStarted()
 			"Collectors-only Home Village pass started", $g_sRunEventSurfaceId, $g_sRunEventVerificationState)
 EndFunc   ;==>RunEventLogMaintenanceCollectorsStarted
 
-Func RunEventLogMaintenanceHomeVerified($iCollectorClicks, $sDailyRewardState = "disabled")
+Func RunEventLogMaintenanceHomeVerified($iCollectorClicks, $sDailyRewardState = "disabled", $sLootCartState = "disabled")
 	If Not $g_bRunEventSessionBound Then Return False
 	Return RunEventLogWrite("maintenance.home-verified", "info", _
 			"Home Village main screen re-proven; collector_clicks=" & Int($iCollectorClicks) & _
-			"; daily_reward=" & String($sDailyRewardState), _
+			"; daily_reward=" & String($sDailyRewardState) & "; loot_cart=" & String($sLootCartState), _
 			$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
 EndFunc   ;==>RunEventLogMaintenanceHomeVerified
 
@@ -253,6 +253,49 @@ Func RunEventLogMaintenanceDailyRewardUnconfirmed($bClickIssued, $sDetail)
 			"claim_issued=" & ($bClickIssued ? "true" : "false") & "; gem_conversion=false; " & String($sDetail), _
 			$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
 EndFunc   ;==>RunEventLogMaintenanceDailyRewardUnconfirmed
+
+Func RunEventLogMaintenanceLootCartStarted()
+	If Not $g_bRunEventSessionBound Then Return False
+	Return RunEventLogWrite("maintenance.loot-cart.started", "info", _
+			"Bounded Loot Cart recognition started; max_cart_inputs=1; max_collect_inputs=1; confirmation_inputs=0; gem_conversion=false", _
+			$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogMaintenanceLootCartStarted
+
+Func RunEventLogMaintenanceLootCartOpenIssued($iAttempts)
+	If Not $g_bRunEventSessionBound Or Int($iAttempts) <> 1 Then Return False
+	Return RunEventLogWrite("maintenance.loot-cart.open-issued", "info", _
+			"One exact Loot Cart open input was issued; cart_attempts=1", _
+			$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogMaintenanceLootCartOpenIssued
+
+Func RunEventLogMaintenanceLootCartCollectIssued($iAttempts)
+	If Not $g_bRunEventSessionBound Or Int($iAttempts) <> 1 Then Return False
+	Return RunEventLogWrite("maintenance.loot-cart.collect-issued", "info", _
+			"One exact Loot Cart Collect input was issued; collect_attempts=1; confirmation_inputs=0; gem_conversion=false", _
+			$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogMaintenanceLootCartCollectIssued
+
+Func RunEventLogMaintenanceLootCartUnavailable($sState)
+	If Not $g_bRunEventSessionBound Then Return False
+	Return RunEventLogWrite("maintenance.loot-cart.unavailable", "warning", _
+			"No Loot Cart input was issued; state=" & String($sState), _
+			$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogMaintenanceLootCartUnavailable
+
+Func RunEventLogMaintenanceLootCartUnconfirmed($bCartIssued, $bCollectIssued, $sDetail)
+	If Not $g_bRunEventSessionBound Then Return False
+	Return RunEventLogWrite("maintenance.loot-cart.unconfirmed", "error", _
+			"cart_issued=" & ($bCartIssued ? "true" : "false") & "; collect_issued=" & _
+			($bCollectIssued ? "true" : "false") & "; confirmation_inputs=0; gem_conversion=false; " & String($sDetail), _
+			$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogMaintenanceLootCartUnconfirmed
+
+Func RunEventLogMaintenanceLootCartHomeVerified($sOutcome)
+	If Not $g_bRunEventSessionBound Then Return False
+	Return RunEventLogWrite("maintenance.loot-cart.home-verified", "info", _
+			"Home Village passively re-proven after Loot Cart outcome=" & String($sOutcome), _
+			$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogMaintenanceLootCartHomeVerified
 
 Func RunEventLogMaintenanceCollectorsCompleted($iCollectorClicks)
 	If Not $g_bRunEventSessionBound Then Return False

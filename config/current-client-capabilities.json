@@ -186,6 +186,12 @@
           {"test_type": "end-to-end", "required_checks": ["collectors.collected", "home.restored"]}
         ]
       },
+      "village.loot-cart": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["loot-cart.recognized", "collect-button.confirmed"]},
+          {"test_type": "end-to-end", "required_checks": ["loot-cart.collect-issued", "home.restored", "gems.untouched"]}
+        ]
+      },
       "events.daily-reward": {
         "required_tests": [
           {"test_type": "game-surface-recognition", "required_checks": ["daily-reward.recognized", "claim-state.confirmed"]},
@@ -273,6 +279,7 @@
     {"id":"model.current-game","introduced":"2026-08-06","status":"engine-added","implementation":"COCBot/functions/Game/GameCatalog.au3","schema":"config/game/current-client.schema.json","fixture_status":"required","runtime_evidence":"required"},
     {"id":"model.screen-state-registry","introduced":"2026-08-06","status":"engine-added","implementation":"COCBot/functions/Game/ScreenStateRegistry.au3","schema":"config/game/screen-states.schema.json","fixture_status":"required","runtime_evidence":"required"},
     {"id":"village.collectors","introduced":"2026-08-12","status":"legacy-implemented","implementation":"COCBot/functions/Village/Collect.au3","fixture_status":"required","runtime_evidence":"required"},
+    {"id":"village.loot-cart","introduced":"2026-08-14","status":"engine-added","implementation":"COCBot/functions/Run/LootCartRoute.au3","fixture_status":"required","runtime_evidence":"required"},
     {"id":"events.daily-reward","introduced":"2026-08-14","status":"engine-added","implementation":"COCBot/functions/Main Screen/checkObstacles.au3","fixture_status":"required","runtime_evidence":"required"},
     {"id":"village.donations","introduced":"2026-08-12","status":"legacy-implemented","implementation":"COCBot/functions/Village/DonateCC.au3","fixture_status":"required","runtime_evidence":"required"},
     {"id":"village.clan-request","introduced":"2026-08-12","status":"engine-added","implementation":"COCBot/functions/Run/ClanRequestRoute.au3","fixture_status":"required","runtime_evidence":"required"},

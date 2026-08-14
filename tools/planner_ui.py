@@ -379,8 +379,8 @@ def engine_preflight(plan: dict) -> list[str]:
     if home_maintenance:
         if not bool(plan.get("run.diagnostic_mode")):
             problems.append("run.diagnostic_mode: Home maintenance requires supervised diagnostic acknowledgement")
-        if not bool(plan.get("events.collect_resources")) and not bool(plan.get("events.collect_daily_reward")):
-            problems.append("events: Home maintenance requires collectors or startup Daily Reward")
+        if not bool(plan.get("events.collect_resources")) and not bool(plan.get("events.collect_daily_reward")) and not bool(plan.get("events.collect_loot_cart")):
+            problems.append("events: Home maintenance requires collectors, Loot Cart, or startup Daily Reward")
         if manages_training or bool(plan.get("army.wait_for_full")) or bool(plan.get("army.train_spells")) or bool(plan.get("army.train_sieges")):
             problems.append("army: Home maintenance requires training, army wait, spells, and sieges off")
         if plan.get("run.heroes"):
@@ -412,7 +412,7 @@ def engine_preflight(plan: dict) -> list[str]:
             problems.append("search/targets: Clan request cannot configure matchmaking or battle-loot targets")
         if str(plan.get("donate.mode", "")).strip().lower() != "off" or not bool(plan.get("donate.request_when_short")) or not bool(plan.get("donate.keep_army")) or int(plan.get("donate.max_per_run", 0)) != 0:
             problems.append("donate: Clan request requires Off, Request when available on, army preservation on, and donation limit 0")
-        if bool(plan.get("events.collect_resources")) or bool(plan.get("events.collect_daily_reward")) or bool(plan.get("events.clan_games")) or int(plan.get("events.clan_games_point_cap", 0)) != 0:
+        if bool(plan.get("events.collect_resources")) or bool(plan.get("events.collect_daily_reward")) or bool(plan.get("events.collect_loot_cart")) or bool(plan.get("events.clan_games")) or int(plan.get("events.clan_games_point_cap", 0)) != 0:
             problems.append("events: Clan request cannot collect resources, claim rewards, or enter Clan Games")
         if str(plan.get("events.laboratory", "")).strip().lower() != "off":
             problems.append("events.laboratory: Clan request requires Laboratory off")
@@ -422,7 +422,7 @@ def engine_preflight(plan: dict) -> list[str]:
             problems.append("account.queue: Clan request cannot rotate accounts")
         if int(plan.get("pacing.break_every_minutes", 0)) != 0:
             problems.append("pacing.break_every_minutes: Clan request requires scheduled breaks off")
-    elif bool(plan.get("events.collect_resources")) or bool(plan.get("events.collect_daily_reward")):
+    elif bool(plan.get("events.collect_resources")) or bool(plan.get("events.collect_daily_reward")) or bool(plan.get("events.collect_loot_cart")):
         problems.append("events: Home collection work requires the Home maintenance strategy")
     elif manages_training:
         problems.append(
@@ -438,7 +438,7 @@ def engine_preflight(plan: dict) -> list[str]:
             problems.append("donate.mode: donations must be off for the one-shot current army")
         if bool(plan.get("donate.request_when_short")):
             problems.append("donate.request_when_short: current-army mode cannot request troops")
-        if bool(plan.get("events.clan_games")) or bool(plan.get("events.collect_resources")) or bool(plan.get("events.collect_daily_reward")):
+        if bool(plan.get("events.clan_games")) or bool(plan.get("events.collect_resources")) or bool(plan.get("events.collect_daily_reward")) or bool(plan.get("events.collect_loot_cart")):
             problems.append("events: current-army mode cannot run Clan Games or Home collection work before battle")
         if str(plan.get("events.laboratory", "")).strip().lower() != "off":
             problems.append("events.laboratory: current-army mode requires Laboratory off")

@@ -50,6 +50,7 @@ Func RunPlanCreateDefault($sMode = "home", $sStrategy = "auto", $sAttackScript =
 	$oPlan.Add("events_laboratory", "off")
 	$oPlan.Add("events_collect_resources", False)
 	$oPlan.Add("events_collect_daily_reward", False)
+	$oPlan.Add("events_collect_loot_cart", False)
 	$oPlan.Add("notify_on_stop", False)
 	$oPlan.Add("notify_on_error", True)
 	$oPlan.Add("notify_channel", "log-only")
@@ -64,7 +65,7 @@ Func RunPlanValidate(ByRef $oPlan, ByRef $sError)
 
 	Local $aRequired = ["schema_version", "mode", "strategy", "attack_script", "planned_town_hall", "duration_minutes", "max_battles", "stop_on_star_bonus", "max_failures", "target_gold", "target_elixir", "target_dark_elixir", "upgrade_policy", "account_queue_id", _
 		"emulator", "emulator_instance", "army_source", "army_recipe_name", "army_manage_training", "army_wait_for_full", "army_train_spells", "army_train_sieges", "search_min_gold", "search_min_elixir", "search_min_dark", "search_max_seconds", "search_town_hall_filter", _
-		"donate_mode", "donate_keep_army", "donate_max_per_run", "donate_request_when_short", "events_clan_games", "events_clan_games_point_cap", "events_laboratory", "events_collect_resources", "events_collect_daily_reward", "notify_on_stop", "notify_on_error", "notify_channel"]
+		"donate_mode", "donate_keep_army", "donate_max_per_run", "donate_request_when_short", "events_clan_games", "events_clan_games_point_cap", "events_laboratory", "events_collect_resources", "events_collect_daily_reward", "events_collect_loot_cart", "notify_on_stop", "notify_on_error", "notify_channel"]
 	For $i = 0 To UBound($aRequired) - 1
 		If Not $oPlan.Exists($aRequired[$i]) Then
 			$sError = "Missing run plan field: " & $aRequired[$i]
@@ -106,7 +107,7 @@ Func RunPlanValidate(ByRef $oPlan, ByRef $sError)
 		EndIf
 	Next
 
-	Local $aBoolean = ["stop_on_star_bonus", "army_manage_training", "army_wait_for_full", "army_train_spells", "army_train_sieges", "donate_keep_army", "donate_request_when_short", "events_clan_games", "events_collect_resources", "events_collect_daily_reward", "notify_on_stop", "notify_on_error"]
+	Local $aBoolean = ["stop_on_star_bonus", "army_manage_training", "army_wait_for_full", "army_train_spells", "army_train_sieges", "donate_keep_army", "donate_request_when_short", "events_clan_games", "events_collect_resources", "events_collect_daily_reward", "events_collect_loot_cart", "notify_on_stop", "notify_on_error"]
 	For $i = 0 To UBound($aBoolean) - 1
 		If Not IsBool($oPlan.Item($aBoolean[$i])) Then
 			$sError = $aBoolean[$i] & " must be boolean"

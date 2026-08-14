@@ -149,6 +149,7 @@ army to match.
 | Run Planner tab | Written, renders from generated metadata |
 | My Bot 2.0 launcher and local Control Center | The 2026-08-14 bea12973 LocalRuntime checkpoint installed, launched from its Windows shortcut, stayed connected and idle, and preserved all 2,578 manifest files |
 | Managed-engine initialization | Exact-current bea12973 passed the supervised no-input engine check after a fresh reboot, finalized its ownership receipt, and returned the same backend to idle without launching BlueStacks or ADB |
+| Home collection routes | Resource collectors, Loot Cart, and startup Daily Reward have separate bounded diagnostic routes with issued-input receipts and no-gems boundaries; all still require current-client fixtures and supervised live proof |
 | Windows compile — Au3Check, both AutoIt versions | Green |
 | Game model through July 2026 | Catalogued from official sources |
 | LDPlayer 9 and MuMu Player 12 adapters | Written, **never run on real hardware** |

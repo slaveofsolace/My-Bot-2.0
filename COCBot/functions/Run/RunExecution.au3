@@ -173,8 +173,81 @@ Func RunExecutionSkipPendingNotifications()
 	Return $g_bRunExecutionPrepared And Not $g_bRunExecutionManageTraining
 EndFunc   ;==>RunExecutionSkipPendingNotifications
 
-Func _HomeMaintenanceRouteFail($sReason)
-	If RunControlStopRequested() Or Not $g_bRunState Then Return False
+Func _LootCartLiveStopRequested()
+	Return RunControlStopRequested() Or Not $g_bRunState
+EndFunc   ;==>_LootCartLiveStopRequested
+
+Func _LootCartLiveParseCart(ByRef $aMatches)
+	If Not IsArray($aMatches) Then Return LootCartObservationCreate($LOOT_CART_STATE_ABSENT)
+	If UBound($aMatches, 1) = 0 Then Return LootCartObservationCreate($LOOT_CART_STATE_ABSENT)
+	; Multiple matches are ambiguous and must not grant an input coordinate.
+	If UBound($aMatches, 1) <> 1 Then Return 0
+	Local $aResult = $aMatches[0]
+	If Not IsArray($aResult) Or UBound($aResult) < 2 Then Return 0
+	Local $aPoint = StringSplit(String($aResult[1]), ",", $STR_NOCOUNT)
+	If Not IsArray($aPoint) Or UBound($aPoint) <> 2 Then Return 0
+	Return LootCartObservationCreate($LOOT_CART_STATE_AVAILABLE, Int($aPoint[0]), Int($aPoint[1]))
+EndFunc   ;==>_LootCartLiveParseCart
+
+Func _LootCartLiveDetectCart()
+	If _LootCartLiveStopRequested() Then Return 0
+	If Not IsMainPage(1) Then Return 0
+	; Search only the union of the inherited default/custom-scenery cart regions. Widening this to the
+	; whole village creates scenery false positives; opening chat to expose the region is forbidden.
+	Local $sSearchArea = GetDiamondFromRect("0," & (180 + $g_iMidOffsetY) & ",150," & (320 + $g_iMidOffsetY))
+	; One fresh framebuffer and exactly one cart match are required. Two returned points are enough to
+	; prove ambiguity and fail closed without scanning an unbounded result set.
+	Local $aCart = findMultiple($g_sImgCollectLootCart, $sSearchArea, $sSearchArea, 0, 1000, 2, _
+			"objectname,objectpoints", True)
+	Return _LootCartLiveParseCart($aCart)
+EndFunc   ;==>_LootCartLiveDetectCart
+
+Func _LootCartLiveIssueCart($iX, $iY)
+	Local $bIssued = Click(Int($iX), Int($iY), 1, 120, "#LootCartOpen")
+	If $bIssued Then RunEventLogMaintenanceLootCartOpenIssued(1)
+	Return $bIssued
+EndFunc   ;==>_LootCartLiveIssueCart
+
+Func _LootCartLiveDetectCollect()
+	For $iAttempt = 1 To 6
+		If _LootCartLiveStopRequested() Then Return 0
+		; findButton receives True so a cached button can never authorize Collect.
+		Local $aCollect = findButton("CollectLootCart", Default, 1, True)
+		If IsArray($aCollect) And UBound($aCollect, 1) = 2 Then _
+			Return LootCartObservationCreate($LOOT_CART_STATE_COLLECT_READY, Int($aCollect[0]), Int($aCollect[1]))
+		If $iAttempt < 6 Then
+			If _Sleep(250, True, True, False) Then Return 0
+			If _LootCartLiveStopRequested() Then Return 0
+		EndIf
+	Next
+	Return LootCartObservationCreate($LOOT_CART_STATE_COLLECT_MISSING)
+EndFunc   ;==>_LootCartLiveDetectCollect
+
+Func _LootCartLiveIssueCollect($iX, $iY)
+	; LootCartRouteRunAdapter performs the immediate Stop poll and one-attempt latch.
+	; This callback is exactly one input command: no Okay, confirmation, gem conversion, retry, or fallback.
+	Local $bIssued = Click(Int($iX), Int($iY), 1, 120, "#LootCartCollect")
+	If $bIssued Then RunEventLogMaintenanceLootCartCollectIssued(1)
+	Return $bIssued
+EndFunc   ;==>_LootCartLiveIssueCollect
+
+Func _LootCartLiveProveHome()
+	; Observation-only: never close a window or issue cleanup input. A Stop authorizes no more capture.
+	For $iAttempt = 1 To 8
+		If _LootCartLiveStopRequested() Then Return False
+		ForceCaptureRegion()
+		_CaptureRegions()
+		If IsMainPage(1) Then Return True
+		If $iAttempt < 8 Then
+			If _Sleep(250, True, True, False) Then Return False
+			If _LootCartLiveStopRequested() Then Return False
+		EndIf
+	Next
+	Return False
+EndFunc   ;==>_LootCartLiveProveHome
+
+Func _HomeMaintenanceRouteFail($sReason, $bIrreversibleOutcome = False)
+	If (RunControlStopRequested() Or Not $g_bRunState) And Not $bIrreversibleOutcome Then Return False
 	Local $sFailure = "Home maintenance failed: " & $sReason
 	SetLog("Run Planner: " & $sFailure, $COLOR_ERROR)
 	RunEventLogRunFailed("regular", $RUN_VERIFICATION_DIAGNOSTIC, $sFailure)
@@ -193,8 +266,10 @@ Func HomeMaintenanceRouteExecute()
 	Local $oPlan = $g_oRunExecutionIntent.Item("plan")
 	Local $bCollectResources = $oPlan.Item("events_collect_resources")
 	Local $bCollectDailyReward = $oPlan.Item("events_collect_daily_reward")
+	Local $bCollectLootCart = $oPlan.Item("events_collect_loot_cart")
 	SetLog("Run Planner: starting one bounded Home Village maintenance pass", $COLOR_ACTION)
 	If $bCollectResources Then RunEventLogMaintenanceCollectorsStarted()
+	If $bCollectLootCart Then RunEventLogMaintenanceLootCartStarted()
 	If Not _RunExecutionRequireOwnVillageReady() Then Return False
 
 	If $bCollectDailyReward Then
@@ -212,6 +287,39 @@ Func HomeMaintenanceRouteExecute()
 		EndSwitch
 	EndIf
 
+	Local $sLootCartState = "disabled"
+	Local $bLootCartInputIssued = False
+	If $bCollectLootCart Then
+		Local $oLootCart = LootCartRouteRunAdapter("_LootCartLiveDetectCart", "_LootCartLiveIssueCart", _
+				"_LootCartLiveDetectCollect", "_LootCartLiveIssueCollect", "_LootCartLiveStopRequested", _
+				"_LootCartLiveProveHome")
+		If Not IsObj($oLootCart) Then Return _HomeMaintenanceRouteFail("the Loot Cart adapter returned no bounded outcome")
+		$sLootCartState = String($oLootCart.Item("state"))
+		$bLootCartInputIssued = $oLootCart.Item("cart_issued") Or $oLootCart.Item("collect_issued")
+		If $sLootCartState = $LOOT_CART_OUTCOME_CANCELLED Then Return False
+		If Not $oLootCart.Item("home_proven") Then
+			RunEventLogMaintenanceLootCartUnconfirmed($oLootCart.Item("cart_issued"), _
+					$oLootCart.Item("collect_issued"), $oLootCart.Item("detail") & "; Home Village was not re-proven")
+			Return _HomeMaintenanceRouteFail("Home Village could not be passively re-proven after the Loot Cart", _
+					$oLootCart.Item("collect_issued"))
+		EndIf
+		RunEventLogMaintenanceLootCartHomeVerified($sLootCartState)
+		Switch $sLootCartState
+			Case $LOOT_CART_OUTCOME_COLLECT_ISSUED
+				; The accepted Collect receipt was emitted by the input callback. Do not duplicate it.
+			Case $LOOT_CART_OUTCOME_UNAVAILABLE
+				RunEventLogMaintenanceLootCartUnavailable($oLootCart.Item("cart_state"))
+			Case $LOOT_CART_OUTCOME_UNCONFIRMED
+				RunEventLogMaintenanceLootCartUnconfirmed($oLootCart.Item("cart_issued"), _
+						$oLootCart.Item("collect_issued"), $oLootCart.Item("detail"))
+				Return _HomeMaintenanceRouteFail($oLootCart.Item("detail") & "; Loot Cart inputs will not be retried", _
+						$oLootCart.Item("collect_issued"))
+			Case Else
+				Return _HomeMaintenanceRouteFail("the Loot Cart adapter returned an unknown terminal state", _
+						$oLootCart.Item("collect_issued"))
+		EndSwitch
+	EndIf
+
 	Local $iCollectorClicks = 0
 	If $bCollectResources Then
 		; Home-maintenance collector mode suppresses Loot Cart and Treasury even if the legacy profile enables them.
@@ -225,7 +333,8 @@ Func HomeMaintenanceRouteExecute()
 	EndIf
 	If RunControlStopRequested() Or Not $g_bRunState Then Return False
 
-	RunEventLogMaintenanceHomeVerified($iCollectorClicks, $bCollectDailyReward ? $g_sRunExecutionDailyRewardState : "disabled")
+	RunEventLogMaintenanceHomeVerified($iCollectorClicks, $bCollectDailyReward ? $g_sRunExecutionDailyRewardState : "disabled", _
+			$sLootCartState)
 	If $bCollectResources Then
 		If $iCollectorClicks > 0 Then
 			RunEventLogMaintenanceCollectorsCompleted($iCollectorClicks)
@@ -233,13 +342,14 @@ Func HomeMaintenanceRouteExecute()
 			RunEventLogMaintenanceCollectorsNoneActionable()
 		EndIf
 	EndIf
-	Local $bAnyInput = $iCollectorClicks > 0 Or $g_bRunExecutionDailyRewardClickIssued
+	Local $bAnyInput = $iCollectorClicks > 0 Or $g_bRunExecutionDailyRewardClickIssued Or $bLootCartInputIssued
 	Local $sReason = $bAnyInput ? "home-maintenance-complete" : "home-maintenance-none-actionable"
 	If Not RunSessionRequestStop($g_oRunExecutionSession, $sReason) Then _
 		Return _HomeMaintenanceRouteFail("the run session refused its one-pass completion")
 	RunEventLogRunStopping("regular", $RUN_VERIFICATION_DIAGNOSTIC, $sReason)
 	$g_sRunExecutionMessage = "Completed Home maintenance; collector_clicks=" & $iCollectorClicks & _
-			"; daily_reward=" & ($bCollectDailyReward ? $g_sRunExecutionDailyRewardState : "disabled")
+			"; daily_reward=" & ($bCollectDailyReward ? $g_sRunExecutionDailyRewardState : "disabled") & _
+			"; loot_cart=" & $sLootCartState
 	btnStop()
 	Return True
 EndFunc   ;==>HomeMaintenanceRouteExecute

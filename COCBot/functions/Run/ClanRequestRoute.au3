@@ -78,7 +78,7 @@ Func ClanRequestRouteValidate(ByRef $oIntent, ByRef $sError)
 		$sError = "Clan request requires donate.mode Off, Request when available on, army preservation on, and donation limit 0"
 		Return SetError(8, 0, False)
 	EndIf
-	If $oPlan.Item("events_collect_resources") Or $oPlan.Item("events_collect_daily_reward") Or $oPlan.Item("events_clan_games") Or _
+	If $oPlan.Item("events_collect_resources") Or $oPlan.Item("events_collect_daily_reward") Or $oPlan.Item("events_collect_loot_cart") Or $oPlan.Item("events_clan_games") Or _
 			Int($oPlan.Item("events_clan_games_point_cap")) <> 0 Then
 		$sError = "Clan request cannot collect resources, claim rewards, or enter Clan Games"
 		Return SetError(9, 0, False)

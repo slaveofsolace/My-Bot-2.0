@@ -65,10 +65,17 @@ $oDailyOnlyPlan.Item("events_collect_resources") = False
 $oDailyOnlyPlan.Item("events_collect_daily_reward") = True
 AssertTrue(RunExecutionContractValidate($oDailyOnly, $sError), "Home maintenance accepts an explicit Daily Reward-only pass: " & $sError)
 
+Local $oLootOnly = CreateCollectorsIntent()
+Local $oLootOnlyPlan = $oLootOnly.Item("plan")
+$oLootOnlyPlan.Item("events_collect_resources") = False
+$oLootOnlyPlan.Item("events_collect_loot_cart") = True
+AssertTrue(RunExecutionContractValidate($oLootOnly, $sError), "Home maintenance accepts an explicit Loot Cart-only pass: " & $sError)
+
 Local $oNoMaintenance = CreateCollectorsIntent()
 Local $oNoMaintenancePlan = $oNoMaintenance.Item("plan")
 $oNoMaintenancePlan.Item("events_collect_resources") = False
 $oNoMaintenancePlan.Item("events_collect_daily_reward") = False
+$oNoMaintenancePlan.Item("events_collect_loot_cart") = False
 AssertTrue(Not RunExecutionContractValidate($oNoMaintenance, $sError), "Home maintenance rejects a pass with no selected work")
 
 Local $oBattleShaped = CreateCollectorsIntent()
@@ -94,6 +101,9 @@ AssertTrue(IsObj($oNoneActionableEvent), "zero-click collector outcome is explic
 Local $oDailyIssuedEvent = RunEventCreate("maintenance.daily-reward.claim-issued", 3, 1200, "home-fixture", "warning", _
 		"One Daily Reward Claim input was issued; claim_attempts=1", "profile-a", "regular", 0, 0, 0, 0, 0, $RUN_VERIFICATION_DIAGNOSTIC)
 AssertTrue(IsObj($oDailyIssuedEvent), "Daily Reward input is reported as issued rather than falsely confirmed")
+Local $oLootIssuedEvent = RunEventCreate("maintenance.loot-cart.collect-issued", 4, 1300, "home-fixture", "warning", _
+		"One Loot Cart Collect input was issued; collect_attempts=1", "profile-a", "regular", 0, 0, 0, 0, 0, $RUN_VERIFICATION_DIAGNOSTIC)
+AssertTrue(IsObj($oLootIssuedEvent), "Loot Cart input is reported as issued rather than falsely confirmed")
 
 ConsoleWrite("Home maintenance route tests passed: " & $g_iAssertions & " assertions" & @CRLF)
 Exit 0

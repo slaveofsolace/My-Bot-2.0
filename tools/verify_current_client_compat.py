@@ -207,6 +207,7 @@ def main() -> int:
         "village.town-hall-18",
         "heroes.six-slot-layout",
         "village.collectors",
+        "village.loot-cart",
         "events.daily-reward",
         "village.donations",
         "village.clan-request",

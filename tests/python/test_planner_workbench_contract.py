@@ -29,7 +29,11 @@ class PlannerWorkbenchContract(unittest.TestCase):
 
     def test_all_settings_survive_and_free_text_types_are_explicit(self):
         settings = {setting["id"]: setting for section in METADATA["sections"] for setting in section["settings"]}
-        self.assertEqual(len(settings), 46)
+        self.assertEqual(len(settings), 47)
+        loot_cart = settings["events.collect_loot_cart"]
+        self.assertEqual(loot_cart["type"], "boolean")
+        self.assertFalse(loot_cart["default"])
+        self.assertEqual(loot_cart["engine_binding"], "RunPlan.events_collect_loot_cart")
         self.assertEqual(settings["events.collect_daily_reward"]["default"], False)
         self.assertEqual(settings["events.collect_daily_reward"]["type"], "boolean")
         self.assertEqual(settings["run.town_hall"]["default"], 0)

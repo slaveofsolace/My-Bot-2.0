@@ -18,7 +18,7 @@ REWARD_FLAGS = (
 
 
 class ManagedRewardSafetyTest(unittest.TestCase):
-    def test_every_unowned_reward_flag_is_snapshotted_disabled_and_restored(self) -> None:
+    def test_every_legacy_reward_flag_is_snapshotted_disabled_and_restored(self) -> None:
         reset = RUN_EXECUTION.index("A reviewed plan is closed-world")
         collectors = RUN_EXECUTION.index("If $sStrategy = $HOME_MAINTENANCE_COLLECTORS_STRATEGY", reset)
         common_reset = RUN_EXECUTION[reset:collectors]
@@ -69,6 +69,15 @@ class ManagedRewardSafetyTest(unittest.TestCase):
         generic_apply = RUN_EXECUTION.index("Switch StringLower", reset)
         self.assertIn("$g_bChkSellRewards = False", RUN_EXECUTION[reset:generic_apply])
         self.assertIn("selling a full magic item", RUN_EXECUTION[reset:generic_apply])
+
+    def test_explicit_loot_cart_route_does_not_reenable_the_legacy_reward_path(self) -> None:
+        home_start = RUN_EXECUTION.index("Func HomeMaintenanceRouteExecute()")
+        home_end = RUN_EXECUTION.index("EndFunc   ;==>HomeMaintenanceRouteExecute", home_start)
+        home = RUN_EXECUTION[home_start:home_end]
+        self.assertIn("LootCartRouteRunAdapter", home)
+        self.assertNotIn("CollectLootCart(", home)
+        self.assertNotIn("$g_bChkCollectCartFirst = True", RUN_EXECUTION)
+        self.assertNotIn("$g_bChkTreasuryCollect = True", RUN_EXECUTION)
 
 
 if __name__ == "__main__":
