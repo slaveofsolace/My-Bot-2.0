@@ -30,21 +30,28 @@ Func _OpenHomeCollectorBitmapPixel($hBitmap, $iX, $iY)
 	Return BitAND(_GDIPlus_BitmapGetPixel($hBitmap, $iX, $iY), 0xFFFFFF)
 EndFunc   ;==>_OpenHomeCollectorBitmapPixel
 
-; $aFound is [type][present,x,y,score]. Four 2-pixel parity passes cover every pixel while allowing
-; early exit as soon as one strict candidate for each resource type is available.
-Func OpenHomeCollectorsDetect(ByRef $aFound, $hBitmap = Default)
+; $aFound is [type][present,x,y,score]. A 3-pixel grid cuts the normal scan to about 40k centers.
+; The remaining eight parity grids are fail-safe fallbacks only when a requested type is not found.
+Func OpenHomeCollectorsDetect(ByRef $aFound, $hBitmap = Default, $iRequiredMask = 7)
 	If $hBitmap = Default Then $hBitmap = $g_hBitmap
 	If $hBitmap = 0 Or Not IsArray($aFound) Or UBound($aFound, 1) < 4 Or UBound($aFound, 2) < 4 Then Return 0
-	Local $aOffsetX[4] = [0, 1, 0, 1]
-	Local $aOffsetY[4] = [0, 1, 1, 0]
+	Local $aOffsetX[9] = [0, 1, 2, 0, 1, 2, 0, 1, 2]
+	Local $aOffsetY[9] = [0, 0, 0, 1, 1, 1, 2, 2, 2]
+	Local $iRequired = 0
+	For $iRequiredType = $OPEN_HOME_COLLECTOR_GOLD To $OPEN_HOME_COLLECTOR_DARK
+		If BitAND($iRequiredMask, BitShift(1, -($iRequiredType - 1))) Then $iRequired += 1
+	Next
+	If $iRequired = 0 Then Return 0
 	Local $iFound = 0
-	For $iPass = 0 To 3
-		For $iY = 100 + $aOffsetY[$iPass] To 600 Step 2
-			For $iX = 70 + $aOffsetX[$iPass] To 790 Step 2
+	For $iPass = 0 To 8
+		For $iY = 100 + $aOffsetY[$iPass] To 600 Step 3
+			If Mod($iY, 12) = 0 And (RunControlStopRequested() Or Not $g_bRunState) Then Return SetError(2, $iFound, $iFound)
+			For $iX = 70 + $aOffsetX[$iPass] To 790 Step 3
 				Local $iCenter = _OpenHomeCollectorBitmapPixel($hBitmap, $iX, $iY)
 				Local $iUpperLeft = _OpenHomeCollectorBitmapPixel($hBitmap, $iX - 4, $iY - 4)
 				Local $iType = OpenHomeCollectorClassify($iCenter, $iUpperLeft)
-				If $iType = $OPEN_HOME_COLLECTOR_NONE Or $aFound[$iType][0] Then ContinueLoop
+				If $iType = $OPEN_HOME_COLLECTOR_NONE Or $aFound[$iType][0] Or _
+						Not BitAND($iRequiredMask, BitShift(1, -($iType - 1))) Then ContinueLoop
 				Local $iScore = OpenHomeCollectorGeometryScore( _
 						_OpenHomeCollectorBitmapPixel($hBitmap, $iX - 8, $iY - 8), _
 						_OpenHomeCollectorBitmapPixel($hBitmap, $iX + 8, $iY - 8), _
@@ -58,7 +65,7 @@ Func OpenHomeCollectorsDetect(ByRef $aFound, $hBitmap = Default)
 				$iFound += 1
 			Next
 		Next
-		If $iFound = 3 Then ExitLoop
+		If $iFound = $iRequired Then ExitLoop
 	Next
 	Return $iFound
 EndFunc   ;==>OpenHomeCollectorsDetect
@@ -95,7 +102,12 @@ Func OpenHomeCollectorsCollectOnePass()
 		If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, $iClicks, False)
 		If Not OpenHomeCollectorsProveHome() Then Return SetError(3, $iClicks, False)
 		Local $aFound[4][4]
-		OpenHomeCollectorsDetect($aFound)
+		Local $iRequiredMask = 0
+		For $iRequiredType = $OPEN_HOME_COLLECTOR_GOLD To $OPEN_HOME_COLLECTOR_DARK
+			If Not $aIssued[$iRequiredType] Then $iRequiredMask = BitOR($iRequiredMask, BitShift(1, -($iRequiredType - 1)))
+		Next
+		OpenHomeCollectorsDetect($aFound, Default, $iRequiredMask)
+		If @error = 2 Then Return SetError(2, $iClicks, False)
 		Local $iType = $OPEN_HOME_COLLECTOR_NONE
 		For $iCandidateType = $OPEN_HOME_COLLECTOR_GOLD To $OPEN_HOME_COLLECTOR_DARK
 			If Not $aIssued[$iCandidateType] And $aFound[$iCandidateType][0] Then

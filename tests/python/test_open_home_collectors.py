@@ -70,6 +70,13 @@ class OpenHomeCollectorsTest(unittest.TestCase):
         self.assertIn("OpenHomeCollectorsProveHome()", collect[click:])
         self.assertIn("For $iAction = 1 To 3", collect)
         self.assertIn("$aIssued[$iType] = True", collect)
+        self.assertIn("$iRequiredMask", collect)
+
+        detect = autoit_function(route, "OpenHomeCollectorsDetect")
+        self.assertIn("Step 3", detect)
+        self.assertIn("$iRequiredMask", detect)
+        self.assertIn("RunControlStopRequested()", detect)
+        self.assertIn("Return SetError(2", detect)
 
     def test_start_path_requires_exact_existing_adb_surface(self):
         action = source("COCBot/MBR GUI Action.au3")
