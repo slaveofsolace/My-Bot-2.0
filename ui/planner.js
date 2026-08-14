@@ -63,6 +63,13 @@ const STRATEGY_SAFETY_PATCHES = {
   },
 };
 
+const MAINTENANCE_COLLECTIONS = Object.freeze([
+  { id: 'events.collect_resources', label: 'Collectors' },
+  { id: 'events.collect_loot_cart', label: 'Loot Cart' },
+  { id: 'events.collect_treasury', label: 'Treasury' },
+  { id: 'events.collect_daily_reward', label: 'Daily Reward' },
+]);
+
 let CONTROL = { connected: false, state: 'offline' };
 let CONTROL_PENDING = null;
 let CONTROL_NOTICE = '';
@@ -1215,6 +1222,7 @@ function setStateLabel(element, text, kind = '') {
 
 function renderPlanReceipts() {
   if (!META) return;
+  renderMaintenanceRoutePreview();
   renderSummary($('planSummary'), PLAN);
   renderSummary($('savedPlanSummary'), SAVED);
   renderPlanFingerprint($('visiblePlanHash'), PLAN);
@@ -1236,6 +1244,27 @@ function renderPlanReceipts() {
   else if (!PLAN_WRITTEN) setStateLabel($('savedPlanState'), 'Not applied', 'warning');
   else if (pending) setStateLabel($('savedPlanState'), 'Applied; edits pending', 'warning');
   else setStateLabel($('savedPlanState'), 'Applied', 'ready');
+}
+
+function renderMaintenanceRoutePreview() {
+  const preview = $('maintenanceRoutePreview');
+  if (!preview) return;
+  const visible = PLAN['run.strategy'] === 'home.collectors';
+  preview.hidden = !visible;
+  if (!visible) return;
+
+  let included = 0;
+  for (const item of MAINTENANCE_COLLECTIONS) {
+    const enabled = PLAN[item.id] === true;
+    if (enabled) included += 1;
+    for (const node of preview.querySelectorAll(`[data-collection-key="${item.id}"]`)) {
+      node.dataset.state = enabled ? 'active' : 'off';
+      const status = node.querySelector('[data-route-status]');
+      if (status) status.textContent = enabled ? 'Included' : 'Off';
+      if (node.matches('li')) node.setAttribute('aria-label', `${item.label}: ${enabled ? 'included' : 'off'}`);
+    }
+  }
+  $('maintenanceRouteCount').textContent = `${included} of ${MAINTENANCE_COLLECTIONS.length} collection tasks included`;
 }
 
 function setSaveStatus(text, kind = '') {

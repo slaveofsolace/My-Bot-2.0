@@ -7,6 +7,7 @@ import unittest
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 HTML = (ROOT / "ui" / "planner.html").read_text(encoding="utf-8")
 JS = (ROOT / "ui" / "planner.js").read_text(encoding="utf-8")
+CSS = (ROOT / "ui" / "planner.css").read_text(encoding="utf-8")
 METADATA = json.loads((ROOT / "config" / "ui" / "run-planner.settings.json").read_text(encoding="utf-8"))
 
 
@@ -16,7 +17,8 @@ class PlannerWorkbenchContract(unittest.TestCase):
         self.assertIn("const VIEW_IDS = ['run', 'plan', 'village', 'activity', 'diagnostics'];", JS)
         self.assertIn("renderCapabilities();", JS)
         prefix = JS.split("const $ =", 1)[0]
-        self.assertEqual(re.findall(r"id: '([^']+)'", prefix), ["match", "runtime", "targets", "between", "advanced"])
+        plan_groups = JS.split("const PLAN_GROUPS = [", 1)[1].split("];", 1)[0]
+        self.assertEqual(re.findall(r"id: '([^']+)'", plan_groups), ["match", "runtime", "targets", "between", "advanced"])
 
         grouped = [
             section_id
@@ -44,6 +46,24 @@ class PlannerWorkbenchContract(unittest.TestCase):
         self.assertEqual(settings["army.recipe_name"]["type"], "text")
         self.assertEqual(settings["run.diagnostic_note"]["type"], "text")
         self.assertIn("control.type = 'text'", JS)
+
+    def test_home_maintenance_route_has_a_truthful_visual_preview(self):
+        for token in (
+            'id="maintenanceRoutePreview"',
+            'id="maintenanceRouteCount" aria-live="polite"',
+            'data-collection-key="events.collect_resources"',
+            'data-collection-key="events.collect_loot_cart"',
+            'data-collection-key="events.collect_treasury"',
+            'data-collection-key="events.collect_daily_reward"',
+            "Battles, training, donations, upgrades, and gem conversion stay outside this route.",
+        ):
+            self.assertIn(token, HTML)
+        self.assertIn("function renderMaintenanceRoutePreview()", JS)
+        self.assertIn("PLAN['run.strategy'] === 'home.collectors'", JS)
+        self.assertIn("renderMaintenanceRoutePreview();", JS)
+        self.assertIn("node.dataset.state = enabled ? 'active' : 'off';", JS)
+        self.assertNotIn('.maintenance-node[data-state="active"] { color: #efa461; opacity: 1; transform:', CSS)
+        self.assertEqual(len(set(re.findall(r'<g class="maintenance-node"[^>]+transform="([^"]+)"', HTML))), 4)
 
     def test_apply_then_start_is_enforced_in_both_render_and_command_paths(self):
         render = JS.split("function renderControl()", 1)[1].split("function recoverControlPending", 1)[0]

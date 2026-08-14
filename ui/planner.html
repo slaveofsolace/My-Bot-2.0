@@ -175,6 +175,43 @@
       <span class="sr-only" id="presetAnnouncement" aria-live="polite" aria-atomic="true"></span>
     </section>
 
+    <section class="maintenance-route-preview" id="maintenanceRoutePreview" aria-labelledby="maintenanceRouteTitle" hidden>
+      <div class="maintenance-route-copy">
+        <span class="maintenance-route-kicker">Home pass · no-gems contract</span>
+        <h3 id="maintenanceRouteTitle">Collect the village. Leave the rest untouched.</h3>
+        <p>One terminal pass follows only the collection tasks enabled below. Battles, training, donations, upgrades, and gem conversion stay outside this route.</p>
+        <strong id="maintenanceRouteCount" aria-live="polite">0 of 4 collection tasks included</strong>
+      </div>
+      <div class="maintenance-route-graphic" aria-hidden="true">
+        <svg viewBox="0 0 620 190" focusable="false">
+          <path class="maintenance-ground" d="M18 153c78-51 142-46 210-5 69 42 138 34 191-11 49-42 105-49 183-6v59H18Z"/>
+          <path class="maintenance-path" d="M70 132c66-68 112-71 172-23 69 54 108 58 169 8 50-41 92-44 142-10"/>
+          <g class="maintenance-node" data-collection-key="events.collect_resources" transform="translate(58 85)">
+            <circle cx="32" cy="32" r="28"/>
+            <path d="M19 43V25h8v-8h10v8h8v18H19Zm11 0h5V31h-5v12Z"/>
+          </g>
+          <g class="maintenance-node" data-collection-key="events.collect_loot_cart" transform="translate(201 82)">
+            <circle cx="32" cy="32" r="28"/>
+            <path d="M15 24h7l5 15h20l4-12H25m5 18a3 3 0 1 0 0 6 3 3 0 0 0 0-6Zm15 0a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z"/>
+          </g>
+          <g class="maintenance-node" data-collection-key="events.collect_treasury" transform="translate(351 63)">
+            <circle cx="32" cy="32" r="28"/>
+            <path d="M17 44V22h5v-7h7v7h6v-7h7v7h5v22H17Zm9 0h12V31H26v13Z"/>
+          </g>
+          <g class="maintenance-node" data-collection-key="events.collect_daily_reward" transform="translate(504 79)">
+            <circle cx="32" cy="32" r="28"/>
+            <path d="M18 28h28v20H18V28Zm-3-8h34v9H15v-9Zm16-5h4v33h-4V15Zm-1 5c-7 0-10-3-10-7 5-2 10 0 12 7h-2Zm7 0c7 0 10-3 10-7-5-2-10 0-12 7h2Z"/>
+          </g>
+        </svg>
+      </div>
+      <ul class="maintenance-route-tasks" aria-label="Selected collection work">
+        <li data-collection-key="events.collect_resources"><span class="task-index">01</span><span><strong>Collectors</strong><small>Mines, pumps, and drills</small></span><em data-route-status>Off</em></li>
+        <li data-collection-key="events.collect_loot_cart"><span class="task-index">02</span><span><strong>Loot Cart</strong><small>Exact cart and Collect</small></span><em data-route-status>Off</em></li>
+        <li data-collection-key="events.collect_treasury"><span class="task-index">03</span><span><strong>Treasury</strong><small>Full vault, safe storages</small></span><em data-route-status>Off</em></li>
+        <li data-collection-key="events.collect_daily_reward"><span class="task-index">04</span><span><strong>Daily Reward</strong><small>One recognized Claim</small></span><em data-route-status>Off</em></li>
+      </ul>
+    </section>
+
     <div class="plan-layout">
       <nav class="plan-groups" id="planGroupNav" aria-label="Plan groups"></nav>
       <section class="plan-editor" id="panel" aria-label="Plan settings"></section>
