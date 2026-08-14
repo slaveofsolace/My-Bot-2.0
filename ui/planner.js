@@ -16,7 +16,7 @@ let CAPABILITY_CATALOG = { capabilities: [], status_definitions: {} };
 // growing set of special-case onchange branches.
 const STRATEGY_SAFETY_PATCHES = {
   'home.collectors': {
-    label: 'Collectors-only safety settings',
+    label: 'Home-maintenance safety settings',
     values: {
       'run.surface': 'regular', 'run.strategy': 'home.collectors', 'run.attack_script': 'profile-current',
       'run.town_hall': 0, 'run.heroes': [], 'run.duration_minutes': 0, 'run.max_battles': 0,
@@ -30,7 +30,7 @@ const STRATEGY_SAFETY_PATCHES = {
       'donate.mode': 'off', 'donate.keep_army': true, 'donate.max_per_run': 0,
       'donate.request_when_short': false,
       'events.clan_games': false, 'events.clan_games_point_cap': 0,
-      'events.laboratory': 'off', 'events.collect_resources': true,
+      'events.laboratory': 'off', 'events.collect_resources': true, 'events.collect_daily_reward': false,
       'notify.on_stop': true, 'notify.on_error': true, 'notify.channel': 'log-only',
       'pacing.action_delay_ms': 180, 'pacing.settle_ms': 650, 'pacing.retry_attempts': 0,
       'pacing.break_every_minutes': 0, 'pacing.break_minutes': 5,
@@ -51,7 +51,7 @@ const STRATEGY_SAFETY_PATCHES = {
       'donate.mode': 'off', 'donate.keep_army': true, 'donate.max_per_run': 0,
       'donate.request_when_short': true,
       'events.clan_games': false, 'events.clan_games_point_cap': 0,
-      'events.laboratory': 'off', 'events.collect_resources': false,
+      'events.laboratory': 'off', 'events.collect_resources': false, 'events.collect_daily_reward': false,
       'notify.on_stop': true, 'notify.on_error': true, 'notify.channel': 'log-only',
       'pacing.action_delay_ms': 180, 'pacing.settle_ms': 650, 'pacing.retry_attempts': 0,
       'pacing.break_every_minutes': 0, 'pacing.break_minutes': 5,
@@ -987,7 +987,7 @@ function clientProblems(plan = PLAN) {
   }
 
   if (plan['run.surface'] !== 'regular') addProblem(problems, 'Only Regular Battles can start through the native engine.', 'run.surface');
-  const collectorsOnly = plan['run.strategy'] === 'home.collectors';
+  const homeMaintenance = plan['run.strategy'] === 'home.collectors';
   const clanRequestOnly = plan['run.strategy'] === 'home.clan-request';
   if (!['legacy.csv', 'legacy.standard', 'smart.local', 'home.collectors', 'home.clan-request'].includes(plan['run.strategy'])) {
     addProblem(problems, 'The selected deployment routine has no native adapter.', 'run.strategy');
@@ -1017,20 +1017,20 @@ function clientProblems(plan = PLAN) {
   if (plan['army.source'] !== 'recipe' || String(plan['army.recipe_name'] || '').trim()) {
     addProblem(problems, 'The run can use only the active profile army; named recipes are not wired.', 'army.source');
   }
-  if (collectorsOnly) {
-    if (emulator === 'auto' || !instance) addProblem(problems, 'Collectors-only maintenance requires the exact non-Auto emulator and instance.', 'runtime.instance');
+  if (homeMaintenance) {
+    if (emulator === 'auto' || !instance) addProblem(problems, 'Home maintenance requires the exact non-Auto emulator and instance.', 'runtime.instance');
     if (instance && !/^[A-Za-z0-9_. -]{1,64}$/.test(instance)) addProblem(problems, 'The Home route instance name contains unsupported characters.', 'runtime.instance');
-    if (!plan['run.diagnostic_mode']) addProblem(problems, 'Collectors-only maintenance requires supervised diagnostic acknowledgement.', 'run.diagnostic_mode');
-    if (!plan['events.collect_resources']) addProblem(problems, 'Collectors-only maintenance requires Collect collectors.', 'events.collect_resources');
-    if (plan['army.manage_training'] || plan['army.wait_for_full'] || plan['army.train_spells'] || plan['army.train_sieges']) addProblem(problems, 'Collectors-only maintenance requires training, army wait, spells, and sieges off.', 'army.manage_training');
-    if (asList(plan['run.heroes']).length) addProblem(problems, 'Collectors-only maintenance requires no selected Heroes.', 'run.heroes');
-    if (Number(plan['run.duration_minutes']) !== 0 || Number(plan['run.max_battles']) !== 0 || plan['run.stop_on_star_bonus'] || Number(plan['run.max_failures']) !== 0) addProblem(problems, 'Collectors-only maintenance is one pass; duration, battles, star bonus, and failure limits must be 0/off.', 'run.max_battles');
-    if (['target.gold', 'target.elixir', 'target.dark_elixir', 'search.min_gold', 'search.min_elixir', 'search.min_dark', 'search.max_seconds'].some((key) => Number(plan[key]) !== 0)) addProblem(problems, 'Collectors-only maintenance cannot configure matchmaking or battle-loot targets.', 'search.min_gold');
-    if (plan['donate.mode'] !== 'off' || plan['donate.request_when_short'] || Number(plan['donate.max_per_run']) !== 0) addProblem(problems, 'Collectors-only maintenance requires donations and requests off.', 'donate.mode');
-    if (plan['events.clan_games'] || Number(plan['events.clan_games_point_cap']) !== 0) addProblem(problems, 'Collectors-only maintenance cannot enter Clan Games.', 'events.clan_games');
-    if (plan['events.laboratory'] !== 'off') addProblem(problems, 'Collectors-only maintenance requires Laboratory off.', 'events.laboratory');
-    if (plan['upgrade.policy'] !== 'disabled') addProblem(problems, 'Collectors-only maintenance requires upgrades disabled.', 'upgrade.policy');
-    if (String(plan['account.queue'] || '').trim()) addProblem(problems, 'Collectors-only maintenance cannot rotate accounts.', 'account.queue');
+    if (!plan['run.diagnostic_mode']) addProblem(problems, 'Home maintenance requires supervised diagnostic acknowledgement.', 'run.diagnostic_mode');
+    if (!plan['events.collect_resources'] && !plan['events.collect_daily_reward']) addProblem(problems, 'Home maintenance requires collectors or startup Daily Reward.', 'events.collect_resources');
+    if (plan['army.manage_training'] || plan['army.wait_for_full'] || plan['army.train_spells'] || plan['army.train_sieges']) addProblem(problems, 'Home maintenance requires training, army wait, spells, and sieges off.', 'army.manage_training');
+    if (asList(plan['run.heroes']).length) addProblem(problems, 'Home maintenance requires no selected Heroes.', 'run.heroes');
+    if (Number(plan['run.duration_minutes']) !== 0 || Number(plan['run.max_battles']) !== 0 || plan['run.stop_on_star_bonus'] || Number(plan['run.max_failures']) !== 0) addProblem(problems, 'Home maintenance is one pass; duration, battles, star bonus, and failure limits must be 0/off.', 'run.max_battles');
+    if (['target.gold', 'target.elixir', 'target.dark_elixir', 'search.min_gold', 'search.min_elixir', 'search.min_dark', 'search.max_seconds'].some((key) => Number(plan[key]) !== 0)) addProblem(problems, 'Home maintenance cannot configure matchmaking or battle-loot targets.', 'search.min_gold');
+    if (plan['donate.mode'] !== 'off' || plan['donate.request_when_short'] || Number(plan['donate.max_per_run']) !== 0) addProblem(problems, 'Home maintenance requires donations and requests off.', 'donate.mode');
+    if (plan['events.clan_games'] || Number(plan['events.clan_games_point_cap']) !== 0) addProblem(problems, 'Home maintenance cannot enter Clan Games.', 'events.clan_games');
+    if (plan['events.laboratory'] !== 'off') addProblem(problems, 'Home maintenance requires Laboratory off.', 'events.laboratory');
+    if (plan['upgrade.policy'] !== 'disabled') addProblem(problems, 'Home maintenance requires upgrades disabled.', 'upgrade.policy');
+    if (String(plan['account.queue'] || '').trim()) addProblem(problems, 'Home maintenance cannot rotate accounts.', 'account.queue');
   } else if (clanRequestOnly) {
     if (!plan['run.diagnostic_mode']) addProblem(problems, 'Clan request requires supervised diagnostic acknowledgement.', 'run.diagnostic_mode');
     if (plan['army.manage_training'] || plan['army.wait_for_full'] || plan['army.train_spells'] || plan['army.train_sieges']) addProblem(problems, 'Clan request requires training, army wait, spells, and sieges off.', 'army.manage_training');
@@ -1038,15 +1038,15 @@ function clientProblems(plan = PLAN) {
     if (Number(plan['run.duration_minutes']) !== 0 || Number(plan['run.max_battles']) !== 0 || plan['run.stop_on_star_bonus'] || Number(plan['run.max_failures']) !== 0) addProblem(problems, 'Clan request is one pass; duration, battles, star bonus, and failure limits must be 0/off.', 'run.max_battles');
     if (['target.gold', 'target.elixir', 'target.dark_elixir', 'search.min_gold', 'search.min_elixir', 'search.min_dark', 'search.max_seconds'].some((key) => Number(plan[key]) !== 0)) addProblem(problems, 'Clan request cannot configure matchmaking or battle-loot targets.', 'search.min_gold');
     if (plan['donate.mode'] !== 'off' || !plan['donate.request_when_short'] || !plan['donate.keep_army'] || Number(plan['donate.max_per_run']) !== 0) addProblem(problems, 'Clan request requires Off, Request when available on, army preservation on, and donation limit 0.', 'donate.request_when_short');
-    if (plan['events.collect_resources'] || plan['events.clan_games'] || Number(plan['events.clan_games_point_cap']) !== 0) addProblem(problems, 'Clan request cannot collect resources or enter Clan Games.', 'events.clan_games');
+    if (plan['events.collect_resources'] || plan['events.collect_daily_reward'] || plan['events.clan_games'] || Number(plan['events.clan_games_point_cap']) !== 0) addProblem(problems, 'Clan request cannot collect resources, claim rewards, or enter Clan Games.', 'events.clan_games');
     if (plan['events.laboratory'] !== 'off') addProblem(problems, 'Clan request requires Laboratory off.', 'events.laboratory');
     if (plan['upgrade.policy'] !== 'disabled') addProblem(problems, 'Clan request requires upgrades disabled.', 'upgrade.policy');
     if (String(plan['account.queue'] || '').trim()) addProblem(problems, 'Clan request cannot rotate accounts.', 'account.queue');
     if (Number(plan['pacing.break_every_minutes']) !== 0) addProblem(problems, 'Clan request requires scheduled breaks off.', 'pacing.break_every_minutes');
     if (emulator === 'auto' || !instance) addProblem(problems, 'Clan request requires the exact non-Auto emulator and instance.', 'runtime.instance');
     if (instance && !/^[A-Za-z0-9_. -]{1,64}$/.test(instance)) addProblem(problems, 'The Home route instance name contains unsupported characters.', 'runtime.instance');
-  } else if (plan['events.collect_resources']) {
-    addProblem(problems, 'Collector work requires the Home maintenance - collectors only strategy.', 'events.collect_resources');
+  } else if (plan['events.collect_resources'] || plan['events.collect_daily_reward']) {
+    addProblem(problems, 'Home collection work requires the Home maintenance strategy.', 'events.collect_resources');
   } else if (plan['army.manage_training']) {
     addProblem(problems, 'Managed training is disabled because the inherited profile training path is not closed-world. Turn it off and use the current trained army for one battle.', 'army.manage_training');
   } else {
@@ -1054,7 +1054,7 @@ function clientProblems(plan = PLAN) {
     if (!plan['army.wait_for_full']) addProblem(problems, 'Current trained army mode requires a fresh full-army check.', 'army.wait_for_full');
     if (plan['donate.mode'] !== 'off') addProblem(problems, 'Donations must be off for the one-shot current army.', 'donate.mode');
     if (plan['donate.request_when_short']) addProblem(problems, 'Current trained army mode cannot request troops.', 'donate.request_when_short');
-    if (plan['events.clan_games'] || plan['events.collect_resources']) addProblem(problems, 'Current trained army mode cannot run event or collector work before battle.', 'events.clan_games');
+    if (plan['events.clan_games'] || plan['events.collect_resources'] || plan['events.collect_daily_reward']) addProblem(problems, 'Current trained army mode cannot run event or Home collection work before battle.', 'events.clan_games');
     if (plan['events.laboratory'] !== 'off') addProblem(problems, 'Current trained army mode requires Laboratory off.', 'events.laboratory');
     if (plan['upgrade.policy'] !== 'disabled') addProblem(problems, 'Current trained army mode requires upgrades off.', 'upgrade.policy');
   }

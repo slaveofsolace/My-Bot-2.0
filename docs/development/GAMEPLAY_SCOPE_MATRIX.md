@@ -7,6 +7,8 @@ My Bot 2.0 is intended to automate the full repeatable Clash of Clans loop, not 
 | Regular farming battles | `COCBot/functions/Attack` | Standard deployment and one Smart path have supervised battle observations; other routes and layouts remain diagnostic | Current-client entry/search/battle/end fixtures; structured deployment, spell, Hero, loot and stop events |
 | Army training | `COCBot/functions/CreateArmy/TrainSystem.au3` | Inherited implementation; current Army Recipe/Cookbook screens are not verified | Army-screen fixture, exact composition proof, safe return home |
 | Collectors and mines | `COCBot/functions/Village/Collect.au3` | Inherited implementation; current-client collector recognition is not verified | Collector/storage fixture, bounded collection, unchanged full-storage behavior |
+| Startup Daily Reward | `COCBot/functions/Main Screen/checkObstacles.au3` | Explicit Home-maintenance route issues at most one Claim input and never accepts a gem-conversion dialog; current-client recognition and completion are not verified | Redacted Daily Reward fixture, one issued Claim receipt, unchanged gem balance, Home restored |
+| Loot Cart, Treasury, achievements, challenge rewards, and free items | Legacy Home/Village maintenance functions | Not owned by a reviewed planner route; all are forced off during managed runs | One explicit closed-world route per reward surface, current-client fixtures, exact receipt, no-gems proof, Home restored |
 | Donate and request | `COCBot/functions/Village/DonateCC.au3`, `RequestCC.au3` | Inherited implementation; Global Chat and current request layout are not verified | Redacted chat/request fixtures, exact request match, army preservation, safe return home |
 | Home Village upgrades | `COCBot/functions/Village/Auto Upgrade.au3` | Inherited implementation; current costs, Hero layout, buildings and TH18 are incomplete | Cost/name fixtures, no-premium-currency guard, one reviewed upgrade, safe return home |
 | Laboratory | `COCBot/functions/Village/Laboratory.au3` | Inherited implementation; planner-driven selection is blocked | Lab fixture, research-state proof, one reviewed start, safe return home |
@@ -22,6 +24,7 @@ The machine-readable source of truth is [`config/current-client-capabilities.jso
 ## Hard safety boundaries
 
 - No gems, purchases, offers, credentials, Supercell ID entry, chat posting, or account deletion may be inferred from a general run plan.
+- A reward route may close a full-storage or conversion prompt, but it may never click its accept/Okay action when that action converts an item into gems.
 - A visual click path is not supported merely because the inherited function exists or an AutoIt test passes.
 - Account switching must bind an exact local profile and visually confirm the target account before gameplay resumes.
 - Spending paths require a recognized resource type, exact cost, adequate non-premium balance and a reviewed no-gems guard.

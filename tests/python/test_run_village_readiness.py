@@ -208,8 +208,8 @@ class RunVillageReadinessStaticTest(unittest.TestCase):
         for required in (
             'If Not $oPlan.Item("army_wait_for_full") Then',
             '$oPlan.Item("donate_request_when_short")',
-            'If $oPlan.Item("events_collect_resources") Then',
-            'Collector work requires the explicit Home maintenance - collectors only strategy',
+            'If $oPlan.Item("events_collect_resources") Or $oPlan.Item("events_collect_daily_reward") Then',
+            'Home collection work requires the explicit Home maintenance strategy',
             'If $oPlan.Item("events_clan_games") Then',
             '$oPlan.Item("events_laboratory")',
             '$oPlan.Item("upgrade_policy")',

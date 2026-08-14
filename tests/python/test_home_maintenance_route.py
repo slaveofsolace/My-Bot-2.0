@@ -55,6 +55,7 @@ def collectors_plan() -> dict:
             "events.clan_games_point_cap": 0,
             "events.laboratory": "off",
             "events.collect_resources": True,
+            "events.collect_daily_reward": False,
             "upgrade.policy": "disabled",
             "account.queue": "",
             "notify.channel": "log-only",
@@ -94,14 +95,27 @@ class HomeMaintenanceRouteTest(unittest.TestCase):
             }
         )
         problems = planner_ui.engine_preflight(generic_battle)
-        self.assertTrue(any("Home maintenance - collectors only" in problem for problem in problems))
+        self.assertTrue(any("Home collection work requires the Home maintenance strategy" in problem for problem in problems))
+
+        nothing_selected = collectors_plan()
+        nothing_selected["events.collect_resources"] = False
+        nothing_selected["events.collect_daily_reward"] = False
+        self.assertTrue(any("requires collectors or startup Daily Reward" in problem for problem in planner_ui.engine_preflight(nothing_selected)))
+
+    def test_daily_reward_only_plan_passes_server_preflight(self):
+        plan = collectors_plan()
+        plan["events.collect_resources"] = False
+        plan["events.collect_daily_reward"] = True
+        self.assertEqual(planner_ui.engine_preflight(plan), [])
 
     def test_native_route_is_terminal_and_has_no_matchmaking_or_battle_calls(self):
         execution = source("COCBot/functions/Run/RunExecution.au3")
         route = autoit_function(execution, "HomeMaintenanceRouteExecute")
         self.assertIn("Collect(False, True)", route)
-        self.assertIn("Local $iCollectorClicks = @extended", route)
-        self.assertIn("RunEventLogMaintenanceHomeVerified($iCollectorClicks)", route)
+        self.assertIn("$iCollectorClicks = @extended", route)
+        self.assertIn("RunEventLogMaintenanceHomeVerified($iCollectorClicks", route)
+        self.assertNotIn("RunEventLogMaintenanceDailyRewardClickIssued", route)
+        self.assertIn("RunEventLogMaintenanceDailyRewardUnconfirmed", route)
         self.assertIn("If $iCollectorClicks > 0 Then", route)
         self.assertIn("RunEventLogMaintenanceCollectorsCompleted($iCollectorClicks)", route)
         self.assertIn("RunEventLogMaintenanceCollectorsNoneActionable()", route)
@@ -169,6 +183,10 @@ class HomeMaintenanceRouteTest(unittest.TestCase):
         self.assertIn("maintenance.home-verified", event_types)
         self.assertIn("maintenance.collectors.completed", event_types)
         self.assertIn("maintenance.collectors.none-actionable", event_types)
+        self.assertIn("maintenance.daily-reward.started", event_types)
+        self.assertIn("maintenance.daily-reward.claim-issued", event_types)
+        self.assertIn("maintenance.daily-reward.unavailable", event_types)
+        self.assertIn("maintenance.daily-reward.unconfirmed", event_types)
 
         event_log = source("COCBot/functions/Run/RunEventLog.au3")
         completed = autoit_function(event_log, "RunEventLogMaintenanceCollectorsCompleted")

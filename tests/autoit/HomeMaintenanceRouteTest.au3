@@ -59,10 +59,17 @@ Local $oNoDiagnostic = CreateCollectorsIntent(False)
 AssertTrue(Not RunExecutionContractValidate($oNoDiagnostic, $sError), "collectors-only route rejects missing diagnostic acknowledgement")
 AssertTrue(StringInStr($sError, "supervised diagnostic") > 0, "diagnostic rejection explains the required supervision")
 
-Local $oNoCollectors = CreateCollectorsIntent()
-Local $oNoCollectorsPlan = $oNoCollectors.Item("plan")
-$oNoCollectorsPlan.Item("events_collect_resources") = False
-AssertTrue(Not RunExecutionContractValidate($oNoCollectors, $sError), "collectors-only route rejects a disabled collector actuator")
+Local $oDailyOnly = CreateCollectorsIntent()
+Local $oDailyOnlyPlan = $oDailyOnly.Item("plan")
+$oDailyOnlyPlan.Item("events_collect_resources") = False
+$oDailyOnlyPlan.Item("events_collect_daily_reward") = True
+AssertTrue(RunExecutionContractValidate($oDailyOnly, $sError), "Home maintenance accepts an explicit Daily Reward-only pass: " & $sError)
+
+Local $oNoMaintenance = CreateCollectorsIntent()
+Local $oNoMaintenancePlan = $oNoMaintenance.Item("plan")
+$oNoMaintenancePlan.Item("events_collect_resources") = False
+$oNoMaintenancePlan.Item("events_collect_daily_reward") = False
+AssertTrue(Not RunExecutionContractValidate($oNoMaintenance, $sError), "Home maintenance rejects a pass with no selected work")
 
 Local $oBattleShaped = CreateCollectorsIntent()
 Local $oBattlePlan = $oBattleShaped.Item("plan")
@@ -84,6 +91,9 @@ AssertTrue(IsObj($oHomeEvent), "home verification lifecycle event is accepted")
 Local $oNoneActionableEvent = RunEventCreate("maintenance.collectors.none-actionable", 2, 1100, "home-fixture", "warning", _
 		"No collector click was issued; collector_clicks=0", "profile-a", "regular", 0, 0, 0, 0, 0, $RUN_VERIFICATION_DIAGNOSTIC)
 AssertTrue(IsObj($oNoneActionableEvent), "zero-click collector outcome is explicit")
+Local $oDailyIssuedEvent = RunEventCreate("maintenance.daily-reward.claim-issued", 3, 1200, "home-fixture", "warning", _
+		"One Daily Reward Claim input was issued; claim_attempts=1", "profile-a", "regular", 0, 0, 0, 0, 0, $RUN_VERIFICATION_DIAGNOSTIC)
+AssertTrue(IsObj($oDailyIssuedEvent), "Daily Reward input is reported as issued rather than falsely confirmed")
 
 ConsoleWrite("Home maintenance route tests passed: " & $g_iAssertions & " assertions" & @CRLF)
 Exit 0

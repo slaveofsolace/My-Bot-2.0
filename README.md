@@ -324,7 +324,7 @@ The **Run Planner** is the last tab in the main window. Thirteen focused section
 | **Emulator** | Which emulator, and which instance |
 | **Pacing** | Action delay, settle time, and scheduled rest windows |
 | **Donations** | Whether to request or donate, and the supported donation policy |
-| **Events** | Clan Games, collectors, walls, and the supported lab policy |
+| **Events** | Clan Games, collectors, the startup Daily Reward, walls, and the supported lab policy |
 | **Notifications** | Run lifecycle messages written to the event stream |
 | **Stop conditions** | Time limit, battle limit, Star Bonus, failure limit |
 | **Resource targets** | Stop once a Gold, Elixir, or Dark Elixir total is collected |
@@ -343,8 +343,8 @@ a preset loads a complete unsaved plan, and **Apply plan** is still required to 
 selection and diagnostic consent are never supplied by a preset.
 
 The broader product goal is the complete repeatable game loop: attacks, training, collectors,
-donation/request, Home and Builder Base upgrades, Laboratory, Clan Games, account rotation and
-recovery. Existing source is not the same as current-client support. The machine-readable gates and
+Daily and other Home rewards, donation/request, Home and Builder Base upgrades, Laboratory,
+Clan Games, account rotation and recovery. Existing source is not the same as current-client support. The machine-readable gates and
 the per-scope proof still required are listed in
 [`GAMEPLAY_SCOPE_MATRIX.md`](docs/development/GAMEPLAY_SCOPE_MATRIX.md).
 

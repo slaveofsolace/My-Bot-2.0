@@ -203,6 +203,7 @@ Json_ObjPut($oSavedPlan, "events.clan_games", False)
 Json_ObjPut($oSavedPlan, "events.clan_games_point_cap", 0)
 Json_ObjPut($oSavedPlan, "events.laboratory", "off")
 Json_ObjPut($oSavedPlan, "events.collect_resources", False)
+Json_ObjPut($oSavedPlan, "events.collect_daily_reward", False)
 Json_ObjPut($oSavedPlan, "notify.on_stop", False)
 Json_ObjPut($oSavedPlan, "notify.on_error", True)
 Json_ObjPut($oSavedPlan, "notify.channel", "log-only")
@@ -222,6 +223,7 @@ Local $oSavedEnginePlan = $oSavedIntent.Item("plan")
 AssertTrue($oSavedEnginePlan.Item("search_max_seconds") = 120, "saved search limit reaches RunPlan")
 AssertTrue($oSavedEnginePlan.Item("army_recipe_name") = "farm", "saved army recipe reaches RunPlan")
 AssertTrue($oSavedEnginePlan.Item("attack_script") = "Barch four fingers", "saved attack script reaches RunPlan")
+AssertTrue(Not $oSavedEnginePlan.Item("events_collect_daily_reward"), "saved Daily Reward choice reaches RunPlan")
 AssertTrue(RunIntentManagesTraining($oSavedIntent), "saved training-management choice reaches the intent")
 Local $oSavedLoadout = $oSavedIntent.Item("loadout")
 AssertTrue(HeroLoadoutCount($oSavedLoadout) = 2, "saved Hero list reaches the loadout")
@@ -330,10 +332,18 @@ $oSavedEnginePlan.Item("army_manage_training") = True
 $oSavedEnginePlan.Item("max_battles") = 12
 FileDelete($sSavedPlanPath)
 
-; The immediately preceding planner contract had 44 keys and inferred Town Hall from the profile.
+; The immediately preceding planner contract had 45 keys and never owned Daily Reward claiming.
+$oSavedPlan.Remove("events.collect_daily_reward")
+AssertTrue(FileWrite($sSavedPlanPath, Json_Encode($oSavedPlan)) > 0, "legacy 45-key planner fixture is written")
+Local $oLegacyTrainingIntent = RunPlanFileLoadIntent($sSavedPlanPath, $sError)
+AssertTrue(IsObj($oLegacyTrainingIntent), "legacy 45-key plan is upgraded losslessly: " & $sError)
+AssertTrue(Not $oLegacyTrainingIntent.Item("plan").Item("events_collect_daily_reward"), "legacy plan migrates Daily Reward to the no-claim default")
+FileDelete($sSavedPlanPath)
+
+; The preceding 44-key planner contract inferred Town Hall from the profile.
 $oSavedPlan.Remove("run.town_hall")
 AssertTrue(FileWrite($sSavedPlanPath, Json_Encode($oSavedPlan)) > 0, "legacy 44-key planner fixture is written")
-Local $oLegacyTrainingIntent = RunPlanFileLoadIntent($sSavedPlanPath, $sError)
+$oLegacyTrainingIntent = RunPlanFileLoadIntent($sSavedPlanPath, $sError)
 AssertTrue(IsObj($oLegacyTrainingIntent), "legacy 44-key plan is upgraded losslessly: " & $sError)
 AssertTrue(RunIntentPlannedTownHall($oLegacyTrainingIntent) = 0, "legacy plan migrates to detect Town Hall at Start")
 FileDelete($sSavedPlanPath)

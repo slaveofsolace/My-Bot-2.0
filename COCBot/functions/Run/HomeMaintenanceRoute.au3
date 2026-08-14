@@ -1,8 +1,8 @@
 ; #FUNCTION# ====================================================================================================================
 ; Name ..........: Home maintenance route
-; Description ...: Executes one explicit, diagnostic collectors-only pass without entering matchmaking or other village work.
-; Remarks .......: This adapter is deliberately narrow. Donations, training, upgrades, Laboratory, Clan Games, account rotation,
-;                  Heroes, and battle search remain outside this route and are rejected by the execution contract.
+; Description ...: Executes one explicit, diagnostic Home collection pass without entering matchmaking or other village work.
+; Remarks .......: This adapter owns only the selected collector and startup Daily Reward tasks. Donations, training, upgrades,
+;                  Laboratory, Clan Games, account rotation, Heroes, and battle search remain outside this route.
 ; ===============================================================================================================================
 #include-once
 
@@ -32,102 +32,102 @@ Func HomeMaintenanceRouteValidate(ByRef $oIntent, ByRef $sError)
 	EndIf
 
 	If StringLower(StringStripWS(String($oIntent.Item("surface_id")), $STR_STRIPALL)) <> "regular" Then
-		$sError = "Collectors-only maintenance must remain bound to the current Home Village account"
+		$sError = "Home maintenance must remain bound to the current Home Village account"
 		Return SetError(2, 0, False)
 	EndIf
 
 	Local $oRoute = $oIntent.Item("route")
 	If Not $oRoute.Item("diagnostic_enabled") Then
-		$sError = "Collectors-only maintenance requires Allow unverified and a supervised diagnostic acknowledgement"
+		$sError = "Home maintenance requires Allow unverified and a supervised diagnostic acknowledgement"
 		Return SetError(3, 0, False)
 	EndIf
 	Local $sProfile = StringStripWS(String($oIntent.Item("profile_id")), $STR_STRIPLEADING + $STR_STRIPTRAILING)
 	If $sProfile = "" Or StringLen($sProfile) > 64 Or Not StringRegExp($sProfile, "^[A-Za-z0-9_. -]+$") Then
-		$sError = "Collectors-only maintenance requires the exact active profile/account binding"
+		$sError = "Home maintenance requires the exact active profile/account binding"
 		Return SetError(3, 1, False)
 	EndIf
 
 	Local $oPlan = $oIntent.Item("plan")
-	If Not $oPlan.Item("events_collect_resources") Then
-		$sError = "Collectors-only maintenance requires Collect collectors"
+	If Not $oPlan.Item("events_collect_resources") And Not $oPlan.Item("events_collect_daily_reward") Then
+		$sError = "Home maintenance requires at least one selected task: collectors or startup Daily Reward"
 		Return SetError(4, 0, False)
 	EndIf
 	If StringLower(StringStripWS(String($oPlan.Item("attack_script")), $STR_STRIPALL)) <> "profile-current" Then
-		$sError = "Collectors-only maintenance does not accept an attack script"
+		$sError = "Home maintenance does not accept an attack script"
 		Return SetError(4, 1, False)
 	EndIf
 	If StringLower(StringStripWS(String($oPlan.Item("army_source")), $STR_STRIPALL)) <> "recipe" Or _
 			StringStripWS(String($oPlan.Item("army_recipe_name")), $STR_STRIPALL) <> "" Then
-		$sError = "Collectors-only maintenance cannot select an army recipe"
+		$sError = "Home maintenance cannot select an army recipe"
 		Return SetError(4, 2, False)
 	EndIf
 	If $oPlan.Item("army_manage_training") Or $oPlan.Item("army_train_spells") Or $oPlan.Item("army_train_sieges") Then
-		$sError = "Collectors-only maintenance cannot manage or train an army"
+		$sError = "Home maintenance cannot manage or train an army"
 		Return SetError(5, 0, False)
 	EndIf
 	If $oPlan.Item("army_wait_for_full") Then
-		$sError = "Collectors-only maintenance cannot wait for or inspect an army"
+		$sError = "Home maintenance cannot wait for or inspect an army"
 		Return SetError(5, 1, False)
 	EndIf
 	Local $oLoadout = $oIntent.Item("loadout")
 	If HeroLoadoutCount($oLoadout) > 0 Then
-		$sError = "Collectors-only maintenance cannot deploy or inspect Heroes"
+		$sError = "Home maintenance cannot deploy or inspect Heroes"
 		Return SetError(6, 0, False)
 	EndIf
 	If StringLower(StringStripWS(String($oPlan.Item("donate_mode")), $STR_STRIPALL)) <> "off" Or _
 			$oPlan.Item("donate_request_when_short") Or Int($oPlan.Item("donate_max_per_run")) <> 0 Then
-		$sError = "Collectors-only maintenance requires donations and requests off"
+		$sError = "Home maintenance requires donations and requests off"
 		Return SetError(7, 0, False)
 	EndIf
 	If $oPlan.Item("events_clan_games") Or Int($oPlan.Item("events_clan_games_point_cap")) <> 0 Then
-		$sError = "Collectors-only maintenance cannot enter Clan Games"
+		$sError = "Home maintenance cannot enter Clan Games"
 		Return SetError(8, 0, False)
 	EndIf
 	If StringLower(StringStripWS(String($oPlan.Item("events_laboratory")), $STR_STRIPALL)) <> "off" Then
-		$sError = "Collectors-only maintenance requires Laboratory off"
+		$sError = "Home maintenance requires Laboratory off"
 		Return SetError(9, 0, False)
 	EndIf
 	If StringLower(StringStripWS(String($oPlan.Item("upgrade_policy")), $STR_STRIPALL)) <> "disabled" Then
-		$sError = "Collectors-only maintenance requires upgrades disabled"
+		$sError = "Home maintenance requires upgrades disabled"
 		Return SetError(10, 0, False)
 	EndIf
 	If StringStripWS(String($oPlan.Item("account_queue_id")), $STR_STRIPALL) <> "" Then
-		$sError = "Collectors-only maintenance cannot rotate accounts"
+		$sError = "Home maintenance cannot rotate accounts"
 		Return SetError(11, 0, False)
 	EndIf
 	If Int($oPlan.Item("duration_minutes")) <> 0 Or Int($oPlan.Item("max_battles")) <> 0 Or _
 			$oPlan.Item("stop_on_star_bonus") Or Int($oPlan.Item("max_failures")) <> 0 Then
-		$sError = "Collectors-only maintenance is exactly one pass; duration, battles, star bonus, and failure limits must be 0/off"
+		$sError = "Home maintenance is exactly one pass; duration, battles, star bonus, and failure limits must be 0/off"
 		Return SetError(11, 1, False)
 	EndIf
 	If Int($oPlan.Item("target_gold")) <> 0 Or Int($oPlan.Item("target_elixir")) <> 0 Or Int($oPlan.Item("target_dark_elixir")) <> 0 Then
-		$sError = "Collectors-only maintenance cannot use battle-loot targets"
+		$sError = "Home maintenance cannot use battle-loot targets"
 		Return SetError(11, 2, False)
 	EndIf
 	If Int($oPlan.Item("search_min_gold")) <> 0 Or Int($oPlan.Item("search_min_elixir")) <> 0 Or _
 			Int($oPlan.Item("search_min_dark")) <> 0 Or Int($oPlan.Item("search_max_seconds")) <> 0 Or _
 			StringLower(StringStripWS(String($oPlan.Item("search_town_hall_filter")), $STR_STRIPALL)) <> "any" Then
-		$sError = "Collectors-only maintenance cannot configure matchmaking search"
+		$sError = "Home maintenance cannot configure matchmaking search"
 		Return SetError(11, 3, False)
 	EndIf
 	Local $oPacing = $oIntent.Item("pacing")
 	If Int($oPacing.Item("retry_attempts")) <> 0 Then
-		$sError = "Collectors-only maintenance requires retries set to 0"
+		$sError = "Home maintenance requires retries set to 0"
 		Return SetError(12, 0, False)
 	EndIf
 	If StringLower(StringStripWS(String($oPlan.Item("notify_channel")), $STR_STRIPALL)) <> "log-only" Then
-		$sError = "Only Bot log notifications are wired for collectors-only maintenance"
+		$sError = "Only Bot log notifications are wired for Home maintenance"
 		Return SetError(13, 0, False)
 	EndIf
 
 	Local $sEmulator = StringLower(StringStripWS(String($oPlan.Item("emulator")), $STR_STRIPALL))
 	Local $sInstance = StringStripWS(String($oPlan.Item("emulator_instance")), $STR_STRIPLEADING + $STR_STRIPTRAILING)
 	If $sEmulator = "" Or $sEmulator = "auto" Then
-		$sError = "Choose the exact emulator for collectors-only maintenance"
+		$sError = "Choose the exact emulator for Home maintenance"
 		Return SetError(14, 0, False)
 	EndIf
 	If $sInstance = "" Then
-		$sError = "Choose the exact emulator instance for collectors-only maintenance"
+		$sError = "Choose the exact emulator instance for Home maintenance"
 		Return SetError(14, 1, False)
 	EndIf
 	If Not StringRegExp($sInstance, "^[A-Za-z0-9_. -]{1,64}$") Then

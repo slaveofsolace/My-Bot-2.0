@@ -91,8 +91,8 @@ Func RunExecutionContractValidate(ByRef $oIntent, ByRef $sError)
 		$sError = "Current-army mode cannot request troops before its terminal one-battle attempt"
 		Return SetError(5, 4, False)
 	EndIf
-	If $oPlan.Item("events_collect_resources") Then
-		$sError = "Collector work requires the explicit Home maintenance - collectors only strategy"
+	If $oPlan.Item("events_collect_resources") Or $oPlan.Item("events_collect_daily_reward") Then
+		$sError = "Home collection work requires the explicit Home maintenance strategy"
 		Return SetError(5, 5, False)
 	EndIf
 	If $oPlan.Item("events_clan_games") Then
@@ -161,8 +161,8 @@ Func RunExecutionContractValidate(ByRef $oIntent, ByRef $sError)
 		$sError = "The Clan Games point cap is not wired yet; use 0"
 		Return SetError(12, 0, False)
 	EndIf
-	If $oPlan.Item("events_collect_resources") Then
-		$sError = "Collector work requires the explicit Home maintenance - collectors only strategy"
+	If $oPlan.Item("events_collect_resources") Or $oPlan.Item("events_collect_daily_reward") Then
+		$sError = "Home collection work requires the explicit Home maintenance strategy"
 		Return SetError(12, 1, False)
 	EndIf
 	If $oPlan.Item("events_clan_games") And Not $bDiagnostic Then

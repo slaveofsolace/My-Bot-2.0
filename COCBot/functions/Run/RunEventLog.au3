@@ -218,12 +218,41 @@ Func RunEventLogMaintenanceCollectorsStarted()
 			"Collectors-only Home Village pass started", $g_sRunEventSurfaceId, $g_sRunEventVerificationState)
 EndFunc   ;==>RunEventLogMaintenanceCollectorsStarted
 
-Func RunEventLogMaintenanceHomeVerified($iCollectorClicks)
+Func RunEventLogMaintenanceHomeVerified($iCollectorClicks, $sDailyRewardState = "disabled")
 	If Not $g_bRunEventSessionBound Then Return False
 	Return RunEventLogWrite("maintenance.home-verified", "info", _
-			"Home Village main screen re-proven; collector_clicks=" & Int($iCollectorClicks), _
+			"Home Village main screen re-proven; collector_clicks=" & Int($iCollectorClicks) & _
+			"; daily_reward=" & String($sDailyRewardState), _
 			$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
 EndFunc   ;==>RunEventLogMaintenanceHomeVerified
+
+Func RunEventLogMaintenanceDailyRewardStarted()
+	If Not $g_bRunEventSessionBound Then Return False
+	Return RunEventLogWrite("maintenance.daily-reward.started", "info", _
+			"Startup Daily Reward recognition started; max_claim_attempts=1; gem_conversion=false", _
+			$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogMaintenanceDailyRewardStarted
+
+Func RunEventLogMaintenanceDailyRewardClickIssued($iAttempts)
+	If Not $g_bRunEventSessionBound Or Int($iAttempts) <> 1 Then Return False
+	Return RunEventLogWrite("maintenance.daily-reward.claim-issued", "info", _
+			"One Daily Reward Claim input was issued; claim_attempts=1; gem_conversion=false", _
+			$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogMaintenanceDailyRewardClickIssued
+
+Func RunEventLogMaintenanceDailyRewardUnavailable($sState)
+	If Not $g_bRunEventSessionBound Then Return False
+	Return RunEventLogWrite("maintenance.daily-reward.unavailable", "warning", _
+			"No Daily Reward Claim input was issued; state=" & String($sState), _
+			$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogMaintenanceDailyRewardUnavailable
+
+Func RunEventLogMaintenanceDailyRewardUnconfirmed($bClickIssued, $sDetail)
+	If Not $g_bRunEventSessionBound Then Return False
+	Return RunEventLogWrite("maintenance.daily-reward.unconfirmed", "error", _
+			"claim_issued=" & ($bClickIssued ? "true" : "false") & "; gem_conversion=false; " & String($sDetail), _
+			$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogMaintenanceDailyRewardUnconfirmed
 
 Func RunEventLogMaintenanceCollectorsCompleted($iCollectorClicks)
 	If Not $g_bRunEventSessionBound Then Return False

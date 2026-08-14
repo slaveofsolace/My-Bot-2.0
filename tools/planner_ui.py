@@ -363,7 +363,7 @@ def engine_preflight(plan: dict) -> list[str]:
     strategy = str(plan.get("run.strategy", "")).strip().lower()
     script = str(plan.get("run.attack_script", "")).strip()
     planned_town_hall = int(plan.get("run.town_hall", 0))
-    collectors_only = strategy == "home.collectors"
+    home_maintenance = strategy == "home.collectors"
     clan_request_only = strategy == "home.clan-request"
     if surface != "regular":
         problems.append("run.surface: the native engine is currently wired only to Regular Battles")
@@ -376,29 +376,29 @@ def engine_preflight(plan: dict) -> list[str]:
         problems.append("army: named recipes and non-profile army sources are not wired; use the active profile army")
 
     manages_training = bool(plan.get("army.manage_training"))
-    if collectors_only:
+    if home_maintenance:
         if not bool(plan.get("run.diagnostic_mode")):
-            problems.append("run.diagnostic_mode: collectors-only maintenance requires supervised diagnostic acknowledgement")
-        if not bool(plan.get("events.collect_resources")):
-            problems.append("events.collect_resources: collectors-only maintenance requires Collect collectors")
+            problems.append("run.diagnostic_mode: Home maintenance requires supervised diagnostic acknowledgement")
+        if not bool(plan.get("events.collect_resources")) and not bool(plan.get("events.collect_daily_reward")):
+            problems.append("events: Home maintenance requires collectors or startup Daily Reward")
         if manages_training or bool(plan.get("army.wait_for_full")) or bool(plan.get("army.train_spells")) or bool(plan.get("army.train_sieges")):
-            problems.append("army: collectors-only maintenance requires training, army wait, spells, and sieges off")
+            problems.append("army: Home maintenance requires training, army wait, spells, and sieges off")
         if plan.get("run.heroes"):
-            problems.append("run.heroes: collectors-only maintenance requires no selected Heroes")
+            problems.append("run.heroes: Home maintenance requires no selected Heroes")
         if int(plan.get("run.duration_minutes", 0)) != 0 or int(plan.get("run.max_battles", 0)) != 0 or bool(plan.get("run.stop_on_star_bonus")) or int(plan.get("run.max_failures", 0)) != 0:
-            problems.append("run: collectors-only maintenance is one pass; duration, battles, star bonus, and failure limits must be 0/off")
+            problems.append("run: Home maintenance is one pass; duration, battles, star bonus, and failure limits must be 0/off")
         if any(int(plan.get(key, 0)) != 0 for key in ("target.gold", "target.elixir", "target.dark_elixir", "search.min_gold", "search.min_elixir", "search.min_dark", "search.max_seconds")):
-            problems.append("search/targets: collectors-only maintenance cannot configure matchmaking or battle-loot targets")
+            problems.append("search/targets: Home maintenance cannot configure matchmaking or battle-loot targets")
         if str(plan.get("donate.mode", "")).strip().lower() != "off" or bool(plan.get("donate.request_when_short")) or int(plan.get("donate.max_per_run", 0)) != 0:
-            problems.append("donate: collectors-only maintenance requires donations and requests off")
+            problems.append("donate: Home maintenance requires donations and requests off")
         if bool(plan.get("events.clan_games")) or int(plan.get("events.clan_games_point_cap", 0)) != 0:
-            problems.append("events.clan_games: collectors-only maintenance cannot enter Clan Games")
+            problems.append("events.clan_games: Home maintenance cannot enter Clan Games")
         if str(plan.get("events.laboratory", "")).strip().lower() != "off":
-            problems.append("events.laboratory: collectors-only maintenance requires Laboratory off")
+            problems.append("events.laboratory: Home maintenance requires Laboratory off")
         if str(plan.get("upgrade.policy", "")).strip().lower() != "disabled":
-            problems.append("upgrade.policy: collectors-only maintenance requires upgrades disabled")
+            problems.append("upgrade.policy: Home maintenance requires upgrades disabled")
         if str(plan.get("account.queue", "")).strip():
-            problems.append("account.queue: collectors-only maintenance cannot rotate accounts")
+            problems.append("account.queue: Home maintenance cannot rotate accounts")
     elif clan_request_only:
         if not bool(plan.get("run.diagnostic_mode")):
             problems.append("run.diagnostic_mode: Clan request requires supervised diagnostic acknowledgement")
@@ -412,8 +412,8 @@ def engine_preflight(plan: dict) -> list[str]:
             problems.append("search/targets: Clan request cannot configure matchmaking or battle-loot targets")
         if str(plan.get("donate.mode", "")).strip().lower() != "off" or not bool(plan.get("donate.request_when_short")) or not bool(plan.get("donate.keep_army")) or int(plan.get("donate.max_per_run", 0)) != 0:
             problems.append("donate: Clan request requires Off, Request when available on, army preservation on, and donation limit 0")
-        if bool(plan.get("events.collect_resources")) or bool(plan.get("events.clan_games")) or int(plan.get("events.clan_games_point_cap", 0)) != 0:
-            problems.append("events: Clan request cannot collect resources or enter Clan Games")
+        if bool(plan.get("events.collect_resources")) or bool(plan.get("events.collect_daily_reward")) or bool(plan.get("events.clan_games")) or int(plan.get("events.clan_games_point_cap", 0)) != 0:
+            problems.append("events: Clan request cannot collect resources, claim rewards, or enter Clan Games")
         if str(plan.get("events.laboratory", "")).strip().lower() != "off":
             problems.append("events.laboratory: Clan request requires Laboratory off")
         if str(plan.get("upgrade.policy", "")).strip().lower() != "disabled":
@@ -422,8 +422,8 @@ def engine_preflight(plan: dict) -> list[str]:
             problems.append("account.queue: Clan request cannot rotate accounts")
         if int(plan.get("pacing.break_every_minutes", 0)) != 0:
             problems.append("pacing.break_every_minutes: Clan request requires scheduled breaks off")
-    elif bool(plan.get("events.collect_resources")):
-        problems.append("events.collect_resources: collector work requires the Home maintenance - collectors only strategy")
+    elif bool(plan.get("events.collect_resources")) or bool(plan.get("events.collect_daily_reward")):
+        problems.append("events: Home collection work requires the Home maintenance strategy")
     elif manages_training:
         problems.append(
             "army.manage_training: managed training is disabled because the inherited profile training path is not "
@@ -438,8 +438,8 @@ def engine_preflight(plan: dict) -> list[str]:
             problems.append("donate.mode: donations must be off for the one-shot current army")
         if bool(plan.get("donate.request_when_short")):
             problems.append("donate.request_when_short: current-army mode cannot request troops")
-        if bool(plan.get("events.clan_games")) or bool(plan.get("events.collect_resources")):
-            problems.append("events: current-army mode cannot run Clan Games or collector clicks before battle")
+        if bool(plan.get("events.clan_games")) or bool(plan.get("events.collect_resources")) or bool(plan.get("events.collect_daily_reward")):
+            problems.append("events: current-army mode cannot run Clan Games or Home collection work before battle")
         if str(plan.get("events.laboratory", "")).strip().lower() != "off":
             problems.append("events.laboratory: current-army mode requires Laboratory off")
         if str(plan.get("upgrade.policy", "")).strip().lower() != "disabled":
@@ -474,10 +474,10 @@ def engine_preflight(plan: dict) -> list[str]:
         problems.append("runtime.instance: choose a specific emulator before selecting an instance")
     if emulator == "bluestacks5" and not instance:
         problems.append("runtime.instance: choose the exact BlueStacks 5 instance")
-    if (collectors_only or clan_request_only) and (emulator == "auto" or not instance):
-        route_label = "Collectors-only maintenance" if collectors_only else "Clan request"
+    if (home_maintenance or clan_request_only) and (emulator == "auto" or not instance):
+        route_label = "Home maintenance" if home_maintenance else "Clan request"
         problems.append(f"runtime.instance: {route_label} requires the exact non-Auto emulator and instance")
-    if (collectors_only or clan_request_only) and instance and not re.fullmatch(r"[A-Za-z0-9_. -]{1,64}", instance):
+    if (home_maintenance or clan_request_only) and instance and not re.fullmatch(r"[A-Za-z0-9_. -]{1,64}", instance):
         problems.append("runtime.instance: the Home route instance name contains unsupported characters")
 
     if not bool(plan.get("donate.keep_army")):

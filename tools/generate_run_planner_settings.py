@@ -334,14 +334,15 @@ def main() -> int:
                                    "gated", [], ["A ready trained army", "A supervised diagnostic operator"],
                                    disabled_reason="The 2026-08-14 bea12973 LocalRuntime checkpoint passed no-input managed-engine initialization, but not managed Start or gameplay. This post-checkpoint source revision is unbuilt; current-client fixtures and live human review remain absent.",
                                     warning="Historical TH17 mechanics evidence exists; bea12973 adds exact-current no-input managed-engine initialization, not gameplay proof."),
-                             option("home.collectors", "Home maintenance - collectors only",
-                                    "Empty Home Village mines and collectors once, without matchmaking.",
-                                    "Runs one bounded collector pass, re-proves the Home Village screen, then stops. "
-                                   "It cannot search, attack, train, donate, upgrade, enter the Laboratory, run Clan "
-                                   "Games, rotate accounts, collect the Loot Cart, or enter the Treasury.",
-                                   "gated", ["village.collectors"], ["Collect collectors enabled", "A supervised diagnostic operator"],
-                                    disabled_reason="Current-client collector and full-storage handling still need a supervised runtime receipt.",
-                                    warning="Diagnostic only until a supervised current-client collector pass is recorded."),
+                             option("home.collectors", "Home maintenance",
+                                    "Run selected one-shot Home Village collection tasks without matchmaking.",
+                                    "Runs a bounded Home pass for collectors and, when explicitly enabled, the startup "
+                                    "Daily Reward. It re-proves Home and stops. It cannot search, attack, train, donate, "
+                                    "upgrade, enter the Laboratory, run Clan Games, rotate accounts, collect the Loot "
+                                    "Cart, or enter the Treasury.",
+                                    "gated", ["village.collectors", "events.daily-reward"], ["At least one Home task enabled", "A supervised diagnostic operator"],
+                                    disabled_reason="Current-client collector and Daily Reward handling still need supervised runtime receipts.",
+                                    warning="Diagnostic only until supervised current-client Home maintenance receipts are recorded."),
                             option("home.clan-request", "Home maintenance - Clan request only",
                                    "Request Clan Castle reinforcements once, without donating or matchmaking.",
                                    "Runs one bounded request-only pass on the exact active profile and emulator instance. "
@@ -1098,7 +1099,7 @@ def main() -> int:
                         "label": "Collect collectors",
                         "summary": "Empty mines and collectors each pass.",
                         "description": (
-                            "This is executed only by Home maintenance - collectors only. The route skips full "
+                            "This is executed only by Home maintenance. The route skips full "
                             "storages, Loot Cart, Treasury, matchmaking, donations, upgrades, Laboratory, and Clan Games."
                         ),
                         "default": False,
@@ -1109,7 +1110,27 @@ def main() -> int:
                         "capability_ids": ["village.collectors"],
                         "prerequisites": ["Current home-village collector recognition"],
                         "disabled_reason": "The bounded route is wired, but collector and full-storage handling lack a supervised current-client receipt.",
-                        "warning": "Select Home maintenance - collectors only and use a supervised diagnostic.",
+                        "warning": "Select Home maintenance and use a supervised diagnostic.",
+                    },
+                    {
+                        "id": "events.collect_daily_reward",
+                        "type": "boolean",
+                        "label": "Claim startup Daily Reward",
+                        "summary": "Claim at most one visible Daily Reward, then return Home.",
+                        "description": (
+                            "Only Home maintenance may use this. It recognizes the startup reward window, permits one "
+                            "Claim input, never accepts a sell-or-convert-for-gems dialog, closes any remaining popup, "
+                            "re-proves Home, and stops."
+                        ),
+                        "default": False,
+                        "required": False,
+                        "engine_binding": "RunPlan.events_collect_daily_reward",
+                        "availability": "gated",
+                        "runtime_verified": False,
+                        "capability_ids": ["events.daily-reward"],
+                        "prerequisites": ["Current startup Daily Reward recognition", "No-gems policy"],
+                        "disabled_reason": "The bounded route needs one supervised current-client claim receipt.",
+                        "warning": "This can claim a real account reward. It never converts a full reward into gems.",
                     },
                 ],
             },

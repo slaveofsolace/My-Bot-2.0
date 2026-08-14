@@ -21,6 +21,10 @@ Global $g_iRunExecutionGoldBaseline = 0
 Global $g_iRunExecutionElixirBaseline = 0
 Global $g_iRunExecutionDarkBaseline = 0
 Global $g_sRunExecutionMessage = "Legacy profile mode"
+Global $g_sRunExecutionDailyRewardState = "not-seen"
+Global $g_sRunExecutionDailyRewardDetail = ""
+Global $g_iRunExecutionDailyRewardAttempts = 0
+Global $g_bRunExecutionDailyRewardClickIssued = False
 ; A standard planned attack is successful only after the live attack bar proves that the main
 ; deployable troops disappeared. Sending click commands is not deployment evidence.
 Global $g_bRunExecutionDeploymentVerified = False
@@ -58,6 +62,12 @@ Global $g_bRunExecutionSnapshotDonateLikeCrazy = False
 Global $g_bRunExecutionSnapshotRequestTroopsEnable = False
 Global $g_bRunExecutionSnapshotChkClanGamesEnabled = False
 Global $g_bRunExecutionSnapshotChkCollect = False
+Global $g_bRunExecutionSnapshotChkCollectCartFirst = False
+Global $g_bRunExecutionSnapshotChkTreasuryCollect = False
+Global $g_bRunExecutionSnapshotChkCollectAchievements = False
+Global $g_bRunExecutionSnapshotChkCollectFreeMagicItems = False
+Global $g_bRunExecutionSnapshotChkCollectRewards = False
+Global $g_bRunExecutionSnapshotChkSellRewards = False
 Global $g_bRunExecutionSnapshotAutoLabUpgradeEnable = False
 Global $g_bRunExecutionSnapshotAutoUpgradeWallsEnable = False
 Global $g_bRunExecutionSnapshotAutoUpgradeEnabled = False
@@ -68,6 +78,26 @@ Global $g_bRunExecutionSnapshotUseCCBalanced = False
 Func RunExecutionPlanActive()
 	Return $g_bRunExecutionActive
 EndFunc   ;==>RunExecutionPlanActive
+
+; True as soon as a reviewed plan owns the Start attempt, including the screen-readiness phase before
+; RunExecutionBegin(). Popup handlers use this to avoid inheriting reward clicks from the legacy profile.
+Func RunExecutionManagedPlanPrepared()
+	Return ($g_bRunExecutionPrepared Or $g_bRunExecutionActive) And IsObj($g_oRunExecutionIntent)
+EndFunc   ;==>RunExecutionManagedPlanPrepared
+
+Func RunExecutionDailyRewardClaimAllowed()
+	If Not RunExecutionManagedPlanPrepared() Or Not HomeMaintenanceRouteSelected($g_oRunExecutionIntent) Then Return False
+	Local $oPlan = $g_oRunExecutionIntent.Item("plan")
+	Return IsObj($oPlan) And $oPlan.Exists("events_collect_daily_reward") And $oPlan.Item("events_collect_daily_reward")
+EndFunc   ;==>RunExecutionDailyRewardClaimAllowed
+
+Func RunExecutionRecordDailyReward($sState, $iAttempts, $bClickIssued, $sDetail = "")
+	$g_sRunExecutionDailyRewardState = StringLower(StringStripWS(String($sState), $STR_STRIPALL))
+	$g_iRunExecutionDailyRewardAttempts = Int($iAttempts)
+	$g_bRunExecutionDailyRewardClickIssued = $bClickIssued ? True : False
+	$g_sRunExecutionDailyRewardDetail = String($sDetail)
+	Return True
+EndFunc   ;==>RunExecutionRecordDailyReward
 
 Func RunExecutionPreparedIntent()
 	If Not IsObj($g_oRunExecutionIntent) Then Return SetError(1, 0, 0)
@@ -90,7 +120,7 @@ Func RunExecutionBindCurrentProfileForHomeRoute(ByRef $oIntent, ByRef $sError)
 	Local $bClanRequest = ClanRequestRouteSelected($oIntent)
 	Local $bCollectors = HomeMaintenanceRouteSelected($oIntent)
 	If Not $bClanRequest And Not $bCollectors Then Return True
-	Local $sRouteName = $bClanRequest ? "Clan request" : "Collectors-only maintenance"
+	Local $sRouteName = $bClanRequest ? "Clan request" : "Home maintenance"
 	Local $sActiveProfile = StringStripWS(String($g_sProfileCurrentName), $STR_STRIPLEADING + $STR_STRIPTRAILING)
 	If $sActiveProfile = "" Or StringLen($sActiveProfile) > 64 Or _
 			Not StringRegExp($sActiveProfile, "^[A-Za-z0-9_. -]+$") Then
@@ -160,33 +190,56 @@ Func HomeMaintenanceRouteExecute()
 	If Not HomeMaintenanceRouteAccountMatches($g_oRunExecutionIntent, $g_sProfileCurrentName) Then _
 		Return _HomeMaintenanceRouteFail("the active profile no longer matches the account bound at Start")
 
-	SetLog("Run Planner: starting one collectors-only Home Village pass", $COLOR_ACTION)
-	RunEventLogMaintenanceCollectorsStarted()
+	Local $oPlan = $g_oRunExecutionIntent.Item("plan")
+	Local $bCollectResources = $oPlan.Item("events_collect_resources")
+	Local $bCollectDailyReward = $oPlan.Item("events_collect_daily_reward")
+	SetLog("Run Planner: starting one bounded Home Village maintenance pass", $COLOR_ACTION)
+	If $bCollectResources Then RunEventLogMaintenanceCollectorsStarted()
 	If Not _RunExecutionRequireOwnVillageReady() Then Return False
 
-	; Collectors-only mode suppresses Loot Cart and Treasury entry even if the legacy profile enables them.
-	; Collect returns True only after it re-proves the own-village main screen following every click.
-	Local $bCollectorScreenReady = Collect(False, True)
-	Local $iCollectorClicks = @extended
-	If Not $bCollectorScreenReady Then
-		If RunControlStopRequested() Or Not $g_bRunState Then Return False
-		Return _HomeMaintenanceRouteFail("collector recognition did not return to a proven Home Village screen")
+	If $bCollectDailyReward Then
+		Switch $g_sRunExecutionDailyRewardState
+			Case "click-issued"
+				; The issued-input receipt was written at the Click acceptance boundary. Do not duplicate it.
+			Case "not-seen", "none-actionable"
+				RunEventLogMaintenanceDailyRewardUnavailable($g_sRunExecutionDailyRewardState)
+			Case "cancelled"
+				Return False
+			Case Else
+				RunEventLogMaintenanceDailyRewardUnconfirmed($g_bRunExecutionDailyRewardClickIssued, _
+						$g_sRunExecutionDailyRewardDetail)
+				Return _HomeMaintenanceRouteFail("startup Daily Reward outcome was unconfirmed: " & $g_sRunExecutionDailyRewardState)
+		EndSwitch
+	EndIf
+
+	Local $iCollectorClicks = 0
+	If $bCollectResources Then
+		; Home-maintenance collector mode suppresses Loot Cart and Treasury even if the legacy profile enables them.
+		; Collect returns True only after it re-proves the own-village main screen following every click.
+		Local $bCollectorScreenReady = Collect(False, True)
+		$iCollectorClicks = @extended
+		If Not $bCollectorScreenReady Then
+			If RunControlStopRequested() Or Not $g_bRunState Then Return False
+			Return _HomeMaintenanceRouteFail("collector recognition did not return to a proven Home Village screen")
+		EndIf
 	EndIf
 	If RunControlStopRequested() Or Not $g_bRunState Then Return False
 
-	RunEventLogMaintenanceHomeVerified($iCollectorClicks)
-	If $iCollectorClicks > 0 Then
-		RunEventLogMaintenanceCollectorsCompleted($iCollectorClicks)
-	Else
-		RunEventLogMaintenanceCollectorsNoneActionable()
+	RunEventLogMaintenanceHomeVerified($iCollectorClicks, $bCollectDailyReward ? $g_sRunExecutionDailyRewardState : "disabled")
+	If $bCollectResources Then
+		If $iCollectorClicks > 0 Then
+			RunEventLogMaintenanceCollectorsCompleted($iCollectorClicks)
+		Else
+			RunEventLogMaintenanceCollectorsNoneActionable()
+		EndIf
 	EndIf
-	Local $sReason = ($iCollectorClicks > 0) ? "home-maintenance-complete" : "home-maintenance-none-actionable"
+	Local $bAnyInput = $iCollectorClicks > 0 Or $g_bRunExecutionDailyRewardClickIssued
+	Local $sReason = $bAnyInput ? "home-maintenance-complete" : "home-maintenance-none-actionable"
 	If Not RunSessionRequestStop($g_oRunExecutionSession, $sReason) Then _
 		Return _HomeMaintenanceRouteFail("the run session refused its one-pass completion")
 	RunEventLogRunStopping("regular", $RUN_VERIFICATION_DIAGNOSTIC, $sReason)
-	$g_sRunExecutionMessage = ($iCollectorClicks > 0) ? _
-			("Completed collectors-only Home maintenance; collector clicks=" & $iCollectorClicks) : _
-			"Completed Home maintenance with no actionable collector click"
+	$g_sRunExecutionMessage = "Completed Home maintenance; collector_clicks=" & $iCollectorClicks & _
+			"; daily_reward=" & ($bCollectDailyReward ? $g_sRunExecutionDailyRewardState : "disabled")
 	btnStop()
 	Return True
 EndFunc   ;==>HomeMaintenanceRouteExecute
@@ -541,6 +594,12 @@ Func _RunExecutionCaptureProfileSnapshot()
 	$g_bRunExecutionSnapshotRequestTroopsEnable = $g_bRequestTroopsEnable
 	$g_bRunExecutionSnapshotChkClanGamesEnabled = $g_bChkClanGamesEnabled
 	$g_bRunExecutionSnapshotChkCollect = $g_bChkCollect
+	$g_bRunExecutionSnapshotChkCollectCartFirst = $g_bChkCollectCartFirst
+	$g_bRunExecutionSnapshotChkTreasuryCollect = $g_bChkTreasuryCollect
+	$g_bRunExecutionSnapshotChkCollectAchievements = $g_bChkCollectAchievements
+	$g_bRunExecutionSnapshotChkCollectFreeMagicItems = $g_bChkCollectFreeMagicItems
+	$g_bRunExecutionSnapshotChkCollectRewards = $g_bChkCollectRewards
+	$g_bRunExecutionSnapshotChkSellRewards = $g_bChkSellRewards
 	$g_bRunExecutionSnapshotAutoLabUpgradeEnable = $g_bAutoLabUpgradeEnable
 	$g_bRunExecutionSnapshotAutoUpgradeWallsEnable = $g_bAutoUpgradeWallsEnable
 	$g_bRunExecutionSnapshotAutoUpgradeEnabled = $g_bAutoUpgradeEnabled
@@ -562,6 +621,10 @@ Func RunExecutionPrepareStart(ByRef $sError)
 	$g_oRunExecutionIntent = 0
 	$g_oRunExecutionSession = 0
 	$g_bRunExecutionManageTraining = True
+	$g_sRunExecutionDailyRewardState = "not-seen"
+	$g_sRunExecutionDailyRewardDetail = ""
+	$g_iRunExecutionDailyRewardAttempts = 0
+	$g_bRunExecutionDailyRewardClickIssued = False
 	$g_sRunExecutionMessage = "Legacy profile mode"
 
 	Local $oIntent = 0
@@ -628,6 +691,16 @@ Func _RunExecutionApplyIntent(ByRef $sError)
 	EndIf
 
 	Local $sStrategy = StringLower(String($oPlan.Item("strategy")))
+	; A reviewed plan is closed-world. Reward and collection actuators that are not represented in the
+	; plan must never leak in from the active legacy profile. In particular, selling a full magic item
+	; for gems is prohibited for every managed run. Explicit bounded routes may re-enable only the
+	; actuator they own after this common safety reset.
+	$g_bChkCollectCartFirst = False
+	$g_bChkTreasuryCollect = False
+	$g_bChkCollectAchievements = False
+	$g_bChkCollectFreeMagicItems = False
+	$g_bChkCollectRewards = False
+	$g_bChkSellRewards = False
 	If $sStrategy = $HOME_MAINTENANCE_COLLECTORS_STRATEGY Then
 		; This exact route owns no attack, training, donation, upgrade, account-switch, or event actuator.
 		; Apply only the collector flag and explicit safety disables; the captured profile snapshot
@@ -637,7 +710,7 @@ Func _RunExecutionApplyIntent(ByRef $sError)
 		$g_bRequestTroopsEnable = False
 		$g_bChkSwitchAcc = False
 		$g_bChkClanGamesEnabled = 0
-		$g_bChkCollect = True
+		$g_bChkCollect = $oPlan.Item("events_collect_resources")
 		$g_bAutoLabUpgradeEnable = False
 		$g_bAutoUpgradeWallsEnable = False
 		$g_bAutoUpgradeEnabled = False
@@ -849,6 +922,12 @@ Func _RunExecutionRestoreProfile()
 	$g_bRequestTroopsEnable = $g_bRunExecutionSnapshotRequestTroopsEnable
 	$g_bChkClanGamesEnabled = $g_bRunExecutionSnapshotChkClanGamesEnabled
 	$g_bChkCollect = $g_bRunExecutionSnapshotChkCollect
+	$g_bChkCollectCartFirst = $g_bRunExecutionSnapshotChkCollectCartFirst
+	$g_bChkTreasuryCollect = $g_bRunExecutionSnapshotChkTreasuryCollect
+	$g_bChkCollectAchievements = $g_bRunExecutionSnapshotChkCollectAchievements
+	$g_bChkCollectFreeMagicItems = $g_bRunExecutionSnapshotChkCollectFreeMagicItems
+	$g_bChkCollectRewards = $g_bRunExecutionSnapshotChkCollectRewards
+	$g_bChkSellRewards = $g_bRunExecutionSnapshotChkSellRewards
 	$g_bAutoLabUpgradeEnable = $g_bRunExecutionSnapshotAutoLabUpgradeEnable
 	$g_bAutoUpgradeWallsEnable = $g_bRunExecutionSnapshotAutoUpgradeWallsEnable
 	$g_bAutoUpgradeEnabled = $g_bRunExecutionSnapshotAutoUpgradeEnabled

@@ -321,26 +321,28 @@ Func _RunPlanFileModeForSurface($sSurface)
 	Return ""
 EndFunc   ;==>_RunPlanFileModeForSurface
 
-; The exact contract. 45 keys: 40 run settings plus the five pacing settings the cloud surface adds.
+; The exact contract. 46 keys: 41 run settings plus the five pacing settings the cloud surface adds.
 ; If a setting is added to config/ui/run-planner.settings.json it MUST be added here too, or every
 ; saved plan is refused.
 Func _RunPlanFileRequiredKeys()
 	Local $aKeys = ["run.surface", "run.strategy", "run.attack_script", "run.town_hall", "run.heroes", "runtime.emulator", "runtime.instance", "run.duration_minutes", "run.max_battles", "run.stop_on_star_bonus", "run.max_failures", _
 		"target.gold", "target.elixir", "target.dark_elixir", "upgrade.policy", "account.queue", "army.source", "army.recipe_name", "army.manage_training", "army.wait_for_full", "army.train_spells", "army.train_sieges", _
 		"search.min_gold", "search.min_elixir", "search.min_dark", "search.max_seconds", "search.town_hall_filter", "donate.mode", "donate.keep_army", "donate.max_per_run", "donate.request_when_short", _
-		"events.clan_games", "events.clan_games_point_cap", "events.laboratory", "events.collect_resources", "notify.on_stop", "notify.on_error", "notify.channel", "run.diagnostic_mode", "run.diagnostic_note", _
+		"events.clan_games", "events.clan_games_point_cap", "events.laboratory", "events.collect_resources", "events.collect_daily_reward", "notify.on_stop", "notify.on_error", "notify.channel", "run.diagnostic_mode", "run.diagnostic_note", _
 		"pacing.action_delay_ms", "pacing.settle_ms", "pacing.retry_attempts", "pacing.break_every_minutes", "pacing.break_minutes"]
 	Return $aKeys
 EndFunc   ;==>_RunPlanFileRequiredKeys
 
-; Current plans own run.town_hall. The preceding 44-key build did not, so migrate it to explicit
-; auto-detect (0). Earlier 43/42-key migrations retain their original meanings before that final
-; addition. Unknown or otherwise incomplete documents remain strict failures below.
+; Current plans own the explicit Daily Reward choice. The preceding 45-key build did not, so migrate
+; it to the safe default (False). Earlier 44/43/42-key migrations retain their original meanings for
+; Town Hall, training management, and attack script before that final addition. Unknown or otherwise
+; incomplete documents remain strict failures below.
 Func _RunPlanFileNormalizeCurrentContract(ByRef $oJson)
 	If Not IsObj($oJson) Then Return False
 	If $oJson.Count = 42 And Not $oJson.Exists("run.attack_script") Then $oJson.Add("run.attack_script", "profile-current")
 	If $oJson.Count = 43 And Not $oJson.Exists("army.manage_training") Then $oJson.Add("army.manage_training", True)
 	If $oJson.Count = 44 And Not $oJson.Exists("run.town_hall") Then $oJson.Add("run.town_hall", 0)
+	If $oJson.Count = 45 And Not $oJson.Exists("events.collect_daily_reward") Then $oJson.Add("events.collect_daily_reward", False)
 	Return True
 EndFunc   ;==>_RunPlanFileNormalizeCurrentContract
 
@@ -513,7 +515,7 @@ Func RunPlanFileLoadIntent($sPath, ByRef $sError)
 	For $i = 0 To UBound($aIntegers) - 1
 		If Not _RunPlanFileAssignInteger($oPlan, $oJson, $aIntegers[$i][0], $aIntegers[$i][1], $sError) Then Return SetError(8, $i, 0)
 	Next
-	Local $aBooleans[11][2] = [["stop_on_star_bonus", "run.stop_on_star_bonus"], ["army_manage_training", "army.manage_training"], ["army_wait_for_full", "army.wait_for_full"], ["army_train_spells", "army.train_spells"], ["army_train_sieges", "army.train_sieges"], ["donate_keep_army", "donate.keep_army"], ["donate_request_when_short", "donate.request_when_short"], ["events_clan_games", "events.clan_games"], ["events_collect_resources", "events.collect_resources"], ["notify_on_stop", "notify.on_stop"], ["notify_on_error", "notify.on_error"]]
+	Local $aBooleans[12][2] = [["stop_on_star_bonus", "run.stop_on_star_bonus"], ["army_manage_training", "army.manage_training"], ["army_wait_for_full", "army.wait_for_full"], ["army_train_spells", "army.train_spells"], ["army_train_sieges", "army.train_sieges"], ["donate_keep_army", "donate.keep_army"], ["donate_request_when_short", "donate.request_when_short"], ["events_clan_games", "events.clan_games"], ["events_collect_resources", "events.collect_resources"], ["events_collect_daily_reward", "events.collect_daily_reward"], ["notify_on_stop", "notify.on_stop"], ["notify_on_error", "notify.on_error"]]
 	For $i = 0 To UBound($aBooleans) - 1
 		If Not _RunPlanFileAssignBoolean($oPlan, $oJson, $aBooleans[$i][0], $aBooleans[$i][1], $sError) Then Return SetError(9, $i, 0)
 	Next

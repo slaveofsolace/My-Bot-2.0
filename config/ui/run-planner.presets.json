@@ -40,6 +40,7 @@
     "events.clan_games_point_cap": 0,
     "events.laboratory": "off",
     "events.collect_resources": false,
+    "events.collect_daily_reward": false,
     "upgrade.policy": "disabled",
     "account.queue": "",
     "notify.on_stop": true,

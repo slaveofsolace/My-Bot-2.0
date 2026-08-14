@@ -755,6 +755,13 @@ EndFunc   ;==>CheckAllObstacles
 
 Func CheckDailyRewardWindow()
 	If Not $g_bRunState Then Return
+	; Daily Reward claiming is legacy profile behavior unless Home maintenance explicitly owns it.
+	; Every other reviewed plan closes the interruption without claiming it.
+	If RunExecutionManagedPlanPrepared() And Not RunExecutionDailyRewardClaimAllowed() Then
+		SetLog("Run Planner: Daily Reward detected but not authorized by this plan; closing without claim", $COLOR_WARNING)
+		CloseWindow2()
+		Return
+	EndIf
 	Local $sAllCoordsString, $aAllCoordsTemp, $aTempCoords
 	Local $aAllCoords[0][2]
 	If _Sleep($DELAYSTARBONUS100) Then Return
@@ -774,6 +781,36 @@ Func CheckDailyRewardWindow()
 			EndIf
 		Next
 		RemoveDupXY($aAllCoords)
+		If RunExecutionManagedPlanPrepared() Then
+			RunEventLogMaintenanceDailyRewardStarted()
+			Local $iClaimButtons = UBound($aAllCoords)
+			If $iClaimButtons = 0 Then
+				RunExecutionRecordDailyReward("none-actionable", 0, False, "Daily Reward window had no uniquely recognized Claim button")
+				CloseWindow2()
+				Return
+			EndIf
+			If $iClaimButtons <> 1 Then
+				RunExecutionRecordDailyReward("ambiguous", 0, False, "Expected exactly one Claim button; recognized " & $iClaimButtons)
+				CloseWindow2()
+				Return
+			EndIf
+			If RunControlStopRequested() Or Not $g_bRunState Then
+				RunExecutionRecordDailyReward("cancelled", 0, False, "Stop requested immediately before Daily Reward Claim")
+				Return
+			EndIf
+			Local $bClaimIssued = Click($aAllCoords[0][0], $aAllCoords[0][1], 1, 120, "Daily Reward Claim")
+			RunExecutionRecordDailyReward($bClaimIssued ? "click-issued" : "click-rejected", 1, $bClaimIssued, _
+					$bClaimIssued ? "One Claim input was accepted; no conversion dialog was accepted" : "The input adapter rejected the one Claim attempt")
+			; The receipt belongs at the accepted-input boundary. If a later Home proof fails, the
+			; irreversible attempt must still remain in the event history.
+			If $bClaimIssued Then RunEventLogMaintenanceDailyRewardClickIssued(1)
+			If Not $bClaimIssued Or _Sleep(2000) Then Return
+			; Never click an Okay/Confirm button here: a full reward may offer gem conversion. Closing is
+			; the only permitted follow-up input, and only while Stop is not requested.
+			If RunControlStopRequested() Or Not $g_bRunState Then Return
+			CloseWindow2()
+			Return
+		EndIf
 		For $j = 0 To UBound($aAllCoords) - 1
 			Click($aAllCoords[$j][0], $aAllCoords[$j][1], 1, 120, "Claim " & $j + 1)         ; Click Claim button
 			If _Sleep(2000) Then Return
