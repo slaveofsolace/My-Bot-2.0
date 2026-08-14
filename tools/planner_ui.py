@@ -379,8 +379,15 @@ def engine_preflight(plan: dict) -> list[str]:
     if home_maintenance:
         if not bool(plan.get("run.diagnostic_mode")):
             problems.append("run.diagnostic_mode: Home maintenance requires supervised diagnostic acknowledgement")
-        if not bool(plan.get("events.collect_resources")) and not bool(plan.get("events.collect_daily_reward")) and not bool(plan.get("events.collect_loot_cart")) and not bool(plan.get("events.collect_treasury")):
-            problems.append("events: Home maintenance requires collectors, Loot Cart, Treasury, or startup Daily Reward")
+        collectors = bool(plan.get("events.collect_resources"))
+        daily_reward = bool(plan.get("events.collect_daily_reward"))
+        loot_cart = bool(plan.get("events.collect_loot_cart"))
+        treasury = bool(plan.get("events.collect_treasury"))
+        if daily_reward or treasury or collectors == loot_cart:
+            problems.append(
+                "events: choose exactly one available template-free task: collectors or Loot Cart; "
+                "Daily Reward and Treasury remain unavailable"
+            )
         if manages_training or bool(plan.get("army.wait_for_full")) or bool(plan.get("army.train_spells")) or bool(plan.get("army.train_sieges")):
             problems.append("army: Home maintenance requires training, army wait, spells, and sieges off")
         if plan.get("run.heroes"):

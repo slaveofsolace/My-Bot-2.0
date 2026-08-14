@@ -1,6 +1,8 @@
 import pathlib
 import re
+import struct
 import unittest
+import zlib
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -17,15 +19,75 @@ def autoit_function(text, name):
     return match.group(0)
 
 
+def png_rgb(path):
+    data = path.read_bytes()
+    if data[:8] != b"\x89PNG\r\n\x1a\n":
+        raise AssertionError("fixture is not PNG")
+    offset = 8
+    chunks = []
+    width = height = color_type = None
+    while offset < len(data):
+        size = struct.unpack(">I", data[offset : offset + 4])[0]
+        kind = data[offset + 4 : offset + 8]
+        payload = data[offset + 8 : offset + 8 + size]
+        offset += 12 + size
+        if kind == b"IHDR":
+            width, height, depth, color_type, _, _, interlace = struct.unpack(">IIBBBBB", payload)
+            if depth != 8 or color_type not in (2, 6) or interlace != 0:
+                raise AssertionError("unsupported fixture PNG format")
+        elif kind == b"IDAT":
+            chunks.append(payload)
+        elif kind == b"IEND":
+            break
+    channels = 3 if color_type == 2 else 4
+    packed = zlib.decompress(b"".join(chunks))
+    stride = width * channels
+    rows = []
+    prior = bytearray(stride)
+    cursor = 0
+    for _ in range(height):
+        filter_type = packed[cursor]
+        cursor += 1
+        row = bytearray(packed[cursor : cursor + stride])
+        cursor += stride
+        for index in range(stride):
+            left = row[index - channels] if index >= channels else 0
+            above = prior[index]
+            upper_left = prior[index - channels] if index >= channels else 0
+            if filter_type == 1:
+                row[index] = (row[index] + left) & 0xFF
+            elif filter_type == 2:
+                row[index] = (row[index] + above) & 0xFF
+            elif filter_type == 3:
+                row[index] = (row[index] + ((left + above) // 2)) & 0xFF
+            elif filter_type == 4:
+                estimate = left + above - upper_left
+                distances = (abs(estimate - left), abs(estimate - above), abs(estimate - upper_left))
+                predictor = (left, above, upper_left)[distances.index(min(distances))]
+                row[index] = (row[index] + predictor) & 0xFF
+            elif filter_type != 0:
+                raise AssertionError(f"unsupported PNG filter {filter_type}")
+        rows.append(row)
+        prior = row
+
+    def pixel(x, y):
+        start = x * channels
+        return tuple(rows[y][start : start + 3])
+
+    return width, height, pixel
+
+
 class OpenHomeCollectorsTest(unittest.TestCase):
     def test_bypasses_restricted_engine_only_after_prepared_contract(self):
         action = source("COCBot/MBR GUI Action.au3")
         start = autoit_function(action, "BotStart")
         self.assertLess(start.index("RunExecutionPrepareStart"), start.index("OpenHomeCollectorsPreparedMode"))
         self.assertLess(start.index("OpenHomeCollectorsPreparedMode"), start.index("MBRFuncProbeEngine"))
-        self.assertIn("If $iOpenCollectorsMode = -1 Then", start)
+        self.assertIn("$iOpenCollectorsMode = 1", start)
+        self.assertIn("$iOpenCollectorsMode = 2", start)
+        self.assertIn("$iOpenCollectorsMode = -1", start)
 
-    def test_mode_is_exact_collectors_only_and_bluestacks_only(self):
+    def test_mode_allows_exact_collectors_or_loot_cart_and_bluestacks_only(self):
         route = source("COCBot/functions/Run/OpenHomeCollectors.au3")
         mode = autoit_function(route, "OpenHomeCollectorsPreparedMode")
         self.assertIn('events_collect_resources', mode)
@@ -36,7 +98,10 @@ class OpenHomeCollectorsTest(unittest.TestCase):
         ):
             self.assertIn(field, mode)
         self.assertIn('<> "bluestacks5"', mode)
-        self.assertIn("Return -1", mode)
+        self.assertIn("$bCollectors And $bLootCart", mode)
+        self.assertIn("$bDailyReward Or $bTreasury", mode)
+        self.assertIn("$OPEN_HOME_MODE_REJECTED", mode)
+        self.assertIn("$OPEN_HOME_MODE_LOOT_CART", mode)
 
     def test_adapter_is_template_free_and_has_no_spending_actuator(self):
         route = source("COCBot/functions/Run/OpenHomeCollectors.au3")
@@ -59,7 +124,7 @@ class OpenHomeCollectorsTest(unittest.TestCase):
         self.assertNotIn("$g_sImg", route)
         self.assertLess(route.index("ForceCaptureRegion()"), route.index("AndroidScreencap("))
         self.assertIn("AndroidScreencap(", route)
-        self.assertEqual(route.count("Click("), 1)
+        self.assertEqual(route.count("Click("), 3)
 
     def test_every_click_is_bounded_by_stop_and_home_proof(self):
         route = source("COCBot/functions/Run/OpenHomeCollectors.au3")
@@ -77,6 +142,45 @@ class OpenHomeCollectorsTest(unittest.TestCase):
         self.assertIn("$iRequiredMask", detect)
         self.assertIn("RunControlStopRequested()", detect)
         self.assertIn("Return SetError(2", detect)
+
+    def test_loot_cart_recognizer_matches_the_verified_home_fixture(self):
+        width, height, pixel = png_rgb(ROOT / "tests/fixtures/current-client/images/home.maintenance.ready.png")
+        self.assertEqual((width, height), (860, 732))
+        expected = {
+            (31, 246): 0xC3BDBA,
+            (6, 249): 0xB7B0AA,
+            (9, 244): 0x65635A,
+            (18, 244): 0xB8B2AF,
+            (13, 246): 0xBBB4B0,
+            (20, 249): 0xBDB6B4,
+            (15, 247): 0x75736C,
+            (34, 249): 0x828273,
+        }
+        for point, color in expected.items():
+            actual = pixel(*point)
+            target = ((color >> 16) & 0xFF, (color >> 8) & 0xFF, color & 0xFF)
+            self.assertTrue(all(abs(a - b) <= 36 for a, b in zip(actual, target)), (point, actual, target))
+
+        route = source("COCBot/functions/Run/OpenHomeCollectors.au3")
+        cue = autoit_function(route, "_OpenHomeLootCartCueAt")
+        for color in expected.values():
+            self.assertIn(f"0x{color:06X}", cue)
+        self.assertNotIn("ImgLoc", cue)
+
+    def test_loot_cart_clicks_are_bounded_and_never_use_a_confirmation(self):
+        route = source("COCBot/functions/Run/OpenHomeCollectors.au3")
+        issue_open = autoit_function(route, "OpenHomeLootCartIssueOpen")
+        issue_collect = autoit_function(route, "OpenHomeLootCartIssueCollect")
+        for function in (issue_open, issue_collect):
+            click = function.index("Click(")
+            self.assertLess(function.index("RunControlStopRequested()"), click)
+            self.assertLess(function.index("Not $g_bRunState"), click)
+            self.assertEqual(function.count("Click("), 1)
+        self.assertIn("_CheckPixel($aIsMain, False)", issue_open)
+        self.assertIn("OpenHomeLootCartCollectPanelReady()", issue_collect)
+        self.assertNotIn("Okay", route)
+        self.assertNotIn("Confirm", route)
+        self.assertNotIn("Gem", route)
 
     def test_start_path_requires_exact_existing_adb_surface(self):
         action = source("COCBot/MBR GUI Action.au3")
@@ -101,6 +205,29 @@ class OpenHomeCollectorsTest(unittest.TestCase):
             "btnStop",
         ):
             self.assertNotIn(forbidden, runner)
+
+        loot_runner = autoit_function(action, "_BotStartOpenHomeLootCart")
+        for proof in (
+            "HomeMaintenanceRouteAccountMatches",
+            "WinGetAndroidHandle() = 0",
+            "$g_bAndroidAdbScreencap",
+            "$g_bAndroidAdbClick",
+            "AndroidControlAvailable()",
+            "GetBlueStacks5ModernAdbSurfacePosition()",
+            "OpenHomeCollectorsProveHome()",
+            "LootCartRouteRunAdapter",
+        ):
+            self.assertIn(proof, loot_runner)
+        for forbidden in (
+            "MBRFunc",
+            "ForumAuthentication",
+            "OpenAndroid",
+            "InitiateLayout",
+            "ZoomOut",
+            "BotDetectFirstTime",
+            "btnStop",
+        ):
+            self.assertNotIn(forbidden, loot_runner)
 
     def test_terminal_outcome_restores_idle_without_legacy_stop(self):
         bridge = source("COCBot/functions/Run/RunControlBridge.au3")

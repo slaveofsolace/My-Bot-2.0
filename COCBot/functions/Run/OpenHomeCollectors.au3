@@ -1,29 +1,37 @@
 ; #FUNCTION# ====================================================================================================================
 ; Name ..........: Open Home collectors
-; Description ...: Template-free, one-pass collector recognition for an already-running, exact BlueStacks 5 Home Village.
+; Description ...: Template-free, one-pass Home collection for an already-running, exact BlueStacks 5 Home Village.
 ; Remarks .......: This clean-room adapter uses only framebuffer pixels and the existing ADB capture/click channel. It never calls
-;                  MyBot.run.dll, ImgLoc, XML templates, OCR, training, upgrades, donations, rewards, or account switching.
+;                  MyBot.run.dll, ImgLoc, XML templates, OCR, training, upgrades, donations, or account switching.
 ; ===============================================================================================================================
 #include-once
 #include "OpenHomeCollectorPolicy.au3"
 
-; Return 0 for another route, 1 for the exact clean-room collectors route, and -1 for a Home task
+Global Const $OPEN_HOME_MODE_OTHER = 0
+Global Const $OPEN_HOME_MODE_COLLECTORS = 1
+Global Const $OPEN_HOME_MODE_LOOT_CART = 2
+Global Const $OPEN_HOME_MODE_REJECTED = -1
+
+; Return 0 for another route, 1 for exact resource collectors, 2 for an exact Loot Cart pass, and -1 for a Home task
 ; that still needs an independently reviewed adapter. This prevents an unavailable reward task from
 ; silently falling through to the restricted inherited image engine.
 Func OpenHomeCollectorsPreparedMode(ByRef $oIntent, ByRef $sError)
 	$sError = ""
-	If Not IsObj($oIntent) Or Not HomeMaintenanceRouteSelected($oIntent) Then Return 0
+	If Not IsObj($oIntent) Or Not HomeMaintenanceRouteSelected($oIntent) Then Return $OPEN_HOME_MODE_OTHER
 	Local $oPlan = $oIntent.Item("plan")
-	If Not $oPlan.Item("events_collect_resources") Or $oPlan.Item("events_collect_daily_reward") Or _
-			$oPlan.Item("events_collect_loot_cart") Or $oPlan.Item("events_collect_treasury") Then
-		$sError = "This build can run template-free resource collectors only; Daily Reward, Loot Cart, and Treasury remain unavailable"
-		Return -1
+	Local $bCollectors = $oPlan.Item("events_collect_resources")
+	Local $bDailyReward = $oPlan.Item("events_collect_daily_reward")
+	Local $bLootCart = $oPlan.Item("events_collect_loot_cart")
+	Local $bTreasury = $oPlan.Item("events_collect_treasury")
+	If $bDailyReward Or $bTreasury Or ($bCollectors And $bLootCart) Or (Not $bCollectors And Not $bLootCart) Then
+		$sError = "This build can run one template-free Home task at a time: resource collectors or Loot Cart; Daily Reward and Treasury remain unavailable"
+		Return $OPEN_HOME_MODE_REJECTED
 	EndIf
 	If StringLower(StringStripWS(String($oPlan.Item("emulator")), $STR_STRIPALL)) <> "bluestacks5" Then
-		$sError = "Template-free collectors currently require the exact BlueStacks 5 adapter"
-		Return -1
+		$sError = "Template-free Home collection currently requires the exact BlueStacks 5 adapter"
+		Return $OPEN_HOME_MODE_REJECTED
 	EndIf
-	Return 1
+	Return $bCollectors ? $OPEN_HOME_MODE_COLLECTORS : $OPEN_HOME_MODE_LOOT_CART
 EndFunc   ;==>OpenHomeCollectorsPreparedMode
 
 Func _OpenHomeCollectorBitmapPixel($hBitmap, $iX, $iY)
@@ -130,3 +138,91 @@ Func OpenHomeCollectorsCollectOnePass()
 	If Not OpenHomeCollectorsProveHome() Then Return SetError(5, $iClicks, False)
 	Return SetError(0, $iClicks, True)
 EndFunc   ;==>OpenHomeCollectorsCollectOnePass
+
+Func _OpenHomePixelNear($iX, $iY, $iExpected, $iVariation = 32)
+	If $g_hBitmap = 0 Or $iX < 0 Or $iX >= $g_iGAME_WIDTH Or $iY < 0 Or $iY >= $g_iGAME_HEIGHT Then Return False
+	Return _ColorCheck(Hex(_OpenHomeCollectorBitmapPixel($g_hBitmap, $iX, $iY), 6), Hex($iExpected, 6), $iVariation)
+EndFunc   ;==>_OpenHomePixelNear
+
+; Current-client 860x732 Home Village cue for the in-game "Collect" label above a Loot Cart.
+; Eight anti-aliased glyph pixels make the cue unique in the verified redacted Home fixture while
+; keeping the recognizer independent from the inherited ImgLoc engine and proprietary XML assets.
+Func _OpenHomeLootCartCueAt($iX, $iY)
+	Return _OpenHomePixelNear($iX + 26, $iY + 2, 0xC3BDBA) And _
+			_OpenHomePixelNear($iX + 1, $iY + 5, 0xB7B0AA) And _
+			_OpenHomePixelNear($iX + 4, $iY, 0x65635A) And _
+			_OpenHomePixelNear($iX + 13, $iY, 0xB8B2AF) And _
+			_OpenHomePixelNear($iX + 8, $iY + 2, 0xBBB4B0) And _
+			_OpenHomePixelNear($iX + 15, $iY + 5, 0xBDB6B4) And _
+			_OpenHomePixelNear($iX + 10, $iY + 3, 0x75736C) And _
+			_OpenHomePixelNear($iX + 29, $iY + 5, 0x828273)
+EndFunc   ;==>_OpenHomeLootCartCueAt
+
+Func _OpenHomeLootCartScanRegion($iLeft, $iTop, $iRight, $iBottom)
+	For $iX = $iLeft To $iRight
+		If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, 0)
+		For $iY = $iTop To $iBottom
+			If Mod($iY - $iTop, 48) = 0 And (RunControlStopRequested() Or Not $g_bRunState) Then Return SetError(2, 0, 0)
+			If _OpenHomeLootCartCueAt($iX, $iY) Then
+				; The cart sits directly below the label. Keep the issued point inside the exact viewport.
+				Return LootCartObservationCreate($LOOT_CART_STATE_AVAILABLE, $iX + 15, $iY + 26)
+			EndIf
+		Next
+	Next
+	Return LootCartObservationCreate($LOOT_CART_STATE_ABSENT)
+EndFunc   ;==>_OpenHomeLootCartScanRegion
+
+Func OpenHomeLootCartDetectCue()
+	If Not OpenHomeCollectorsProveHome() Then Return SetError(1, 0, 0)
+	Local $oCue = _OpenHomeLootCartScanRegion(0, 80, 150, 515)
+	If @error Or (IsObj($oCue) And $oCue.Item("state") = $LOOT_CART_STATE_AVAILABLE) Then Return $oCue
+	$oCue = _OpenHomeLootCartScanRegion(680, 80, 830, 515)
+	If @error Or (IsObj($oCue) And $oCue.Item("state") = $LOOT_CART_STATE_AVAILABLE) Then Return $oCue
+	Return _OpenHomeLootCartScanRegion(150, 515, 680, 600)
+EndFunc   ;==>OpenHomeLootCartDetectCue
+
+; Fixed selected-object action card. These anchors cover the title, white card, dark border, and
+; Collect glyph; all eight were absent before selection and after the verified live collection.
+Func OpenHomeLootCartCollectPanelReady()
+	If Not OpenHomeCollectorsCapture() Then Return False
+	Return _OpenHomePixelNear(395, 580, 0xFFFADA, 36) And _
+			_OpenHomePixelNear(470, 580, 0xFFFFFF, 36) And _
+			_OpenHomePixelNear(430, 570, 0xF6F2DB, 36) And _
+			_OpenHomePixelNear(415, 628, 0xBFBBB0, 36) And _
+			_OpenHomePixelNear(445, 628, 0x151614, 36) And _
+			_OpenHomePixelNear(461, 628, 0x9FA879, 36) And _
+			_OpenHomePixelNear(410, 550, 0xFFFFB7, 36) And _
+			_OpenHomePixelNear(390, 600, 0x5C5C5A, 36)
+EndFunc   ;==>OpenHomeLootCartCollectPanelReady
+
+Func OpenHomeLootCartDetectCollect()
+	For $iAttempt = 1 To 6
+		If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, 0)
+		If OpenHomeLootCartCollectPanelReady() Then Return LootCartObservationCreate($LOOT_CART_STATE_COLLECT_READY, 431, 608)
+		If _Sleep(250, True, True, False) Then Return SetError(2, 0, 0)
+	Next
+	Return LootCartObservationCreate($LOOT_CART_STATE_COLLECT_MISSING)
+EndFunc   ;==>OpenHomeLootCartDetectCollect
+
+Func OpenHomeLootCartIssueOpen($iX, $iY)
+	If RunControlStopRequested() Or Not $g_bRunState Or Not _CheckPixel($aIsMain, False) Then Return False
+	Local $bIssued = Click(Int($iX), Int($iY), 1, 120, "#OpenHomeLootCart")
+	If $bIssued Then RunEventLogMaintenanceLootCartOpenIssued(1)
+	Return $bIssued
+EndFunc   ;==>OpenHomeLootCartIssueOpen
+
+Func OpenHomeLootCartIssueCollect($iX, $iY)
+	If RunControlStopRequested() Or Not $g_bRunState Or Not OpenHomeLootCartCollectPanelReady() Then Return False
+	Local $bIssued = Click(Int($iX), Int($iY), 1, 120, "#OpenHomeLootCartCollect")
+	If $bIssued Then RunEventLogMaintenanceLootCartCollectIssued(1)
+	Return $bIssued
+EndFunc   ;==>OpenHomeLootCartIssueCollect
+
+Func OpenHomeLootCartProveHome()
+	For $iAttempt = 1 To 8
+		If RunControlStopRequested() Or Not $g_bRunState Then Return False
+		If OpenHomeCollectorsProveHome() Then Return True
+		If _Sleep(250, True, True, False) Then Return False
+	Next
+	Return False
+EndFunc   ;==>OpenHomeLootCartProveHome

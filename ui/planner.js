@@ -612,6 +612,10 @@ function renderMetadataSection(section, settings) {
 
 function settingCondition(setting) {
   const id = setting.id;
+  if (['planned', 'unsupported'].includes(setting.availability)
+      && same(PLAN[id], defaultFor(setting))) {
+    return { disabled: true, message: setting.disabled_reason || 'This setting is unavailable in the current build.' };
+  }
   if (id === 'run.attack_script' && PLAN['run.strategy'] !== 'legacy.csv') {
     if (PLAN[id] === 'profile-current') {
       return { disabled: true, message: 'Standard and Smart deployment use the active profile; named CSV selection is inactive.' };
@@ -715,6 +719,10 @@ function buildField(setting, field, condition) {
   control.onchange = () => {
     PLAN[setting.id] = readControl(setting, control);
     if (setting.id === 'run.strategy' && applyStrategySafetyPatch(PLAN[setting.id])) return;
+    if (PLAN['run.strategy'] === 'home.collectors' && PLAN[setting.id] === true
+        && setting.id === 'events.collect_resources') PLAN['events.collect_loot_cart'] = false;
+    if (PLAN['run.strategy'] === 'home.collectors' && PLAN[setting.id] === true
+        && setting.id === 'events.collect_loot_cart') PLAN['events.collect_resources'] = false;
     markPresetCustom(setting.id);
     refreshAfterChange(setting, control.id);
   };
@@ -1032,7 +1040,11 @@ function clientProblems(plan = PLAN) {
     if (emulator === 'auto' || !instance) addProblem(problems, 'Home maintenance requires the exact non-Auto emulator and instance.', 'runtime.instance');
     if (instance && !/^[A-Za-z0-9_. -]{1,64}$/.test(instance)) addProblem(problems, 'The Home route instance name contains unsupported characters.', 'runtime.instance');
     if (!plan['run.diagnostic_mode']) addProblem(problems, 'Home maintenance requires supervised diagnostic acknowledgement.', 'run.diagnostic_mode');
-    if (!plan['events.collect_resources'] && !plan['events.collect_daily_reward'] && !plan['events.collect_loot_cart'] && !plan['events.collect_treasury']) addProblem(problems, 'Home maintenance requires collectors, Loot Cart, Treasury, or startup Daily Reward.', 'events.collect_resources');
+    const collectors = plan['events.collect_resources'] === true;
+    const dailyReward = plan['events.collect_daily_reward'] === true;
+    const lootCart = plan['events.collect_loot_cart'] === true;
+    const treasury = plan['events.collect_treasury'] === true;
+    if (dailyReward || treasury || collectors === lootCart) addProblem(problems, 'Choose exactly one available template-free task: collectors or Loot Cart. Daily Reward and Treasury remain unavailable.', 'events.collect_resources');
     if (plan['army.manage_training'] || plan['army.wait_for_full'] || plan['army.train_spells'] || plan['army.train_sieges']) addProblem(problems, 'Home maintenance requires training, army wait, spells, and sieges off.', 'army.manage_training');
     if (asList(plan['run.heroes']).length) addProblem(problems, 'Home maintenance requires no selected Heroes.', 'run.heroes');
     if (Number(plan['run.duration_minutes']) !== 0 || Number(plan['run.max_battles']) !== 0 || plan['run.stop_on_star_bonus'] || Number(plan['run.max_failures']) !== 0) addProblem(problems, 'Home maintenance is one pass; duration, battles, star bonus, and failure limits must be 0/off.', 'run.max_battles');
@@ -1253,18 +1265,25 @@ function renderMaintenanceRoutePreview() {
   preview.hidden = !visible;
   if (!visible) return;
 
-  let included = 0;
+  let selected = 0;
+  let available = 0;
+  let unavailable = 0;
   for (const item of MAINTENANCE_COLLECTIONS) {
     const enabled = PLAN[item.id] === true;
-    if (enabled) included += 1;
+    const setting = findSetting(item.id);
+    const locked = ['planned', 'unsupported'].includes(setting?.availability);
+    const state = locked ? 'unavailable' : (enabled ? 'active' : 'off');
+    if (locked) unavailable += 1;
+    else available += 1;
+    if (enabled && !locked) selected += 1;
     for (const node of preview.querySelectorAll(`[data-collection-key="${item.id}"]`)) {
-      node.dataset.state = enabled ? 'active' : 'off';
+      node.dataset.state = state;
       const status = node.querySelector('[data-route-status]');
-      if (status) status.textContent = enabled ? 'Included' : 'Off';
-      if (node.matches('li')) node.setAttribute('aria-label', `${item.label}: ${enabled ? 'included' : 'off'}`);
+      if (status) status.textContent = locked ? 'Unavailable' : (enabled ? 'Selected' : 'Available');
+      if (node.matches('li')) node.setAttribute('aria-label', `${item.label}: ${locked ? 'unavailable' : (enabled ? 'selected' : 'available')}`);
     }
   }
-  $('maintenanceRouteCount').textContent = `${included} of ${MAINTENANCE_COLLECTIONS.length} collection tasks included`;
+  $('maintenanceRouteCount').textContent = `${selected} selected · ${available} available · ${unavailable} unavailable`;
 }
 
 function setSaveStatus(text, kind = '') {

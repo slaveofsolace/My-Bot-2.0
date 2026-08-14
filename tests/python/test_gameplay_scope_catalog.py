@@ -99,10 +99,15 @@ class GameplayScopeCatalogTests(unittest.TestCase):
             "events.collect_treasury": "village.treasury",
             "events.collect_daily_reward": "events.daily-reward",
         }
+        planned = {"events.collect_treasury", "events.collect_daily_reward"}
         for setting_id, capability_id in expected.items():
             with self.subTest(setting_id=setting_id):
                 setting = by_id[setting_id]
-                expected_availability = "unsupported" if setting_id == "army.manage_training" else "gated"
+                expected_availability = (
+                    "unsupported" if setting_id == "army.manage_training"
+                    else "planned" if setting_id in planned
+                    else "gated"
+                )
                 self.assertEqual(setting["availability"], expected_availability)
                 self.assertFalse(setting["runtime_verified"])
                 self.assertEqual(setting["capability_ids"], [capability_id])

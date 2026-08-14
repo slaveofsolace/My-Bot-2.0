@@ -90,6 +90,74 @@ Func _BotStartOpenHomeCollectors(ByRef $sStartError)
 	Return True
 EndFunc   ;==>_BotStartOpenHomeCollectors
 
+Func _BotStartOpenHomeLootCart(ByRef $sStartError)
+	If RunControlStopRequested() Then Return _BotOpenCollectorsReject("Template-free Loot Cart cancelled before attachment", "cancelled")
+	If Not RunExecutionApplyPrepared($sStartError) Then Return _BotOpenCollectorsReject($sStartError)
+	Local $oIntent = RunExecutionPreparedIntent()
+	If Not IsObj($oIntent) Or Not HomeMaintenanceRouteAccountMatches($oIntent, $g_sProfileCurrentName) Then _
+		Return _BotOpenCollectorsReject("The active profile no longer matches the account bound at Start")
+	If WinGetAndroidHandle() = 0 Then Return _BotOpenCollectorsReject("The exact BlueStacks 5 instance is not already running")
+	If Not $g_bAndroidAdbScreencap Or Not $g_bAndroidAdbClick Or Not AndroidControlAvailable() Or _
+			Not IsArray(GetBlueStacks5ModernAdbSurfacePosition()) Then _
+		Return _BotOpenCollectorsReject("The exact BlueStacks 5 ADB capture/click surface is not available")
+	If Not OpenHomeCollectorsProveHome() Then Return _BotOpenCollectorsReject("The current screen is not the proven Home Village")
+	If RunControlStopRequested() Then Return _BotOpenCollectorsReject("Template-free Loot Cart cancelled before execution", "cancelled")
+
+	$g_bRunState = True
+	$g_bTogglePauseAllowed = False
+	If Not RunExecutionBegin($sStartError) Then Return _BotOpenCollectorsReject($sStartError)
+	RunControlReportStartOutcome(True, "Template-free Loot Cart pass started")
+	RunEventLogMaintenanceLootCartStarted()
+
+	Local $oLootCart = LootCartRouteRunAdapter("OpenHomeLootCartDetectCue", "OpenHomeLootCartIssueOpen", _
+			"OpenHomeLootCartDetectCollect", "OpenHomeLootCartIssueCollect", "_LootCartLiveStopRequested", _
+			"OpenHomeLootCartProveHome")
+	If Not IsObj($oLootCart) Then
+		$sStartError = "Template-free Loot Cart returned no bounded outcome"
+	Else
+		Local $sLootCartState = String($oLootCart.Item("state"))
+		If $sLootCartState = $LOOT_CART_OUTCOME_CANCELLED Or RunControlStopRequested() Or Not $g_bRunState Then
+			RunExecutionComplete("stopped")
+			RunControlReportOneShotOutcome("stopped", "Template-free Loot Cart stopped")
+			Return False
+		EndIf
+		If Not $oLootCart.Item("home_proven") Then
+			RunEventLogMaintenanceLootCartUnconfirmed($oLootCart.Item("cart_issued"), _
+					$oLootCart.Item("collect_issued"), $oLootCart.Item("detail") & "; Home Village was not re-proven")
+			$sStartError = "Template-free Loot Cart could not re-prove Home; inputs will not be retried"
+		Else
+			RunEventLogMaintenanceLootCartHomeVerified($sLootCartState)
+			Switch $sLootCartState
+				Case $LOOT_CART_OUTCOME_COLLECT_ISSUED
+					; The accepted-input callback already emitted the irreversible receipt.
+				Case $LOOT_CART_OUTCOME_UNAVAILABLE
+					RunEventLogMaintenanceLootCartUnavailable($oLootCart.Item("cart_state"))
+				Case $LOOT_CART_OUTCOME_UNCONFIRMED
+					RunEventLogMaintenanceLootCartUnconfirmed($oLootCart.Item("cart_issued"), _
+							$oLootCart.Item("collect_issued"), $oLootCart.Item("detail"))
+					$sStartError = $oLootCart.Item("detail") & "; Loot Cart inputs will not be retried"
+				Case Else
+					$sStartError = "Template-free Loot Cart returned an unknown terminal state"
+			EndSwitch
+		EndIf
+	EndIf
+
+	If $sStartError <> "" Then
+		RunEventLogRunFailed("regular", $RUN_VERIFICATION_DIAGNOSTIC, $sStartError)
+		RunExecutionCancelPrepared($sStartError)
+		RunControlReportOneShotOutcome("failed", $sStartError)
+		Return False
+	EndIf
+
+	RunEventLogMaintenanceHomeVerified(0, "disabled", $sLootCartState, "disabled")
+	Local $sReason = $sLootCartState = $LOOT_CART_OUTCOME_COLLECT_ISSUED ? "home-loot-cart-complete" : "home-loot-cart-none-actionable"
+	RunExecutionComplete($sReason)
+	Local $sMessage = "Template-free Loot Cart completed; state=" & $sLootCartState
+	RunControlReportOneShotOutcome("completed", $sMessage)
+	SetLog("Run Planner: " & $sMessage, $COLOR_SUCCESS)
+	Return True
+EndFunc   ;==>_BotStartOpenHomeLootCart
+
 Func _BotEngineCheckFinish($bPassed, $sMessage)
 	If $sMessage = "" Then $sMessage = $bPassed ? "Managed engine check passed" : "Managed engine check failed"
 	; Native terminalization is the linearization point. A Stop accepted before it changes the
@@ -139,7 +207,9 @@ Func BotStart($bAutostartDelay = 0)
 	EndIf
 	Local $oPreparedIntent = RunExecutionPreparedIntent()
 	Local $iOpenCollectorsMode = OpenHomeCollectorsPreparedMode($oPreparedIntent, $sStartError)
+	; OpenHomeCollectorsPreparedMode contract: 1=collectors, 2=Loot Cart, -1=fail-closed Home selection.
 	If $iOpenCollectorsMode = 1 Then Return FuncReturn(_BotStartOpenHomeCollectors($sStartError))
+	If $iOpenCollectorsMode = 2 Then Return FuncReturn(_BotStartOpenHomeLootCart($sStartError))
 	If $iOpenCollectorsMode = -1 Then Return FuncReturn(_BotOpenCollectorsReject($sStartError))
 
 	If Not MBRFuncProbeEngine($sStartError) Then
