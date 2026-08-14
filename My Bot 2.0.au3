@@ -45,6 +45,18 @@ Global Const $g_sPlannerServiceName = "my-bot-control-center"
 Global Const $g_sPlannerScriptPath = @ScriptDir & "\tools\planner_ui.py"
 Global Const $g_sPlannerOwnershipSchema = "my-bot-planner-owner-v1"
 Global Const $g_sPlannerOwnershipReceipt = $g_sUserDataRoot & "\planner-owner-v1.json"
+Global Const $g_sEngineInitOwnershipSchema = "engine-init-supervisor-v1"
+Global Const $g_sEngineInitCancelSchema = "engine-init-cancel-v1"
+Global Const $g_sEngineInitOwnershipReceipt = $g_sUserDataRoot & "\engine-init-owner-v1.json"
+Global Const $g_sEngineInitCancelPath = @ScriptDir & "\config\engine-init-cancel.local.json"
+Global Const $g_sEngineSupervisorTokenEnv = "MYBOT_ENGINE_INIT_TOKEN"
+Global Const $g_sEngineSupervisorLauncherPidEnv = "MYBOT_ENGINE_INIT_LAUNCHER_PID"
+Global Const $g_sEngineSupervisorLauncherCreatedEnv = "MYBOT_ENGINE_INIT_LAUNCHER_CREATED"
+Global Const $g_iEngineInitEnterTimeoutMs = 10000
+Global Const $g_iEngineInitPoolStallTimeoutMs = 90000
+Global Const $g_iEngineInitPostReturnTimeoutMs = 15000
+Global Const $g_iEngineInitAbsoluteTimeoutMs = 120000
+Global Const $g_iEngineInitActivePollMs = 250
 Global Const $g_iPlannerHealthResolveTimeoutMs = 200
 Global Const $g_iPlannerHealthConnectTimeoutMs = 300
 Global Const $g_iPlannerHealthSendTimeoutMs = 300
@@ -61,6 +73,24 @@ Global Const $g_iPairMinimized = 2
 Global Const $g_iPairRestoring = 3
 Global $g_iPairVisibilityState = $g_iPairVisible
 Global $g_bPlannerHealthComError = False
+Global $g_bEngineSupervisorArmed = False
+Global $g_sEngineSupervisorToken = ""
+Global $g_sEngineSupervisorLauncherCreated = ""
+Global $g_iEngineSupervisorControllerPid = 0
+Global $g_sEngineSupervisorControllerCreated = ""
+Global $g_sEngineSupervisorLastPhase = ""
+Global $g_iEngineSupervisorLastPhaseRank = -1
+Global $g_iEngineSupervisorLastSequence = -1
+Global $g_hEngineSupervisorPhaseTimer = 0
+Global $g_hEngineSupervisorAbsoluteTimer = 0
+Global $g_hEngineSupervisorPostReturnTimer = 0
+Global $g_bEngineSupervisorPrepared = False
+Global $g_sEngineSupervisorLastNotice = ""
+Global $g_iEngineSupervisorBackendPid = 0
+Global $g_sEngineSupervisorBackendCreated = ""
+Global $g_bEngineSupervisorAbortAttempted = False
+Global $g_bEngineSupervisorFailureLatched = False
+Global $g_sEngineSupervisorFailure = ""
 
 _CloseOwnedAutoItErrorDialogs()
 If _CommandLineHas("/recover") Or _CommandLineHas("/repair") Then
@@ -90,6 +120,7 @@ EndIf
 
 If $hController Then
 	Local $iExistingControllerPid = WinGetProcess($hController)
+	_RecoveryLog("engine init supervision not armed: existing controller was not launched by this launcher; pid=" & $iExistingControllerPid)
 	_ShowControlStrip($hController)
 	_DockWhenReady($hController, $iExistingControllerPid, 15000)
 	_OpenControlCenter()
@@ -108,6 +139,7 @@ If Not $bOwnDockKeeper Then
 		Exit 2
 	EndIf
 	If $hController Then
+		_RecoveryLog("engine init supervision not armed: controller was launched by another dock keeper; pid=" & WinGetProcess($hController))
 		_DockWhenReady($hController, WinGetProcess($hController), 15000)
 		_OpenControlCenter()
 	EndIf
@@ -122,11 +154,25 @@ If @error Or $sLaunchProfile = "" Then
 		"Check this folder and its profile.ini, then try again:" & @CRLF & $g_sProfilesRoot)
 	Exit 9
 EndIf
-Local $iControllerPid = ShellExecute($g_sControllerPath, _BuildControllerArguments($sLaunchProfile), @ScriptDir, "", @SW_SHOWNORMAL)
-If @error Or $iControllerPid <= 0 Then
+Local $sEngineSupervisorError = ""
+If Not _EngineSupervisorPrepareLaunch($sEngineSupervisorError) Then
+	_ShowError("My Bot 2.0 could not prepare safe engine startup supervision." & @CRLF & @CRLF & $sEngineSupervisorError)
+	Exit 10
+EndIf
+Local $iControllerPid = Run('"' & $g_sControllerPath & '" ' & _BuildControllerArguments($sLaunchProfile), @ScriptDir, @SW_SHOWNORMAL)
+Local $iControllerLaunchError = @error
+_EngineSupervisorClearLaunchEnvironment()
+If $iControllerLaunchError Or $iControllerPid <= 0 Then
+	_EngineSupervisorDisarm("controller launch failed before ownership could be bound")
 	_ShowError("My Bot 2.0 could not start its native controller." & @CRLF & @CRLF & _
 		"Approve the Windows administrator prompt and try again.")
 	Exit 3
+EndIf
+If Not _EngineSupervisorBindController($iControllerPid) Then
+	_EngineSupervisorDisarm("launched controller identity could not be bound")
+	_ShowError("My Bot 2.0 started its native controller, but could not bind safe engine startup supervision." & @CRLF & @CRLF & _
+		"The controller was left running for inspection; do not press Start again until recovery is complete.")
+	Exit 11
 EndIf
 
 $hController = _WaitForControllerWindow($iControllerPid, 60000)
@@ -141,6 +187,7 @@ EndIf
 _ShowControlStrip($hController)
 _DockWhenReady($hController, $iControllerPid, $g_iDockWaitMs)
 _KeepDocked($hController, $iControllerPid)
+_EngineSupervisorDisarm("owned controller exited")
 Exit 0
 
 Func _DockKeeperMutexName()
@@ -232,6 +279,18 @@ Func _PlannerReceiptInt($sReceipt, $sName)
 	Return Int($aValue[0])
 EndFunc   ;==>_PlannerReceiptInt
 
+Func _EngineSupervisorRequestId($sJson, $sName)
+	Local $aValue = StringRegExp($sJson, '"' & $sName & '"\s*:\s*"([A-Za-z0-9._-]{1,80})"', $STR_REGEXPARRAYMATCH)
+	If @error Or Not IsArray($aValue) Or UBound($aValue) <> 1 Then Return ""
+	Return $aValue[0]
+EndFunc   ;==>_EngineSupervisorRequestId
+
+Func _EngineSupervisorSequence($sJson)
+	Local $aValue = StringRegExp($sJson, '"sequence"\s*:\s*([0-9]+)', $STR_REGEXPARRAYMATCH)
+	If @error Or Not IsArray($aValue) Or UBound($aValue) <> 1 Then Return -1
+	Return Int($aValue[0])
+EndFunc   ;==>_EngineSupervisorSequence
+
 Func _ReadPlannerOwnershipReceipt()
 	If Not FileExists($g_sPlannerOwnershipReceipt) Then Return ""
 	If Not _PlannerReceiptPathSafe(True) Then Return ""
@@ -309,6 +368,358 @@ Func _ProcessCommandLine($iPid)
 	Next
 	Return ""
 EndFunc   ;==>_ProcessCommandLine
+
+Func _EngineSupervisorNewToken()
+	Local $tEntropy = DllStructCreate("byte[32]")
+	Local $aRandom = DllCall("bcrypt.dll", "long", "BCryptGenRandom", "ptr", 0, "struct*", $tEntropy, "ulong", 32, "ulong", 0x2)
+	If @error Or Not IsArray($aRandom) Or $aRandom[0] <> 0 Then Return ""
+	Return StringLower(Hex(DllStructGetData($tEntropy, 1)))
+EndFunc   ;==>_EngineSupervisorNewToken
+
+Func _EngineSupervisorPathSafe($sPath, $bRequireFile = False)
+	Local $sParent = StringLeft($sPath, StringInStr($sPath, "\", 0, -1) - 1)
+	If $sParent = "" Then Return False
+	Local $aParent = DllCall("kernel32.dll", "dword", "GetFileAttributesW", "wstr", $sParent)
+	If @error Or Not IsArray($aParent) Or $aParent[0] = 0xFFFFFFFF Then Return False
+	If BitAND($aParent[0], 0x10) = 0 Or BitAND($aParent[0], 0x400) <> 0 Then Return False
+	If Not FileExists($sPath) Then Return Not $bRequireFile
+	Local $aFile = DllCall("kernel32.dll", "dword", "GetFileAttributesW", "wstr", $sPath)
+	If @error Or Not IsArray($aFile) Or $aFile[0] = 0xFFFFFFFF Then Return False
+	Return BitAND($aFile[0], 0x10) = 0 And BitAND($aFile[0], 0x400) = 0
+EndFunc   ;==>_EngineSupervisorPathSafe
+
+Func _EngineSupervisorDeleteSafeFile($sPath)
+	If Not FileExists($sPath) Then Return True
+	If Not _EngineSupervisorPathSafe($sPath, True) Then Return False
+	Return FileDelete($sPath) = 1 Or Not FileExists($sPath)
+EndFunc   ;==>_EngineSupervisorDeleteSafeFile
+
+Func _EngineSupervisorPrepareLaunch(ByRef $sError)
+	$sError = ""
+	If Not FileExists($g_sUserDataRoot) And Not DirCreate($g_sUserDataRoot) Then
+		$sError = "The per-user data directory could not be created."
+		Return False
+	EndIf
+	If Not _EngineSupervisorPathSafe($g_sEngineInitOwnershipReceipt, False) Or _
+			Not _EngineSupervisorPathSafe($g_sEngineInitCancelPath, False) Then
+		$sError = "An engine supervision path is redirected or unsafe."
+		Return False
+	EndIf
+	If Not _EngineSupervisorDeleteSafeFile($g_sEngineInitOwnershipReceipt) Or _
+			Not _EngineSupervisorDeleteSafeFile($g_sEngineInitCancelPath) Then
+		$sError = "A stale engine supervision file could not be removed safely."
+		Return False
+	EndIf
+	Local $sToken = _EngineSupervisorNewToken()
+	Local $sCreated = _ProcessCreationId(@AutoItPID)
+	If Not StringRegExp($sToken, "^[0-9a-f]{64}$") Or Not StringRegExp($sCreated, "^[0-9a-f]{16}$") Then
+		$sError = "A secure launch token or launcher creation identity could not be generated."
+		Return False
+	EndIf
+	If Not EnvSet($g_sEngineSupervisorTokenEnv, $sToken) Or _
+			Not EnvSet($g_sEngineSupervisorLauncherPidEnv, String(@AutoItPID)) Or _
+			Not EnvSet($g_sEngineSupervisorLauncherCreatedEnv, $sCreated) Then
+		_EngineSupervisorClearLaunchEnvironment()
+		$sError = "The one-time engine supervision environment could not be set."
+		Return False
+	EndIf
+	$g_bEngineSupervisorArmed = True
+	$g_sEngineSupervisorToken = $sToken
+	$g_sEngineSupervisorLauncherCreated = $sCreated
+	$g_iEngineSupervisorControllerPid = 0
+	$g_sEngineSupervisorControllerCreated = ""
+	$g_sEngineSupervisorLastPhase = ""
+	$g_iEngineSupervisorLastPhaseRank = -1
+	$g_iEngineSupervisorLastSequence = -1
+	$g_hEngineSupervisorPhaseTimer = TimerInit()
+	$g_hEngineSupervisorAbsoluteTimer = 0
+	$g_hEngineSupervisorPostReturnTimer = 0
+	$g_bEngineSupervisorPrepared = False
+	$g_sEngineSupervisorLastNotice = ""
+	$g_iEngineSupervisorBackendPid = 0
+	$g_sEngineSupervisorBackendCreated = ""
+	$g_bEngineSupervisorAbortAttempted = False
+	$g_bEngineSupervisorFailureLatched = False
+	$g_sEngineSupervisorFailure = ""
+	_RecoveryLog("engine init supervision armed; launcher_pid=" & @AutoItPID)
+	Return True
+EndFunc   ;==>_EngineSupervisorPrepareLaunch
+
+Func _EngineSupervisorClearLaunchEnvironment()
+	EnvSet($g_sEngineSupervisorTokenEnv, "")
+	EnvSet($g_sEngineSupervisorLauncherPidEnv, "")
+	EnvSet($g_sEngineSupervisorLauncherCreatedEnv, "")
+EndFunc   ;==>_EngineSupervisorClearLaunchEnvironment
+
+Func _EngineSupervisorBindController($iControllerPid)
+	If Not $g_bEngineSupervisorArmed Or $iControllerPid <= 0 Then Return False
+	Local $hTimer = TimerInit()
+	Do
+		If Not ProcessExists($iControllerPid) Then Return False
+		Local $sImage = _ProcessImagePath($iControllerPid)
+		Local $iParentPid = _ProcessParentPid($iControllerPid)
+		Local $sCreated = _ProcessCreationId($iControllerPid)
+		If StringLower($sImage) = StringLower($g_sControllerPath) And $iParentPid = @AutoItPID And _
+				StringRegExp($sCreated, "^[0-9a-f]{16}$") Then
+			$g_iEngineSupervisorControllerPid = $iControllerPid
+			$g_sEngineSupervisorControllerCreated = $sCreated
+			Return True
+		EndIf
+		Sleep(50)
+	Until TimerDiff($hTimer) >= 2000
+	Return False
+EndFunc   ;==>_EngineSupervisorBindController
+
+Func _EngineSupervisorDisarm($sReason)
+	_EngineSupervisorClearLaunchEnvironment()
+	If $sReason <> "" Then _RecoveryLog("engine init supervision disarmed: " & $sReason)
+	$g_bEngineSupervisorArmed = False
+	$g_sEngineSupervisorToken = ""
+	$g_sEngineSupervisorLauncherCreated = ""
+	$g_iEngineSupervisorControllerPid = 0
+	$g_sEngineSupervisorControllerCreated = ""
+	$g_sEngineSupervisorLastPhase = ""
+	$g_iEngineSupervisorLastPhaseRank = -1
+	$g_iEngineSupervisorLastSequence = -1
+	$g_hEngineSupervisorPhaseTimer = 0
+	$g_hEngineSupervisorAbsoluteTimer = 0
+	$g_hEngineSupervisorPostReturnTimer = 0
+	$g_bEngineSupervisorPrepared = False
+	$g_sEngineSupervisorLastNotice = ""
+	$g_iEngineSupervisorBackendPid = 0
+	$g_sEngineSupervisorBackendCreated = ""
+	$g_bEngineSupervisorAbortAttempted = False
+	$g_bEngineSupervisorFailureLatched = False
+	$g_sEngineSupervisorFailure = ""
+EndFunc   ;==>_EngineSupervisorDisarm
+
+; A single launcher token and controller binding live for the exact controller lifetime. Each
+; backend process is a separate initialization generation, so its phase/sequence clocks may begin
+; again at zero without weakening the launcher/controller ownership proof.
+Func _EngineSupervisorResetGeneration($iBackendPid, $sBackendCreated, $sReason = "")
+	$g_iEngineSupervisorBackendPid = $iBackendPid
+	$g_sEngineSupervisorBackendCreated = $sBackendCreated
+	$g_sEngineSupervisorLastPhase = ""
+	$g_iEngineSupervisorLastPhaseRank = -1
+	$g_iEngineSupervisorLastSequence = -1
+	$g_hEngineSupervisorPhaseTimer = TimerInit()
+	$g_hEngineSupervisorAbsoluteTimer = 0
+	$g_hEngineSupervisorPostReturnTimer = 0
+	$g_bEngineSupervisorPrepared = False
+	$g_sEngineSupervisorLastNotice = ""
+	$g_bEngineSupervisorAbortAttempted = False
+	$g_bEngineSupervisorFailureLatched = False
+	$g_sEngineSupervisorFailure = ""
+	If $sReason <> "" Then _RecoveryLog("engine init generation reset; reason=" & $sReason & "; backend_pid=" & $iBackendPid)
+EndFunc   ;==>_EngineSupervisorResetGeneration
+
+Func _EngineSupervisorBeginGeneration($sReceipt, $iBackendPid)
+	Local $sBackendCreated = _PlannerReceiptString($sReceipt, "backend_created")
+	If $iBackendPid = $g_iEngineSupervisorBackendPid And $sBackendCreated = $g_sEngineSupervisorBackendCreated Then Return False
+	_EngineSupervisorResetGeneration($iBackendPid, $sBackendCreated)
+	_RecoveryLog("engine init generation bound; backend_pid=" & $iBackendPid & "; backend_created=" & $sBackendCreated)
+	Return True
+EndFunc   ;==>_EngineSupervisorBeginGeneration
+
+Func _EngineSupervisorRecordFailure($sReason)
+	$g_bEngineSupervisorFailureLatched = True
+	$g_sEngineSupervisorFailure = $sReason
+	If $g_sEngineSupervisorLastNotice <> "durable-failure" Then _RecoveryLog("engine init supervisor durable failure; " & $sReason)
+	$g_sEngineSupervisorLastNotice = "durable-failure"
+	Return False
+EndFunc   ;==>_EngineSupervisorRecordFailure
+
+Func _EngineSupervisorReceiptPhaseRank($sPhase)
+	Switch $sPhase
+		Case "prepared"
+			Return 0
+		Case "pool-entered"
+			Return 1
+		Case "pool-returned"
+			Return 2
+		Case "max-entered"
+			Return 3
+		Case "max-returned"
+			Return 4
+		Case "android-entered"
+			Return 5
+		Case "android-returned"
+			Return 6
+		Case "gui-entered"
+			Return 7
+		Case "initialized"
+			Return 8
+		Case "failed"
+			Return 9
+	EndSwitch
+	Return -1
+EndFunc   ;==>_EngineSupervisorReceiptPhaseRank
+
+Func _EngineSupervisorReceiptMatches($sReceipt, ByRef $iBackendPid, ByRef $sPhase, ByRef $sStartRequestId, ByRef $iSequence)
+	$iBackendPid = 0
+	$sPhase = ""
+	$sStartRequestId = ""
+	$iSequence = -1
+	If _PlannerReceiptString($sReceipt, "schema") <> $g_sEngineInitOwnershipSchema Then Return False
+	If Not StringRegExp($g_sEngineSupervisorToken, "^[0-9a-f]{64}$") Then Return False
+	If _PlannerReceiptString($sReceipt, "token") <> $g_sEngineSupervisorToken Then Return False
+	If _PlannerReceiptInt($sReceipt, "launcher_pid") <> @AutoItPID Then Return False
+	If _PlannerReceiptString($sReceipt, "launcher_created") <> $g_sEngineSupervisorLauncherCreated Or _
+			_ProcessCreationId(@AutoItPID) <> $g_sEngineSupervisorLauncherCreated Then Return False
+	If _PlannerReceiptInt($sReceipt, "controller_pid") <> $g_iEngineSupervisorControllerPid Then Return False
+	If _PlannerReceiptString($sReceipt, "controller_created") <> $g_sEngineSupervisorControllerCreated Or _
+			_ProcessCreationId($g_iEngineSupervisorControllerPid) <> $g_sEngineSupervisorControllerCreated Then Return False
+	If StringLower(_ProcessImagePath($g_iEngineSupervisorControllerPid)) <> StringLower($g_sControllerPath) Then Return False
+	If _ProcessParentPid($g_iEngineSupervisorControllerPid) <> @AutoItPID Then Return False
+	$iBackendPid = _PlannerReceiptInt($sReceipt, "backend_pid")
+	If $iBackendPid <= 0 Or Not ProcessExists($iBackendPid) Then Return False
+	Local $sBackendCreated = _ProcessCreationId($iBackendPid)
+	If Not StringRegExp($sBackendCreated, "^[0-9a-f]{16}$") Or _
+			_PlannerReceiptString($sReceipt, "backend_created") <> $sBackendCreated Then Return False
+	If StringLower(_ProcessImagePath($iBackendPid)) <> StringLower($g_sHostPath) Then Return False
+	If _PlannerReceiptInt($sReceipt, "parent_pid") <> $g_iEngineSupervisorControllerPid Or _
+			_ProcessParentPid($iBackendPid) <> $g_iEngineSupervisorControllerPid Then Return False
+	$sPhase = _PlannerReceiptString($sReceipt, "phase")
+	Local $iPhaseRank = _EngineSupervisorReceiptPhaseRank($sPhase)
+	If $iPhaseRank < 0 Then Return False
+	$sStartRequestId = _EngineSupervisorRequestId($sReceipt, "start_request_id")
+	If $sStartRequestId = "" Then Return False
+	$iSequence = _EngineSupervisorSequence($sReceipt)
+	If $sPhase = "failed" Then
+		If $iSequence < 2 Or $iSequence > 10 Then Return False
+	ElseIf $iSequence <> $iPhaseRank + 1 Then
+		Return False
+	EndIf
+	Return True
+EndFunc   ;==>_EngineSupervisorReceiptMatches
+
+Func _EngineSupervisorReadReceipt(ByRef $sReceipt, ByRef $iBackendPid, ByRef $sPhase, ByRef $sStartRequestId, ByRef $iSequence)
+	$sReceipt = ""
+	$iBackendPid = 0
+	$sPhase = ""
+	$sStartRequestId = ""
+	$iSequence = -1
+	If Not FileExists($g_sEngineInitOwnershipReceipt) Then Return False
+	If Not _EngineSupervisorPathSafe($g_sEngineInitOwnershipReceipt, True) Then Return False
+	$sReceipt = FileRead($g_sEngineInitOwnershipReceipt)
+	If @error Or StringLen($sReceipt) > 4096 Then Return False
+	Return _EngineSupervisorReceiptMatches($sReceipt, $iBackendPid, $sPhase, $sStartRequestId, $iSequence)
+EndFunc   ;==>_EngineSupervisorReadReceipt
+
+Func _EngineSupervisorCancelMatches($sReceiptStartRequestId)
+	If Not $g_bEngineSupervisorPrepared Or $sReceiptStartRequestId = "" Then Return False
+	If Not FileExists($g_sEngineInitCancelPath) Or Not _EngineSupervisorPathSafe($g_sEngineInitCancelPath, True) Then Return False
+	Local $sCancel = FileRead($g_sEngineInitCancelPath)
+	If @error Or StringLen($sCancel) > 2048 Then Return False
+	If _PlannerReceiptString($sCancel, "schema") <> $g_sEngineInitCancelSchema Then Return False
+	If _PlannerReceiptString($sCancel, "token") <> $g_sEngineSupervisorToken Then Return False
+	Local $sExpected = _EngineSupervisorRequestId($sCancel, "expected_start_request_id")
+	Return $sExpected <> "" And $sExpected = $sReceiptStartRequestId
+EndFunc   ;==>_EngineSupervisorCancelMatches
+
+Func _EngineSupervisorFinalize($sReceipt, $sOutcome)
+	If Not _EngineSupervisorPathSafe($g_sEngineInitOwnershipReceipt, True) Or FileRead($g_sEngineInitOwnershipReceipt) <> $sReceipt Then _
+		Return _EngineSupervisorRecordFailure("initialized receipt changed before cleanup")
+	Local $bReceiptRemoved = _EngineSupervisorDeleteSafeFile($g_sEngineInitOwnershipReceipt)
+	Local $bCancelRemoved = _EngineSupervisorDeleteSafeFile($g_sEngineInitCancelPath)
+	_RecoveryLog("engine init supervision finalized; outcome=" & $sOutcome & "; receipt_removed=" & $bReceiptRemoved & "; cancel_removed=" & $bCancelRemoved)
+	If Not $bReceiptRemoved Or Not $bCancelRemoved Then Return _EngineSupervisorRecordFailure("initialized generation files could not be removed safely")
+	_EngineSupervisorResetGeneration(0, "", $sOutcome)
+	Return True
+EndFunc   ;==>_EngineSupervisorFinalize
+
+Func _EngineSupervisorAbort($sReceipt, $iBackendPid, $sReason)
+	; Latch before any revalidation or close attempt. A failed ownership check or ProcessClose is a
+	; durable, visible failure for this backend generation and can never trigger a second close.
+	If $g_bEngineSupervisorAbortAttempted Then Return False
+	$g_bEngineSupervisorAbortAttempted = True
+	_RecoveryLog("engine init supervisor abort latched; backend_pid=" & $iBackendPid & "; reason=" & $sReason)
+	; Re-read the exact receipt and re-prove every process identity immediately before ProcessClose.
+	Local $sCurrent = "", $iCurrentBackend = 0, $sCurrentPhase = "", $sCurrentStartRequest = "", $iCurrentSequence = -1
+	If Not _EngineSupervisorReadReceipt($sCurrent, $iCurrentBackend, $sCurrentPhase, $sCurrentStartRequest, $iCurrentSequence) Or _
+			$sCurrent <> $sReceipt Or $iCurrentBackend <> $iBackendPid Then
+		Return _EngineSupervisorRecordFailure("abort refused because exact backend ownership changed; reason=" & $sReason)
+	EndIf
+	_RecoveryLog("engine init supervisor closing verified backend; pid=" & $iBackendPid & "; phase=" & $sCurrentPhase & "; reason=" & $sReason)
+	Local $bCloseIssued = ProcessClose($iBackendPid)
+	If Not $bCloseIssued And ProcessExists($iBackendPid) Then Return _EngineSupervisorRecordFailure("the single verified backend close attempt failed; pid=" & $iBackendPid)
+	For $i = 1 To 100
+		If Not ProcessExists($iBackendPid) Then ExitLoop
+		Sleep(50)
+	Next
+	If ProcessExists($iBackendPid) Then Return _EngineSupervisorRecordFailure("backend remained alive after the single verified close attempt; pid=" & $iBackendPid)
+	Local $bPlannerClosed = _CloseOwnedPlannerService()
+	If Not _EngineSupervisorPathSafe($g_sEngineInitOwnershipReceipt, True) Or FileRead($g_sEngineInitOwnershipReceipt) <> $sCurrent Then _
+		Return _EngineSupervisorRecordFailure("backend stopped but its ownership receipt changed before cleanup")
+	Local $bReceiptRemoved = _EngineSupervisorDeleteSafeFile($g_sEngineInitOwnershipReceipt)
+	Local $bCancelRemoved = _EngineSupervisorDeleteSafeFile($g_sEngineInitCancelPath)
+	_RecoveryLog("engine init supervisor stopped retry; backend_gone=true; planner_closed=" & $bPlannerClosed & _
+		"; receipt_removed=" & $bReceiptRemoved & "; cancel_removed=" & $bCancelRemoved)
+	If Not $bPlannerClosed Or Not $bReceiptRemoved Or Not $bCancelRemoved Then _
+		Return _EngineSupervisorRecordFailure("backend stopped but supervised cleanup was incomplete")
+	; Keep the abort latch and generation identity until a different exact backend generation appears.
+	; This prevents a stale receipt or PID reuse race from issuing another close, while the launcher
+	; remains armed to supervise the same controller's next backend without replaying Start.
+	Return True
+EndFunc   ;==>_EngineSupervisorAbort
+
+Func _EngineSupervisorPoll()
+	If Not $g_bEngineSupervisorArmed Or $g_iEngineSupervisorControllerPid <= 0 Then Return False
+	If Not ProcessExists($g_iEngineSupervisorControllerPid) Then
+		_EngineSupervisorDisarm("owned controller exited")
+		Return False
+	EndIf
+	Local $sReceipt = "", $iBackendPid = 0, $sPhase = "", $sStartRequestId = "", $iSequence = -1
+	If Not _EngineSupervisorReadReceipt($sReceipt, $iBackendPid, $sPhase, $sStartRequestId, $iSequence) Then
+		If FileExists($g_sEngineInitOwnershipReceipt) And $g_sEngineSupervisorLastNotice <> "invalid-receipt" Then
+			_RecoveryLog("engine init supervisor ignored an invalid or foreign receipt")
+			$g_sEngineSupervisorLastNotice = "invalid-receipt"
+		EndIf
+		Return False
+	EndIf
+	$g_sEngineSupervisorLastNotice = ""
+	_EngineSupervisorBeginGeneration($sReceipt, $iBackendPid)
+	; Cancellation or a prior abort remains authoritative over any late success from this generation.
+	If $g_bEngineSupervisorAbortAttempted Or $g_bEngineSupervisorFailureLatched Then Return False
+	Local $iPhaseRank = _EngineSupervisorReceiptPhaseRank($sPhase)
+	If $g_iEngineSupervisorLastSequence >= 0 And $iSequence < $g_iEngineSupervisorLastSequence Then
+		_RecoveryLog("engine init supervisor ignored sequence rollback; observed=" & $iSequence & "; accepted=" & $g_iEngineSupervisorLastSequence)
+		Return False
+	EndIf
+	If $g_iEngineSupervisorLastPhaseRank >= 0 And $iPhaseRank < $g_iEngineSupervisorLastPhaseRank Then
+		_RecoveryLog("engine init supervisor ignored phase rollback; observed=" & $sPhase & "; accepted=" & $g_sEngineSupervisorLastPhase)
+		Return False
+	EndIf
+	If Not $g_bEngineSupervisorPrepared Then
+		; Every accepted phase is written after prepared. Start the absolute clock at the first receipt
+		; we observe, even if a fast transition meant the 1/5 second poll did not see prepared itself.
+		$g_bEngineSupervisorPrepared = True
+		$g_hEngineSupervisorAbsoluteTimer = TimerInit()
+	EndIf
+	If $iSequence > $g_iEngineSupervisorLastSequence Then $g_iEngineSupervisorLastSequence = $iSequence
+	If $iPhaseRank > $g_iEngineSupervisorLastPhaseRank Then
+		$g_iEngineSupervisorLastPhaseRank = $iPhaseRank
+		$g_sEngineSupervisorLastPhase = $sPhase
+		$g_hEngineSupervisorPhaseTimer = TimerInit()
+		If $iPhaseRank >= 2 And $g_hEngineSupervisorPostReturnTimer = 0 Then $g_hEngineSupervisorPostReturnTimer = TimerInit()
+		_RecoveryLog("engine init phase; backend_pid=" & $iBackendPid & "; phase=" & $sPhase)
+	EndIf
+	; A nonce and Start-request-bound cancellation wins over late initialized, failure, and deadline
+	; handling once prepared. The launcher never replays Start for a replacement backend.
+	If _EngineSupervisorCancelMatches($sStartRequestId) Then Return _EngineSupervisorAbort($sReceipt, $iBackendPid, "matching Start cancellation")
+	If $sPhase = "initialized" Then Return _EngineSupervisorFinalize($sReceipt, "initialized")
+	If $sPhase = "failed" Then Return _EngineSupervisorAbort($sReceipt, $iBackendPid, "backend reported failed")
+	If $sPhase = "prepared" And TimerDiff($g_hEngineSupervisorPhaseTimer) > $g_iEngineInitEnterTimeoutMs Then _
+		Return _EngineSupervisorAbort($sReceipt, $iBackendPid, "pool entry did not begin within 10 seconds")
+	If $sPhase = "pool-entered" And TimerDiff($g_hEngineSupervisorPhaseTimer) > $g_iEngineInitPoolStallTimeoutMs Then _
+		Return _EngineSupervisorAbort($sReceipt, $iBackendPid, "pool initialization remained entered for more than 90 seconds")
+	If $iPhaseRank >= 2 And $iPhaseRank < 8 And $g_hEngineSupervisorPostReturnTimer <> 0 And _
+			TimerDiff($g_hEngineSupervisorPostReturnTimer) > $g_iEngineInitPostReturnTimeoutMs Then _
+		Return _EngineSupervisorAbort($sReceipt, $iBackendPid, "initialization did not finish within 15 seconds after pool return")
+	If $g_hEngineSupervisorAbsoluteTimer <> 0 And TimerDiff($g_hEngineSupervisorAbsoluteTimer) > $g_iEngineInitAbsoluteTimeoutMs Then _
+		Return _EngineSupervisorAbort($sReceipt, $iBackendPid, "initialization exceeded the 120 second absolute cap")
+	Return False
+EndFunc   ;==>_EngineSupervisorPoll
 
 ; The service proof is sufficient even after its backend parent has crashed: PID plus creation
 ; FILETIME, image, parent id, exact command digest/arguments, script build, and profile root all have
@@ -600,6 +1011,7 @@ Func _WaitForControllerWindow($iControllerPid, $iTimeoutMs)
 	Local $hController = 0
 	Local $hTimer = TimerInit()
 	Do
+		_EngineSupervisorPoll()
 		If Not ProcessExists($iControllerPid) Then ExitLoop
 		$hController = _FindControllerWindow($iControllerPid)
 		If $hController Then Return $hController
@@ -670,11 +1082,12 @@ EndFunc   ;==>_WindowClassName
 Func _DockWhenReady($hController, $iControllerPid, $iTimeoutMs)
 	Local $hTimer = TimerInit()
 	Do
+		_EngineSupervisorPoll()
 		If Not ProcessExists($iControllerPid) Or Not WinExists($hController) Then Return False
 		Local $hBlueStacks = _FindBlueStacksWindow($hController)
 		If @error = 2 Then Return False
 		If $hBlueStacks Then Return _DockController($hController, $hBlueStacks)
-		Sleep(500)
+		Sleep(_EngineSupervisorPollDelay(500))
 	Until TimerDiff($hTimer) >= $iTimeoutMs
 	Return False
 EndFunc   ;==>_DockWhenReady
@@ -682,13 +1095,17 @@ EndFunc   ;==>_DockWhenReady
 Func _KeepDocked($hController, $iControllerPid)
 	Local $sPreviousDockState = ""
 	While ProcessExists($iControllerPid)
+		_EngineSupervisorPoll()
 		; Re-prove the controller's exact PID, path, and title before every possible move. If its
 		; window is briefly recreated, reacquire only another exact window from the same process.
 		If Not _ControllerWindowMatches($hController, $iControllerPid) Then
 			$hController = _FindControllerWindow($iControllerPid)
-			If @error = 2 Then Return False
+			If @error = 2 Then
+				Sleep(_EngineSupervisorPollDelay($g_iDockTransitionPollMs))
+				ContinueLoop
+			EndIf
 			If Not $hController Then
-				Sleep(_AdaptiveDockPollDelay("controller-unbound", $sPreviousDockState))
+				Sleep(_EngineSupervisorPollDelay(_AdaptiveDockPollDelay("controller-unbound", $sPreviousDockState)))
 				ContinueLoop
 			EndIf
 		EndIf
@@ -712,7 +1129,7 @@ Func _KeepDocked($hController, $iControllerPid)
 			_DockControlStrip($hController)
 			$bNeedsFastPoll = $bNeedsFastPoll Or @extended > 0
 		EndIf
-		Sleep(_AdaptiveDockPollDelay($sDockState, $sPreviousDockState, $bNeedsFastPoll))
+		Sleep(_EngineSupervisorPollDelay(_AdaptiveDockPollDelay($sDockState, $sPreviousDockState, $bNeedsFastPoll)))
 	WEnd
 	Return True
 EndFunc   ;==>_KeepDocked
@@ -725,6 +1142,22 @@ Func _AdaptiveDockPollDelay($sState, ByRef $sPreviousState, $bNeedsFastPoll = Fa
 	If $bNeedsFastPoll Or $bStateChanged Then Return $g_iDockTransitionPollMs
 	Return $g_iDockStablePollMs
 EndFunc   ;==>_AdaptiveDockPollDelay
+
+; Docking remains at its low-resource 1/5 second cadence while idle. Once a receipt or matching
+; cancellation is present, cap only the supervisor-bearing waits at 250 ms so Stop can win before a
+; late initialized receipt without turning the launcher into a busy loop.
+Func _EngineSupervisorNeedsFastPoll()
+	If Not $g_bEngineSupervisorArmed Or $g_iEngineSupervisorControllerPid <= 0 Then Return False
+	If $g_bEngineSupervisorAbortAttempted Or $g_bEngineSupervisorFailureLatched Then Return False
+	If $g_bEngineSupervisorPrepared Or $g_iEngineSupervisorBackendPid > 0 Then Return True
+	If FileExists($g_sEngineInitCancelPath) And _EngineSupervisorPathSafe($g_sEngineInitCancelPath, True) Then Return True
+	Return FileExists($g_sEngineInitOwnershipReceipt) And $g_sEngineSupervisorLastNotice <> "invalid-receipt"
+EndFunc   ;==>_EngineSupervisorNeedsFastPoll
+
+Func _EngineSupervisorPollDelay($iDefaultDelayMs)
+	If _EngineSupervisorNeedsFastPoll() And $iDefaultDelayMs > $g_iEngineInitActivePollMs Then Return $g_iEngineInitActivePollMs
+	Return $iDefaultDelayMs
+EndFunc   ;==>_EngineSupervisorPollDelay
 
 ; Treat the exact controller and the exact instance-bound BlueStacks window as one visible pair.
 ; A four-state handshake avoids the asynchronous restore race where one window becomes visible a

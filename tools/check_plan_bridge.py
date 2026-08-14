@@ -655,146 +655,77 @@ def main() -> int:
 
     mbr_open = mbr_source.split("Func MBRFunc(", 1)
     mbr_open_body = mbr_open[1].split("EndFunc", 1)[0] if len(mbr_open) > 1 else ""
-    open_marker_offset = mbr_open_body.find("MBRFuncValidateEngineMarker(")
-    dll_open_offset = mbr_open_body.find("DllOpen($g_sLibMyBotPath)")
-    if open_marker_offset < 0 or dll_open_offset < 0 or open_marker_offset > dll_open_offset:
-        errors.append("MBRFunc can open the managed engine before validating its release marker")
+    if "DllOpen($g_sLibMyBotPath)" in mbr_open_body or "_MBRFuncOpenEngineLibrary()" in mbr_open_body:
+        errors.append("MBRFunc can open the managed engine outside the supervised initialization boundary")
+
+    private_open = mbr_source.split("Func _MBRFuncOpenEngineLibrary()", 1)
+    private_open_body = private_open[1].split("EndFunc", 1)[0] if len(private_open) > 1 else ""
+    if private_open_body.count("DllOpen($g_sLibMyBotPath)") != 1 or mbr_source.count("DllOpen($g_sLibMyBotPath)") != 1:
+        errors.append("managed engine loading is not confined to the single private supervised helper")
 
     mbr_initialize = mbr_source.split("Func MBRFuncInitialize()", 1)
     mbr_initialize_body = mbr_initialize[1].split("EndFunc", 1)[0] if len(mbr_initialize) > 1 else ""
     initialize_marker_offset = mbr_initialize_body.find("MBRFuncValidateEngineMarker(")
+    prepared_offset = mbr_initialize_body.find('_MBRFuncPublishEngineReceipt("prepared")')
+    private_open_offset = mbr_initialize_body.find("_MBRFuncOpenEngineLibrary()")
     first_export_offset = mbr_initialize_body.find("setProcessingPoolSize(")
     if (
         initialize_marker_offset < 0
+        or prepared_offset < 0
+        or private_open_offset < 0
         or first_export_offset < 0
-        or initialize_marker_offset > first_export_offset
+        or not (initialize_marker_offset < prepared_offset < private_open_offset < first_export_offset)
     ):
-        errors.append("managed image exports can start before validating the release marker")
+        errors.append("MBRFuncInitialize does not publish supervised ownership before loading or calling the managed engine")
+
+    expected_phases = (
+        "prepared", "pool-entered", "pool-returned", "max-entered", "max-returned",
+        "android-entered", "android-returned", "gui-entered", "initialized",
+    )
+    phase_calls = [mbr_initialize_body.find(f'_MBRFuncPublishEngineReceipt("{phase}")') for phase in expected_phases]
+    real_calls = [mbr_initialize_body.find(name) for name in ("setProcessingPoolSize(", "setMaxDegreeOfParallelism(", "setAndroidPID(", "SetBotGuiPID(")]
+    expected_order = [phase_calls[0], phase_calls[1], real_calls[0], phase_calls[2], phase_calls[3], real_calls[1], phase_calls[4], phase_calls[5], real_calls[2], phase_calls[6], phase_calls[7], real_calls[3], phase_calls[8]]
+    if any(offset < 0 for offset in expected_order) or expected_order != sorted(expected_order):
+        errors.append("real-host managed initialization no longer publishes monotonic phases around every synchronous export")
+    if mbr_initialize_body.count("setProcessingPoolSize(") != 1:
+        errors.append("real host no longer makes exactly one processing-pool initialization call")
 
     probe = mbr_source.split("Func MBRFuncProbeEngine(", 1)
     probe_body = probe[1].split("EndFunc", 1)[0] if len(probe) > 1 else ""
-    probe_marker_offset = probe_body.find("MBRFuncValidateEngineMarker(")
-    token_nonce_offset = probe_body.find("Random(100000, 999999, 1)")
-    phase_path_offset = probe_body.find('Local $sPhasePath = $sToken & ".phase"', token_nonce_offset)
-    prelaunch_cleanup_offset = probe_body.find(
-        "If Not MBRFuncEngineProbeCleanupArtifacts($sToken, $sPhasePath, 0) Then",
-        phase_path_offset,
-    )
-    probe_launch_offset = probe_body.find("Run('")
-    if probe_marker_offset < 0 or probe_launch_offset < 0 or probe_marker_offset > probe_launch_offset:
-        errors.append("managed engine probe helper can launch before validating the release marker")
-    if (
-        token_nonce_offset < 0
-        or phase_path_offset < token_nonce_offset
-        or prelaunch_cleanup_offset < phase_path_offset
-        or prelaunch_cleanup_offset > probe_launch_offset
-    ):
-        errors.append("managed engine probe receipts are no longer unique and fail-closed by verified cleanup before launch")
-    if probe_body.count("Run('") != 1:
-        errors.append("managed engine probe no longer performs exactly one controlled helper launch")
-    if "ByRef $sError, $iTimeoutMs = 15000" not in "Func MBRFuncProbeEngine(" + probe_body:
-        errors.append("managed engine probe no longer fails closed at the 15-second default deadline")
-    unavailable_guard_offset = probe_body.find("If Not $g_bMBRFuncEngineAvailable Then")
-    if unavailable_guard_offset < 0 or unavailable_guard_offset > probe_launch_offset:
-        errors.append("managed engine failure is no longer sticky within the current host process")
+    for forbidden in ("Run(", "DllCall(", "MyBot.run.EngineProbe.exe", "setProcessingPoolSize("):
+        if forbidden in probe_body:
+            errors.append(f"static managed-engine gate still performs stateful helper work: {forbidden}")
+    for required in ("MBRFuncValidateEngineMarker(", "$g_bMBRFuncEngineSupervisorValid"):
+        if required not in probe_body:
+            errors.append(f"static managed-engine gate no longer fails closed via {required}")
 
-    probe_read_offset = probe_body.find("FileRead($sToken)")
-    probe_delete_offset = probe_body.find("FileDelete($sToken)", probe_read_offset)
-    probe_delete_guard_offset = probe_body.find("If FileExists($sToken) Then", probe_delete_offset)
-    versioned_result_offset = probe_body.find('$g_sMBRFuncEngineProbeProtocol & "|call-returned"', probe_delete_guard_offset)
-    helper_gone_offset = probe_body.find("MBRFuncEngineProbeEnsureHelperGone($iProbePid, 1)", versioned_result_offset)
-    receipt_cleanup_offset = probe_body.find("MBRFuncEngineProbeCleanupArtifacts($sToken, $sPhasePath, $iProbePid)", helper_gone_offset)
-    process_gone_proof_offset = probe_body.find("If Not ProcessExists($iProbePid) Then", receipt_cleanup_offset)
-    probe_passed_offset = probe_body.find('$g_sMBRFuncEngineProbeState = "passed"', process_gone_proof_offset)
-    if (
-        probe_read_offset < 0
-        or probe_delete_offset < probe_read_offset
-        or probe_delete_guard_offset < probe_delete_offset
-        or versioned_result_offset < probe_delete_guard_offset
-        or helper_gone_offset < versioned_result_offset
-        or receipt_cleanup_offset < helper_gone_offset
-        or process_gone_proof_offset < receipt_cleanup_offset
-        or probe_passed_offset < process_gone_proof_offset
-    ):
-        errors.append("managed engine probe can pass without consuming a versioned receipt, reaping its exact helper, and cleaning artifacts")
-
-    reject_receipt = mbr_source.split("Func MBRFuncEngineProbeRejectReceipt(", 1)
-    reject_receipt_body = reject_receipt[1].split("EndFunc", 1)[0] if len(reject_receipt) > 1 else ""
-    reject_reap_offset = reject_receipt_body.find("MBRFuncEngineProbeEnsureHelperGone($iProbePid)")
-    reject_cleanup_offset = reject_receipt_body.find(
-        "MBRFuncEngineProbeCleanupArtifacts($sToken, $sPhasePath, $iProbePid)",
-        reject_reap_offset,
-    )
-    reject_reap_guard_offset = reject_receipt_body.find("If Not $bHelperGone Then", reject_cleanup_offset)
-    reject_cleanup_guard_offset = reject_receipt_body.find("ElseIf Not $bArtifactsCleared Then", reject_reap_guard_offset)
-    reject_return_offset = reject_receipt_body.find("Return False", reject_cleanup_guard_offset)
-    if (
-        reject_reap_offset < 0
-        or reject_cleanup_offset < reject_reap_offset
-        or reject_reap_guard_offset < reject_cleanup_offset
-        or reject_cleanup_guard_offset < reject_reap_guard_offset
-        or reject_return_offset < reject_cleanup_guard_offset
-    ):
-        errors.append("invalid managed engine receipts can return without checking exact helper exit and artifact cleanup")
-    for reason in (
-        "Managed engine probe success receipt could not be consumed",
-        "Managed engine probe returned an invalid receipt",
-    ):
-        branch_offset = probe_body.find(reason)
-        reject_call_offset = probe_body.rfind("Return MBRFuncEngineProbeRejectReceipt(", 0, branch_offset + len(reason))
-        if branch_offset < 0 or reject_call_offset < 0 or branch_offset - reject_call_offset > 160:
-            errors.append(f"managed engine receipt failure no longer uses verified reject cleanup: {reason}")
-
-    cancellation_offset = probe_body.find("$g_iBotAction = $eBotStop Or $g_iBotAction = $eBotClose")
-    cancellation_text_offset = probe_body.find('$sError = "Engine start was cancelled"', cancellation_offset)
-    if cancellation_offset < 0 or cancellation_offset > probe_read_offset or cancellation_text_offset < cancellation_offset:
-        errors.append("Stop/Close no longer cancels the probe before accepting a success receipt")
-    cancellation_after_reap_offset = probe_body.find(
-        "$g_iBotAction = $eBotStop Or $g_iBotAction = $eBotClose",
-        helper_gone_offset,
-    )
-    if cancellation_after_reap_offset < helper_gone_offset or cancellation_after_reap_offset > probe_passed_offset:
-        errors.append("Stop/Close can race a returned receipt and be lost before the probe passes")
-
-    helper_gone = mbr_source.split("Func MBRFuncEngineProbeEnsureHelperGone(", 1)
-    helper_gone_body = helper_gone[1].split("EndFunc", 1)[0] if len(helper_gone) > 1 else ""
     for required in (
-        "ProcessWaitClose($iProbePid, $iGraceSeconds)",
-        "ProcessClose($iProbePid)",
-        "ProcessWaitClose($iProbePid, 1)",
-        "Return Not ProcessExists($iProbePid)",
+        'Global Const $g_sMBRFuncEngineSupervisorSchema = "engine-init-supervisor-v1"',
+        'Global Const $g_sMBRFuncEngineReceiptPath = @LocalAppDataDir & "\\My Bot 2.0\\engine-init-owner-v1.json"',
+        '"^[0-9a-f]{64}$"',
+        '"^[0-9a-f]{16}$"',
+        'EnvSet($g_sMBRFuncEngineTokenEnv, "")',
+        'EnvSet($g_sMBRFuncEngineLauncherPidEnv, "")',
+        'EnvSet($g_sMBRFuncEngineLauncherCreatedEnv, "")',
+        '^mybot\\.run(?:\\.minigui)?\\.(?:exe|au3)$',
+        "If $g_bMBRFuncEngineContextHost Then",
+        "$g_bMBRFuncEngineContextHost And StringRegExp",
     ):
-        if required not in helper_gone_body:
-            errors.append(f"managed engine helper lifecycle no longer proves exact-PID cleanup via {required}")
-
-    phase_reader = mbr_source.split("Func MBRFuncEngineProbeReadPhase(", 1)
-    phase_reader_body = phase_reader[1].split("EndFunc", 1)[0] if len(phase_reader) > 1 else ""
-    for phase in ("opened", "call-entered", "call-returned"):
-        if f'"|{phase}"' not in phase_reader_body or f'Return "{phase}"' not in phase_reader_body:
-            errors.append(f"managed engine probe no longer reports the stable {phase!r} phase")
-    phase_suffix = mbr_source.split("Func MBRFuncEngineProbePhaseSuffix(", 1)
-    phase_suffix_body = phase_suffix[1].split("EndFunc", 1)[0] if len(phase_suffix) > 1 else ""
-    if 'Case "opened", "call-entered", "call-returned"' not in phase_suffix_body:
-        errors.append("managed engine errors can append an unbounded or private phase value")
-
-    if "DllClose(" in engine_probe_source:
-        errors.append("managed engine probe helper still closes the mixed-mode DLL and can hang in CLR teardown")
-    helper_call_offset = engine_probe_source.find("DllCall(")
-    helper_validation_offset = engine_probe_source.find("If $iProbeError Or Not IsArray($aProbe) Then Exit 4", helper_call_offset)
-    helper_success_offset = engine_probe_source.find(
-        '_EngineProbePublish($sTokenPath, $ENGINE_PROBE_PROTOCOL & "|call-returned")',
-        helper_validation_offset,
-    )
-    if helper_call_offset < 0 or helper_validation_offset < helper_call_offset or helper_success_offset < helper_validation_offset:
-        errors.append("managed engine helper no longer atomically publishes versioned success immediately after a validated call")
-    for phase in ("opened", "call-entered", "call-returned"):
-        if f'$ENGINE_PROBE_PROTOCOL & "|{phase}"' not in engine_probe_source:
-            errors.append(f"managed engine helper no longer publishes the {phase!r} phase")
-    publish = engine_probe_source.split("Func _EngineProbePublish(", 1)
+        if required not in mbr_source:
+            errors.append(f"managed-engine supervisor context no longer enforces {required}")
+    publish = mbr_source.split("Func _MBRFuncPublishEngineReceipt(", 1)
     publish_body = publish[1].split("EndFunc", 1)[0] if len(publish) > 1 else ""
-    publish_offsets = [publish_body.find(required) for required in ("FileOpen(", "FileFlush(", "FileClose(", "FileMove(")]
+    for field in ("schema", "token", "launcher_pid", "launcher_created", "controller_pid", "controller_created", "backend_pid", "backend_created", "parent_pid", "phase", "start_request_id", "sequence"):
+        if f'\\"{field}\\"' not in publish_body.replace('"', '\\"'):
+            errors.append(f"managed-engine ownership receipt no longer binds {field}")
+    publish_offsets = [publish_body.find(required) for required in ("FileOpen(", "FileWrite(", "FileFlush(", "FileClose(", "FileMove(", "FileRead(")]
     if any(offset < 0 for offset in publish_offsets) or publish_offsets != sorted(publish_offsets):
-        errors.append("managed engine helper receipts are no longer written and renamed atomically")
+        errors.append("managed-engine ownership receipt is no longer flushed, atomically replaced, and read back")
+    for required in ("_MBRFuncEngineReceiptPathSafe(False)", "_MBRFuncEngineReceiptPathSafe(True)"):
+        if required not in publish_body:
+            errors.append(f"managed-engine ownership receipt no longer checks non-reparse safety via {required}")
+    if "$sLauncherCreated <> $g_sMBRFuncEngineLauncherCreated" not in publish_body:
+        errors.append("managed-engine ownership receipt no longer verifies the live launcher creation identity")
 
     if "useLegacyV2RuntimeActivationPolicy" in engine_probe_config:
         errors.append("managed engine probe still enables the unnecessary legacy CLR v2 activation policy")

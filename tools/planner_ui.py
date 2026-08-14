@@ -22,6 +22,7 @@ import http.client
 import json
 import os
 import re
+import stat
 import tempfile
 import threading
 import time
@@ -54,6 +55,19 @@ EVENTS_PATH = ROOT / "logs/run-events.jsonl"
 PROFILES_ROOT = ROOT / "Profiles"
 CONTROL_COMMAND_PATH = ROOT / "config/control-command.local.json"
 CONTROL_STATUS_PATH = ROOT / "config/control-status.local.json"
+ENGINE_INIT_RECEIPT_PATH = Path(os.environ.get("LOCALAPPDATA", "")) / "My Bot 2.0" / "engine-init-owner-v1.json"
+ENGINE_INIT_CANCEL_PATH = ROOT / "config/engine-init-cancel.local.json"
+ENGINE_INIT_RECEIPT_MAX_BYTES = 4096
+ENGINE_INIT_ACTIVE_PHASES = {
+    "prepared": 1,
+    "pool-entered": 2,
+    "pool-returned": 3,
+    "max-entered": 4,
+    "max-returned": 5,
+    "android-entered": 6,
+    "android-returned": 7,
+    "gui-entered": 8,
+}
 
 MAX_REQUEST_BYTES = 256 * 1024
 MAX_TAIL_BYTES = 512 * 1024
@@ -120,6 +134,67 @@ def read_json(path: Path, default):
         return json.loads(path.read_text(encoding="utf-8-sig"))
     except (OSError, json.JSONDecodeError):
         return default
+
+
+def _path_is_reparse(path: Path) -> bool:
+    """Fail closed on a symlink, junction, or other Windows reparse point."""
+    try:
+        metadata = path.lstat()
+    except OSError:
+        return True
+    is_junction = getattr(os.path, "isjunction", None)
+    return bool(
+        path.is_symlink()
+        or (callable(is_junction) and is_junction(path))
+        or (
+            getattr(metadata, "st_file_attributes", 0)
+            & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)
+        )
+    )
+
+
+def engine_init_cancel_context() -> dict | None:
+    """Read only the bounded ownership fields needed to mirror Stop to the launcher."""
+    path = ENGINE_INIT_RECEIPT_PATH
+    try:
+        parent_metadata = path.parent.lstat()
+        metadata = path.lstat()
+    except OSError:
+        return None
+    if (
+        not stat.S_ISDIR(parent_metadata.st_mode)
+        or not stat.S_ISREG(metadata.st_mode)
+        or _path_is_reparse(path.parent)
+        or _path_is_reparse(path)
+        or metadata.st_size <= 0
+        or metadata.st_size > ENGINE_INIT_RECEIPT_MAX_BYTES
+    ):
+        return None
+    try:
+        with path.open("rb") as stream:
+            raw = stream.read(ENGINE_INIT_RECEIPT_MAX_BYTES + 1)
+        if len(raw) > ENGINE_INIT_RECEIPT_MAX_BYTES:
+            return None
+        receipt = json.loads(raw.decode("utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return None
+    if not isinstance(receipt, dict) or receipt.get("schema") != "engine-init-supervisor-v1":
+        return None
+    token = receipt.get("token")
+    start_request_id = receipt.get("start_request_id")
+    phase = receipt.get("phase")
+    sequence = receipt.get("sequence")
+    if (
+        not isinstance(token, str)
+        or re.fullmatch(r"[0-9a-f]{64}", token) is None
+        or not isinstance(start_request_id, str)
+        or re.fullmatch(r"[A-Za-z0-9._-]{1,80}", start_request_id) is None
+        or phase not in ENGINE_INIT_ACTIVE_PHASES
+        or isinstance(sequence, bool)
+        or sequence != ENGINE_INIT_ACTIVE_PHASES[phase]
+    ):
+        return None
+    return {"token": token, "start_request_id": start_request_id}
 
 
 def metadata_document() -> dict:
@@ -556,13 +631,15 @@ def queue_control_command(action: str) -> tuple[dict, int]:
     if action not in CONTROL_ACTIONS:
         return {"ok": False, "problems": ["unsupported control action"]}, 400
     status = control_status()
-    if not status.get("connected"):
+    init_context = engine_init_cancel_context() if action == "stop" else None
+    if not status.get("connected") and init_context is None:
         return {"ok": False, "problems": ["native engine is offline"], "status": status}, 409
     if action == "start" and not status.get("engine_available", True):
         return {"ok": False, "problems": [status.get("message") or "native engine is unavailable"], "status": status}, 409
 
     with CONTROL_LOCK:
-        if CONTROL_COMMAND_PATH.exists():
+        command_pending = CONTROL_COMMAND_PATH.exists()
+        if command_pending and not (action == "stop" and init_context is not None):
             return {"ok": False, "problems": ["another control command is awaiting the native engine"]}, 409
         request_id = uuid.uuid4().hex
         command = {
@@ -571,16 +648,47 @@ def queue_control_command(action: str) -> tuple[dict, int]:
             "action": action,
             "requested_at": datetime.now(timezone.utc).isoformat(),
         }
-        try:
-            write_json_atomic(command, CONTROL_COMMAND_PATH)
-        except OSError:
-            return {"ok": False, "problems": ["the control command could not be queued atomically"]}, 500
+        native_command_queued = False
+        # A supervised Stop must replace any command that could otherwise be replayed by the
+        # controller's replacement backend after the launcher closes the blocked generation.
+        # The launcher cancel remains a separate exact-owner path when this native write fails.
+        if not command_pending or (action == "stop" and init_context is not None):
+            try:
+                write_json_atomic(command, CONTROL_COMMAND_PATH)
+                native_command_queued = True
+            except OSError:
+                if action != "stop" or init_context is None:
+                    return {"ok": False, "problems": ["the control command could not be queued atomically"]}, 500
+
+        # The synchronous first managed-engine call blocks the AutoIt message loop. Mirror Stop
+        # through the launcher's separately owned channel. A failure here must not turn an already
+        # durable native Stop into a false HTTP 500; report the two delivery paths independently.
+        supervisor_cancel_status = "not-active"
+        if action == "stop" and init_context is not None:
+            try:
+                write_json_atomic(
+                    {
+                        "schema": "engine-init-cancel-v1",
+                        "token": init_context["token"],
+                        "expected_start_request_id": init_context["start_request_id"],
+                        "stop_request_id": request_id,
+                        "requested_at": command["requested_at"],
+                    },
+                    ENGINE_INIT_CANCEL_PATH,
+                )
+                supervisor_cancel_status = "queued"
+            except OSError:
+                supervisor_cancel_status = "unavailable"
+                if not native_command_queued:
+                    return {"ok": False, "problems": ["the supervisor Stop could not be queued atomically"]}, 500
     return {
         "ok": True,
         "accepted": True,
         "request_id": request_id,
         "action": action,
-        "written": displayed_path(CONTROL_COMMAND_PATH),
+        "native_command_queued": native_command_queued,
+        "supervisor_cancel_status": supervisor_cancel_status,
+        "written": displayed_path(CONTROL_COMMAND_PATH) if native_command_queued else None,
     }, 202
 
 
@@ -1047,15 +1155,19 @@ def selftest() -> int:
         check(read_json(target, {}) == {"sentinel": True}, "interrupted replacement preserves the previous plan")
         check(not list(target.parent.glob(".*.tmp")), "failed writes leave no temporary plan behind")
 
-    global PLAN_PATH, EVENTS_PATH, CONTROL_COMMAND_PATH, CONTROL_STATUS_PATH, SERVICE_OWNER_TOKEN
+    global PLAN_PATH, EVENTS_PATH, CONTROL_COMMAND_PATH, CONTROL_STATUS_PATH
+    global ENGINE_INIT_RECEIPT_PATH, ENGINE_INIT_CANCEL_PATH, SERVICE_OWNER_TOKEN
     original_plan, original_events = PLAN_PATH, EVENTS_PATH
     original_control_command, original_control_status = CONTROL_COMMAND_PATH, CONTROL_STATUS_PATH
+    original_engine_receipt, original_engine_cancel = ENGINE_INIT_RECEIPT_PATH, ENGINE_INIT_CANCEL_PATH
     original_service_owner_token = SERVICE_OWNER_TOKEN
     with tempfile.TemporaryDirectory() as folder:
         PLAN_PATH = Path(folder) / "plan.json"
         EVENTS_PATH = Path(folder) / "events.jsonl"
         CONTROL_COMMAND_PATH = Path(folder) / "control-command.json"
         CONTROL_STATUS_PATH = Path(folder) / "control-status.json"
+        ENGINE_INIT_RECEIPT_PATH = Path(folder) / "engine-init-owner.json"
+        ENGINE_INIT_CANCEL_PATH = Path(folder) / "engine-init-cancel.json"
         SERVICE_OWNER_TOKEN = "selftest-owner"
         EVENTS_PATH.write_text(
             json.dumps({
@@ -1251,6 +1363,7 @@ def selftest() -> int:
             thread.join(timeout=3)
     PLAN_PATH, EVENTS_PATH = original_plan, original_events
     CONTROL_COMMAND_PATH, CONTROL_STATUS_PATH = original_control_command, original_control_status
+    ENGINE_INIT_RECEIPT_PATH, ENGINE_INIT_CANCEL_PATH = original_engine_receipt, original_engine_cancel
     SERVICE_OWNER_TOKEN = original_service_owner_token
 
     print(f"\n{'selftest passed' if not failures else str(len(failures)) + ' check(s) failed'}")

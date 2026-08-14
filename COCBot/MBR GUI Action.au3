@@ -38,8 +38,11 @@ Func BotStart($bAutostartDelay = 0)
 	EndIf
 
 	If Not MBRFuncInitialize() Then
-		$sStartError = "Unable to initialize " & $g_sMBRLib & "."
-		MBRFuncMarkUnavailable($sStartError)
+		$sStartError = MBRFuncEngineError()
+		If $sStartError = "" Then
+			$sStartError = "Unable to initialize " & $g_sMBRLib & "."
+			MBRFuncMarkUnavailable($sStartError)
+		EndIf
 		SetLog($sStartError, $COLOR_ERROR)
 		GUICtrlSetState($g_hBtnStart, $GUI_DISABLE)
 		Return FuncReturn(_BotStartReject($sStartError))

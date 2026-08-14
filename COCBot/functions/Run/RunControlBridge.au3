@@ -21,11 +21,29 @@ Global $g_sRunControlLastOutcome = ""
 Global $g_sRunControlMessage = "Native engine is starting"
 Global $g_bRunControlStartInProgress = False
 Global $g_bRunControlStopRequested = False
+Global $g_sRunControlPendingStartRequestId = ""
+Global $g_sRunControlActiveStartRequestId = ""
 Global $g_hRunControlOwnerMutex = 0
 
 Func RunControlStopRequested()
 	Return $g_bRunControlStopRequested
 EndFunc   ;==>RunControlStopRequested
+
+; The engine-initialization ownership receipt binds a blocked Start to the exact command that
+; requested it. Expose only the already-validated local request id; no file or loopback parsing is
+; performed from the synchronous managed-call boundary.
+Func RunControlCurrentCommandId()
+	If Not $g_bRunControlStartInProgress Then Return ""
+	If $g_sRunControlLastCommand <> "start" Or $g_sRunControlLastOutcome <> "accepted" Then Return ""
+	If Not StringRegExp($g_sRunControlActiveStartRequestId, "^[A-Za-z0-9._-]{1,80}$") Then Return ""
+	Return $g_sRunControlActiveStartRequestId
+EndFunc   ;==>RunControlCurrentCommandId
+
+Func _RunControlNewLocalStartRequestId()
+	Local $sRequestId = "local-start-" & @AutoItPID & "-" & @YEAR & @MON & @MDAY & @HOUR & @MIN & @SEC & @MSEC & "-" & Random(100000, 999999, 1)
+	If Not StringRegExp($sRequestId, "^[A-Za-z0-9._-]{1,80}$") Then Return ""
+	Return $sRequestId
+EndFunc   ;==>_RunControlNewLocalStartRequestId
 
 Func RunControlCommandPath()
 	Return @ScriptDir & "\" & $RUN_CONTROL_COMMAND_FILE_NAME
@@ -166,6 +184,8 @@ EndFunc   ;==>_RunControlCommandAgeSeconds
 
 Func RunControlReportStartOutcome($bStarted, $sMessage)
 	$g_bRunControlStartInProgress = False
+	$g_sRunControlActiveStartRequestId = ""
+	$g_sRunControlPendingStartRequestId = ""
 	If $g_bRunControlStopRequested Then
 		$g_bRunState = False
 		$g_iBotAction = $eBotStop
@@ -179,6 +199,8 @@ EndFunc   ;==>RunControlReportStartOutcome
 
 Func RunControlReportRunFailure($sMessage)
 	$g_bRunControlStartInProgress = False
+	$g_sRunControlActiveStartRequestId = ""
+	$g_sRunControlPendingStartRequestId = ""
 	; Preserve an accepted Stop until BotStop publishes its terminal stopped outcome. A bounded
 	; recognition/readiness call may unwind after the Stop flag was latched, but that unwind is not
 	; a new run failure and must not overwrite the command acknowledgement.
@@ -192,6 +214,17 @@ Func RunControlReportRunFailure($sMessage)
 EndFunc   ;==>RunControlReportRunFailure
 
 Func RunControlBeginStart()
+	If $g_bRunControlStartInProgress And StringRegExp($g_sRunControlActiveStartRequestId, "^[A-Za-z0-9._-]{1,80}$") Then Return
+	If StringRegExp($g_sRunControlPendingStartRequestId, "^[A-Za-z0-9._-]{1,80}$") Then
+		$g_sRunControlActiveStartRequestId = $g_sRunControlPendingStartRequestId
+	Else
+		$g_sRunControlActiveStartRequestId = _RunControlNewLocalStartRequestId()
+		$g_sRunControlLastCommandId = $g_sRunControlActiveStartRequestId
+		$g_sRunControlLastCommand = "start"
+		$g_sRunControlLastOutcome = "accepted"
+		$g_sRunControlMessage = "Start requested locally"
+	EndIf
+	$g_sRunControlPendingStartRequestId = ""
 	$g_bRunControlStartInProgress = True
 	RunControlWriteStatus(True)
 EndFunc   ;==>RunControlBeginStart
@@ -199,6 +232,8 @@ EndFunc   ;==>RunControlBeginStart
 Func RunControlReportStopComplete()
 	$g_bRunControlStopRequested = False
 	$g_bRunControlStartInProgress = False
+	$g_sRunControlActiveStartRequestId = ""
+	$g_sRunControlPendingStartRequestId = ""
 	If $g_sRunControlLastCommand = "stop" And $g_sRunControlLastOutcome = "accepted" Then
 		$g_sRunControlLastOutcome = "stopped"
 		$g_sRunControlMessage = "Run stopped"
@@ -319,9 +354,11 @@ Func _RunControlConsumeCommand()
 				Return
 			EndIf
 			$g_bRunControlStopRequested = False
+			$g_sRunControlPendingStartRequestId = $sRequestId
 			$g_iBotAction = $eBotStart
 			_RunControlAcknowledge($sRequestId, $sAction, "accepted", "Start requested by control center")
 		Case "stop"
+			$g_sRunControlPendingStartRequestId = ""
 			If Not $g_bRunState And $g_iBotAction <> $eBotStart Then
 				_RunControlAcknowledge($sRequestId, $sAction, "no-op", "Engine is already idle")
 				Return
@@ -396,6 +433,9 @@ EndFunc   ;==>RunControlInitialize
 Func RunControlShutdown()
 	AdlibUnRegister("RunControlPoll")
 	$g_bRunControlReady = False
+	$g_bRunControlStartInProgress = False
+	$g_sRunControlActiveStartRequestId = ""
+	$g_sRunControlPendingStartRequestId = ""
 	If $g_hRunControlOwnerMutex = 0 Then Return
 	FileDelete(RunControlStatusPath())
 	ReleaseMutex($g_hRunControlOwnerMutex)

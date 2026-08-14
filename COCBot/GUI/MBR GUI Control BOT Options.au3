@@ -169,7 +169,7 @@ Func txtThreads()
 		; value changed...
 		SetDebugLog("Threading: Using " & $g_iThreads & " threads for parallelism changedd to " & $iValue)
 		$g_iThreads = $iValue
-		setMaxDegreeOfParallelism($g_iThreads)
+		If $g_bLibMyBotInitialized Then setMaxDegreeOfParallelism($g_iThreads)
 	EndIf
 EndFunc   ;==>txtThreads
 

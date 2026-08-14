@@ -89,9 +89,11 @@ class LocalRuntimeInstallContract(unittest.TestCase):
         self.assertNotIn("/profiles64=", LAUNCHER)
         self.assertIn("_InstalledProfilesJunctionMatches()", LAUNCHER)
         self.assertIn(
-            "ShellExecute($g_sControllerPath, _BuildControllerArguments($sLaunchProfile)",
+            "Run('\"' & $g_sControllerPath & '\" ' & _BuildControllerArguments($sLaunchProfile), @ScriptDir, @SW_SHOWNORMAL)",
             LAUNCHER,
         )
+        self.assertIn("Local $iControllerLaunchError = @error", LAUNCHER)
+        self.assertIn("_EngineSupervisorClearLaunchEnvironment()", LAUNCHER)
 
     def test_installer_migrates_and_preserves_legacy_profiles_without_overwrite(self) -> None:
         self.assertIn("def migrate_legacy_installed_profiles", PYTHON_INSTALLER)

@@ -5,9 +5,9 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-HELPER = ROOT / "MyBot.run.EngineProbe.au3"
-CONFIG = ROOT / "MyBot.run.EngineProbe.exe.config"
 PARENT = ROOT / "COCBot" / "functions" / "Other" / "MBRFunc.au3"
+ACTION = ROOT / "COCBot" / "MBR GUI Action.au3"
+MAIN = ROOT / "MyBot.run.au3"
 
 
 def function_body(source: str, name: str) -> str:
@@ -18,118 +18,132 @@ def function_body(source: str, name: str) -> str:
 class EngineProbeLifecycleTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        cls.helper = HELPER.read_text(encoding="utf-8-sig")
-        cls.config = CONFIG.read_text(encoding="utf-8-sig")
         cls.parent = PARENT.read_text(encoding="utf-8-sig")
+        cls.action = ACTION.read_text(encoding="utf-8-sig")
+        cls.main = MAIN.read_text(encoding="utf-8-sig")
 
-    def test_helper_publishes_versioned_success_before_process_teardown(self) -> None:
-        self.assertNotIn("DllClose(", self.helper)
-        call = self.helper.index("DllCall(")
-        validated = self.helper.index("If $iProbeError Or Not IsArray($aProbe) Then Exit 4", call)
-        published = self.helper.index(
-            '_EngineProbePublish($sTokenPath, $ENGINE_PROBE_PROTOCOL & "|call-returned")',
-            validated,
-        )
-        self.assertLess(call, validated)
-        self.assertLess(validated, published)
-        self.assertIn('Global Const $ENGINE_PROBE_PROTOCOL = "engine-probe/v1"', self.helper)
-
-    def test_helper_phase_and_publish_contract_is_bounded(self) -> None:
-        for phase in ("opened", "call-entered", "call-returned"):
-            self.assertIn(f'$ENGINE_PROBE_PROTOCOL & "|{phase}"', self.helper)
-        publish = function_body(self.helper, "_EngineProbePublish")
-        offsets = [publish.index(name) for name in ("FileOpen(", "FileFlush(", "FileClose(", "FileMove(")]
-        self.assertEqual(offsets, sorted(offsets))
-
-    def test_parent_consumes_receipt_reaps_exact_pid_then_passes(self) -> None:
-        probe = function_body(self.parent, "MBRFuncProbeEngine")
-        read = probe.index("FileRead($sToken)")
-        deleted = probe.index("FileDelete($sToken)", read)
-        versioned = probe.index('$g_sMBRFuncEngineProbeProtocol & "|call-returned"', deleted)
-        reaped = probe.index("MBRFuncEngineProbeEnsureHelperGone($iProbePid, 1)", versioned)
-        cleaned = probe.index("MBRFuncEngineProbeCleanupArtifacts($sToken, $sPhasePath, $iProbePid)", reaped)
-        gone = probe.index("If Not ProcessExists($iProbePid) Then", cleaned)
-        offsets = [
-            read,
-            deleted,
-            versioned,
-            reaped,
-            cleaned,
-            gone,
-            probe.index('$g_sMBRFuncEngineProbeState = "passed"', gone),
-        ]
-        self.assertEqual(offsets, sorted(offsets))
-
-        reaper = function_body(self.parent, "MBRFuncEngineProbeEnsureHelperGone")
-        self.assertIn("ProcessWaitClose($iProbePid, $iGraceSeconds)", reaper)
-        self.assertIn("ProcessClose($iProbePid)", reaper)
-        self.assertIn("ProcessWaitClose($iProbePid, 1)", reaper)
-        self.assertIn("Return Not ProcessExists($iProbePid)", reaper)
-
-    def test_prelaunch_receipts_are_uniquely_named_and_cleaned_before_run(self) -> None:
-        probe = function_body(self.parent, "MBRFuncProbeEngine")
-        nonce = probe.index("Random(100000, 999999, 1)")
-        phase = probe.index('Local $sPhasePath = $sToken & ".phase"', nonce)
-        cleanup = probe.index(
-            "If Not MBRFuncEngineProbeCleanupArtifacts($sToken, $sPhasePath, 0) Then",
-            phase,
-        )
-        launch = probe.index("Run('")
-        self.assertEqual([nonce, phase, cleanup, launch], sorted((nonce, phase, cleanup, launch)))
-
-    def test_invalid_and_unconsumable_receipts_verify_reap_and_cleanup(self) -> None:
-        reject = function_body(self.parent, "MBRFuncEngineProbeRejectReceipt")
-        reaped = reject.index("MBRFuncEngineProbeEnsureHelperGone($iProbePid)")
-        cleaned = reject.index(
-            "MBRFuncEngineProbeCleanupArtifacts($sToken, $sPhasePath, $iProbePid)",
-            reaped,
-        )
-        reap_checked = reject.index("If Not $bHelperGone Then", cleaned)
-        cleanup_checked = reject.index("ElseIf Not $bArtifactsCleared Then", reap_checked)
-        returned = reject.index("Return False", cleanup_checked)
-        self.assertEqual([reaped, cleaned, reap_checked, cleanup_checked, returned], sorted((reaped, cleaned, reap_checked, cleanup_checked, returned)))
-
-        probe = function_body(self.parent, "MBRFuncProbeEngine")
-        for reason in (
-            "Managed engine probe success receipt could not be consumed",
-            "Managed engine probe returned an invalid receipt",
+    def test_supervisor_environment_is_consumed_before_backend_entrypoint(self) -> None:
+        for env_name in (
+            "MYBOT_ENGINE_INIT_TOKEN",
+            "MYBOT_ENGINE_INIT_LAUNCHER_PID",
+            "MYBOT_ENGINE_INIT_LAUNCHER_CREATED",
         ):
-            self.assertIn(f'Return MBRFuncEngineProbeRejectReceipt($sError, "{reason}"', probe)
+            self.assertIn(f'= "{env_name}"', self.parent)
+        last_clear = self.parent.index('EnvSet($g_sMBRFuncEngineLauncherCreatedEnv, "")')
+        self.assertLess(last_clear, self.parent.index("Func MBRFunc("))
+        include = self.main.index('#include "COCBot\\functions\\Other\\MBRFunc.au3"')
+        self.assertLess(include, self.main.index("InitializeBot()"))
+        self.assertLess(include, self.main.index('_RunPlannerStartService('))
+        self.assertIn('"^[0-9a-f]{64}$"', self.parent[: self.parent.index("Func MBRFunc(")])
+        self.assertIn('"^[0-9a-f]{16}$"', self.parent[: self.parent.index("Func MBRFunc(")])
 
-    def test_stop_precedes_success_and_keeps_cancellation_text(self) -> None:
+    def test_pinned_mini_captures_then_clears_environment_for_scoped_forwarding(self) -> None:
+        declarations = self.parent[: self.parent.index("Func MBRFunc(")]
+        self.assertIn('^mybot\\.run(?:\\.minigui)?\\.(?:exe|au3)$', declarations)
+        self.assertIn('StringLower(@ScriptName) = "mybot.run.exe"', declarations)
+        self.assertIn('StringLower(@ScriptName) = "mybot.run.au3"', declarations)
+        self.assertIn("If $g_bMBRFuncEngineContextHost Then", declarations)
+        self.assertIn("$g_bMBRFuncEngineContextHost ? EnvGet", declarations)
+        self.assertIn("$g_bMBRFuncEngineContextHost And StringRegExp", declarations)
+
+    def test_static_probe_never_launches_helper_or_calls_managed_export(self) -> None:
         probe = function_body(self.parent, "MBRFuncProbeEngine")
-        cancel = probe.index("$g_iBotAction = $eBotStop Or $g_iBotAction = $eBotClose")
-        read = probe.index("FileRead($sToken)")
-        reaped = probe.index("MBRFuncEngineProbeEnsureHelperGone($iProbePid, 1)", read)
-        cancel_after_reap = probe.index("$g_iBotAction = $eBotStop Or $g_iBotAction = $eBotClose", reaped)
-        passed = probe.index('$g_sMBRFuncEngineProbeState = "passed"', cancel_after_reap)
-        self.assertLess(cancel, read)
-        self.assertIn('$sError = "Engine start was cancelled"', probe[cancel:read])
-        self.assertLess(reaped, cancel_after_reap)
-        self.assertLess(cancel_after_reap, passed)
-        self.assertIn("$iTimeoutMs = 15000", probe)
+        for forbidden in ("Run(", "DllCall(", "MyBot.run.EngineProbe.exe", "setProcessingPoolSize("):
+            self.assertNotIn(forbidden, probe)
+        self.assertIn("MBRFuncValidateEngineMarker", probe)
+        self.assertIn("$g_bMBRFuncEngineSupervisorValid", probe)
 
-    def test_failure_is_sticky_only_for_current_host(self) -> None:
-        self.assertIn("Global $g_bMBRFuncEngineAvailable = True", self.parent)
-        self.assertIn('Global $g_sMBRFuncEngineProbeState = "not-run"', self.parent)
-        mark_unavailable = function_body(self.parent, "MBRFuncMarkUnavailable")
-        self.assertIn("$g_bMBRFuncEngineAvailable = False", mark_unavailable)
-        self.assertIn('$g_sMBRFuncEngineProbeState = "failed"', mark_unavailable)
-        probe = function_body(self.parent, "MBRFuncProbeEngine")
-        self.assertLess(probe.index("If Not $g_bMBRFuncEngineAvailable Then"), probe.index("Run('"))
-        self.assertEqual(probe.count("Run('"), 1)
+    def test_packaged_helper_is_a_non_clr_integrity_canary(self) -> None:
+        helper = (ROOT / "MyBot.run.EngineProbe.au3").read_text(encoding="utf-8-sig")
+        self.assertIn('Global Const $ENGINE_PROBE_PROTOCOL = "engine-probe/v2"', helper)
+        self.assertIn('"|static-ready"', helper)
+        self.assertIn('FileGetSize($sMarkerPath) <> 0', helper)
+        self.assertIn('FileGetSize($sLibraryPath) <= 0', helper)
+        self.assertIn("Not $bFlushed", helper)
+        for forbidden in ("DllOpen(", "DllCall(", "setProcessingPoolSize", "call-entered"):
+            self.assertNotIn(forbidden, helper)
 
-    def test_phase_output_is_allowlisted_and_private_data_free(self) -> None:
-        suffix = function_body(self.parent, "MBRFuncEngineProbePhaseSuffix")
-        self.assertIn('Case "opened", "call-entered", "call-returned"', suffix)
-        self.assertIn('Return " (phase: " & $sPhase & ")"', suffix)
-        self.assertNotIn("@ScriptDir", suffix)
-        self.assertNotIn("$iProbePid", suffix)
+    def test_real_host_initialization_publishes_ordered_phases(self) -> None:
+        initialize = function_body(self.parent, "MBRFuncInitialize")
+        ordered = (
+            '_MBRFuncPublishEngineReceipt("prepared")',
+            '_MBRFuncPublishEngineReceipt("pool-entered")',
+            "setProcessingPoolSize(",
+            '_MBRFuncPublishEngineReceipt("pool-returned")',
+            '_MBRFuncPublishEngineReceipt("max-entered")',
+            "setMaxDegreeOfParallelism(",
+            '_MBRFuncPublishEngineReceipt("max-returned")',
+            '_MBRFuncPublishEngineReceipt("android-entered")',
+            "setAndroidPID(",
+            '_MBRFuncPublishEngineReceipt("android-returned")',
+            '_MBRFuncPublishEngineReceipt("gui-entered")',
+            "SetBotGuiPID(",
+            '_MBRFuncPublishEngineReceipt("initialized")',
+        )
+        offsets = [initialize.index(item) for item in ordered]
+        self.assertEqual(offsets, sorted(offsets))
+        self.assertEqual(initialize.count("setProcessingPoolSize("), 1)
+        self.assertLess(initialize.index("MBRFuncValidateEngineMarker("), offsets[0])
+        self.assertLess(initialize.index("$g_bMBRFuncEngineSupervisorValid"), offsets[0])
 
-    def test_config_keeps_clr4_and_lib_probe_without_legacy_v2_policy(self) -> None:
-        self.assertNotIn("useLegacyV2RuntimeActivationPolicy", self.config)
-        self.assertIn('supportedRuntime version="v4.0"', self.config)
-        self.assertIn('<probing privatePath="lib" />', self.config)
+    def test_receipt_is_fixed_atomic_flushed_and_identity_bound(self) -> None:
+        self.assertIn(
+            'Global Const $g_sMBRFuncEngineReceiptPath = @LocalAppDataDir & "\\My Bot 2.0\\engine-init-owner-v1.json"',
+            self.parent,
+        )
+        publish = function_body(self.parent, "_MBRFuncPublishEngineReceipt")
+        for field in (
+            "schema",
+            "token",
+            "launcher_pid",
+            "launcher_created",
+            "controller_pid",
+            "controller_created",
+            "backend_pid",
+            "backend_created",
+            "parent_pid",
+            "phase",
+            "start_request_id",
+            "sequence",
+        ):
+            self.assertIn(f'\\"{field}\\"', publish.replace('"', '\\"'))
+        offsets = [publish.index(item) for item in ("FileOpen(", "FileWrite(", "FileFlush(", "FileClose(", "FileMove(", "FileRead(")]
+        self.assertEqual(offsets, sorted(offsets))
+        self.assertIn("Not $bFlushed", publish)
+        self.assertIn("_MBRFuncEngineReceiptPathSafe(False)", publish)
+        self.assertIn("_MBRFuncEngineReceiptPathSafe(True)", publish)
+        self.assertIn("$sLauncherCreated <> $g_sMBRFuncEngineLauncherCreated", publish)
+        safe = function_body(self.parent, "_MBRFuncEngineReceiptPathSafe")
+        self.assertIn("BitAND($aParent[0], 0x400) <> 0", safe)
+        self.assertIn("BitAND($aReceipt[0], 0x400) = 0", safe)
+
+    def test_failures_are_sticky_and_publish_failed(self) -> None:
+        failure = function_body(self.parent, "_MBRFuncInitializationFailed")
+        self.assertLess(failure.index("MBRFuncMarkUnavailable"), failure.index('_MBRFuncPublishEngineReceipt("failed")'))
+        mark = function_body(self.parent, "MBRFuncMarkUnavailable")
+        self.assertIn("$g_bMBRFuncEngineAvailable = False", mark)
+        self.assertIn('$g_sMBRFuncEngineProbeState = "failed"', mark)
+        initialize = function_body(self.parent, "MBRFuncInitialize")
+        self.assertIn('$g_sMBRFuncEngineProbeState = "running"', initialize)
+        self.assertIn('$g_sMBRFuncEngineProbeState = "passed"', initialize)
+
+    def test_start_order_blocks_all_emulator_input_until_real_init_returns(self) -> None:
+        start = function_body(self.action, "BotStart")
+        probe = start.index("MBRFuncProbeEngine(")
+        initialize = start.index("MBRFuncInitialize()", probe)
+        authorization = start.index("ForumAuthentication()", initialize)
+        resume = start.index("ResumeAndroid()", authorization)
+        self.assertEqual([probe, initialize, authorization, resume], sorted((probe, initialize, authorization, resume)))
+
+    def test_start_request_id_callback_fails_closed_and_initialization_requires_it(self) -> None:
+        request = function_body(self.parent, "_MBRFuncCurrentStartRequestId")
+        self.assertIn('IsFunc($sCallback)', request)
+        self.assertIn('"^[A-Za-z0-9._-]{1,80}$"', request)
+        self.assertIn('Return ""', request)
+        initialize = function_body(self.parent, "MBRFuncInitialize")
+        required = initialize.index('If _MBRFuncCurrentStartRequestId() = "" Then')
+        prepared = initialize.index('_MBRFuncPublishEngineReceipt("prepared")')
+        self.assertLess(required, prepared)
 
 
 if __name__ == "__main__":

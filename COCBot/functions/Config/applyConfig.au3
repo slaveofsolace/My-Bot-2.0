@@ -24,8 +24,8 @@ Func applyConfig($bRedrawAtExit = True, $TypeReadSave = "Read") ;Applies the dat
 	$g_bApplyConfigIsActive = True
 	SetDebugLog("applyConfig(), call number " & $iApplyConfigCount)
 
-	setMaxDegreeOfParallelism($g_iThreads)
-	setProcessingPoolSize($g_iGlobalThreads)
+	If $g_bLibMyBotInitialized Then setMaxDegreeOfParallelism($g_iThreads)
+	If $g_bLibMyBotInitialized Then setProcessingPoolSize($g_iGlobalThreads)
 
 	; Saved window positions
 	If $g_bAndroidEmbedded = False Then

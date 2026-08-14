@@ -13,6 +13,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 LAUNCHER = (ROOT / "My Bot 2.0.au3").read_text(encoding="utf-8-sig")
 PLANNER_CONTROL = (ROOT / "COCBot" / "GUI" / "MBR GUI Control Run Planner.au3").read_text(encoding="utf-8-sig")
 PLANNER_UI = (ROOT / "tools" / "planner_ui.py").read_text(encoding="utf-8-sig")
+MBRFUNC = (ROOT / "COCBot" / "functions" / "Other" / "MBRFunc.au3").read_text(encoding="utf-8-sig")
 AUTOIT = pathlib.Path(r"C:\Program Files (x86)\AutoIt3\AutoIt3.exe")
 
 
@@ -55,6 +56,52 @@ def receipt_is_valid(receipt, health, service, backend):
         health.get("service_pid") == service.get("pid"),
     ))
     return backend_matches and (not health.get("available", True) or health_matches)
+
+
+ENGINE_PHASES = (
+    "prepared", "pool-entered", "pool-returned", "max-entered", "max-returned",
+    "android-entered", "android-returned", "gui-entered", "initialized", "failed",
+)
+
+
+def engine_receipt_is_valid(receipt, owner):
+    """Executable model of the launcher's exact in-host initialization owner proof."""
+    return all((
+        receipt.get("schema") == "engine-init-supervisor-v1",
+        receipt.get("token") == owner.get("token"),
+        len(receipt.get("token", "")) == 64,
+        all(character in "0123456789abcdef" for character in receipt.get("token", "")),
+        receipt.get("launcher_pid") == owner.get("launcher_pid"),
+        receipt.get("launcher_created") == owner.get("launcher_created"),
+        owner.get("launcher_live_created") == owner.get("launcher_created"),
+        receipt.get("controller_pid") == owner.get("controller_pid"),
+        receipt.get("controller_created") == owner.get("controller_created"),
+        owner.get("controller_live_created") == owner.get("controller_created"),
+        owner.get("controller_parent_pid") == owner.get("launcher_pid"),
+        owner.get("controller_image", "").lower() == owner.get("expected_controller_image", "").lower(),
+        receipt.get("backend_pid") == owner.get("backend_pid"),
+        receipt.get("backend_created") == owner.get("backend_created"),
+        owner.get("backend_live_created") == owner.get("backend_created"),
+        receipt.get("parent_pid") == owner.get("controller_pid") == owner.get("backend_parent_pid"),
+        owner.get("backend_image", "").lower() == owner.get("expected_backend_image", "").lower(),
+        receipt.get("phase") in ENGINE_PHASES,
+        isinstance(receipt.get("sequence"), int) and receipt.get("sequence") >= 0,
+    ))
+
+
+def engine_cancel_matches(receipt, cancel):
+    start_request_id = receipt.get("start_request_id", "")
+    return all((
+        start_request_id != "",
+        cancel.get("schema") == "engine-init-cancel-v1",
+        cancel.get("token") == receipt.get("token"),
+        cancel.get("expected_start_request_id") == start_request_id,
+    ))
+
+
+def engine_generation_key(receipt):
+    """PID reuse is a new generation only when the exact creation identity also changes."""
+    return receipt.get("backend_pid"), receipt.get("backend_created")
 
 
 class LauncherRecoveryContractTests(unittest.TestCase):
@@ -329,6 +376,271 @@ class LauncherRecoveryContractTests(unittest.TestCase):
         self.assertIn('GUICtrlSetOnEvent($g_idOpenControlCenter, "_OpenControlCenter")', LAUNCHER)
         self.assertNotIn("$WS_EX_TOPMOST", LAUNCHER)
         self.assertLess(LAUNCHER.index("_ShowControlStrip($hController)"), LAUNCHER.index("_DockWhenReady($hController"))
+
+    def test_new_controller_inherits_one_time_engine_supervisor_environment(self):
+        for name in (
+            "MYBOT_ENGINE_INIT_TOKEN",
+            "MYBOT_ENGINE_INIT_LAUNCHER_PID",
+            "MYBOT_ENGINE_INIT_LAUNCHER_CREATED",
+        ):
+            self.assertIn(name, LAUNCHER)
+        self.assertIn('BCryptGenRandom', autoit_function(LAUNCHER, "_EngineSupervisorNewToken"))
+        launch = LAUNCHER[LAUNCHER.index("Local $sEngineSupervisorError"):LAUNCHER.index("$hController = _WaitForControllerWindow")]
+        self.assertLess(launch.index("_EngineSupervisorPrepareLaunch"), launch.index("Local $iControllerPid = Run("))
+        self.assertLess(launch.index("Local $iControllerPid = Run("), launch.index("_EngineSupervisorClearLaunchEnvironment()"))
+        self.assertNotIn("ShellExecute($g_sControllerPath", launch)
+        existing = LAUNCHER[LAUNCHER.index("If $hController Then"):LAUNCHER.index("; A keeper that won the startup race")]
+        self.assertIn("engine init supervision not armed: existing controller", existing)
+        self.assertNotIn("_EngineSupervisorPrepareLaunch", existing)
+
+    def test_engine_supervisor_receipt_binds_complete_process_chain(self):
+        validator = autoit_function(LAUNCHER, "_EngineSupervisorReceiptMatches")
+        for proof in (
+            "$g_sEngineInitOwnershipSchema",
+            '"token"',
+            '"launcher_pid"',
+            '"launcher_created"',
+            '"controller_pid"',
+            '"controller_created"',
+            '"backend_pid"',
+            '"backend_created"',
+            '"parent_pid"',
+            "_EngineSupervisorSequence($sReceipt)",
+            '_ProcessCreationId(@AutoItPID)',
+            '_ProcessCreationId($g_iEngineSupervisorControllerPid)',
+            '_ProcessCreationId($iBackendPid)',
+            '_ProcessParentPid($g_iEngineSupervisorControllerPid) <> @AutoItPID',
+            '_ProcessParentPid($iBackendPid) <> $g_iEngineSupervisorControllerPid',
+            'StringLower($g_sControllerPath)',
+            'StringLower($g_sHostPath)',
+            'If $sStartRequestId = "" Then Return False',
+            '$iSequence <> $iPhaseRank + 1',
+        ):
+            self.assertIn(proof, validator)
+        reader = autoit_function(LAUNCHER, "_EngineSupervisorReadReceipt")
+        self.assertIn("_EngineSupervisorPathSafe($g_sEngineInitOwnershipReceipt, True)", reader)
+        self.assertIn("StringLen($sReceipt) > 4096", reader)
+
+    def test_native_engine_receipt_contract_matches_launcher(self):
+        for shared in (
+            '"engine-init-supervisor-v1"',
+            '"MYBOT_ENGINE_INIT_TOKEN"',
+            '"MYBOT_ENGINE_INIT_LAUNCHER_PID"',
+            '"MYBOT_ENGINE_INIT_LAUNCHER_CREATED"',
+            "engine-init-owner-v1.json",
+        ):
+            self.assertIn(shared, LAUNCHER)
+            self.assertIn(shared, MBRFUNC)
+        writer = autoit_function(MBRFUNC, "_MBRFuncPublishEngineReceipt")
+        for field in (
+            '"schema"', '"token"', '"launcher_pid"', '"launcher_created"',
+            '"controller_pid"', '"controller_created"', '"backend_pid"',
+            '"backend_created"', '"parent_pid"', '"phase"', '"start_request_id"',
+            '"sequence"',
+        ):
+            self.assertIn(field, writer)
+        self.assertIn("$g_iMBRFuncEngineReceiptSequence += 1", writer)
+        self.assertLess(writer.index("FileFlush("), writer.index("FileMove("))
+        self.assertIn("_MBRFuncCurrentStartRequestId()", writer)
+
+    def test_engine_supervisor_rejects_forged_foreign_and_reused_processes(self):
+        token = "cd" * 32
+        receipt = {
+            "schema": "engine-init-supervisor-v1",
+            "token": token,
+            "launcher_pid": 10,
+            "launcher_created": "01da000000000010",
+            "controller_pid": 20,
+            "controller_created": "01da000000000020",
+            "backend_pid": 30,
+            "backend_created": "01da000000000030",
+            "parent_pid": 20,
+            "phase": "pool-entered",
+            "sequence": 1,
+            "start_request_id": "start.abc-123",
+        }
+        owner = {
+            "token": token,
+            "launcher_pid": 10,
+            "launcher_created": receipt["launcher_created"],
+            "launcher_live_created": receipt["launcher_created"],
+            "controller_pid": 20,
+            "controller_created": receipt["controller_created"],
+            "controller_live_created": receipt["controller_created"],
+            "controller_parent_pid": 10,
+            "controller_image": r"C:\My Bot 2.0\MyBot.run.MiniGui.exe",
+            "expected_controller_image": r"C:\My Bot 2.0\MyBot.run.MiniGui.exe",
+            "backend_pid": 30,
+            "backend_created": receipt["backend_created"],
+            "backend_live_created": receipt["backend_created"],
+            "backend_parent_pid": 20,
+            "backend_image": r"C:\My Bot 2.0\MyBot.run.exe",
+            "expected_backend_image": r"C:\My Bot 2.0\MyBot.run.exe",
+        }
+        self.assertTrue(engine_receipt_is_valid(receipt, owner))
+        for key, value in (
+            ("token", "ef" * 32),
+            ("launcher_live_created", "01da000000000099"),
+            ("controller_live_created", "01da000000000099"),
+            ("controller_parent_pid", 999),
+            ("controller_image", r"C:\Foreign\MyBot.run.MiniGui.exe"),
+            ("backend_live_created", "01da000000000099"),
+            ("backend_parent_pid", 999),
+            ("backend_image", r"C:\Foreign\MyBot.run.exe"),
+        ):
+            forged = copy.deepcopy(owner)
+            forged[key] = value
+            self.assertFalse(engine_receipt_is_valid(receipt, forged), key)
+        rolled = copy.deepcopy(receipt)
+        rolled["phase"] = "unknown"
+        self.assertFalse(engine_receipt_is_valid(rolled, owner))
+
+    def test_engine_supervisor_deadlines_cancel_precedence_and_phase_order(self):
+        poll = autoit_function(LAUNCHER, "_EngineSupervisorPoll")
+        constants = {
+            "$g_iEngineInitEnterTimeoutMs": "10000",
+            "$g_iEngineInitPoolStallTimeoutMs": "90000",
+            "$g_iEngineInitPostReturnTimeoutMs": "15000",
+            "$g_iEngineInitAbsoluteTimeoutMs": "120000",
+        }
+        for name, value in constants.items():
+            self.assertIn(f"Global Const {name} = {value}", LAUNCHER)
+        self.assertIn('$sPhase = "prepared"', poll)
+        self.assertIn('$sPhase = "pool-entered"', poll)
+        self.assertIn('$iPhaseRank >= 2 And $iPhaseRank < 8', poll)
+        self.assertIn("initialization exceeded the 120 second absolute cap", poll)
+        self.assertLess(poll.index("_EngineSupervisorCancelMatches"), poll.index('$sPhase = "failed"'))
+        self.assertLess(poll.index("_EngineSupervisorCancelMatches"), poll.index('$sPhase = "initialized"'))
+        ranker = autoit_function(LAUNCHER, "_EngineSupervisorReceiptPhaseRank")
+        positions = [ranker.index(f'Case "{phase}"') for phase in ENGINE_PHASES]
+        self.assertEqual(positions, sorted(positions))
+        self.assertIn("$iPhaseRank < $g_iEngineSupervisorLastPhaseRank", poll)
+
+    def test_engine_cancel_requires_nonce_and_exact_start_request(self):
+        token = "ab" * 32
+        receipt = {"token": token, "start_request_id": "start.1-abc"}
+        cancel = {
+            "schema": "engine-init-cancel-v1",
+            "token": token,
+            "expected_start_request_id": receipt["start_request_id"],
+        }
+        self.assertTrue(engine_cancel_matches(receipt, cancel))
+        for key, value in (
+            ("schema", "foreign"),
+            ("token", "00" * 32),
+            ("expected_start_request_id", "start.2-def"),
+        ):
+            forged = copy.deepcopy(cancel)
+            forged[key] = value
+            self.assertFalse(engine_cancel_matches(receipt, forged), key)
+        no_start = copy.deepcopy(receipt)
+        no_start["start_request_id"] = ""
+        self.assertFalse(engine_cancel_matches(no_start, cancel))
+        helper = autoit_function(LAUNCHER, "_EngineSupervisorCancelMatches")
+        self.assertIn("$g_bEngineSupervisorPrepared", helper)
+        self.assertIn('"expected_start_request_id"', helper)
+        self.assertIn("$sExpected <> \"\" And $sExpected = $sReceiptStartRequestId", helper)
+
+    def test_engine_supervisor_revalidates_before_exact_backend_close_and_never_retries(self):
+        abort = autoit_function(LAUNCHER, "_EngineSupervisorAbort")
+        close_at = abort.index("ProcessClose($iBackendPid)")
+        latch_at = abort.index("$g_bEngineSupervisorAbortAttempted = True")
+        self.assertLess(latch_at, close_at)
+        self.assertEqual(abort.count("ProcessClose($iBackendPid)"), 1)
+        self.assertIn("If $g_bEngineSupervisorAbortAttempted Then Return False", abort)
+        self.assertIn("_EngineSupervisorReadReceipt", abort[:close_at])
+        self.assertIn("$sCurrent <> $sReceipt", abort[:close_at])
+        self.assertIn("$iCurrentBackend <> $iBackendPid", abort[:close_at])
+        self.assertIn("_CloseOwnedPlannerService()", abort[close_at:])
+        self.assertIn("backend_gone=true", abort)
+        self.assertNotIn("Run(", abort)
+        self.assertNotIn("ShellExecute", abort)
+        self.assertNotIn("BlueStacks", abort)
+        failure = autoit_function(LAUNCHER, "_EngineSupervisorRecordFailure")
+        self.assertIn("$g_bEngineSupervisorFailureLatched = True", failure)
+        self.assertIn("$g_sEngineSupervisorFailure = $sReason", failure)
+        self.assertIn("_RecoveryLog", failure)
+
+    def test_engine_supervisor_keeps_controller_binding_across_backend_generations(self):
+        token = "7a" * 32
+        first = {
+            "schema": "engine-init-supervisor-v1", "token": token,
+            "launcher_pid": 10, "launcher_created": "01da000000000010",
+            "controller_pid": 20, "controller_created": "01da000000000020",
+            "backend_pid": 30, "backend_created": "01da000000000030",
+            "parent_pid": 20, "phase": "initialized", "sequence": 8,
+            "start_request_id": "start.first",
+        }
+        second = copy.deepcopy(first)
+        second.update({
+            "backend_pid": 31, "backend_created": "01da000000000031",
+            "phase": "prepared", "sequence": 0, "start_request_id": "",
+        })
+        owner = {
+            "token": token, "launcher_pid": 10,
+            "launcher_created": first["launcher_created"],
+            "launcher_live_created": first["launcher_created"],
+            "controller_pid": 20, "controller_created": first["controller_created"],
+            "controller_live_created": first["controller_created"],
+            "controller_parent_pid": 10,
+            "controller_image": r"C:\My Bot 2.0\MyBot.run.MiniGui.exe",
+            "expected_controller_image": r"C:\My Bot 2.0\MyBot.run.MiniGui.exe",
+            "backend_pid": 30, "backend_created": first["backend_created"],
+            "backend_live_created": first["backend_created"], "backend_parent_pid": 20,
+            "backend_image": r"C:\My Bot 2.0\MyBot.run.exe",
+            "expected_backend_image": r"C:\My Bot 2.0\MyBot.run.exe",
+        }
+        self.assertTrue(engine_receipt_is_valid(first, owner))
+        next_owner = copy.deepcopy(owner)
+        next_owner.update({
+            "backend_pid": 31, "backend_created": second["backend_created"],
+            "backend_live_created": second["backend_created"],
+        })
+        self.assertTrue(engine_receipt_is_valid(second, next_owner))
+        self.assertNotEqual(engine_generation_key(first), engine_generation_key(second))
+        self.assertEqual(first["token"], second["token"])
+        self.assertEqual(first["controller_created"], second["controller_created"])
+        self.assertLess(second["sequence"], first["sequence"])
+
+        begin = autoit_function(LAUNCHER, "_EngineSupervisorBeginGeneration")
+        reset = autoit_function(LAUNCHER, "_EngineSupervisorResetGeneration")
+        poll = autoit_function(LAUNCHER, "_EngineSupervisorPoll")
+        self.assertIn("$g_iEngineSupervisorBackendPid", begin)
+        self.assertIn("$g_sEngineSupervisorBackendCreated", begin)
+        self.assertLess(poll.index("_EngineSupervisorBeginGeneration"), poll.index("sequence rollback"))
+        self.assertIn("$g_iEngineSupervisorLastSequence = -1", reset)
+        self.assertNotIn("$g_sEngineSupervisorToken =", reset)
+        self.assertNotIn("$g_iEngineSupervisorControllerPid =", reset)
+
+        finalize = autoit_function(LAUNCHER, "_EngineSupervisorFinalize")
+        abort = autoit_function(LAUNCHER, "_EngineSupervisorAbort")
+        self.assertNotIn("_EngineSupervisorDisarm", finalize)
+        self.assertNotIn("_EngineSupervisorDisarm", abort)
+        for body in (begin, reset, finalize, abort, poll):
+            self.assertNotIn("Run(", body)
+            self.assertNotIn("ShellExecute", body)
+
+    def test_engine_supervisor_polls_without_increasing_dock_frequency(self):
+        wait = autoit_function(LAUNCHER, "_WaitForControllerWindow")
+        dock_wait = autoit_function(LAUNCHER, "_DockWhenReady")
+        keeper = autoit_function(LAUNCHER, "_KeepDocked")
+        self.assertIn("_EngineSupervisorPoll()", wait)
+        self.assertIn("_EngineSupervisorPoll()", dock_wait)
+        self.assertIn("_EngineSupervisorPoll()", keeper)
+        self.assertIn("Sleep(200)", wait)
+        self.assertIn("Sleep(_EngineSupervisorPollDelay(500))", dock_wait)
+        self.assertIn("Sleep(_EngineSupervisorPollDelay(_AdaptiveDockPollDelay", keeper)
+        adaptive = autoit_function(LAUNCHER, "_AdaptiveDockPollDelay")
+        self.assertIn("$g_iDockTransitionPollMs", adaptive)
+        self.assertIn("$g_iDockStablePollMs", adaptive)
+        self.assertIn("Global Const $g_iEngineInitActivePollMs = 250", LAUNCHER)
+        active = autoit_function(LAUNCHER, "_EngineSupervisorNeedsFastPoll")
+        delay = autoit_function(LAUNCHER, "_EngineSupervisorPollDelay")
+        self.assertIn("$g_bEngineSupervisorPrepared", active)
+        self.assertIn("$g_sEngineInitCancelPath", active)
+        self.assertIn("$g_sEngineInitOwnershipReceipt", active)
+        self.assertIn("$g_iEngineInitActivePollMs", delay)
+        self.assertIn("Return $iDefaultDelayMs", delay)
 
 
 if __name__ == "__main__":

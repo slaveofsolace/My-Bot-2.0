@@ -424,7 +424,7 @@ Func WinGetAndroidHandle($bInitAndroid = Default, $bTestPid = False)
 					EndIf
 					$g_bAndroidBackgroundLaunched = True
 				EndIf
-				setAndroidPID($pid)
+				If $g_bLibMyBotInitialized Then setAndroidPID($pid)
 			Else
 				SetDebugLog($g_sAndroidEmulator & $instance & " process not found")
 			EndIf
@@ -465,7 +465,7 @@ Func _WinGetAndroidHandle($bFindByTitle = False)
 			If UpdateHWnD($hModernBlueStacks) Then
 				$g_sAndroidTitle = UpdateAndroidWindowTitle($g_hAndroidWindow, WinGetTitle($hModernBlueStacks))
 				AndroidEmbed(False, False)
-				setAndroidPID(GetAndroidPid())
+				If $g_bLibMyBotInitialized Then setAndroidPID(GetAndroidPid())
 				Return $hModernBlueStacks
 			EndIf
 		EndIf
@@ -501,7 +501,7 @@ Func _WinGetAndroidHandle($bFindByTitle = False)
 							InitAndroid()
 						EndIf
 						AndroidEmbed(False, False)
-						setAndroidPID(GetAndroidPid())
+						If $g_bLibMyBotInitialized Then setAndroidPID(GetAndroidPid())
 						Return $hWin
 					EndIf
 				EndIf
@@ -526,7 +526,7 @@ Func _WinGetAndroidHandle($bFindByTitle = False)
 					InitAndroid()
 				EndIf
 				AndroidEmbed(False, False)
-				setAndroidPID(GetAndroidPid())
+				If $g_bLibMyBotInitialized Then setAndroidPID(GetAndroidPid())
 				Return $hWin
 			Else
 				SetDebugLog($g_sAndroidEmulator & " Window title '" & $t & "' not matching '" & $g_sAndroidTitle & "' or control")
@@ -563,7 +563,7 @@ Func _WinGetAndroidHandle($bFindByTitle = False)
 						InitAndroid()
 					EndIf
 					AndroidEmbed(False, False)
-					setAndroidPID(GetAndroidPid())
+					If $g_bLibMyBotInitialized Then setAndroidPID(GetAndroidPid())
 					Return $hWin
 				EndIf
 			Next
@@ -613,7 +613,7 @@ Func _WinGetAndroidHandle($bFindByTitle = False)
 							InitAndroid()
 						EndIf
 						AndroidEmbed(False, False)
-						setAndroidPID(GetAndroidPid())
+						If $g_bLibMyBotInitialized Then setAndroidPID(GetAndroidPid())
 						Return $hWin
 					EndIf
 				Next

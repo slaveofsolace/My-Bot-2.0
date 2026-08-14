@@ -625,9 +625,9 @@ Func FinalInitialization(Const $sAI)
 	; check for VC2010, .NET software and MyBot Files and Folders
 	Local $bCheckPrerequisitesOK = CheckPrerequisites(True)
 	If $bCheckPrerequisitesOK Then
-		; Opening the file is bounded; its first exported call starts the CLR and is deferred to BotStart.
-		MBRFunc(True, False)
-		SetDebugLog("Managed engine initialization deferred until Start.")
+		; Loading the mixed-mode library can itself activate the loader/CLR. Keep both DllOpen and
+		; every managed export behind the externally supervised BotStart -> MBRFuncInitialize boundary.
+		SetDebugLog("Managed engine library loading and initialization deferred until supervised Start.")
 	EndIf
 
 	If $g_bFoundRunningAndroid Then

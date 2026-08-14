@@ -18,31 +18,59 @@ Global $g_bMBRFuncEngineAvailable = True
 Global $g_sMBRFuncEngineProbeState = "not-run"
 Global $g_sMBRFuncEngineError = ""
 Global Const $g_sMBRFuncEngineMarkerName = "MyBot.run.txt"
-Global Const $g_sMBRFuncEngineProbeProtocol = "engine-probe/v1"
+Global Const $g_sMBRFuncEngineSupervisorSchema = "engine-init-supervisor-v1"
+Global Const $g_sMBRFuncEngineReceiptPath = @LocalAppDataDir & "\My Bot 2.0\engine-init-owner-v1.json"
+Global Const $g_sMBRFuncEngineTokenEnv = "MYBOT_ENGINE_INIT_TOKEN"
+Global Const $g_sMBRFuncEngineLauncherPidEnv = "MYBOT_ENGINE_INIT_LAUNCHER_PID"
+Global Const $g_sMBRFuncEngineLauncherCreatedEnv = "MYBOT_ENGINE_INIT_LAUNCHER_CREATED"
+; Both the pinned Mini and backend capture the inherited launcher context into process-local globals,
+; then immediately clear their environment. Mini restores only around its exact backend Run call.
+Global $g_bMBRFuncEngineContextHost = StringRegExp(StringLower(@ScriptName), "^mybot\.run(?:\.minigui)?\.(?:exe|au3)$")
+Global $g_bMBRFuncBackendHost = StringLower(@ScriptName) = "mybot.run.exe" Or StringLower(@ScriptName) = "mybot.run.au3"
+Global $g_sMBRFuncEngineSupervisorToken = $g_bMBRFuncEngineContextHost ? EnvGet($g_sMBRFuncEngineTokenEnv) : ""
+Global $g_sMBRFuncEngineLauncherPidText = $g_bMBRFuncEngineContextHost ? EnvGet($g_sMBRFuncEngineLauncherPidEnv) : ""
+Global $g_sMBRFuncEngineLauncherCreated = $g_bMBRFuncEngineContextHost ? EnvGet($g_sMBRFuncEngineLauncherCreatedEnv) : ""
+If $g_bMBRFuncEngineContextHost Then
+	EnvSet($g_sMBRFuncEngineTokenEnv, "")
+	EnvSet($g_sMBRFuncEngineLauncherPidEnv, "")
+	EnvSet($g_sMBRFuncEngineLauncherCreatedEnv, "")
+EndIf
+Global $g_bMBRFuncEngineSupervisorValid = $g_bMBRFuncEngineContextHost And StringRegExp($g_sMBRFuncEngineSupervisorToken, "^[0-9a-f]{64}$") And _
+	StringRegExp($g_sMBRFuncEngineLauncherPidText, "^[1-9][0-9]{0,9}$") And _
+	StringRegExp($g_sMBRFuncEngineLauncherCreated, "^[0-9a-f]{16}$")
+Global $g_iMBRFuncEngineReceiptSequence = 0
+Global $g_bMBRFuncEngineInitializing = False
 
 Func MBRFunc($Start = True, $bInitialize = True)
 	Switch $Start
 		Case True
-			Local $sMarkerError = ""
-			If Not MBRFuncValidateEngineMarker($sMarkerError) Then
-				SetLog($sMarkerError, $COLOR_ERROR)
+			; Loading the mixed-mode image outside the launcher-owned Start boundary would let a
+			; legacy configuration callback become the first CLR export with no receipt or timeout.
+			If Not $bInitialize Then
+				SetDebugLog("Managed engine library open deferred to supervised Start.")
 				Return False
 			EndIf
-			RemoveZoneIdentifiers()
-			$g_hLibMyBot = DllOpen($g_sLibMyBotPath)
-			If $g_hLibMyBot = -1 Then
-				SetLog($g_sMBRLib & " not found.", $COLOR_ERROR)
-				Return False
-			EndIf
-			SetDebugLog($g_sMBRLib & " opened.")
-			If $bInitialize Then Return MBRFuncInitialize()
-			Return True
+			Return MBRFuncInitialize()
 		Case False
-			DllClose($g_hLibMyBot)
+			If $g_hLibMyBot <> 0 And $g_hLibMyBot <> -1 Then DllClose($g_hLibMyBot)
+			$g_hLibMyBot = -1
 			$g_bLibMyBotInitialized = False
+			$g_bMBRFuncEngineInitializing = False
 			SetDebugLog($g_sMBRLib & " closed.")
 	EndSwitch
 EndFunc   ;==>MBRFunc
+
+Func _MBRFuncOpenEngineLibrary()
+	If $g_hLibMyBot <> 0 And $g_hLibMyBot <> -1 Then Return True
+	RemoveZoneIdentifiers()
+	$g_hLibMyBot = DllOpen($g_sLibMyBotPath)
+	If $g_hLibMyBot = -1 Then
+		SetLog($g_sMBRLib & " not found.", $COLOR_ERROR)
+		Return False
+	EndIf
+	SetDebugLog($g_sMBRLib & " opened inside supervised Start.")
+	Return True
+EndFunc   ;==>_MBRFuncOpenEngineLibrary
 
 ; The mixed-mode DLL starts the CLR on its first exported call. Keep that unbounded work out of
 ; GUI startup: on affected Windows machines an antivirus/filter-driver stall would otherwise leave
@@ -51,13 +79,36 @@ Func MBRFuncInitialize()
 	Local $sMarkerError = ""
 	If Not MBRFuncValidateEngineMarker($sMarkerError) Then Return False
 	If $g_bLibMyBotInitialized Then Return True
-	If $g_hLibMyBot = 0 Or $g_hLibMyBot = -1 Then Return False
+	If Not $g_bMBRFuncEngineSupervisorValid Then
+		MBRFuncMarkUnavailable("Managed engine supervisor context is missing or invalid; launch My Bot 2.0 from its installed launcher")
+		Return False
+	EndIf
+	If _MBRFuncCurrentStartRequestId() = "" Then
+		MBRFuncMarkUnavailable("Managed engine Start ownership is missing or invalid")
+		Return False
+	EndIf
 
-	If Not setProcessingPoolSize($g_iGlobalThreads) Then Return False
-	If Not setMaxDegreeOfParallelism($g_iThreads) Then Return False
-	If Not setAndroidPID() Then Return False
-	If Not SetBotGuiPID() Then Return False
+	$g_sMBRFuncEngineProbeState = "running"
+	If Not _MBRFuncPublishEngineReceipt("prepared") Then Return _MBRFuncInitializationFailed("Managed engine supervisor receipt could not be prepared")
+	If Not _MBRFuncOpenEngineLibrary() Then Return _MBRFuncInitializationFailed("Managed engine library could not be opened")
+	$g_bMBRFuncEngineInitializing = True
+	If Not _MBRFuncPublishEngineReceipt("pool-entered") Then Return _MBRFuncInitializationFailed("Managed engine supervisor receipt could not publish pool-entered")
+	If Not setProcessingPoolSize($g_iGlobalThreads) Then Return _MBRFuncInitializationFailed("Managed engine processing-pool initialization failed")
+	If Not _MBRFuncPublishEngineReceipt("pool-returned") Then Return _MBRFuncInitializationFailed("Managed engine supervisor receipt could not publish pool-returned")
+	If Not _MBRFuncPublishEngineReceipt("max-entered") Then Return _MBRFuncInitializationFailed("Managed engine supervisor receipt could not publish max-entered")
+	If Not setMaxDegreeOfParallelism($g_iThreads) Then Return _MBRFuncInitializationFailed("Managed engine parallelism initialization failed")
+	If Not _MBRFuncPublishEngineReceipt("max-returned") Then Return _MBRFuncInitializationFailed("Managed engine supervisor receipt could not publish max-returned")
+	If Not _MBRFuncPublishEngineReceipt("android-entered") Then Return _MBRFuncInitializationFailed("Managed engine supervisor receipt could not publish android-entered")
+	If Not setAndroidPID() Then Return _MBRFuncInitializationFailed("Managed engine Android binding failed")
+	If Not _MBRFuncPublishEngineReceipt("android-returned") Then Return _MBRFuncInitializationFailed("Managed engine supervisor receipt could not publish android-returned")
+	If Not _MBRFuncPublishEngineReceipt("gui-entered") Then Return _MBRFuncInitializationFailed("Managed engine supervisor receipt could not publish gui-entered")
+	If Not SetBotGuiPID() Then Return _MBRFuncInitializationFailed("Managed engine GUI binding failed")
 	$g_bLibMyBotInitialized = True
+	$g_bMBRFuncEngineInitializing = False
+	$g_bMBRFuncEngineAvailable = True
+	$g_sMBRFuncEngineProbeState = "passed"
+	$g_sMBRFuncEngineError = ""
+	If Not _MBRFuncPublishEngineReceipt("initialized") Then Return _MBRFuncInitializationFailed("Managed engine supervisor receipt could not publish initialized")
 	Return True
 EndFunc   ;==>MBRFuncInitialize
 
@@ -84,8 +135,8 @@ Func MBRFuncMarkUnavailable($sReason)
 EndFunc   ;==>MBRFuncMarkUnavailable
 
 ; MyBot.run.dll validates this upstream release marker when its managed image exports start.
-; Reject a damaged checkout before starting the isolated helper or invoking any export so the
-; protected engine cannot fail later with a misleading image-location/copycat error.
+; Reject a damaged checkout before invoking any export so the protected engine cannot fail later
+; with a misleading image-location/copycat error.
 Func MBRFuncValidateEngineMarker(ByRef $sError)
 	Local $sMarkerPath = @ScriptDir & "\" & $g_sMBRFuncEngineMarkerName
 	$sError = ""
@@ -111,195 +162,126 @@ Func MBRFuncValidateEngineMarker(ByRef $sError)
 	Return True
 EndFunc   ;==>MBRFuncValidateEngineMarker
 
-Func MBRFuncEngineProbeReadPhase($sPhasePath)
-	If Not FileExists($sPhasePath) Then Return ""
-	Local $sReceipt = StringStripWS(FileRead($sPhasePath), $STR_STRIPALL)
-	Switch $sReceipt
-		Case $g_sMBRFuncEngineProbeProtocol & "|opened"
-			Return "opened"
-		Case $g_sMBRFuncEngineProbeProtocol & "|call-entered"
-			Return "call-entered"
-		Case $g_sMBRFuncEngineProbeProtocol & "|call-returned"
-			Return "call-returned"
-	EndSwitch
-	Return ""
-EndFunc   ;==>MBRFuncEngineProbeReadPhase
+Func _MBRFuncProcessCreationId($iPid)
+	Local $aOpen = DllCall("kernel32.dll", "handle", "OpenProcess", "dword", 0x1000, "bool", False, "dword", $iPid)
+	If @error Or Not IsArray($aOpen) Or Not $aOpen[0] Then Return ""
+	Local $hProcess = $aOpen[0]
+	Local $tCreated = DllStructCreate("dword Low;dword High")
+	Local $tExit = DllStructCreate("dword Low;dword High")
+	Local $tKernel = DllStructCreate("dword Low;dword High")
+	Local $tUser = DllStructCreate("dword Low;dword High")
+	Local $aTimes = DllCall("kernel32.dll", "bool", "GetProcessTimes", "handle", $hProcess, "struct*", $tCreated, _
+		"struct*", $tExit, "struct*", $tKernel, "struct*", $tUser)
+	DllCall("kernel32.dll", "bool", "CloseHandle", "handle", $hProcess)
+	If @error Or Not IsArray($aTimes) Or Not $aTimes[0] Then Return ""
+	Return StringLower(Hex(DllStructGetData($tCreated, "High"), 8) & Hex(DllStructGetData($tCreated, "Low"), 8))
+EndFunc   ;==>_MBRFuncProcessCreationId
 
-Func MBRFuncEngineProbePhaseSuffix($sPhase)
-	Switch $sPhase
-		Case "opened", "call-entered", "call-returned"
-			Return " (phase: " & $sPhase & ")"
-	EndSwitch
-	Return ""
-EndFunc   ;==>MBRFuncEngineProbePhaseSuffix
+Func _MBRFuncParentPid($iPid)
+	Local $aSnapshot = DllCall("kernel32.dll", "handle", "CreateToolhelp32Snapshot", "dword", 0x2, "dword", 0)
+	If @error Or Not IsArray($aSnapshot) Or $aSnapshot[0] = -1 Then Return 0
+	Local $hSnapshot = $aSnapshot[0]
+	Local $tEntry = DllStructCreate("dword Size;dword Usage;dword ProcessId;ptr DefaultHeap;dword ModuleId;dword Threads;" & _
+		"dword ParentProcessId;long PriClassBase;dword Flags;wchar ExeFile[260]")
+	DllStructSetData($tEntry, "Size", DllStructGetSize($tEntry))
+	Local $aNext = DllCall("kernel32.dll", "bool", "Process32FirstW", "handle", $hSnapshot, "struct*", $tEntry)
+	While Not @error And IsArray($aNext) And $aNext[0]
+		If DllStructGetData($tEntry, "ProcessId") = $iPid Then
+			Local $iParent = DllStructGetData($tEntry, "ParentProcessId")
+			DllCall("kernel32.dll", "bool", "CloseHandle", "handle", $hSnapshot)
+			Return $iParent
+		EndIf
+		$aNext = DllCall("kernel32.dll", "bool", "Process32NextW", "handle", $hSnapshot, "struct*", $tEntry)
+	WEnd
+	DllCall("kernel32.dll", "bool", "CloseHandle", "handle", $hSnapshot)
+	Return 0
+EndFunc   ;==>_MBRFuncParentPid
 
-; Only the PID returned by Run is ever closed. A successful receipt gets at most one second to
-; exit naturally; after that the parent closes that exact helper and proves it is gone.
-Func MBRFuncEngineProbeEnsureHelperGone($iProbePid, $iGraceSeconds = 0)
-	If $iProbePid <= 0 Or Not ProcessExists($iProbePid) Then Return True
-	If $iGraceSeconds > 0 Then ProcessWaitClose($iProbePid, $iGraceSeconds)
-	If ProcessExists($iProbePid) Then
-		ProcessClose($iProbePid)
-		ProcessWaitClose($iProbePid, 1)
+Func _MBRFuncEngineReceiptPathSafe($bRequireReceipt = False)
+	Local $sParent = @LocalAppDataDir & "\My Bot 2.0"
+	Local $aParent = DllCall("kernel32.dll", "dword", "GetFileAttributesW", "wstr", $sParent)
+	If @error Or Not IsArray($aParent) Or $aParent[0] = 0xFFFFFFFF Then Return False
+	If BitAND($aParent[0], 0x10) = 0 Or BitAND($aParent[0], 0x400) <> 0 Then Return False
+	If Not FileExists($g_sMBRFuncEngineReceiptPath) Then Return Not $bRequireReceipt
+	Local $aReceipt = DllCall("kernel32.dll", "dword", "GetFileAttributesW", "wstr", $g_sMBRFuncEngineReceiptPath)
+	If @error Or Not IsArray($aReceipt) Or $aReceipt[0] = 0xFFFFFFFF Then Return False
+	Return BitAND($aReceipt[0], 0x10) = 0 And BitAND($aReceipt[0], 0x400) = 0
+EndFunc   ;==>_MBRFuncEngineReceiptPathSafe
+
+Func _MBRFuncCurrentStartRequestId()
+	Local $sCallback = "RunControlCurrentCommand" & "Id"
+	If Not IsFunc($sCallback) Then Return ""
+	Local $sRequestId = String(Call($sCallback))
+	If Not StringRegExp($sRequestId, "^[A-Za-z0-9._-]{1,80}$") Then Return ""
+	Return $sRequestId
+EndFunc   ;==>_MBRFuncCurrentStartRequestId
+
+Func _MBRFuncPublishEngineReceipt($sPhase)
+	If Not StringRegExp($sPhase, "^(prepared|pool-entered|pool-returned|max-entered|max-returned|android-entered|android-returned|gui-entered|initialized|failed)$") Then Return False
+	Local $iLauncherPid = Int($g_sMBRFuncEngineLauncherPidText)
+	Local $iParentPid = _MBRFuncParentPid(@AutoItPID)
+	Local $sLauncherCreated = _MBRFuncProcessCreationId($iLauncherPid)
+	Local $sBackendCreated = _MBRFuncProcessCreationId(@AutoItPID)
+	Local $sControllerCreated = _MBRFuncProcessCreationId($iParentPid)
+	If $iLauncherPid <= 0 Or Not ProcessExists($iLauncherPid) Or $iParentPid <= 0 Or _
+		$sLauncherCreated <> $g_sMBRFuncEngineLauncherCreated Or $sBackendCreated = "" Or $sControllerCreated = "" Then Return False
+	$g_iMBRFuncEngineReceiptSequence += 1
+	Local $sReceipt = '{"schema":"' & $g_sMBRFuncEngineSupervisorSchema & '","token":"' & $g_sMBRFuncEngineSupervisorToken & _
+		'","launcher_pid":' & $iLauncherPid & ',"launcher_created":"' & $g_sMBRFuncEngineLauncherCreated & _
+		'","controller_pid":' & $iParentPid & ',"controller_created":"' & $sControllerCreated & _
+		'","backend_pid":' & @AutoItPID & ',"backend_created":"' & $sBackendCreated & _
+		'","parent_pid":' & $iParentPid & ',"phase":"' & $sPhase & '","start_request_id":"' & _
+		_MBRFuncCurrentStartRequestId() & '","sequence":' & $g_iMBRFuncEngineReceiptSequence & '}'
+	DirCreate(@LocalAppDataDir & "\My Bot 2.0")
+	If Not _MBRFuncEngineReceiptPathSafe(False) Then Return False
+	Local $sTemporary = $g_sMBRFuncEngineReceiptPath & ".tmp." & @AutoItPID
+	If FileExists($sTemporary) Then FileDelete($sTemporary)
+	If FileExists($sTemporary) Then Return False
+	Local $hReceipt = FileOpen($sTemporary, 10)
+	If $hReceipt = -1 Then Return False
+	Local $bWritten = FileWrite($hReceipt, $sReceipt) = 1
+	Local $bFlushed = FileFlush($hReceipt)
+	FileClose($hReceipt)
+	If Not $bWritten Or Not $bFlushed Or Not FileMove($sTemporary, $g_sMBRFuncEngineReceiptPath, 1) Then
+		FileDelete($sTemporary)
+		Return False
 	EndIf
-	Return Not ProcessExists($iProbePid)
-EndFunc   ;==>MBRFuncEngineProbeEnsureHelperGone
+	If Not _MBRFuncEngineReceiptPathSafe(True) Then Return False
+	Return FileRead($g_sMBRFuncEngineReceiptPath) = $sReceipt
+EndFunc   ;==>_MBRFuncPublishEngineReceipt
 
-Func MBRFuncEngineProbeCleanupArtifacts($sToken, $sPhasePath, $iProbePid)
-	FileDelete($sToken)
-	FileDelete($sPhasePath)
-	If $iProbePid > 0 Then
-		FileDelete($sToken & "." & $iProbePid & ".tmp")
-		FileDelete($sPhasePath & "." & $iProbePid & ".tmp")
-	EndIf
-	If FileExists($sToken) Or FileExists($sPhasePath) Then Return False
-	If $iProbePid > 0 And (FileExists($sToken & "." & $iProbePid & ".tmp") Or FileExists($sPhasePath & "." & $iProbePid & ".tmp")) Then Return False
-	Return True
-EndFunc   ;==>MBRFuncEngineProbeCleanupArtifacts
-
-; Invalid or unconsumable receipts are hostile/stale evidence. Before returning, always close and
-; prove the exact Run-returned helper PID is gone, then attempt and verify every receipt artifact.
-Func MBRFuncEngineProbeRejectReceipt(ByRef $sError, $sReason, $sPhase, $sToken, $sPhasePath, $iProbePid)
-	Local $bHelperGone = MBRFuncEngineProbeEnsureHelperGone($iProbePid)
-	Local $bArtifactsCleared = MBRFuncEngineProbeCleanupArtifacts($sToken, $sPhasePath, $iProbePid)
-	If Not $bHelperGone Then
-		$sError = $sReason & "; exact helper process could not be stopped" & MBRFuncEngineProbePhaseSuffix($sPhase)
-	ElseIf Not $bArtifactsCleared Then
-		$sError = $sReason & "; receipt artifacts could not be cleared" & MBRFuncEngineProbePhaseSuffix($sPhase)
-	Else
-		$sError = $sReason & MBRFuncEngineProbePhaseSuffix($sPhase)
-	EndIf
-	MBRFuncMarkUnavailable($sError)
+Func _MBRFuncInitializationFailed($sReason)
+	MBRFuncMarkUnavailable($sReason)
+	_MBRFuncPublishEngineReceipt("failed")
+	$g_bMBRFuncEngineInitializing = False
+	$g_bLibMyBotInitialized = False
+	If $g_hLibMyBot <> 0 And $g_hLibMyBot <> -1 Then DllClose($g_hLibMyBot)
+	$g_hLibMyBot = -1
 	Return False
-EndFunc   ;==>MBRFuncEngineProbeRejectReceipt
+EndFunc   ;==>_MBRFuncInitializationFailed
 
-; Starts the mixed-mode DLL in an isolated x86 helper first. A filter-driver or CLR stall can then
-; freeze only the helper, which is terminated at the bounded deadline while the GUI keeps pumping.
-; A failed probe stays failed in this host process; an explicit host restart creates fresh globals
-; and permits one new controlled attempt without adding a blind same-process retry.
+; The installed launcher supervises the real backend's first in-host managed call. This static gate
+; only validates the release marker and inherited ownership context; it never runs a synthetic
+; helper or invokes a stateful export in a second process.
 Func MBRFuncProbeEngine(ByRef $sError, $iTimeoutMs = 15000)
 	$sError = ""
 	If Not MBRFuncValidateEngineMarker($sError) Then Return False
-	If $g_sMBRFuncEngineProbeState = "passed" Then Return True
 	If Not $g_bMBRFuncEngineAvailable Then
 		$sError = $g_sMBRFuncEngineError
 		Return False
 	EndIf
-
-	Local $sHelper = @ScriptDir & "\MyBot.run.EngineProbe.exe"
-	If Not FileExists($sHelper) Then
-		$sError = "Managed engine probe helper is missing; rebuild or reinstall My Bot 2.0"
+	If Not $g_bMBRFuncEngineSupervisorValid Then
+		$sError = "Managed engine supervisor context is missing or invalid; launch My Bot 2.0 from its installed launcher"
 		MBRFuncMarkUnavailable($sError)
 		Return False
 	EndIf
-
-	; A per-attempt nonce prevents a locked token from a recycled PID from satisfying this probe.
-	Local $sToken = @ScriptDir & "\config\engine-probe-" & @AutoItPID & "-" & @YEAR & @MON & @MDAY & @HOUR & @MIN & @SEC & @MSEC & "-" & Random(100000, 999999, 1) & ".ok"
-	Local $sPhasePath = $sToken & ".phase"
-	If Not MBRFuncEngineProbeCleanupArtifacts($sToken, $sPhasePath, 0) Then
-		$sError = "Managed engine probe receipts could not be prepared"
-		MBRFuncMarkUnavailable($sError)
-		Return False
-	EndIf
-	$g_sMBRFuncEngineProbeState = "running"
-	Local $iProbePid = Run('"' & $sHelper & '" "' & $sToken & '"', @ScriptDir, @SW_HIDE)
-	If @error Or $iProbePid <= 0 Then
-		MBRFuncEngineProbeCleanupArtifacts($sToken, $sPhasePath, 0)
-		$sError = "Managed engine probe could not be started"
-		MBRFuncMarkUnavailable($sError)
-		Return False
-	EndIf
-
-	Local $hProbeTimer = __TimerInit()
-	Local $bProbeExited = False
-	Local $sLastPhase = ""
-	While __TimerDiff($hProbeTimer) < $iTimeoutMs
-		Local $sObservedPhase = MBRFuncEngineProbeReadPhase($sPhasePath)
-		If $sObservedPhase <> "" Then $sLastPhase = $sObservedPhase
-		If $g_iBotAction = $eBotStop Or $g_iBotAction = $eBotClose Then
-			If Not MBRFuncEngineProbeEnsureHelperGone($iProbePid) Then
-				$sError = "Managed engine probe helper could not be stopped after cancellation" & MBRFuncEngineProbePhaseSuffix($sLastPhase)
-				MBRFuncMarkUnavailable($sError)
-				Return False
-			EndIf
-			If Not MBRFuncEngineProbeCleanupArtifacts($sToken, $sPhasePath, $iProbePid) Then
-				$sError = "Managed engine probe receipts could not be cleared after cancellation" & MBRFuncEngineProbePhaseSuffix($sLastPhase)
-				MBRFuncMarkUnavailable($sError)
-				Return False
-			EndIf
-			$sError = "Engine start was cancelled"
-			$g_sMBRFuncEngineProbeState = "not-run"
-			Return False
-		EndIf
-		If FileExists($sToken) Then
-			Local $sResult = StringStripWS(FileRead($sToken), $STR_STRIPALL)
-			FileDelete($sToken)
-			If FileExists($sToken) Then
-				Return MBRFuncEngineProbeRejectReceipt($sError, "Managed engine probe success receipt could not be consumed", $sLastPhase, $sToken, $sPhasePath, $iProbePid)
-			EndIf
-			If $sResult <> $g_sMBRFuncEngineProbeProtocol & "|call-returned" Then
-				Return MBRFuncEngineProbeRejectReceipt($sError, "Managed engine probe returned an invalid receipt", $sLastPhase, $sToken, $sPhasePath, $iProbePid)
-			EndIf
-			$sLastPhase = "call-returned"
-			If Not MBRFuncEngineProbeEnsureHelperGone($iProbePid, 1) Then
-				MBRFuncEngineProbeCleanupArtifacts($sToken, $sPhasePath, $iProbePid)
-				$sError = "Managed engine probe helper did not stop after returning success" & MBRFuncEngineProbePhaseSuffix($sLastPhase)
-				MBRFuncMarkUnavailable($sError)
-				Return False
-			EndIf
-			If $g_iBotAction = $eBotStop Or $g_iBotAction = $eBotClose Then
-				If Not MBRFuncEngineProbeCleanupArtifacts($sToken, $sPhasePath, $iProbePid) Then
-					$sError = "Managed engine probe receipts could not be cleared after cancellation" & MBRFuncEngineProbePhaseSuffix($sLastPhase)
-					MBRFuncMarkUnavailable($sError)
-					Return False
-				EndIf
-				$sError = "Engine start was cancelled"
-				$g_sMBRFuncEngineProbeState = "not-run"
-				Return False
-			EndIf
-			If Not MBRFuncEngineProbeCleanupArtifacts($sToken, $sPhasePath, $iProbePid) Then
-				$sError = "Managed engine probe receipts could not be cleared" & MBRFuncEngineProbePhaseSuffix($sLastPhase)
-				MBRFuncMarkUnavailable($sError)
-				Return False
-			EndIf
-			If Not ProcessExists($iProbePid) Then
-				$g_bMBRFuncEngineAvailable = True
-				$g_sMBRFuncEngineProbeState = "passed"
-				$g_sMBRFuncEngineError = ""
-				Return True
-			EndIf
-		EndIf
-		If Not ProcessExists($iProbePid) Then
-			$bProbeExited = True
-			ExitLoop
-		EndIf
-		_Sleep(100, True, False)
-	WEnd
-
-	Local $sFinalPhase = MBRFuncEngineProbeReadPhase($sPhasePath)
-	If $sFinalPhase <> "" Then $sLastPhase = $sFinalPhase
-	If Not MBRFuncEngineProbeEnsureHelperGone($iProbePid) Then
-		$sError = "Managed engine probe helper could not be stopped" & MBRFuncEngineProbePhaseSuffix($sLastPhase)
-		MBRFuncMarkUnavailable($sError)
-		Return False
-	EndIf
-	If Not MBRFuncEngineProbeCleanupArtifacts($sToken, $sPhasePath, $iProbePid) Then
-		$sError = "Managed engine probe receipts could not be cleared after failure" & MBRFuncEngineProbePhaseSuffix($sLastPhase)
-		MBRFuncMarkUnavailable($sError)
-		Return False
-	EndIf
-	If $bProbeExited Then
-		$sError = "Managed engine startup failed; check Windows Security and .NET health, restart Windows once, then relaunch My Bot 2.0" & MBRFuncEngineProbePhaseSuffix($sLastPhase)
-	Else
-		$sError = "Managed engine did not answer within " & Int($iTimeoutMs / 1000) & " seconds; check Windows Security and .NET health, restart Windows once, then relaunch My Bot 2.0" & MBRFuncEngineProbePhaseSuffix($sLastPhase)
-	EndIf
-	MBRFuncMarkUnavailable($sError)
-	Return False
+	Return True
 EndFunc   ;==>MBRFuncProbeEngine
 
 ; Private DllCall MyBot.run.dll function call
 Func _DllCallMyBot($sFunc, $sType1 = Default, $vParam1 = Default, $sType2 = Default, $vParam2 = Default, $sType3 = Default, $vParam3 = Default, $sType4 = Default, $vParam4 = Default, $sType5 = Default, $vParam5 = Default _
 		, $sType6 = Default, $vParam6 = Default, $sType7 = Default, $vParam7 = Default, $sType8 = Default, $vParam8 = Default, $sType9 = Default, $vParam9 = Default, $sType10 = Default, $vParam10 = Default)
+	If Not $g_bLibMyBotInitialized Then Return SetError(1, 0, 0)
 	If $sType1 = Default Then Return DllCall($g_hLibMyBot, "str", $sFunc)
 	If $sType2 = Default Then Return DllCall($g_hLibMyBot, "str", $sFunc, $sType1, $vParam1)
 	If $sType3 = Default Then Return DllCall($g_hLibMyBot, "str", $sFunc, $sType1, $vParam1, $sType2, $vParam2)
@@ -320,6 +302,10 @@ EndFunc   ;==>DllCallMyBotIsActive
 ; Public DllCall MyBot.run.dll function call
 Func DllCallMyBot($sFunc, $sType1 = Default, $vParam1 = Default, $sType2 = Default, $vParam2 = Default, $sType3 = Default, $vParam3 = Default, $sType4 = Default, $vParam4 = Default, $sType5 = Default, $vParam5 = Default _
 		, $sType6 = Default, $vParam6 = Default, $sType7 = Default, $vParam7 = Default, $sType8 = Default, $vParam8 = Default, $sType9 = Default, $vParam9 = Default, $sType10 = Default, $vParam10 = Default)
+	If Not $g_bLibMyBotInitialized Then
+		Local $aUnavailable[1] = [""]
+		Return SetError(1, 0, $aUnavailable)
+	EndIf
 	$g_bLibMyBotActive = True
 	Local $aResult
 	Local $sFileOrFolder = Default
@@ -361,6 +347,7 @@ Func DllCallMyBot($sFunc, $sType1 = Default, $vParam1 = Default, $sType2 = Defau
 EndFunc   ;==>DllCallMyBot
 
 Func debugMBRFunctions($iDebugSearchArea = 0, $iDebugRedArea = 0, $iDebugOcr = 0)
+	If Not $g_bLibMyBotInitialized And Not $g_bMBRFuncEngineInitializing Then Return False
 	SetDebugLog("debugMBRFunctions: $iDebugSearchArea=" & $iDebugSearchArea & ", $iDebugRedArea=" & $iDebugRedArea & ", $giDebugOcr=" & $iDebugOcr)
 	Local $activeHWnD = WinGetHandle("")
 	Local $result = DllCall($g_hLibMyBot, "str", "setGlobalVar", "int", $iDebugSearchArea, "int", $iDebugRedArea, "int", $iDebugOcr)
@@ -378,6 +365,7 @@ Func debugMBRFunctions($iDebugSearchArea = 0, $iDebugRedArea = 0, $iDebugOcr = 0
 EndFunc   ;==>debugMBRFunctions
 
 Func setAndroidPID($pid = GetAndroidPid())
+	If Not $g_bLibMyBotInitialized And Not $g_bMBRFuncEngineInitializing Then Return False
 	If $g_hLibMyBot = -1 Then Return False ; Bot didn't finish launch yet
 	SetDebugLog("setAndroidPID: $pid=" & $pid)
 	Local $result = DllCall($g_hLibMyBot, "str", "setAndroidPID", "int", $pid, "str", $g_sBotVersion, "str", $g_sAndroidEmulator, "str", $g_sAndroidVersion, "str", $g_sAndroidInstance)
@@ -402,6 +390,7 @@ Func setAndroidPID($pid = GetAndroidPid())
 EndFunc   ;==>setAndroidPID
 
 Func SetBotGuiPID($pid = $g_iGuiPID)
+	If Not $g_bLibMyBotInitialized And Not $g_bMBRFuncEngineInitializing Then Return False
 	If $g_hLibMyBot = -1 Then Return False ; Bot didn't finish launch yet
 	SetDebugLog("SetBotGuiPID: $pid=" & $pid)
 	Local $result = DllCall($g_hLibMyBot, "str", "SetBotGuiPID", "int", $pid)
@@ -426,6 +415,7 @@ Func SetBotGuiPID($pid = $g_iGuiPID)
 EndFunc   ;==>SetBotGuiPID
 
 Func CheckForumAuthentication()
+	If Not $g_bLibMyBotInitialized Then Return -1
 	If $g_hLibMyBot = -1 Then Return -1 ; Bot didn't finish launch yet
 	Local $result = DllCall($g_hLibMyBot, "str", "CheckForumAuthentication")
 	Local $iCallError = @error
@@ -460,6 +450,7 @@ Func _ForumAuthenticationResponseStatus($vResponse)
 EndFunc   ;==>_ForumAuthenticationResponseStatus
 
 Func ForumLogin($sUsername, $sPassword)
+	If Not $g_bLibMyBotInitialized Then Return False
 	If $g_hLibMyBot = -1 Then Return False ; Bot didn't finish launch yet
 	Local $result = DllCall($g_hLibMyBot, "str", "ForumLogin", "str", _Base64Encode(StringToBinary($sUsername, 4), 1024), "str", _Base64Encode(StringToBinary($sPassword, 4), 1024))
 	If @error Then
@@ -483,6 +474,7 @@ Func ForumLogin($sUsername, $sPassword)
 EndFunc   ;==>ForumLogin
 
 Func setVillageOffset($x, $y, $z)
+	If Not $g_bLibMyBotInitialized Then Return False
 	DllCall($g_hLibMyBot, "str", "setVillageOffset", "int", $x, "int", $y, "float", $z)
 	$g_iVILLAGE_OFFSET[0] = $x
 	$g_iVILLAGE_OFFSET[1] = $y
@@ -490,6 +482,7 @@ Func setVillageOffset($x, $y, $z)
 EndFunc   ;==>setVillageOffset
 
 Func setMaxDegreeOfParallelism($iMaxDegreeOfParallelism = 0)
+	If Not $g_bLibMyBotInitialized And Not $g_bMBRFuncEngineInitializing Then Return False
 	Local $i = Int($iMaxDegreeOfParallelism)
 	If $i < 1 Then $i = 0
 	SetDebugLog("Threading: Using " & $i & " threads for parallelism")
@@ -500,6 +493,7 @@ Func setMaxDegreeOfParallelism($iMaxDegreeOfParallelism = 0)
 EndFunc   ;==>setMaxDegreeOfParallelism
 
 Func setProcessingPoolSize($iProcessingPoolSize = 0)
+	If Not $g_bLibMyBotInitialized And Not $g_bMBRFuncEngineInitializing Then Return False
 	Local $i = Int($iProcessingPoolSize)
 	If $i < 1 Then $i = 0
 	SetDebugLog("Threading: Using " & $i & " threads shared across all bot instances")
@@ -510,10 +504,12 @@ Func setProcessingPoolSize($iProcessingPoolSize = 0)
 EndFunc   ;==>setProcessingPoolSize
 
 Func setGcCollectTotalMemoryPreasure($iGcCollectTotalMemoryPreasure = 0)
+	If Not $g_bLibMyBotInitialized Then Return False
 	DllCall($g_hLibMyBot, "none", "setGcCollectTotalMemoryPreasure", "int", $iGcCollectTotalMemoryPreasure) ;set Heap preasure, when exceeded, calls GC.Collect() in ImageDispose, 0 to disable, 32 * 1024 * 1024 (32MB) good value to keep heap small
 EndFunc   ;==>setGcCollectTotalMemoryPreasure
 
 Func ConvertVillagePos(ByRef $x, ByRef $y, $zoomfactor = 0)
+	If Not $g_bLibMyBotInitialized Then Return
 	If $g_hLibMyBot = -1 Then Return ; Bot didn't finish launch yet
 	Local $result = DllCall($g_hLibMyBot, "str", "ConvertVillagePos", "int", $x, "int", $y, "float", $zoomfactor)
 	If IsArray($result) = False Then
@@ -527,6 +523,7 @@ Func ConvertVillagePos(ByRef $x, ByRef $y, $zoomfactor = 0)
 EndFunc   ;==>ConvertVillagePos
 
 Func ConvertToVillagePos(ByRef $x, ByRef $y, $zoomfactor = 0)
+	If Not $g_bLibMyBotInitialized Then Return
 	If $g_hLibMyBot = -1 Then Return ; Bot didn't finish launch yet
 	Local $result = DllCall($g_hLibMyBot, "str", "ConvertToVillagePos", "int", $x, "int", $y, "float", $zoomfactor)
 	If IsArray($result) = False Then
@@ -540,6 +537,7 @@ Func ConvertToVillagePos(ByRef $x, ByRef $y, $zoomfactor = 0)
 EndFunc   ;==>ConvertToVillagePos
 
 Func ConvertFromVillagePos(ByRef $x, ByRef $y)
+	If Not $g_bLibMyBotInitialized Then Return
 	If $g_hLibMyBot = -1 Then Return ; Bot didn't finish launch yet
 	Local $result = DllCall($g_hLibMyBot, "str", "ConvertFromVillagePos", "int", $x, "int", $y)
 	If IsArray($result) = False Then

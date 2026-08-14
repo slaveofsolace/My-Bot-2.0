@@ -105,6 +105,11 @@ Global $g_hFrmBotEmbeddedMouse = 0
 #include "COCBot\functions\Other\Time.au3"
 #include "COCBot\functions\Other\WindowsArrange.au3"
 
+Global Const $g_sMiniEngineInitCancelSchema = "engine-init-cancel-v1"
+Global Const $g_sMiniEngineInitCancelPath = @ScriptDir & "\config\engine-init-cancel.local.json"
+Global Const $g_iMiniEngineInitReceiptMaxBytes = 4096
+Global Const $g_iMiniEngineInitCancelMaxBytes = 2048
+
 #include "COCBot\MBR GUI Design Mini.au3"
 #include "COCBot\functions\Config\readConfig.au3"
 #include "COCBot\functions\Other\UpdateStats.Mini.au3"
@@ -1241,7 +1246,16 @@ Func LaunchBotBackend($bNoGUI = True)
 			$bCheck = False
 			SetLog("My Bot backend process not found, launching now...")
 			SetDebugLog("My Bot backend process launching: " & $cmd)
+			If $g_bMBRFuncEngineSupervisorValid Then
+				EnvSet($g_sMBRFuncEngineTokenEnv, $g_sMBRFuncEngineSupervisorToken)
+				EnvSet($g_sMBRFuncEngineLauncherPidEnv, $g_sMBRFuncEngineLauncherPidText)
+				EnvSet($g_sMBRFuncEngineLauncherCreatedEnv, $g_sMBRFuncEngineLauncherCreated)
+			EndIf
 			$pid = Run($cmd, @ScriptDir)
+			Local $iRunError = @error
+			EnvSet($g_sMBRFuncEngineTokenEnv, "")
+			EnvSet($g_sMBRFuncEngineLauncherPidEnv, "")
+			EnvSet($g_sMBRFuncEngineLauncherCreatedEnv, "")
 			If $pid = 0 Then
 				SetLog("Cannot launch My Bot backend process", $COLOR_RED)
 				Return 0
@@ -1283,6 +1297,118 @@ Func LaunchBotBackend($bNoGUI = True)
 
 EndFunc   ;==>LaunchBotBackend
 
+Func _MiniEngineReceiptString($sReceipt, $sName)
+	Local $aValue = StringRegExp($sReceipt, '"' & $sName & '"\s*:\s*"([A-Za-z0-9_-]+)"', $STR_REGEXPARRAYMATCH)
+	If @error Or Not IsArray($aValue) Or UBound($aValue) <> 1 Then Return ""
+	Return $aValue[0]
+EndFunc   ;==>_MiniEngineReceiptString
+
+Func _MiniEngineReceiptInt($sReceipt, $sName)
+	Local $aValue = StringRegExp($sReceipt, '"' & $sName & '"\s*:\s*([0-9]+)', $STR_REGEXPARRAYMATCH)
+	If @error Or Not IsArray($aValue) Or UBound($aValue) <> 1 Then Return 0
+	Return Int($aValue[0])
+EndFunc   ;==>_MiniEngineReceiptInt
+
+Func _MiniEngineRequestId($sJson, $sName)
+	Local $aValue = StringRegExp($sJson, '"' & $sName & '"\s*:\s*"([A-Za-z0-9._-]{1,80})"', $STR_REGEXPARRAYMATCH)
+	If @error Or Not IsArray($aValue) Or UBound($aValue) <> 1 Then Return ""
+	Return $aValue[0]
+EndFunc   ;==>_MiniEngineRequestId
+
+Func _MiniEngineCancelPathSafe($sPath, $bRequireFile = False)
+	Local $sTemporaryPrefix = $g_sMiniEngineInitCancelPath & ".tmp."
+	If $sPath <> $g_sMiniEngineInitCancelPath And StringLeft($sPath, StringLen($sTemporaryPrefix)) <> $sTemporaryPrefix Then Return False
+	Local $sConfigDir = @ScriptDir & "\config"
+	Local $aRoot = DllCall("kernel32.dll", "dword", "GetFileAttributesW", "wstr", @ScriptDir)
+	If @error Or Not IsArray($aRoot) Or $aRoot[0] = 0xFFFFFFFF Or BitAND($aRoot[0], 0x10) = 0 Or BitAND($aRoot[0], 0x400) <> 0 Then Return False
+	Local $aParent = DllCall("kernel32.dll", "dword", "GetFileAttributesW", "wstr", $sConfigDir)
+	If @error Or Not IsArray($aParent) Or $aParent[0] = 0xFFFFFFFF Or BitAND($aParent[0], 0x10) = 0 Or BitAND($aParent[0], 0x400) <> 0 Then Return False
+	If Not FileExists($sPath) Then Return Not $bRequireFile
+	Local $aFile = DllCall("kernel32.dll", "dword", "GetFileAttributesW", "wstr", $sPath)
+	If @error Or Not IsArray($aFile) Or $aFile[0] = 0xFFFFFFFF Then Return False
+	Return BitAND($aFile[0], 0x10) = 0 And BitAND($aFile[0], 0x400) = 0
+EndFunc   ;==>_MiniEngineCancelPathSafe
+
+Func _MiniEngineReceiptMatches($sReceipt, ByRef $sStartRequestId)
+	$sStartRequestId = ""
+	If Not $g_bMBRFuncEngineSupervisorValid Then Return False
+	If _MiniEngineReceiptString($sReceipt, "schema") <> $g_sMBRFuncEngineSupervisorSchema Then Return False
+	If Not StringRegExp($g_sMBRFuncEngineSupervisorToken, "^[0-9a-f]{64}$") Or _MiniEngineReceiptString($sReceipt, "token") <> $g_sMBRFuncEngineSupervisorToken Then Return False
+	Local $iLauncherPid = Int($g_sMBRFuncEngineLauncherPidText)
+	If $iLauncherPid <= 0 Or _MiniEngineReceiptInt($sReceipt, "launcher_pid") <> $iLauncherPid Then Return False
+	If _MiniEngineReceiptString($sReceipt, "launcher_created") <> $g_sMBRFuncEngineLauncherCreated Or _MBRFuncProcessCreationId($iLauncherPid) <> $g_sMBRFuncEngineLauncherCreated Then Return False
+	If _MBRFuncParentPid(@AutoItPID) <> $iLauncherPid Then Return False
+	Local $sControllerCreated = _MBRFuncProcessCreationId(@AutoItPID)
+	If _MiniEngineReceiptInt($sReceipt, "controller_pid") <> @AutoItPID Or Not StringRegExp($sControllerCreated, "^[0-9a-f]{16}$") Then Return False
+	If _MiniEngineReceiptString($sReceipt, "controller_created") <> $sControllerCreated Then Return False
+	Local $iBackendPid = _MiniEngineReceiptInt($sReceipt, "backend_pid")
+	If $iBackendPid <= 0 Or $iBackendPid <> $g_WatchOnlyClientPID Or Not ProcessExists($iBackendPid) Then Return False
+	If $g_hFrmBotBackend = 0 Or WinGetProcess($g_hFrmBotBackend) <> $iBackendPid Then Return False
+	Local $sBackendCreated = _MBRFuncProcessCreationId($iBackendPid)
+	If Not StringRegExp($sBackendCreated, "^[0-9a-f]{16}$") Or _MiniEngineReceiptString($sReceipt, "backend_created") <> $sBackendCreated Then Return False
+	If _MiniEngineReceiptInt($sReceipt, "parent_pid") <> @AutoItPID Or _MBRFuncParentPid($iBackendPid) <> @AutoItPID Then Return False
+	Local $sPhase = _MiniEngineReceiptString($sReceipt, "phase")
+	If Not StringRegExp($sPhase, "^(prepared|pool-entered|pool-returned|max-entered|max-returned|android-entered|android-returned|gui-entered)$") Then Return False
+	If _MiniEngineReceiptInt($sReceipt, "sequence") <= 0 Then Return False
+	$sStartRequestId = _MiniEngineRequestId($sReceipt, "start_request_id")
+	Return $sStartRequestId <> ""
+EndFunc   ;==>_MiniEngineReceiptMatches
+
+Func _MiniEngineNewStopRequestId()
+	Local $sRequestId = "mini-stop-" & @AutoItPID & "-" & @YEAR & @MON & @MDAY & @HOUR & @MIN & @SEC & @MSEC & "-" & Random(100000, 999999, 1)
+	If Not StringRegExp($sRequestId, "^[A-Za-z0-9._-]{1,80}$") Then Return ""
+	Return $sRequestId
+EndFunc   ;==>_MiniEngineNewStopRequestId
+
+Func _MiniEngineDeleteTemporary($sPath)
+	If Not FileExists($sPath) Then Return True
+	If Not _MiniEngineCancelPathSafe($sPath, True) Then Return False
+	Return FileDelete($sPath) = 1 Or Not FileExists($sPath)
+EndFunc   ;==>_MiniEngineDeleteTemporary
+
+Func _MiniTryWriteEngineInitCancel()
+	If Not FileExists($g_sMBRFuncEngineReceiptPath) Or Not _MBRFuncEngineReceiptPathSafe(True) Then Return False
+	Local $iReceiptSize = FileGetSize($g_sMBRFuncEngineReceiptPath)
+	If @error Or $iReceiptSize <= 0 Or $iReceiptSize > $g_iMiniEngineInitReceiptMaxBytes Then Return False
+	Local $sReceipt = FileRead($g_sMBRFuncEngineReceiptPath)
+	If @error Or StringLen($sReceipt) <= 0 Or StringLen($sReceipt) > $g_iMiniEngineInitReceiptMaxBytes Then Return False
+	Local $sStartRequestId = ""
+	If Not _MiniEngineReceiptMatches($sReceipt, $sStartRequestId) Then Return False
+	Local $sStopRequestId = _MiniEngineNewStopRequestId()
+	If $sStopRequestId = "" Then Return False
+	Local $sCancel = '{"schema":"' & $g_sMiniEngineInitCancelSchema & '","token":"' & $g_sMBRFuncEngineSupervisorToken & _
+		'","expected_start_request_id":"' & $sStartRequestId & '","stop_request_id":"' & $sStopRequestId & '"}'
+	If StringLen($sCancel) <= 0 Or StringLen($sCancel) > $g_iMiniEngineInitCancelMaxBytes Then Return False
+	If Not _MiniEngineCancelPathSafe($g_sMiniEngineInitCancelPath, False) Then Return False
+	Local $sTemporary = $g_sMiniEngineInitCancelPath & ".tmp." & @AutoItPID & "." & @MSEC & "." & Random(100000, 999999, 1)
+	If FileExists($sTemporary) Or Not _MiniEngineCancelPathSafe($sTemporary, False) Then Return False
+	Local $hCancel = FileOpen($sTemporary, 10)
+	If $hCancel = -1 Then Return False
+	Local $bWritten = FileWrite($hCancel, $sCancel) = 1
+	Local $bFlushed = FileFlush($hCancel)
+	FileClose($hCancel)
+	If Not $bWritten Or Not $bFlushed Or Not _MiniEngineCancelPathSafe($sTemporary, True) Then
+		_MiniEngineDeleteTemporary($sTemporary)
+		Return False
+	EndIf
+	If Not _MBRFuncEngineReceiptPathSafe(True) Or FileRead($g_sMBRFuncEngineReceiptPath) <> $sReceipt Then
+		_MiniEngineDeleteTemporary($sTemporary)
+		Return False
+	EndIf
+	Local $sCurrentStartRequestId = ""
+	If Not _MiniEngineReceiptMatches($sReceipt, $sCurrentStartRequestId) Or $sCurrentStartRequestId <> $sStartRequestId Or _
+			Not _MiniEngineCancelPathSafe($g_sMiniEngineInitCancelPath, False) Then
+		_MiniEngineDeleteTemporary($sTemporary)
+		Return False
+	EndIf
+	If Not FileMove($sTemporary, $g_sMiniEngineInitCancelPath, 1) Then
+		_MiniEngineDeleteTemporary($sTemporary)
+		Return False
+	EndIf
+	If Not _MiniEngineCancelPathSafe($g_sMiniEngineInitCancelPath, True) Then Return False
+	Return FileGetSize($g_sMiniEngineInitCancelPath) <= $g_iMiniEngineInitCancelMaxBytes And FileRead($g_sMiniEngineInitCancelPath) = $sCancel
+EndFunc   ;==>_MiniTryWriteEngineInitCancel
+
 Func BotStart()
 	If $g_hFrmBotBackend = 0 Or $g_WatchOnlyClientPID = 0 Or WinGetProcess($g_hFrmBotBackend) <> $g_WatchOnlyClientPID Then
 		LaunchBotBackend()
@@ -1298,6 +1424,7 @@ Func BotStop()
 		If Not $g_bBotLaunched Then Return
 	EndIf
 	GUICtrlSetState($g_hBtnStop, $GUI_DISABLE)
+	_MiniTryWriteEngineInitCancel()
 	_WinAPI_PostMessage($g_hFrmBotBackend, $WM_MYBOTRUN_API, 0x1010, $g_hFrmBot)
 EndFunc   ;==>BotStop
 
