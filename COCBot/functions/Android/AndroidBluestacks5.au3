@@ -20,10 +20,40 @@ Func GetBlueStacks5ProgramParameter($bAlternative = False)
 	Return DoubleQuote("--instance") & " " & DoubleQuote($g_sAndroidInstance)
 EndFunc   ;==>GetBlueStacks5ProgramParameter
 
+; Return the one HD-Player process that owns the configured instance's loopback ADB listener. Newer
+; BlueStacks builds can withhold both CommandLine and ExecutablePath from WMI and can publish an empty
+; Qt window title. The configured per-instance ADB port remains an OS-owned identity boundary: require
+; an exact loopback LISTENING row, the exact HD-Player image name, and one unique owner PID.
+Func _BlueStacks5ConfiguredAdbOwnerPid()
+	Local $aPort = StringRegExp(String($g_sAndroidAdbDevice), "^127\.0\.0\.1:([0-9]{1,5})$", 1)
+	If Not IsArray($aPort) Then Return 0
+	Local $iExpectedPort = Int($aPort[0])
+	If $iExpectedPort < 1 Or $iExpectedPort > 65535 Then Return 0
+	Local $aTcp = _CV_GetExtendedTcpTable()
+	If Not IsArray($aTcp) Then Return 0
+	Local $iOwnerPid = 0
+	For $i = 1 To UBound($aTcp) - 1
+		If Int($aTcp[$i][2]) <> $iExpectedPort Or $aTcp[$i][5] <> "LISTENING" Or _
+				StringLower(String($aTcp[$i][0])) <> "hd-player.exe" Or _
+				String($aTcp[$i][1]) <> "localhost (127.0.0.1)" Then ContinueLoop
+		Local $iCandidatePid = Int($aTcp[$i][6])
+		If $iCandidatePid <= 0 Or ProcessExists2($iCandidatePid) <> $iCandidatePid Then ContinueLoop
+		If $iOwnerPid <> 0 And $iOwnerPid <> $iCandidatePid Then Return 0
+		$iOwnerPid = $iCandidatePid
+	Next
+	Return $iOwnerPid
+EndFunc   ;==>_BlueStacks5ConfiguredAdbOwnerPid
+
+Func _BlueStacks5ModernWindowMatchesInstance($hWindow, $iAdbOwnerPid)
+	If $iAdbOwnerPid <= 0 Or Not IsHWnd($hWindow) Or WinGetProcess($hWindow) <> $iAdbOwnerPid Or _
+			Not StringRegExp(_WinAPI_GetClassName($hWindow), "^Qt[0-9]+QWindowIcon$") Then Return False
+	Local $sTitle = WinGetTitle($hWindow)
+	Return $sTitle = "" Or StringCompare($sTitle, "BlueStacks5-" & $g_sAndroidInstance, 0) = 0
+EndFunc   ;==>_BlueStacks5ModernWindowMatchesInstance
+
 ; BlueStacks 5.22 moved its visible shell from the inherited BlueStacksApp class/title to a Qt
-; top-level window, and may withhold CommandLine from WMI. Its configured display name includes the
-; instance ID; require that exact title and exactly one candidate so HWND input and ADB cannot bind
-; to different accounts.
+; top-level window. Prefer the exact configured title, but when BlueStacks publishes an empty title
+; bind the unique Qt shell to the unique OS-owned ADB listener PID for this exact instance.
 Func FindBlueStacks5WindowFallback()
 	Static $iTrustedPid = 0
 	Static $sTrustedInstance = ""
@@ -38,16 +68,28 @@ Func FindBlueStacks5WindowFallback()
 	Local $iFound = 0
 	Local $iQtCandidates = 0
 	Local $iTitleMatches = 0
+	Local $iBlankTitleMatches = 0
 	Local $iInvalidGeometry = 0
 	Local $iUndersized = 0
+	Local $iAdbOwnerPid = _BlueStacks5ConfiguredAdbOwnerPid()
+	If $g_sAndroidInstance = "" Or $iAdbOwnerPid = 0 Then
+		SetDebugLog("BlueStacks5 modern-window fallback rejected: exact instance ADB listener owner is unavailable", $COLOR_ERROR)
+		Return 0
+	EndIf
 	If Not IsArray($aWindows) Then Return 0
 	For $i = 1 To $aWindows[0][0]
 		Local $hWindow = $aWindows[$i][0]
 		If Not StringRegExp(_WinAPI_GetClassName($hWindow), "^Qt[0-9]+QWindowIcon$") Then ContinueLoop
 		$iQtCandidates += 1
 		Local $sTitle = WinGetTitle($hWindow)
-		If $g_sAndroidInstance = "" Or StringCompare($sTitle, "BlueStacks5-" & $g_sAndroidInstance, 0) <> 0 Then ContinueLoop
-		$iTitleMatches += 1
+		If StringCompare($sTitle, "BlueStacks5-" & $g_sAndroidInstance, 0) = 0 Then
+			$iTitleMatches += 1
+		ElseIf $sTitle = "" Then
+			$iBlankTitleMatches += 1
+		Else
+			ContinueLoop
+		EndIf
+		If Not _BlueStacks5ModernWindowMatchesInstance($hWindow, $iAdbOwnerPid) Then ContinueLoop
 		Local $aPosition = WinGetPos($hWindow)
 		If Not IsArray($aPosition) Then
 			$iInvalidGeometry += 1
@@ -73,7 +115,8 @@ Func FindBlueStacks5WindowFallback()
 	Local $sTrustedPid = ($iTrustedPid > 0 ? String($iTrustedPid) : "none")
 	Local $sTrustedPidAlive = ($iTrustedPid > 0 ? String(ProcessExists2($iTrustedPid) = $iTrustedPid) : "unknown")
 	Local $sFallbackDiagnostic = "BlueStacks5 modern-window fallback rejected: expected_title='BlueStacks5-" & $g_sAndroidInstance & _
-		"', qt_candidates=" & $iQtCandidates & ", title_matches=" & $iTitleMatches & ", invalid_geometry=" & $iInvalidGeometry & _
+		"', adb_owner_pid=" & $iAdbOwnerPid & ", qt_candidates=" & $iQtCandidates & ", title_matches=" & $iTitleMatches & _
+		", blank_title_matches=" & $iBlankTitleMatches & ", invalid_geometry=" & $iInvalidGeometry & _
 		", undersized=" & $iUndersized & ", accepted=" & $iFound & ", trusted_pid=" & $sTrustedPid & ", trusted_pid_alive=" & $sTrustedPidAlive
 	If $iFound > 1 Then
 		SetDebugLog($sFallbackDiagnostic & ", reason=multiple exact player windows", $COLOR_ERROR)
@@ -90,8 +133,7 @@ EndFunc   ;==>FindBlueStacks5WindowFallback
 Func GetBlueStacks5ModernAdbSurfacePosition()
 	If $g_sAndroidEmulator <> "BlueStacks5" Or Not $g_bChkBackgroundMode Or Not $g_bAndroidAdbScreencap Or Not $g_bAndroidAdbClick Then Return 0
 	Local $hWindow = GetCurrentAndroidHWnD()
-	If Not IsHWnd($hWindow) Or Not StringRegExp(_WinAPI_GetClassName($hWindow), "^Qt[0-9]+QWindowIcon$") Then Return 0
-	If $g_sAndroidInstance = "" Or StringCompare(WinGetTitle($hWindow), "BlueStacks5-" & $g_sAndroidInstance, 0) <> 0 Then Return 0
+	If $g_sAndroidInstance = "" Or Not _BlueStacks5ModernWindowMatchesInstance($hWindow, _BlueStacks5ConfiguredAdbOwnerPid()) Then Return 0
 	Local $aSurface[4] = [0, 0, $g_iAndroidClientWidth, $g_iAndroidClientHeight]
 	Return $aSurface
 EndFunc   ;==>GetBlueStacks5ModernAdbSurfacePosition

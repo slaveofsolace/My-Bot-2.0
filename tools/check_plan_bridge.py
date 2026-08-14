@@ -1172,7 +1172,10 @@ def main() -> int:
     surface_body = surface_body[1].split("EndFunc", 1)[0] if len(surface_body) > 1 else ""
     for required in (
         "_WinAPI_EnumWindows(False)",
+        "_BlueStacks5ConfiguredAdbOwnerPid()",
+        "_BlueStacks5ModernWindowMatchesInstance($hWindow, $iAdbOwnerPid)",
         'StringCompare($sTitle, "BlueStacks5-" & $g_sAndroidInstance, 0)',
+        '$sTitle = ""',
         "BitAND(WinGetState($hWindow), 16) = 0",
     ):
         if required not in bluestacks_source:
@@ -1189,8 +1192,7 @@ def main() -> int:
         "$g_bChkBackgroundMode",
         "$g_bAndroidAdbScreencap",
         "$g_bAndroidAdbClick",
-        "^Qt[0-9]+QWindowIcon$",
-        'StringCompare(WinGetTitle($hWindow), "BlueStacks5-" & $g_sAndroidInstance, 0)',
+        "_BlueStacks5ModernWindowMatchesInstance($hWindow, _BlueStacks5ConfiguredAdbOwnerPid())",
         "$g_iAndroidClientWidth",
         "$g_iAndroidClientHeight",
     ):
