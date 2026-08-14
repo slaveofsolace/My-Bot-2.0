@@ -187,6 +187,16 @@ class PythonReleaseContractTests(unittest.TestCase):
         self.assertEqual(mini.flags, ("/x86", "/gui", "/nopack", "/comp", "2"))
         self.assertEqual(mini.pragma_output, "MyBot.run.MiniGui.dev.exe")
 
+    def test_default_source_pragmas_match_release_contract(self) -> None:
+        for target in release.DEFAULT_CONTRACT.compile_targets:
+            with self.subTest(source=target.source):
+                declared = release._declared_pragma_output(
+                    ROOT,
+                    ROOT / target.source,
+                    target,
+                )
+                self.assertEqual(declared, ROOT / target.pragma_output)
+
     def test_path_filter_rejects_local_state_and_preserves_canonical_english_exception(self) -> None:
         for path in (
             "Profiles/MyVillage/profile.ini",

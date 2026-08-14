@@ -162,7 +162,9 @@ SAFE_MANIFEST_KEYS = frozenset(
 SAFE_CANDIDATE_RECORD_KEYS = frozenset(
     {"path", "source", "pragma_output", "subsystem", "flags", "bytes", "sha256"}
 )
-OUT_PRAGMA_RE = re.compile(r"(?im)^\s*#pragma\s+compile\(Out,\s*([^)]+?)\s*\)\s*$")
+OUT_PRAGMA_RE = re.compile(
+    r"(?im)^\s*#pragma\s+compile\(Out,\s*([^)]+?)\s*\)\s*(?:;[^\r\n]*)?$"
+)
 
 
 def _run(
