@@ -77,7 +77,9 @@ CONTROL_STATUS_BUSY_MAX_AGE_SECONDS = 45.0
 CONTROL_STATUS_READ_RETRY_SECONDS = 0.02
 CONTROL_STATUS_READ_ATTEMPTS = 5
 CONTROL_BUSY_STATES = {"starting", "stopping", "closing"}
-CONTROL_ACTIONS = {"start", "stop", "pause", "resume"}
+ENGINE_INIT_CANCEL_CONTEXT_WAIT_SECONDS = 3.0
+ENGINE_INIT_CANCEL_CONTEXT_POLL_SECONDS = 0.025
+CONTROL_ACTIONS = {"start", "stop", "pause", "resume", "check-engine"}
 CONTROL_LOCK = threading.Lock()
 LOCAL_HOSTS = {"127.0.0.1", "localhost"}
 DIAGNOSTIC_ARTIFACTS = {
@@ -195,6 +197,21 @@ def engine_init_cancel_context() -> dict | None:
     ):
         return None
     return {"token": token, "start_request_id": start_request_id}
+
+
+def wait_for_engine_init_cancel_context(expected_start_request_id: str) -> dict | None:
+    """Bridge the accepted-command to prepared-receipt race without trusting a foreign receipt."""
+    if re.fullmatch(r"[A-Za-z0-9._-]{1,80}", expected_start_request_id) is None:
+        return None
+    deadline = time.monotonic() + ENGINE_INIT_CANCEL_CONTEXT_WAIT_SECONDS
+    while True:
+        context = engine_init_cancel_context()
+        if context is not None:
+            return context if context["start_request_id"] == expected_start_request_id else None
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return None
+        time.sleep(min(ENGINE_INIT_CANCEL_CONTEXT_POLL_SECONDS, remaining))
 
 
 def metadata_document() -> dict:
@@ -572,6 +589,7 @@ def control_status() -> dict:
     The native process owns the status file and refreshes it once per second. A syntactically valid
     but old file must never make the browser claim that a dead engine is online.
     """
+    engine_init_cancellable = engine_init_cancel_context() is not None
     offline = {
         "connected": False,
         "authorization_ready": False,
@@ -584,6 +602,7 @@ def control_status() -> dict:
         "message": "Native engine is not connected",
         "last_seen_at": None,
         "age_seconds": None,
+        "engine_init_cancellable": engine_init_cancellable,
     }
     modified = None
     document = None
@@ -624,22 +643,40 @@ def control_status() -> dict:
     document["emulator_attached"] = window_attached
     document["adb_ready"] = bool(window_attached and document.get("adb_ready") is True)
     document["game_ready"] = bool(document["adb_ready"] and document.get("game_ready") is True)
+    document["engine_init_cancellable"] = engine_init_cancellable
     return document
 
 
-def queue_control_command(action: str) -> tuple[dict, int]:
+def queue_control_command(action: str, expected_start_request_id: str = "") -> tuple[dict, int]:
     if action not in CONTROL_ACTIONS:
         return {"ok": False, "problems": ["unsupported control action"]}, 400
+    if expected_start_request_id:
+        if action != "stop" or re.fullmatch(r"[A-Za-z0-9._-]{1,80}", expected_start_request_id) is None:
+            return {"ok": False, "problems": ["expected_start_request_id is invalid for this action"]}, 400
     status = control_status()
     init_context = engine_init_cancel_context() if action == "stop" else None
-    if not status.get("connected") and init_context is None:
+    expected_init_request_id = expected_start_request_id
+    if (
+        action == "stop"
+        and init_context is None
+        and not expected_init_request_id
+        and status.get("last_command") in {"start", "check-engine"}
+        and status.get("last_outcome") == "accepted"
+        and isinstance(status.get("last_command_id"), str)
+        and re.fullmatch(r"[A-Za-z0-9._-]{1,80}", status["last_command_id"])
+    ):
+        expected_init_request_id = status["last_command_id"]
+    if not status.get("connected") and init_context is None and not expected_init_request_id:
         return {"ok": False, "problems": ["native engine is offline"], "status": status}, 409
-    if action == "start" and not status.get("engine_available", True):
+    if action in {"start", "check-engine"} and not status.get("engine_available", True):
         return {"ok": False, "problems": [status.get("message") or "native engine is unavailable"], "status": status}, 409
 
     with CONTROL_LOCK:
         command_pending = CONTROL_COMMAND_PATH.exists()
-        if command_pending and not (action == "stop" and init_context is not None):
+        # Stop has priority over an unconsumed Start or engine check. Replacing that pending file is
+        # safe even before the backend publishes an initialization receipt; no managed call has
+        # started yet. Once a receipt exists, the separate launcher cancel remains authoritative.
+        if command_pending and action != "stop":
             return {"ok": False, "problems": ["another control command is awaiting the native engine"]}, 409
         request_id = uuid.uuid4().hex
         command = {
@@ -652,7 +689,7 @@ def queue_control_command(action: str) -> tuple[dict, int]:
         # A supervised Stop must replace any command that could otherwise be replayed by the
         # controller's replacement backend after the launcher closes the blocked generation.
         # The launcher cancel remains a separate exact-owner path when this native write fails.
-        if not command_pending or (action == "stop" and init_context is not None):
+        if not command_pending or action == "stop":
             try:
                 write_json_atomic(command, CONTROL_COMMAND_PATH)
                 native_command_queued = True
@@ -663,6 +700,9 @@ def queue_control_command(action: str) -> tuple[dict, int]:
         # The synchronous first managed-engine call blocks the AutoIt message loop. Mirror Stop
         # through the launcher's separately owned channel. A failure here must not turn an already
         # durable native Stop into a false HTTP 500; report the two delivery paths independently.
+        if action == "stop" and init_context is None and expected_init_request_id:
+            init_context = wait_for_engine_init_cancel_context(expected_init_request_id)
+
         supervisor_cancel_status = "not-active"
         if action == "stop" and init_context is not None:
             try:
@@ -1014,7 +1054,11 @@ class Handler(BaseHTTPRequestHandler):
             if not isinstance(action, str):
                 self._json({"ok": False, "problems": ["action must be a string"]}, 400)
                 return
-            payload, code = queue_control_command(action.strip().lower())
+            expected_start_request_id = submitted.get("expected_start_request_id", "")
+            if not isinstance(expected_start_request_id, str):
+                self._json({"ok": False, "problems": ["expected_start_request_id must be a string"]}, 400)
+                return
+            payload, code = queue_control_command(action.strip().lower(), expected_start_request_id)
             self._json(payload, code)
             return
 

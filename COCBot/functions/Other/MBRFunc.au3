@@ -75,7 +75,7 @@ EndFunc   ;==>_MBRFuncOpenEngineLibrary
 ; The mixed-mode DLL starts the CLR on its first exported call. Keep that unbounded work out of
 ; GUI startup: on affected Windows machines an antivirus/filter-driver stall would otherwise leave
 ; both the splash and main window permanently unresponsive. BotStart calls this explicit boundary.
-Func MBRFuncInitialize()
+Func MBRFuncInitialize($bDiscoverAndroid = True)
 	Local $sMarkerError = ""
 	If Not MBRFuncValidateEngineMarker($sMarkerError) Then Return False
 	If $g_bLibMyBotInitialized Then Return True
@@ -99,7 +99,14 @@ Func MBRFuncInitialize()
 	If Not setMaxDegreeOfParallelism($g_iThreads) Then Return _MBRFuncInitializationFailed("Managed engine parallelism initialization failed")
 	If Not _MBRFuncPublishEngineReceipt("max-returned") Then Return _MBRFuncInitializationFailed("Managed engine supervisor receipt could not publish max-returned")
 	If Not _MBRFuncPublishEngineReceipt("android-entered") Then Return _MBRFuncInitializationFailed("Managed engine supervisor receipt could not publish android-entered")
-	If Not setAndroidPID() Then Return _MBRFuncInitializationFailed("Managed engine Android binding failed")
+	; The engine-only diagnostic must exercise the managed Android-binding export without
+	; discovering, moving, hiding, initializing, or otherwise touching an emulator. Passing PID 0
+	; is the engine's detached binding; normal Start retains the existing live PID discovery path.
+	If $bDiscoverAndroid Then
+		If Not setAndroidPID() Then Return _MBRFuncInitializationFailed("Managed engine Android binding failed")
+	Else
+		If Not setAndroidPID(0) Then Return _MBRFuncInitializationFailed("Managed engine detached Android binding failed")
+	EndIf
 	If Not _MBRFuncPublishEngineReceipt("android-returned") Then Return _MBRFuncInitializationFailed("Managed engine supervisor receipt could not publish android-returned")
 	If Not _MBRFuncPublishEngineReceipt("gui-entered") Then Return _MBRFuncInitializationFailed("Managed engine supervisor receipt could not publish gui-entered")
 	If Not SetBotGuiPID() Then Return _MBRFuncInitializationFailed("Managed engine GUI binding failed")
@@ -109,6 +116,10 @@ Func MBRFuncInitialize()
 	$g_sMBRFuncEngineProbeState = "passed"
 	$g_sMBRFuncEngineError = ""
 	If Not _MBRFuncPublishEngineReceipt("initialized") Then Return _MBRFuncInitializationFailed("Managed engine supervisor receipt could not publish initialized")
+	; PID 0 proves the managed ABI without attaching to an emulator, but it is not an operational
+	; binding. Keep the warmed DLL resident and require the next normal Start to run the complete
+	; supervised initialization again with a freshly discovered emulator PID.
+	If Not $bDiscoverAndroid Then $g_bLibMyBotInitialized = False
 	Return True
 EndFunc   ;==>MBRFuncInitialize
 

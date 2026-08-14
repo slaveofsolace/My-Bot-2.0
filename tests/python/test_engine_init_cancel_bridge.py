@@ -167,11 +167,12 @@ class EngineInitCancelBridgeTest(unittest.TestCase):
             ):
                 self.assertIsNone(planner_ui.engine_init_cancel_context())
 
-    def test_native_request_id_accessor_is_active_accepted_start_only(self):
+    def test_native_request_id_accessor_is_active_accepted_initialization_only(self):
         source = (ROOT / "COCBot/functions/Run/RunControlBridge.au3").read_text(encoding="utf-8-sig")
         accessor = source.split("Func RunControlCurrentCommandId()", 1)[1].split("EndFunc", 1)[0]
         self.assertIn("If Not $g_bRunControlStartInProgress Then Return", accessor)
         self.assertIn('$g_sRunControlLastCommand <> "start"', accessor)
+        self.assertIn('$g_sRunControlLastCommand <> "check-engine"', accessor)
         self.assertIn('$g_sRunControlLastOutcome <> "accepted"', accessor)
 
 

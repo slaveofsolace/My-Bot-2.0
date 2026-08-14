@@ -190,7 +190,7 @@ def main() -> int:
         verify_autoit_balance(autoit_path, findings)
 
     capabilities = json.loads(text("config/current-client-capabilities.json"))
-    require(capabilities.get("as_of") == "2026-08-12", "capability catalog has a fixed audit date", findings)
+    require(capabilities.get("as_of") == "2026-08-14", "capability catalog has a fixed audit date", findings)
     capability_ids = {item["id"] for item in capabilities["capabilities"]}
     for capability_id in {
         "emulator.bluestacks5",
@@ -202,6 +202,7 @@ def main() -> int:
         "orchestration.battle-route",
         "orchestration.run-session",
         "orchestration.run-event",
+        "orchestration.engine-initialization",
         "battle.regular-ranked-split",
         "village.town-hall-18",
         "heroes.six-slot-layout",

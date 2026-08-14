@@ -73,7 +73,7 @@ let EVENTS_TIMER = null;
 let LOG_REFRESH_TIMER = null;
 let LAST_INSTANCE_SIGNATURE = '';
 
-const CONTROL_TERMINAL_OUTCOMES = new Set(['started', 'rejected', 'failed', 'stopped', 'paused', 'resumed', 'no-op']);
+const CONTROL_TERMINAL_OUTCOMES = new Set(['started', 'passed', 'rejected', 'failed', 'stopped', 'paused', 'resumed', 'no-op']);
 const CONTROL_QUEUE_TIMEOUT_MS = 45_000;
 const CONTROL_OPERATION_TIMEOUT_MS = 5 * 60_000;
 const CONTROL_OFFLINE_GRACE_MS = 5_000;
@@ -1330,15 +1330,19 @@ function renderControl() {
   const planLocked = connected && ['starting', 'running', 'paused', 'stopping'].includes(state);
   const savedProblems = META ? clientProblems(SAVED) : [];
   const hasUnsavedPlan = !META || allSettings().some(isUnsaved) || !PLAN_WRITTEN || savedProblems.length > 0;
-  const startCanBeStopped = CONTROL_PENDING?.action === 'start' && !!CONTROL_PENDING.request_id;
+  const startCanBeStopped = ['start', 'check-engine'].includes(CONTROL_PENDING?.action) && !!CONTROL_PENDING.request_id;
+  const supervisedInitActive = CONTROL.engine_init_cancellable === true;
+  const managedInitCanBeStopped = startCanBeStopped || supervisedInitActive;
   const engineAvailable = CONTROL.engine_available !== false;
   $('controlStart').title = savedProblems.length
     ? 'Resolve and apply the saved plan issues before starting'
     : hasUnsavedPlan ? 'Apply the visible plan before starting' : 'Start the applied plan';
   $('controlStart').disabled = !BOOT_READY || busy || hasUnsavedPlan || !connected || !engineAvailable || state !== 'idle';
+  $('controlEngineCheck').disabled = !BOOT_READY || busy || !connected || !engineAvailable || state !== 'idle';
+  $('controlEngineCheck').title = 'Initialize the managed engine without opening or controlling the emulator or game';
   $('controlPause').disabled = !BOOT_READY || busy || !connected || !['running', 'paused'].includes(state);
-  $('controlStop').disabled = !BOOT_READY || !connected || (busy && !startCanBeStopped)
-    || (!startCanBeStopped && !['starting', 'running', 'paused'].includes(state));
+  $('controlStop').disabled = !BOOT_READY || (!connected && !supervisedInitActive) || (busy && !managedInitCanBeStopped)
+    || (!managedInitCanBeStopped && !['starting', 'running', 'paused'].includes(state));
   $('controlPause').textContent = state === 'paused' ? 'Resume' : 'Pause';
   if (planLocked) {
     $('apply').disabled = true;
@@ -1361,6 +1365,9 @@ function renderControl() {
   } else if (CONTROL_NOTICE) {
     $('controlAck').textContent = CONTROL_NOTICE;
     $('controlAck').className = `control-ack notice ${CONTROL_NOTICE_KIND}`;
+  } else if (supervisedInitActive) {
+    $('controlAck').textContent = 'Managed engine initialization is active. Stop remains available through launcher supervision.';
+    $('controlAck').className = 'control-ack pending';
   } else {
     $('controlAck').textContent = connected
       ? `Heartbeat ${Math.round(Number(CONTROL.age_seconds || 0))}s ago${CONTROL.bot_pid ? ` / PID ${CONTROL.bot_pid}` : ''}.`
@@ -1375,6 +1382,10 @@ function recoverControlPending(now = Date.now()) {
     return;
   }
   if (!CONTROL.connected) {
+    if (CONTROL.engine_init_cancellable === true) {
+      CONTROL_OFFLINE_SINCE = null;
+      return;
+    }
     if (CONTROL_OFFLINE_SINCE == null) CONTROL_OFFLINE_SINCE = now;
     if (now - CONTROL_OFFLINE_SINCE >= CONTROL_OFFLINE_GRACE_MS) {
       setControlNotice(`${CONTROL_PENDING.action} tracking stopped because the native engine went offline before a final outcome.`, 'error');
@@ -1469,7 +1480,7 @@ function refreshInstanceControl() {
 async function sendControl(action) {
   if (!BOOT_READY) return;
   const previousPending = CONTROL_PENDING;
-  const replacingStart = action === 'stop' && previousPending?.action === 'start' && !!previousPending.request_id;
+  const replacingStart = action === 'stop' && ['start', 'check-engine'].includes(previousPending?.action) && !!previousPending.request_id;
   if (CONTROL_PENDING && !replacingStart) return;
   if (action === 'start' && (allSettings().some(isUnsaved) || !PLAN_WRITTEN || clientProblems(SAVED).length)) {
     setControlNotice('Apply the visible plan before Start. No unsaved value was sent to the engine.', 'warning');
@@ -1483,7 +1494,10 @@ async function sendControl(action) {
     const response = await fetch('/api/control/command', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action }),
+      body: JSON.stringify({
+        action,
+        ...(replacingStart ? { expected_start_request_id: previousPending.request_id } : {}),
+      }),
     });
     const payload = await response.json();
     if (!response.ok || !payload.ok) {
@@ -1505,6 +1519,7 @@ async function sendControl(action) {
 }
 
 $('controlStart').onclick = () => sendControl('start');
+$('controlEngineCheck').onclick = () => sendControl('check-engine');
 $('controlPause').onclick = () => sendControl(CONTROL.state === 'paused' ? 'resume' : 'pause');
 $('controlStop').onclick = () => sendControl('stop');
 

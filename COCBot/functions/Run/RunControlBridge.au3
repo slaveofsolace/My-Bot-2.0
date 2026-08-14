@@ -21,6 +21,7 @@ Global $g_sRunControlLastOutcome = ""
 Global $g_sRunControlMessage = "Native engine is starting"
 Global $g_bRunControlStartInProgress = False
 Global $g_bRunControlStopRequested = False
+Global $g_bRunControlEngineCheckRequested = False
 Global $g_sRunControlPendingStartRequestId = ""
 Global $g_sRunControlActiveStartRequestId = ""
 Global $g_hRunControlOwnerMutex = 0
@@ -29,12 +30,17 @@ Func RunControlStopRequested()
 	Return $g_bRunControlStopRequested
 EndFunc   ;==>RunControlStopRequested
 
+Func RunControlEngineCheckRequested()
+	Return $g_bRunControlEngineCheckRequested
+EndFunc   ;==>RunControlEngineCheckRequested
+
 ; The engine-initialization ownership receipt binds a blocked Start to the exact command that
 ; requested it. Expose only the already-validated local request id; no file or loopback parsing is
 ; performed from the synchronous managed-call boundary.
 Func RunControlCurrentCommandId()
 	If Not $g_bRunControlStartInProgress Then Return ""
-	If $g_sRunControlLastCommand <> "start" Or $g_sRunControlLastOutcome <> "accepted" Then Return ""
+	If ($g_sRunControlLastCommand <> "start" And $g_sRunControlLastCommand <> "check-engine") Or _
+			$g_sRunControlLastOutcome <> "accepted" Then Return ""
 	If Not StringRegExp($g_sRunControlActiveStartRequestId, "^[A-Za-z0-9._-]{1,80}$") Then Return ""
 	Return $g_sRunControlActiveStartRequestId
 EndFunc   ;==>RunControlCurrentCommandId
@@ -184,6 +190,7 @@ EndFunc   ;==>_RunControlCommandAgeSeconds
 
 Func RunControlReportStartOutcome($bStarted, $sMessage)
 	$g_bRunControlStartInProgress = False
+	$g_bRunControlEngineCheckRequested = False
 	$g_sRunControlActiveStartRequestId = ""
 	$g_sRunControlPendingStartRequestId = ""
 	If $g_bRunControlStopRequested Then
@@ -197,8 +204,32 @@ Func RunControlReportStartOutcome($bStarted, $sMessage)
 	RunControlWriteStatus(True)
 EndFunc   ;==>RunControlReportStartOutcome
 
+Func RunControlReportEngineCheckOutcome(ByRef $bPassed, ByRef $sMessage)
+	Local $bStopAccepted = $g_bRunControlStopRequested
+	If $bStopAccepted Then
+		$bPassed = False
+		$sMessage = "Managed engine check cancelled; no emulator or game action was attempted"
+	EndIf
+	$g_bRunControlStartInProgress = False
+	$g_bRunControlEngineCheckRequested = False
+	$g_bRunControlStopRequested = False
+	$g_sRunControlActiveStartRequestId = ""
+	$g_sRunControlPendingStartRequestId = ""
+	$g_bRunState = False
+	$g_iBotAction = $eBotNoAction
+	If $bStopAccepted Then
+		If $g_sRunControlLastCommand = "stop" And $g_sRunControlLastOutcome = "accepted" Then $g_sRunControlLastOutcome = "stopped"
+	ElseIf $g_sRunControlLastCommand = "check-engine" And $g_sRunControlLastOutcome = "accepted" Then
+			$g_sRunControlLastOutcome = $bPassed ? "passed" : "failed"
+	EndIf
+	$g_sRunControlMessage = $sMessage
+	RunControlWriteStatus(True)
+	Return $bStopAccepted ? "cancelled" : ($bPassed ? "passed" : "failed")
+EndFunc   ;==>RunControlReportEngineCheckOutcome
+
 Func RunControlReportRunFailure($sMessage)
 	$g_bRunControlStartInProgress = False
+	$g_bRunControlEngineCheckRequested = False
 	$g_sRunControlActiveStartRequestId = ""
 	$g_sRunControlPendingStartRequestId = ""
 	; Preserve an accepted Stop until BotStop publishes its terminal stopped outcome. A bounded
@@ -232,6 +263,7 @@ EndFunc   ;==>RunControlBeginStart
 Func RunControlReportStopComplete()
 	$g_bRunControlStopRequested = False
 	$g_bRunControlStartInProgress = False
+	$g_bRunControlEngineCheckRequested = False
 	$g_sRunControlActiveStartRequestId = ""
 	$g_sRunControlPendingStartRequestId = ""
 	If $g_sRunControlLastCommand = "stop" And $g_sRunControlLastOutcome = "accepted" Then
@@ -264,7 +296,7 @@ Func _RunControlRejectOrphanedCommand()
 			EndIf
 			If $oCommand.Exists("action") Then
 				Local $sCandidateAction = StringLower(StringStripWS(String($oCommand.Item("action")), $STR_STRIPALL))
-				If StringRegExp($sCandidateAction, "^(start|stop|pause|resume)$") Then $sAction = $sCandidateAction
+				If StringRegExp($sCandidateAction, "^(start|stop|pause|resume|check-engine)$") Then $sAction = $sCandidateAction
 			EndIf
 		EndIf
 	EndIf
@@ -354,9 +386,24 @@ Func _RunControlConsumeCommand()
 				Return
 			EndIf
 			$g_bRunControlStopRequested = False
+			$g_bRunControlEngineCheckRequested = False
 			$g_sRunControlPendingStartRequestId = $sRequestId
 			$g_iBotAction = $eBotStart
 			_RunControlAcknowledge($sRequestId, $sAction, "accepted", "Start requested by control center")
+		Case "check-engine"
+			If Not MBRFuncEngineAvailable() Then
+				_RunControlAcknowledge($sRequestId, $sAction, "rejected", MBRFuncEngineError())
+				Return
+			EndIf
+			If $g_bRunState Or $g_iBotAction <> $eBotNoAction Then
+				_RunControlAcknowledge($sRequestId, $sAction, "rejected", "Engine is not idle")
+				Return
+			EndIf
+			$g_bRunControlStopRequested = False
+			$g_bRunControlEngineCheckRequested = True
+			$g_sRunControlPendingStartRequestId = $sRequestId
+			$g_iBotAction = $eBotStart
+			_RunControlAcknowledge($sRequestId, $sAction, "accepted", "Managed engine check requested by control center")
 		Case "stop"
 			$g_sRunControlPendingStartRequestId = ""
 			If Not $g_bRunState And $g_iBotAction <> $eBotStart Then
@@ -434,6 +481,7 @@ Func RunControlShutdown()
 	AdlibUnRegister("RunControlPoll")
 	$g_bRunControlReady = False
 	$g_bRunControlStartInProgress = False
+	$g_bRunControlEngineCheckRequested = False
 	$g_sRunControlActiveStartRequestId = ""
 	$g_sRunControlPendingStartRequestId = ""
 	If $g_hRunControlOwnerMutex = 0 Then Return

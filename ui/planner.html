@@ -13,7 +13,12 @@
 
 <header class="app-header">
   <div class="brand">
-    <span class="brand-mark" aria-hidden="true">2.0</span>
+    <span class="brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 40 44" focusable="false">
+        <path class="brand-shield" d="M20 2 36 8v12c0 10.4-6.4 17.2-16 22C10.4 37.2 4 30.4 4 20V8L20 2Z"/>
+        <path class="brand-fort" d="M11 29V17h4v-5h4v5h3v-5h4v5h4v12H11Zm6 0h6v-7h-6v7Z"/>
+      </svg>
+    </span>
     <div>
       <h1>My Bot 2.0</h1>
       <p>Local operations</p>
@@ -82,6 +87,38 @@
       </div>
       <button id="editPlan" type="button" disabled>Edit plan</button>
     </header>
+
+    <section class="route-overview" aria-labelledby="routeOverviewTitle">
+      <div class="route-copy">
+        <span class="route-kicker">Safe run route</span>
+        <h3 id="routeOverviewTitle">Plan first. Prove every boundary.</h3>
+        <p>Start advances only after the saved plan, managed engine, emulator identity, and village state pass their own checks.</p>
+        <ol class="route-steps">
+          <li><strong>Plan</strong><span>Apply exact work</span></li>
+          <li><strong>Bind</strong><span>Verify engine and instance</span></li>
+          <li><strong>Confirm</strong><span>Observe the village before input</span></li>
+        </ol>
+      </div>
+      <svg class="route-map" viewBox="0 0 520 240" role="img" aria-label="A guarded route from an applied plan through the engine gate to the Home Village">
+        <path class="route-terrain" d="M19 205c61-35 93-14 139-39 39-21 57-65 107-58 53 8 76 78 127 68 35-7 51-42 105-45"/>
+        <path class="route-path" d="M63 178c86 0 92-67 173-67 75 0 92 65 169 65"/>
+        <g class="route-node route-node-plan" transform="translate(39 142)">
+          <path d="M0 12 26 0l26 12v42H0V12Z"/>
+          <path d="M14 54V28h24v26M20 28v-9h12v9"/>
+        </g>
+        <g class="route-node route-node-gate" transform="translate(222 74)">
+          <path d="M0 82V20h14V7h13v13h18V7h13v13h14v62"/>
+          <path d="M24 82V48h24v34M7 34h58"/>
+        </g>
+        <g class="route-node route-node-village" transform="translate(392 129)">
+          <path d="M0 54V18L31 0l31 18v36H0Z"/>
+          <path d="M21 54V31h20v23M9 22h44"/>
+          <path d="M69 54V29l17-10 17 10v25H69Z"/>
+        </g>
+        <circle class="route-marker" cx="151" cy="145" r="7"/>
+        <circle class="route-marker" cx="352" cy="158" r="7"/>
+      </svg>
+    </section>
 
     <div class="run-layout">
       <section class="work-panel" aria-labelledby="savedPlanTitle">
@@ -220,6 +257,8 @@
           <li id="healthEngine" data-state="waiting"><span>Managed engine</span><strong>Waiting</strong></li>
           <li id="healthEmulator" data-state="waiting"><span>Emulator and game</span><strong>Waiting</strong></li>
         </ol>
+        <button id="controlEngineCheck" type="button" disabled>Check managed engine</button>
+        <p class="field-help">Initializes the real managed engine and returns idle before emulator, ADB, or game work.</p>
       </section>
 
       <section class="system-section" aria-labelledby="proofTitle">

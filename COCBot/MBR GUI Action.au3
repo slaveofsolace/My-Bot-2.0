@@ -21,9 +21,47 @@ Func _BotStartReject($sReason)
 	Return False
 EndFunc   ;==>_BotStartReject
 
+Func _BotEngineCheckFinish($bPassed, $sMessage)
+	If $sMessage = "" Then $sMessage = $bPassed ? "Managed engine check passed" : "Managed engine check failed"
+	; Native terminalization is the linearization point. A Stop accepted before it changes the
+	; effective result to cancelled; a Stop after it sees an idle engine and is a truthful no-op.
+	Local $sOutcome = RunControlReportEngineCheckOutcome($bPassed, $sMessage)
+	Switch $sOutcome
+		Case "passed"
+			RunEventLogEngineCheckPassed()
+		Case "cancelled"
+			RunEventLogEngineCheckCancelled($sMessage)
+		Case Else
+			RunEventLogEngineCheckFailed($sMessage)
+	EndSwitch
+	Return $sOutcome = "passed"
+EndFunc   ;==>_BotEngineCheckFinish
+
+; Initialize the real in-process managed engine under launcher supervision, then return idle before
+; plan preparation, authentication, emulator activation, ADB, recognition, or game input. The DLL
+; intentionally remains resident: unloading a mixed-mode CLR image is not a safe readiness test.
+Func _BotCheckManagedEngine()
+	Local $sError = ""
+	RunEventLogEngineCheckStarted()
+	If RunControlStopRequested() Then Return _BotEngineCheckFinish(False, "Managed engine check cancelled before initialization")
+	If Not MBRFuncProbeEngine($sError) Then
+		If $sError = "" Then $sError = "Managed engine static validation failed"
+		Return _BotEngineCheckFinish(False, $sError)
+	EndIf
+	If RunControlStopRequested() Then Return _BotEngineCheckFinish(False, "Managed engine check cancelled before initialization")
+	If Not MBRFuncInitialize(False) Then
+		$sError = MBRFuncEngineError()
+		If $sError = "" Then $sError = "Managed engine initialization failed"
+		Return _BotEngineCheckFinish(False, $sError)
+	EndIf
+	If RunControlStopRequested() Then Return _BotEngineCheckFinish(False, "Managed engine check cancelled after initialization")
+	Return _BotEngineCheckFinish(True, "Managed engine initialized in the real backend; no emulator or game action was attempted")
+EndFunc   ;==>_BotCheckManagedEngine
+
 Func BotStart($bAutostartDelay = 0)
 	FuncEnter(BotStart)
 	RunControlBeginStart()
+	If RunControlEngineCheckRequested() Then Return FuncReturn(_BotCheckManagedEngine())
 
 	Local $sStartError = ""
 	If Not RunExecutionPrepareStart($sStartError) Then

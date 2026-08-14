@@ -26,7 +26,7 @@ AssertTrue(StringInStr($sProbe, "Run(", 1) = 0, "static probe never launches a h
 AssertTrue(StringInStr($sProbe, "DllCall(", 1) = 0, "static probe never invokes a managed export")
 AssertTrue(StringInStr($sProbe, "$g_bMBRFuncEngineSupervisorValid", 1) > 0, "static probe requires launcher supervision")
 
-Local $iInitStart = StringInStr($sParent, "Func MBRFuncInitialize()", 1)
+Local $iInitStart = StringInStr($sParent, "Func MBRFuncInitialize(", 1)
 Local $iInitEnd = StringInStr($sParent, "EndFunc", 1, 1, $iInitStart)
 Local $sInit = StringMid($sParent, $iInitStart, $iInitEnd - $iInitStart)
 Local $aOrdered[13] = [ _

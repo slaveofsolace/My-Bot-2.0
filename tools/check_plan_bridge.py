@@ -663,7 +663,7 @@ def main() -> int:
     if private_open_body.count("DllOpen($g_sLibMyBotPath)") != 1 or mbr_source.count("DllOpen($g_sLibMyBotPath)") != 1:
         errors.append("managed engine loading is not confined to the single private supervised helper")
 
-    mbr_initialize = mbr_source.split("Func MBRFuncInitialize()", 1)
+    mbr_initialize = mbr_source.split("Func MBRFuncInitialize(", 1)
     mbr_initialize_body = mbr_initialize[1].split("EndFunc", 1)[0] if len(mbr_initialize) > 1 else ""
     initialize_marker_offset = mbr_initialize_body.find("MBRFuncValidateEngineMarker(")
     prepared_offset = mbr_initialize_body.find('_MBRFuncPublishEngineReceipt("prepared")')

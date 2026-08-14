@@ -285,6 +285,24 @@ Func RunEventLogRunFailed($sSurfaceId, $sVerificationState, $sReason)
 	Return RunEventLogWrite("session.failed", "error", $sReason, $sSurfaceId, $sVerificationState)
 EndFunc   ;==>RunEventLogRunFailed
 
+Func RunEventLogEngineCheckStarted()
+	Return RunEventLogWrite("engine.check.started", "info", _
+			"Managed engine check started in the real backend; emulator and game actions remain disabled", "", $RUN_VERIFICATION_DIAGNOSTIC)
+EndFunc   ;==>RunEventLogEngineCheckStarted
+
+Func RunEventLogEngineCheckPassed()
+	Return RunEventLogWrite("engine.check.passed", "info", _
+			"Managed engine initialized without emulator or game input", "", $RUN_VERIFICATION_DIAGNOSTIC)
+EndFunc   ;==>RunEventLogEngineCheckPassed
+
+Func RunEventLogEngineCheckCancelled($sReason)
+	Return RunEventLogWrite("engine.check.cancelled", "warning", "Managed engine check cancelled: " & $sReason, "", $RUN_VERIFICATION_DIAGNOSTIC)
+EndFunc   ;==>RunEventLogEngineCheckCancelled
+
+Func RunEventLogEngineCheckFailed($sReason)
+	Return RunEventLogWrite("engine.check.failed", "error", "Managed engine check failed: " & $sReason, "", $RUN_VERIFICATION_DIAGNOSTIC)
+EndFunc   ;==>RunEventLogEngineCheckFailed
+
 Func RunEventLogEngineUnavailable($sReason)
 	Return RunEventLogWrite("error", "error", "Managed engine unavailable: " & $sReason, "", $RUN_VERIFICATION_DIAGNOSTIC)
 EndFunc   ;==>RunEventLogEngineUnavailable
