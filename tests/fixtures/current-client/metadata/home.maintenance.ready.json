@@ -1,0 +1,49 @@
+{
+  "schema_version": 2,
+  "fixture_id": "home.maintenance.ready",
+  "captured_at": "2026-08-14T20:23:43Z",
+  "game_version": "18.400.9",
+  "source_type": "authorized-test-account",
+  "width": 860,
+  "height": 732,
+  "sha256": "88dc4a069205bae2058232678b62a52afc5182c236e463193ff7e9a87f78e264",
+  "raw_sha256": "7043ba49684f6706493c307d899d7986a1ecefbf5fbab5f955a95fc9e3632838",
+  "redacted_sha256": "88dc4a069205bae2058232678b62a52afc5182c236e463193ff7e9a87f78e264",
+  "redacted": true,
+  "redaction_masks": [
+    {
+      "x": 64,
+      "y": 0,
+      "width": 166,
+      "height": 62,
+      "fill_hex": "#000000FF"
+    },
+    {
+      "x": 650,
+      "y": 0,
+      "width": 210,
+      "height": 210,
+      "fill_hex": "#000000FF"
+    },
+    {
+      "x": 390,
+      "y": 305,
+      "width": 150,
+      "height": 36,
+      "fill_hex": "#000000FF"
+    }
+  ],
+  "redaction_pixel_changes": 59659,
+  "privacy_review_method": "decoded-pixel-diff-v1",
+  "redaction_notes": "Opaque masks cover the player label, resource and premium balances, and clan label. Home proof, all three tested collector bubbles, chat and Clan Castle Request entries, and Upgrade affordances remain unmasked.",
+  "assertions": [
+    "The canonical Home Village proof pixel at 378,10 remains unmasked and matches the current-client Home signature.",
+    "Strict gold, elixir, and dark-elixir collector bubbles are visible at the three live-confirmed resource collection points and none intersects a redaction mask.",
+    "The chat entry and Clan Castle Request entry remain visible and unmasked for donation/request route recognition.",
+    "Current-client Upgrade affordances remain visible and unmasked for Home upgrade-entry recognition.",
+    "Decoded-pixel comparison proves that every changed pixel is inside one of the three declared solid privacy masks."
+  ],
+  "reviewed_by": "My Bot 2.0 runtime review",
+  "reviewed_at": "2026-08-14T20:24:52Z",
+  "notes": "Captured before the exact b9b39114 collectors-only pass; raw source remains private and outside the repository. An offline replay of the production color and geometry policy over the committed redacted pixels accepted gold, elixir, and dark-elixir candidates."
+}

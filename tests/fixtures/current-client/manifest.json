@@ -16,36 +16,320 @@
     "verified": "Privacy review and recognition assertions have both been approved."
   },
   "required_fixtures": [
-    {"id":"home.th18.default","status":"missing","purpose":"Town Hall 18 and main-village baseline","capability_ids":["village.town-hall-18"],"image_path":"tests/fixtures/current-client/images/home.th18.default.png","metadata_path":"tests/fixtures/current-client/metadata/home.th18.default.json"},
-    {"id":"home.th18.guardian","status":"missing","purpose":"Guardian and defensive-system recognition","capability_ids":["village.guardians"],"image_path":"tests/fixtures/current-client/images/home.th18.guardian.png","metadata_path":"tests/fixtures/current-client/metadata/home.th18.guardian.json"},
-    {"id":"home.maintenance.ready","status":"missing","purpose":"Main-village collector, donation-request, and upgrade-entry recognition","capability_ids":["village.collectors","village.donations","village.clan-request","village.upgrades-home"],"image_path":"tests/fixtures/current-client/images/home.maintenance.ready.png","metadata_path":"tests/fixtures/current-client/metadata/home.maintenance.ready.json"},
-    {"id":"home.loot-cart","status":"missing","purpose":"Main-village Loot Cart and its exact no-confirmation Collect state","capability_ids":["village.loot-cart"],"image_path":"tests/fixtures/current-client/images/home.loot-cart.png","metadata_path":"tests/fixtures/current-client/metadata/home.loot-cart.json"},
-    {"id":"home.treasury.full","status":"missing","purpose":"Exact Clan Castle entry, full Treasury, contextual confirmation, and close states","capability_ids":["village.treasury"],"image_path":"tests/fixtures/current-client/images/home.treasury.full.png","metadata_path":"tests/fixtures/current-client/metadata/home.treasury.full.json"},
-    {"id":"home.daily-reward","status":"missing","purpose":"Startup Daily Reward window and its single no-gems Claim state","capability_ids":["events.daily-reward"],"image_path":"tests/fixtures/current-client/images/home.daily-reward.png","metadata_path":"tests/fixtures/current-client/metadata/home.daily-reward.json"},
-    {"id":"home.current-client.default","status":"missing","purpose":"Current-client home-state classification and shared screen-state registry baseline","capability_ids":["model.current-game","model.screen-state-registry"],"image_path":"tests/fixtures/current-client/images/home.current-client.default.png","metadata_path":"tests/fixtures/current-client/metadata/home.current-client.default.json"},
-    {"id":"home.laboratory.ready","status":"missing","purpose":"Laboratory research list, research state, and cost confirmation","capability_ids":["village.laboratory"],"image_path":"tests/fixtures/current-client/images/home.laboratory.ready.png","metadata_path":"tests/fixtures/current-client/metadata/home.laboratory.ready.json"},
-    {"id":"army.training.ready","status":"missing","purpose":"Current-client troop, spell, siege, and capacity readiness surfaces","capability_ids":["army.training"],"image_path":"tests/fixtures/current-client/images/army.training.ready.png","metadata_path":"tests/fixtures/current-client/metadata/army.training.ready.json"},
-    {"id":"army.recipes.home","status":"missing","purpose":"Current Army Recipes home surface","capability_ids":["army.recipes"],"image_path":"tests/fixtures/current-client/images/army.recipes.home.png","metadata_path":"tests/fixtures/current-client/metadata/army.recipes.home.json"},
-    {"id":"army.cookbook.tab","status":"missing","purpose":"Cookbook third-tab navigation and state","capability_ids":["army.cookbook"],"image_path":"tests/fixtures/current-client/images/army.cookbook.tab.png","metadata_path":"tests/fixtures/current-client/metadata/army.cookbook.tab.json"},
-    {"id":"defense.crafted.management","status":"missing","purpose":"Crafted Defense management surface","capability_ids":["defense.crafted"],"image_path":"tests/fixtures/current-client/images/defense.crafted.management.png","metadata_path":"tests/fixtures/current-client/metadata/defense.crafted.management.json"},
-    {"id":"battle.regular.entry","status":"missing","purpose":"Regular battle route","capability_ids":["battle.regular-ranked-split"],"image_path":"tests/fixtures/current-client/images/battle.regular.entry.png","metadata_path":"tests/fixtures/current-client/metadata/battle.regular.entry.json"},
-    {"id":"battle.ranked.entry","status":"missing","purpose":"Ranked battle route","capability_ids":["battle.regular-ranked-split"],"image_path":"tests/fixtures/current-client/images/battle.ranked.entry.png","metadata_path":"tests/fixtures/current-client/metadata/battle.ranked.entry.json"},
-    {"id":"battle.revenge.entry","status":"missing","purpose":"Revenge route and Shadow Base entry","capability_ids":["battle.revenge"],"image_path":"tests/fixtures/current-client/images/battle.revenge.entry.png","metadata_path":"tests/fixtures/current-client/metadata/battle.revenge.entry.json"},
-    {"id":"battle.legend.tier","status":"missing","purpose":"Tiered Legend route and limit display","capability_ids":["battle.legend-tiers"],"image_path":"tests/fixtures/current-client/images/battle.legend.tier.png","metadata_path":"tests/fixtures/current-client/metadata/battle.legend.tier.json"},
-    {"id":"heroes.hall.six","status":"missing","purpose":"Six-Hero Hero Hall layout","capability_ids":["heroes.six-slot-layout"],"image_path":"tests/fixtures/current-client/images/heroes.hall.six.png","metadata_path":"tests/fixtures/current-client/metadata/heroes.hall.six.json"},
-    {"id":"heroes.dragon-duke","status":"missing","purpose":"Dragon Duke catalog and status","capability_ids":["heroes.dragon-duke"],"image_path":"tests/fixtures/current-client/images/heroes.dragon-duke.png","metadata_path":"tests/fixtures/current-client/metadata/heroes.dragon-duke.json"},
-    {"id":"heroes.journey.interruption","status":"missing","purpose":"Hero Journey overlay and reward states","capability_ids":["heroes.hero-journey"],"image_path":"tests/fixtures/current-client/images/heroes.journey.interruption.png","metadata_path":"tests/fixtures/current-client/metadata/heroes.journey.interruption.json"},
-    {"id":"chat.global.closed","status":"missing","purpose":"Global Chat closed-state safe region","capability_ids":["chat.global-chat"],"image_path":"tests/fixtures/current-client/images/chat.global.closed.png","metadata_path":"tests/fixtures/current-client/metadata/chat.global.closed.json"},
-    {"id":"chat.global.open","status":"missing","purpose":"Global Chat open-state routing","capability_ids":["chat.global-chat"],"image_path":"tests/fixtures/current-client/images/chat.global.open.png","metadata_path":"tests/fixtures/current-client/metadata/chat.global.open.json"},
-    {"id":"battle.fast-forward","status":"missing","purpose":"Fast-forward control and battle-state timing","capability_ids":["battle.fast-forward"],"image_path":"tests/fixtures/current-client/images/battle.fast-forward.png","metadata_path":"tests/fixtures/current-client/metadata/battle.fast-forward.json"},
-    {"id":"builder.home.extra-builder","status":"missing","purpose":"Current Builder Base builder count","capability_ids":["builder-base.additional-builder"],"image_path":"tests/fixtures/current-client/images/builder.home.extra-builder.png","metadata_path":"tests/fixtures/current-client/metadata/builder.home.extra-builder.json"},
-    {"id":"builder.upgrades.list","status":"missing","purpose":"Current suggested-upgrade list and upgrade-cost recognition","capability_ids":["builder-base.additional-builder","builder-base.upgrades"],"image_path":"tests/fixtures/current-client/images/builder.upgrades.list.png","metadata_path":"tests/fixtures/current-client/metadata/builder.upgrades.list.json"},
-    {"id":"builder.battle.entry","status":"missing","purpose":"Builder Base battle entry, troop bar, and return-home state","capability_ids":["builder-base.battles"],"image_path":"tests/fixtures/current-client/images/builder.battle.entry.png","metadata_path":"tests/fixtures/current-client/metadata/builder.battle.entry.json"},
-    {"id":"home.clan-games.board","status":"missing","purpose":"Clan Games board, challenge state, and safe close region","capability_ids":["events.clan-games"],"image_path":"tests/fixtures/current-client/images/home.clan-games.board.png","metadata_path":"tests/fixtures/current-client/metadata/home.clan-games.board.json"},
-    {"id":"account.switcher.ready","status":"missing","purpose":"Account switcher identity, selection, and home-return states","capability_ids":["orchestration.multi-account"],"image_path":"tests/fixtures/current-client/images/account.switcher.ready.png","metadata_path":"tests/fixtures/current-client/metadata/account.switcher.ready.json"},
-    {"id":"clan-capital.upgrades.ready","status":"missing","purpose":"Clan Capital upgrade list, cost, and confirmation state","capability_ids":["clan-capital.upgrades"],"image_path":"tests/fixtures/current-client/images/clan-capital.upgrades.ready.png","metadata_path":"tests/fixtures/current-client/metadata/clan-capital.upgrades.ready.json"},
-    {"id":"shop.chain-offers","status":"missing","purpose":"Chain Offer shop surface and safe close region","capability_ids":["shop.chain-offers"],"image_path":"tests/fixtures/current-client/images/shop.chain-offers.png","metadata_path":"tests/fixtures/current-client/metadata/shop.chain-offers.json"},
-    {"id":"emulator.ldplayer9.window","status":"missing","purpose":"LDPlayer 9 window and control discovery","capability_ids":["emulator.ldplayer9"],"image_path":"tests/fixtures/current-client/images/emulator.ldplayer9.window.png","metadata_path":"tests/fixtures/current-client/metadata/emulator.ldplayer9.window.json"},
-    {"id":"emulator.mumu.window","status":"missing","purpose":"MuMu window and control discovery","capability_ids":["emulator.mumu"],"image_path":"tests/fixtures/current-client/images/emulator.mumu.window.png","metadata_path":"tests/fixtures/current-client/metadata/emulator.mumu.window.json"}
+    {
+      "id": "home.th18.default",
+      "status": "missing",
+      "purpose": "Town Hall 18 and main-village baseline",
+      "capability_ids": [
+        "village.town-hall-18"
+      ],
+      "image_path": "tests/fixtures/current-client/images/home.th18.default.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/home.th18.default.json"
+    },
+    {
+      "id": "home.th18.guardian",
+      "status": "missing",
+      "purpose": "Guardian and defensive-system recognition",
+      "capability_ids": [
+        "village.guardians"
+      ],
+      "image_path": "tests/fixtures/current-client/images/home.th18.guardian.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/home.th18.guardian.json"
+    },
+    {
+      "id": "home.maintenance.ready",
+      "status": "verified",
+      "purpose": "Main-village collector, donation-request, and upgrade-entry recognition",
+      "capability_ids": [
+        "village.collectors",
+        "village.donations",
+        "village.clan-request",
+        "village.upgrades-home"
+      ],
+      "image_path": "tests/fixtures/current-client/images/home.maintenance.ready.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/home.maintenance.ready.json"
+    },
+    {
+      "id": "home.loot-cart",
+      "status": "missing",
+      "purpose": "Main-village Loot Cart and its exact no-confirmation Collect state",
+      "capability_ids": [
+        "village.loot-cart"
+      ],
+      "image_path": "tests/fixtures/current-client/images/home.loot-cart.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/home.loot-cart.json"
+    },
+    {
+      "id": "home.treasury.full",
+      "status": "missing",
+      "purpose": "Exact Clan Castle entry, full Treasury, contextual confirmation, and close states",
+      "capability_ids": [
+        "village.treasury"
+      ],
+      "image_path": "tests/fixtures/current-client/images/home.treasury.full.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/home.treasury.full.json"
+    },
+    {
+      "id": "home.daily-reward",
+      "status": "missing",
+      "purpose": "Startup Daily Reward window and its single no-gems Claim state",
+      "capability_ids": [
+        "events.daily-reward"
+      ],
+      "image_path": "tests/fixtures/current-client/images/home.daily-reward.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/home.daily-reward.json"
+    },
+    {
+      "id": "home.current-client.default",
+      "status": "missing",
+      "purpose": "Current-client home-state classification and shared screen-state registry baseline",
+      "capability_ids": [
+        "model.current-game",
+        "model.screen-state-registry"
+      ],
+      "image_path": "tests/fixtures/current-client/images/home.current-client.default.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/home.current-client.default.json"
+    },
+    {
+      "id": "home.laboratory.ready",
+      "status": "missing",
+      "purpose": "Laboratory research list, research state, and cost confirmation",
+      "capability_ids": [
+        "village.laboratory"
+      ],
+      "image_path": "tests/fixtures/current-client/images/home.laboratory.ready.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/home.laboratory.ready.json"
+    },
+    {
+      "id": "army.training.ready",
+      "status": "missing",
+      "purpose": "Current-client troop, spell, siege, and capacity readiness surfaces",
+      "capability_ids": [
+        "army.training"
+      ],
+      "image_path": "tests/fixtures/current-client/images/army.training.ready.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/army.training.ready.json"
+    },
+    {
+      "id": "army.recipes.home",
+      "status": "missing",
+      "purpose": "Current Army Recipes home surface",
+      "capability_ids": [
+        "army.recipes"
+      ],
+      "image_path": "tests/fixtures/current-client/images/army.recipes.home.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/army.recipes.home.json"
+    },
+    {
+      "id": "army.cookbook.tab",
+      "status": "missing",
+      "purpose": "Cookbook third-tab navigation and state",
+      "capability_ids": [
+        "army.cookbook"
+      ],
+      "image_path": "tests/fixtures/current-client/images/army.cookbook.tab.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/army.cookbook.tab.json"
+    },
+    {
+      "id": "defense.crafted.management",
+      "status": "missing",
+      "purpose": "Crafted Defense management surface",
+      "capability_ids": [
+        "defense.crafted"
+      ],
+      "image_path": "tests/fixtures/current-client/images/defense.crafted.management.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/defense.crafted.management.json"
+    },
+    {
+      "id": "battle.regular.entry",
+      "status": "missing",
+      "purpose": "Regular battle route",
+      "capability_ids": [
+        "battle.regular-ranked-split"
+      ],
+      "image_path": "tests/fixtures/current-client/images/battle.regular.entry.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/battle.regular.entry.json"
+    },
+    {
+      "id": "battle.ranked.entry",
+      "status": "missing",
+      "purpose": "Ranked battle route",
+      "capability_ids": [
+        "battle.regular-ranked-split"
+      ],
+      "image_path": "tests/fixtures/current-client/images/battle.ranked.entry.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/battle.ranked.entry.json"
+    },
+    {
+      "id": "battle.revenge.entry",
+      "status": "missing",
+      "purpose": "Revenge route and Shadow Base entry",
+      "capability_ids": [
+        "battle.revenge"
+      ],
+      "image_path": "tests/fixtures/current-client/images/battle.revenge.entry.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/battle.revenge.entry.json"
+    },
+    {
+      "id": "battle.legend.tier",
+      "status": "missing",
+      "purpose": "Tiered Legend route and limit display",
+      "capability_ids": [
+        "battle.legend-tiers"
+      ],
+      "image_path": "tests/fixtures/current-client/images/battle.legend.tier.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/battle.legend.tier.json"
+    },
+    {
+      "id": "heroes.hall.six",
+      "status": "missing",
+      "purpose": "Six-Hero Hero Hall layout",
+      "capability_ids": [
+        "heroes.six-slot-layout"
+      ],
+      "image_path": "tests/fixtures/current-client/images/heroes.hall.six.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/heroes.hall.six.json"
+    },
+    {
+      "id": "heroes.dragon-duke",
+      "status": "missing",
+      "purpose": "Dragon Duke catalog and status",
+      "capability_ids": [
+        "heroes.dragon-duke"
+      ],
+      "image_path": "tests/fixtures/current-client/images/heroes.dragon-duke.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/heroes.dragon-duke.json"
+    },
+    {
+      "id": "heroes.journey.interruption",
+      "status": "missing",
+      "purpose": "Hero Journey overlay and reward states",
+      "capability_ids": [
+        "heroes.hero-journey"
+      ],
+      "image_path": "tests/fixtures/current-client/images/heroes.journey.interruption.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/heroes.journey.interruption.json"
+    },
+    {
+      "id": "chat.global.closed",
+      "status": "missing",
+      "purpose": "Global Chat closed-state safe region",
+      "capability_ids": [
+        "chat.global-chat"
+      ],
+      "image_path": "tests/fixtures/current-client/images/chat.global.closed.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/chat.global.closed.json"
+    },
+    {
+      "id": "chat.global.open",
+      "status": "missing",
+      "purpose": "Global Chat open-state routing",
+      "capability_ids": [
+        "chat.global-chat"
+      ],
+      "image_path": "tests/fixtures/current-client/images/chat.global.open.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/chat.global.open.json"
+    },
+    {
+      "id": "battle.fast-forward",
+      "status": "missing",
+      "purpose": "Fast-forward control and battle-state timing",
+      "capability_ids": [
+        "battle.fast-forward"
+      ],
+      "image_path": "tests/fixtures/current-client/images/battle.fast-forward.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/battle.fast-forward.json"
+    },
+    {
+      "id": "builder.home.extra-builder",
+      "status": "missing",
+      "purpose": "Current Builder Base builder count",
+      "capability_ids": [
+        "builder-base.additional-builder"
+      ],
+      "image_path": "tests/fixtures/current-client/images/builder.home.extra-builder.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/builder.home.extra-builder.json"
+    },
+    {
+      "id": "builder.upgrades.list",
+      "status": "missing",
+      "purpose": "Current suggested-upgrade list and upgrade-cost recognition",
+      "capability_ids": [
+        "builder-base.additional-builder",
+        "builder-base.upgrades"
+      ],
+      "image_path": "tests/fixtures/current-client/images/builder.upgrades.list.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/builder.upgrades.list.json"
+    },
+    {
+      "id": "builder.battle.entry",
+      "status": "missing",
+      "purpose": "Builder Base battle entry, troop bar, and return-home state",
+      "capability_ids": [
+        "builder-base.battles"
+      ],
+      "image_path": "tests/fixtures/current-client/images/builder.battle.entry.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/builder.battle.entry.json"
+    },
+    {
+      "id": "home.clan-games.board",
+      "status": "missing",
+      "purpose": "Clan Games board, challenge state, and safe close region",
+      "capability_ids": [
+        "events.clan-games"
+      ],
+      "image_path": "tests/fixtures/current-client/images/home.clan-games.board.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/home.clan-games.board.json"
+    },
+    {
+      "id": "account.switcher.ready",
+      "status": "missing",
+      "purpose": "Account switcher identity, selection, and home-return states",
+      "capability_ids": [
+        "orchestration.multi-account"
+      ],
+      "image_path": "tests/fixtures/current-client/images/account.switcher.ready.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/account.switcher.ready.json"
+    },
+    {
+      "id": "clan-capital.upgrades.ready",
+      "status": "missing",
+      "purpose": "Clan Capital upgrade list, cost, and confirmation state",
+      "capability_ids": [
+        "clan-capital.upgrades"
+      ],
+      "image_path": "tests/fixtures/current-client/images/clan-capital.upgrades.ready.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/clan-capital.upgrades.ready.json"
+    },
+    {
+      "id": "shop.chain-offers",
+      "status": "missing",
+      "purpose": "Chain Offer shop surface and safe close region",
+      "capability_ids": [
+        "shop.chain-offers"
+      ],
+      "image_path": "tests/fixtures/current-client/images/shop.chain-offers.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/shop.chain-offers.json"
+    },
+    {
+      "id": "emulator.ldplayer9.window",
+      "status": "missing",
+      "purpose": "LDPlayer 9 window and control discovery",
+      "capability_ids": [
+        "emulator.ldplayer9"
+      ],
+      "image_path": "tests/fixtures/current-client/images/emulator.ldplayer9.window.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/emulator.ldplayer9.window.json"
+    },
+    {
+      "id": "emulator.mumu.window",
+      "status": "missing",
+      "purpose": "MuMu window and control discovery",
+      "capability_ids": [
+        "emulator.mumu"
+      ],
+      "image_path": "tests/fixtures/current-client/images/emulator.mumu.window.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/emulator.mumu.window.json"
+    }
   ]
 }
