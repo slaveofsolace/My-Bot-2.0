@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -14,7 +15,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPOSITORY_ROOT / "tools"))
 
 from evaluate_support_readiness import evaluate_readiness  # noqa: E402
-from validate_runtime_evidence import validate_registry  # noqa: E402
+from validate_runtime_evidence import validate_engine_initialization_artifact, validate_registry  # noqa: E402
 
 
 NOW = datetime(2026, 8, 9, 23, 59, tzinfo=timezone.utc)
@@ -313,6 +314,63 @@ class RuntimeEvidenceTest(unittest.TestCase):
         report = evaluate_readiness(root=self.root, now=NOW)
         self.assertEqual(0, report["ready"])
         self.assertIn("required fixture mapping missing", report["results"][0]["blockers"])
+
+
+class EngineInitializationArtifactContractTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.record = json.loads(
+            (REPOSITORY_ROOT / "tests/evidence/runtime/orchestration.engine-initialization.pie64.20260814.json")
+            .read_text(encoding="utf-8")
+        )
+        cls.artifact = json.loads(
+            (REPOSITORY_ROOT / "tests/evidence/runtime/artifacts/check-engine.pie64.20260814.json")
+            .read_text(encoding="utf-8")
+        )
+
+    def validate(self, artifact: dict[str, object]) -> str:
+        return "\n".join(validate_engine_initialization_artifact(self.record, artifact))
+
+    def test_exact_current_engine_artifact_semantics_are_valid(self) -> None:
+        self.assertEqual("", self.validate(deepcopy(self.artifact)))
+
+    def test_engine_artifact_id_must_be_dated_and_match_its_path(self) -> None:
+        artifact = deepcopy(self.artifact)
+        artifact["artifact_id"] = "check-engine.latest"
+        self.assertIn("artifact_id is not canonical", self.validate(artifact))
+        self.assertIn(
+            "artifact_id does not match its repository path",
+            "\n".join(
+                validate_engine_initialization_artifact(
+                    self.record,
+                    self.artifact,
+                    expected_artifact_id="check-engine.pie64.20990101",
+                )
+            ),
+        )
+
+    def test_attached_or_running_final_state_is_rejected(self) -> None:
+        artifact = deepcopy(self.artifact)
+        artifact["final_state"]["run_state"] = True
+        artifact["final_state"]["adb_ready"] = True
+        errors = self.validate(artifact)
+        self.assertIn("final state was not idle, passed, and detached", errors)
+
+    def test_missing_terminal_phase_or_exact_event_is_rejected(self) -> None:
+        artifact = deepcopy(self.artifact)
+        artifact["supervision"]["sampled_receipt_phases"].pop()
+        artifact["events"].pop()
+        errors = self.validate(artifact)
+        self.assertIn("must span prepared through initialized", errors)
+        self.assertIn("diagnostic event delta is not exact", errors)
+
+    def test_configuration_or_manifest_drift_is_rejected(self) -> None:
+        artifact = deepcopy(self.artifact)
+        artifact["reviewed_install"]["manifest_hash_mismatches_after_check"] = 1
+        artifact["preservation"]["installed_english_after_sha256"] = "0" * 64
+        errors = self.validate(artifact)
+        self.assertIn("manifest hash mismatches", errors)
+        self.assertIn("did not preserve installed english", errors)
 
 
 if __name__ == "__main__":

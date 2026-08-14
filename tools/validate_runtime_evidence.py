@@ -76,6 +76,20 @@ PROHIBITED_KEYS = {
     "chat_text",
 }
 
+ENGINE_INITIALIZATION_CAPABILITY = "orchestration.engine-initialization"
+ENGINE_INITIALIZATION_ARTIFACT_PATTERN = re.compile(r"^check-engine\.pie64\.\d{8}$")
+ENGINE_INITIALIZATION_PHASES = {
+    1: "prepared",
+    2: "pool-entered",
+    3: "pool-returned",
+    4: "max-entered",
+    5: "max-returned",
+    6: "android-entered",
+    7: "android-returned",
+    8: "gui-entered",
+    9: "initialized",
+}
+
 
 def load(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8-sig"))
@@ -298,6 +312,215 @@ def _verify_repository_artifact(root: Path, value: Any, prefix: str) -> list[str
     if _sha256(committed) != digest:
         errors.append(f"{prefix}.sha256 does not match {relative}")
     return errors
+
+
+def validate_engine_initialization_artifact(
+    record: Any,
+    artifact: Any,
+    *,
+    expected_artifact_id: str | None = None,
+) -> list[str]:
+    """Validate the semantic claims behind the no-input engine-init receipt.
+
+    Generic evidence validation proves Git, hash, binary, reviewer, and policy
+    integrity.  This capability also needs a mechanical check that the retained
+    artifact actually says the backend stayed idle and detached, the supervisor
+    finalized sequence 9, and the two diagnostic events are exact.
+    """
+
+    errors: list[str] = []
+    if not isinstance(record, dict) or not isinstance(artifact, dict):
+        return ["engine initialization artifact and record must be objects"]
+    if artifact.get("schema_version") != 1:
+        errors.append("engine initialization artifact schema_version must be 1")
+    artifact_id = artifact.get("artifact_id")
+    if not isinstance(artifact_id, str) or not ENGINE_INITIALIZATION_ARTIFACT_PATTERN.fullmatch(artifact_id):
+        errors.append("engine initialization artifact_id is not canonical")
+    elif expected_artifact_id is not None and artifact_id != expected_artifact_id:
+        errors.append("engine initialization artifact_id does not match its repository path")
+    if artifact.get("redacted") is not True:
+        errors.append("engine initialization artifact must be redacted")
+    if artifact.get("commit_sha") != record.get("commit_sha"):
+        errors.append("engine initialization artifact commit does not match its record")
+    if artifact.get("binary") != record.get("binary"):
+        errors.append("engine initialization artifact binary does not match its record")
+    if artifact.get("environment") != record.get("environment"):
+        errors.append("engine initialization artifact environment does not match its record")
+
+    install = artifact.get("reviewed_install")
+    if not isinstance(install, dict):
+        errors.append("engine initialization artifact reviewed_install must be an object")
+    else:
+        if install.get("source_commit") != record.get("commit_sha"):
+            errors.append("reviewed install source commit does not match the evidence commit")
+        if not isinstance(install.get("manifest_records"), int) or install.get("manifest_records", 0) < 1:
+            errors.append("reviewed install must retain a positive manifest record count")
+        if install.get("manifest_missing_after_check") != 0:
+            errors.append("reviewed install has missing manifest records after the check")
+        if install.get("manifest_hash_mismatches_after_check") != 0:
+            errors.append("reviewed install has manifest hash mismatches after the check")
+        for field in ("release_manifest_sha256", "package_sha256"):
+            if not isinstance(install.get(field), str) or not SHA256_PATTERN.fullmatch(install[field]):
+                errors.append(f"reviewed install {field} must be a SHA-256 digest")
+
+    command = artifact.get("command")
+    if not isinstance(command, dict) or any(
+        (
+            command.get("action") != "check-engine",
+            command.get("http_status") != 202,
+            command.get("accepted") is not True,
+            command.get("native_command_queued") is not True,
+            command.get("request_identifier_retained") is not False,
+        )
+    ):
+        errors.append("engine initialization command receipt is not an accepted redacted check-engine command")
+
+    initial = artifact.get("initial_state")
+    required_initial = {
+        "state": "idle",
+        "run_state": False,
+        "plan_active": False,
+        "engine_available": True,
+        "engine_probe_state": "not-run",
+        "emulator_attached": False,
+        "window_attached": False,
+        "adb_ready": False,
+        "game_ready": False,
+        "plan_exists": False,
+    }
+    if not isinstance(initial, dict) or any(initial.get(key) != value for key, value in required_initial.items()):
+        errors.append("engine initialization baseline was not idle, detached, and plan-free")
+
+    supervision = artifact.get("supervision")
+    if not isinstance(supervision, dict):
+        errors.append("engine initialization supervision receipt must be an object")
+    else:
+        required_supervision = {
+            "lineage_verified": True,
+            "same_backend_identity_before_and_after": True,
+            "terminal_sequence": 9,
+            "terminal_phase": "initialized",
+            "finalization_outcome": "initialized",
+            "receipt_removed": True,
+            "cancel_removed": True,
+            "command_removed": True,
+        }
+        if any(supervision.get(key) != value for key, value in required_supervision.items()):
+            errors.append("engine initialization supervisor did not finalize the exact backend at initialized sequence 9")
+        samples = supervision.get("sampled_receipt_phases")
+        if not isinstance(samples, list) or not samples:
+            errors.append("engine initialization receipt samples are missing")
+        else:
+            observed: list[tuple[int, str]] = []
+            for sample in samples:
+                if not isinstance(sample, dict) or set(sample) != {"sequence", "phase"}:
+                    errors.append("engine initialization receipt sample fields are invalid")
+                    continue
+                sequence = sample.get("sequence")
+                phase = sample.get("phase")
+                if not isinstance(sequence, int) or ENGINE_INITIALIZATION_PHASES.get(sequence) != phase:
+                    errors.append("engine initialization receipt sample has an invalid phase/sequence pair")
+                    continue
+                observed.append((sequence, phase))
+            sequences = [sequence for sequence, _ in observed]
+            if sequences != sorted(set(sequences)):
+                errors.append("engine initialization receipt samples are not strictly monotonic")
+            if not observed or observed[0] != (1, "prepared") or observed[-1] != (9, "initialized"):
+                errors.append("engine initialization receipt samples must span prepared through initialized")
+
+    final = artifact.get("final_state")
+    required_final = {
+        "state": "idle",
+        "run_state": False,
+        "plan_active": False,
+        "session_cleared": True,
+        "engine_available": True,
+        "engine_probe_state": "passed",
+        "last_command": "check-engine",
+        "last_outcome": "passed",
+        "emulator_attached": False,
+        "window_attached": False,
+        "adb_ready": False,
+        "game_ready": False,
+    }
+    if not isinstance(final, dict) or any(final.get(key) != value for key, value in required_final.items()):
+        errors.append("engine initialization final state was not idle, passed, and detached")
+
+    events = artifact.get("events")
+    expected_events = [(1, "engine.check.started"), (2, "engine.check.passed")]
+    actual_events = []
+    if isinstance(events, list):
+        actual_events = [
+            (item.get("sequence"), item.get("type"))
+            for item in events
+            if isinstance(item, dict)
+        ]
+    if not isinstance(events, list) or len(events) != 2 or actual_events != expected_events:
+        errors.append("engine initialization diagnostic event delta is not exact")
+
+    preservation = artifact.get("preservation")
+    if not isinstance(preservation, dict):
+        errors.append("engine initialization preservation receipt must be an object")
+    else:
+        for prefix in ("external_profile", "installed_english"):
+            before = preservation.get(f"{prefix}_before_sha256")
+            after = preservation.get(f"{prefix}_after_sha256")
+            if not isinstance(before, str) or not SHA256_PATTERN.fullmatch(before) or before != after:
+                errors.append(f"engine initialization did not preserve {prefix.replace('_', ' ')}")
+        if preservation.get("plan_absent_before_and_after") is not True:
+            errors.append("engine initialization did not preserve the absent plan state")
+
+    assertions = artifact.get("assertions")
+    required_true = {
+        "check_engine_accepted",
+        "backend_identity_preserved",
+        "engine_initialized",
+        "idle_restored",
+        "supervisor_finalized",
+        "diagnostic_events_exact",
+        "game_input_absent",
+        "configuration_preserved",
+    }
+    if not isinstance(assertions, dict) or any(assertions.get(key) is not True for key in required_true):
+        errors.append("engine initialization artifact assertions are incomplete")
+    elif assertions.get("new_adb_processes") != 0:
+        errors.append("engine initialization artifact observed a new ADB process")
+    privacy = artifact.get("privacy")
+    if not isinstance(privacy, str) or len(privacy.strip()) < 20:
+        errors.append("engine initialization artifact privacy statement is missing")
+    prohibited = walk_keys(artifact)
+    if prohibited:
+        errors.append("engine initialization artifact contains prohibited keys: " + ", ".join(prohibited))
+    return errors
+
+
+def _verify_engine_initialization_artifact(root: Path, record: dict[str, Any], artifact_refs: list[Any]) -> list[str]:
+    candidates = [
+        item for item in artifact_refs
+        if isinstance(item, dict)
+        and re.search(
+            r"(?:^|/)check-engine\.pie64\.\d{8}\.json$",
+            str(item.get("path", "")).replace("\\", "/"),
+        )
+    ]
+    if len(candidates) != 1:
+        return ["engine initialization evidence must reference its one canonical semantic artifact"]
+    relative, _ = _safe_relative_path(root, candidates[0].get("path"))
+    if relative is None:
+        return ["engine initialization artifact path must stay inside the repository"]
+    blob = _git_blob(root, "HEAD", relative)
+    if blob is None:
+        return ["engine initialization artifact is not committed at HEAD"]
+    try:
+        artifact = json.loads(blob.decode("utf-8-sig"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return ["engine initialization artifact is not valid UTF-8 JSON"]
+    expected_artifact_id = PurePosixPath(relative).stem
+    return validate_engine_initialization_artifact(
+        record,
+        artifact,
+        expected_artifact_id=expected_artifact_id,
+    )
 
 
 def _verify_binary_at_commit(root: Path, value: Any, commit_sha: str) -> list[str]:
@@ -541,6 +764,8 @@ def validate_registry(
                     record_errors.append(f"artifact_refs[{index}] is a legacy reference without verifiable integrity")
             else:
                 record_errors.extend(_verify_repository_artifact(root, artifact, f"artifact_refs[{index}]"))
+        if capability_id == ENGINE_INITIALIZATION_CAPABILITY:
+            record_errors.extend(_verify_engine_initialization_artifact(root, record, artifact_refs))
 
         if result == "passed":
             skew = timedelta(minutes=clock_skew_minutes)

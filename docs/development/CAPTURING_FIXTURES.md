@@ -1,6 +1,6 @@
 # Capturing current-client fixtures
 
-Recognition is blocked on 21 current-game fixtures. Until real captures, recognition assertions, and controlled runtime checks exist, the related capabilities remain unverified.
+Recognition is blocked on 28 current-client fixtures. Until real captures, recognition assertions, and controlled runtime checks exist, the related capabilities remain unverified.
 
 `tools/capture_fixture.py` validates dimensions, privacy-preserving pixel changes, paths, hashes, and metadata. It never edits an image and never copies the raw account capture into the repository.
 
