@@ -1,0 +1,42 @@
+{
+  "schema_version": 2,
+  "fixture_id": "clan.request.available",
+  "captured_at": "2026-08-14T23:47:37Z",
+  "game_version": "18.400.9",
+  "source_type": "authorized-test-account",
+  "width": 860,
+  "height": 732,
+  "sha256": "04615dad2e42ed1171dd789f5a8f9d711860873783f685f68c66309d6486c1c0",
+  "raw_sha256": "7b8cbdffa5c5facaa04dd50579d1ecc15fd59615eb381e775bff0782295323d5",
+  "redacted_sha256": "04615dad2e42ed1171dd789f5a8f9d711860873783f685f68c66309d6486c1c0",
+  "redacted": true,
+  "redaction_masks": [
+    {
+      "x": 64,
+      "y": 0,
+      "width": 166,
+      "height": 62,
+      "fill_hex": "#000000FF"
+    },
+    {
+      "x": 650,
+      "y": 0,
+      "width": 210,
+      "height": 210,
+      "fill_hex": "#000000FF"
+    }
+  ],
+  "redaction_pixel_changes": 53961,
+  "privacy_review_method": "decoded-pixel-diff-v1",
+  "redaction_notes": "Opaque masks cover the player label and all resource and premium-currency balances. Request title, capacities, selected reinforcement cards, message, Cancel, and Send remain unmasked.",
+  "assertions": [
+    "The Request Reinforcements dialog is visibly open from Army Overview.",
+    "Troop, spell, and siege request capacities remain visible.",
+    "The bounded Cancel and Send controls remain visible and distinguishable.",
+    "The supervised capture was cancelled without pressing Send and the gem balance remained unchanged.",
+    "Decoded-pixel comparison proves that every changed pixel is inside one of the two declared solid privacy masks."
+  ],
+  "reviewed_by": "My Bot 2.0 runtime review",
+  "reviewed_at": "2026-08-14T23:47:37Z",
+  "notes": "Captured during the authorized supervised no-gem session. The private raw frame remained in memory and was not written to the repository. Status remains redacted until production template recognition is replayed against the committed derivative."
+}
