@@ -23,8 +23,7 @@ Opt("GUIOnEventMode", 1)
 Global Const $g_sLauncherTitle = "My Bot 2.0"
 Global Const $g_sControlCenterUrl = "http://127.0.0.1:8765/"
 Global Const $g_sControllerPath = @ScriptDir & "\MyBot.run.MiniGui.exe"
-Global Const $g_sControllerSha256 = "ae26c098ceb3c74e3d7f567834d9135257e094172e32140f4a5b615eaf90ceda"
-Global Const $g_iControllerBytes = 1634304
+Global Const $g_sBinaryProvenancePath = @ScriptDir & "\config\binary-provenance.json"
 Global Const $g_sHostPath = @ScriptDir & "\MyBot.run.exe"
 Global Const $g_sHostConfigPath = $g_sHostPath & ".config"
 Global Const $g_sEngineProbeConfigPath = @ScriptDir & "\MyBot.run.EngineProbe.exe.config"
@@ -931,8 +930,8 @@ EndFunc   ;==>_RecoveryLog
 
 Func _ValidateInstallation()
 	If Not FileExists($g_sControllerPath) Then Return _InstallError("MyBot.run.MiniGui.exe is missing.", $g_sControllerPath)
-	If FileGetSize($g_sControllerPath) <> $g_iControllerBytes Or _FileSha256($g_sControllerPath) <> $g_sControllerSha256 Then
-		Return _InstallError("The native controller is not the supported MyBot.run v8.2.0 build.", $g_sControllerPath)
+	If Not _ControllerProvenanceMatches() Then
+		Return _InstallError("The native controller does not match its reviewed local-build provenance.", $g_sBinaryProvenancePath)
 	EndIf
 	If Not FileExists($g_sHostPath) Then Return _InstallError("MyBot.run.exe is missing.", $g_sHostPath)
 	If Not FileExists($g_sHostConfigPath) Then Return _InstallError("MyBot.run.exe.config is missing.", $g_sHostConfigPath)
@@ -946,6 +945,23 @@ Func _ValidateInstallation()
 	EndIf
 	Return True
 EndFunc   ;==>_ValidateInstallation
+
+Func _ControllerProvenanceMatches()
+	If Not FileExists($g_sBinaryProvenancePath) Then Return False
+	Local $sProvenance = FileRead($g_sBinaryProvenancePath)
+	If @error Or $sProvenance = "" Then Return False
+
+	; The release gate writes this deterministic object shape. Requiring one exact match rejects
+	; missing, duplicate, inherited, malformed, or differently sourced controller records.
+	Local $sPattern = '(?s)\{\s*"path"\s*:\s*"MyBot\.run\.MiniGui\.exe"\s*,\s*"sha256"\s*:\s*"([0-9a-f]{64})"\s*,\s*"bytes"\s*:\s*([1-9][0-9]*)\s*,\s*"provenance"\s*:\s*\{\s*"kind"\s*:\s*"local-build"\s*,\s*"source"\s*:\s*"MyBot\.run\.MiniGui\.au3"'
+	Local $aIdentity = StringRegExp($sProvenance, $sPattern, 3)
+	If @error Or UBound($aIdentity) <> 2 Then Return False
+
+	Local $sExpectedSha256 = StringLower($aIdentity[0])
+	Local $iExpectedBytes = Number($aIdentity[1])
+	If $iExpectedBytes < 1 Then Return False
+	Return FileGetSize($g_sControllerPath) = $iExpectedBytes And _FileSha256($g_sControllerPath) = $sExpectedSha256
+EndFunc   ;==>_ControllerProvenanceMatches
 
 Func _InstalledProfilesJunctionMatches()
 	Local $sLink = @ScriptDir & "\Profiles"

@@ -814,13 +814,16 @@ def main() -> int:
         launcher_source = LAUNCHER.read_text(encoding="utf-8-sig")
         launcher_entry = launcher_source.split("Func _DockKeeperMutexName()", 1)[0]
         for required in (
-            'Global Const $g_sControllerSha256 = "ae26c098ceb3c74e3d7f567834d9135257e094172e32140f4a5b615eaf90ceda"',
-            'Global Const $g_iControllerBytes = 1634304',
+            'Global Const $g_sBinaryProvenancePath = @ScriptDir & "\\config\\binary-provenance.json"',
+            'Func _ControllerProvenanceMatches()',
+            '"kind"\\s*:\\s*"local-build"',
+            '"source"\\s*:\\s*"MyBot\\.run\\.MiniGui\\.au3"',
+            'UBound($aIdentity) <> 2',
             'Global Const $g_sControllerTitlePattern = "^My Bot Mini v8\\.2\\.0(?: \\(.+\\))?$"',
             'Global Const $g_iDockGap = 8',
         ):
             if required not in launcher_source:
-                errors.append(f"launcher provenance/docking identity is no longer pinned via {required}")
+                errors.append(f"launcher provenance/docking identity is no longer fail-closed via {required}")
 
         acquire = launcher_source.split("Func _AcquireDockKeeper()", 1)
         acquire_body = acquire[1].split("EndFunc", 1)[0] if len(acquire) > 1 else ""

@@ -4,12 +4,12 @@
 * Changed Smart Hero abilities to a role-specific elapsed-plus-destruction phase quorum with a later deadline fallback; the current TH17 evidence proves the commands and spell decrements, not strategy quality or every layout.
 * Recorded a bounded TH17 Smart mechanics run for the current policy: 240 verified red-line points, deterministic BL-side selection, 23-to-zero troop deployment, four selected Hero phase commands, Rage three-to-zero, one proven Freeze decrement, two stars/55 percent, and automatic one-battle stop. This is not a strategy-quality or all-Town-Hall claim, and no human visual receipt is asserted.
 * Added a live Native log modal and download in the browser Control Center.
-* Added a visible AutoIt companion button that opens the browser Control Center without modifying the pinned Mini controller.
+* Added a visible AutoIt companion button that opens the browser Control Center while preserving the reviewed Mini controller flow.
 * Bound BlueStacks capture, input, and native-controller docking to the same explicit instance; the web planner now shows the attached instance as a select rather than accepting arbitrary text.
 * Added a deterministic, offline Smart Attack selector backed by a dated research catalog and the local standard-deployment engine.
 * Recorded a supervised TH17 Smart deployment: three pinch gestures, 132 red-line points, four selected Heroes, zero remaining deployable troops, Return Home, and one-battle stop. That run did not prove Hero abilities, spells, or strategy quality.
 * Fixed the legacy ADB zoom wrapper's false numeric failure and removed the foreground-focus requirement for exact BlueStacks ADB background control.
-* Added paired dock minimize/restore controls so the pinned Mini controller and its exact BlueStacks instance behave as one background unit.
+* Added paired dock minimize/restore controls so the reviewed Mini controller and its exact BlueStacks instance behave as one background unit.
 * Fixed the current matchmaking confirmation path so legitimate gray transition screens do not cancel the run.
 * Made Return Home, game reload, and emulator reboot recovery poll Stop immediately before each click or process mutation.
 * Replaced raw screenshot intake with a dependency-free pixel-diff gate that commits only solid-mask redacted fixture derivatives, and mapped one shared maintenance fixture to collector, donation, and home-upgrade recognition.

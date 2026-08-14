@@ -39,9 +39,6 @@ if ($outputRoot -eq $repositoryRoot -or $repositoryRoot.StartsWith($outputRoot +
 }
 
 $publicAcknowledgement = "WRITTEN_PERMISSION_CONFIRMED_OR_LICENSED_REPLACEMENT_VALIDATED"
-$pinnedMiniPath = "MyBot.run.MiniGui.exe"
-$pinnedMiniSha256 = "ae26c098ceb3c74e3d7f567834d9135257e094172e32140f4a5b615eaf90ceda"
-$pinnedMiniBytes = 1634304
 $expectedCompilerSha256 = "921e51d0d9f94c05c5ed10d2d2a80620c8ed930cc48d71e2ce0a5bab4a4f8158"
 $expectedCompilerSigner = "CN=AutoIt Consulting Ltd, O=AutoIt Consulting Ltd, L=Birmingham, C=GB"
 $expectedCompilerThumbprint = "B64DDF46C16DEECAA165BB0EC1D640F51588CBEF"
@@ -50,11 +47,12 @@ $deterministicZipTimestamp = [System.DateTimeOffset]::new(1980, 1, 1, 0, 0, 0, [
 # Every locally built executable is x86, un-packed, and compiled at level 2. The GUI/CUI choice is
 # explicit rather than inherited from a developer workstation or wrapper default.
 $compileTargets = @(
-    [ordered]@{ Source = "My Bot 2.0.au3"; Output = "My Bot 2.0.exe"; Subsystem = "/gui" },
-    [ordered]@{ Source = "MyBot.run.EngineProbe.au3"; Output = "MyBot.run.EngineProbe.exe"; Subsystem = "/gui" },
-    [ordered]@{ Source = "MyBot.run.au3"; Output = "MyBot.run.exe"; Subsystem = "/gui" },
-    [ordered]@{ Source = "MyBot.run.Watchdog.au3"; Output = "MyBot.run.Watchdog.exe"; Subsystem = "/gui" },
-    [ordered]@{ Source = "MyBot.run.Wmi.au3"; Output = "MyBot.run.Wmi.exe"; Subsystem = "/console" }
+    [ordered]@{ Source = "My Bot 2.0.au3"; Output = "My Bot 2.0.exe"; Subsystem = "/gui"; PragmaOutput = "My Bot 2.0.exe" },
+    [ordered]@{ Source = "MyBot.run.EngineProbe.au3"; Output = "MyBot.run.EngineProbe.exe"; Subsystem = "/gui"; PragmaOutput = "MyBot.run.EngineProbe.exe" },
+    [ordered]@{ Source = "MyBot.run.au3"; Output = "MyBot.run.exe"; Subsystem = "/gui"; PragmaOutput = "MyBot.run.exe" },
+    [ordered]@{ Source = "MyBot.run.MiniGui.au3"; Output = "MyBot.run.MiniGui.exe"; Subsystem = "/gui"; PragmaOutput = "MyBot.run.MiniGui.dev.exe" },
+    [ordered]@{ Source = "MyBot.run.Watchdog.au3"; Output = "MyBot.run.Watchdog.exe"; Subsystem = "/gui"; PragmaOutput = "MyBot.run.Watchdog.exe" },
+    [ordered]@{ Source = "MyBot.run.Wmi.au3"; Output = "MyBot.run.Wmi.exe"; Subsystem = "/console"; PragmaOutput = "MyBot.run.Wmi.exe" }
 )
 
 $runtimeDirectories = @(
@@ -285,12 +283,32 @@ function Invoke-ReleaseCompile {
         foreach ($target in $compileTargets) {
             $source = Join-Path $repositoryRoot $target.Source
             $output = Join-Path $CompiledDirectory $target.Output
-			$pragmaOutput = Join-Path $repositoryRoot $target.Output
+			$pragmaOutput = Join-Path $repositoryRoot $target.PragmaOutput
 			$originalOutput = Join-Path $CompiledDirectory (".original-" + [System.Guid]::NewGuid().ToString("N") + ".exe")
-			$hadOriginalOutput = Test-Path -LiteralPath $pragmaOutput -PathType Leaf
             if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {
                 throw "Compile source is missing: $($target.Source)"
             }
+			$sourceText = Get-Content -LiteralPath $source -Raw
+			$pragmaMatches = [regex]::Matches($sourceText, '(?im)^\s*#pragma\s+compile\(Out,\s*([^)]+?)\s*\)\s*$')
+			if ($pragmaMatches.Count -ne 1) {
+				throw "Compile source must declare exactly one output pragma: $($target.Source)"
+			}
+			$declaredPragmaOutput = $pragmaMatches[0].Groups[1].Value.Trim().Replace('\', '/')
+			$expectedPragmaOutput = [string]$target.PragmaOutput.Replace('\', '/')
+			$normalizedPragmaOutput = Get-NormalizedRelativePath -Root $repositoryRoot -Path $pragmaOutput
+			if ($declaredPragmaOutput -cne $expectedPragmaOutput -or $normalizedPragmaOutput -cne $expectedPragmaOutput) {
+				throw "Compile source output pragma does not match the release contract: $($target.Source)"
+			}
+			if (Test-Path -LiteralPath $pragmaOutput) {
+				$pragmaItem = Get-Item -LiteralPath $pragmaOutput -Force
+				if (-not $pragmaItem.PSIsContainer -and ($pragmaItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -eq 0) {
+					$hadOriginalOutput = $true
+				}
+				else {
+					throw "Compile output path is not a regular non-reparse file: $pragmaOutput"
+				}
+			}
+			else { $hadOriginalOutput = $false }
             $arguments = @(
                 "/in", $source,
                 "/out", $output,
@@ -313,6 +331,9 @@ function Invoke-ReleaseCompile {
 				do {
 					$outputExists = Test-Path -LiteralPath $output -PathType Leaf
 					$pragmaExists = Test-Path -LiteralPath $pragmaOutput -PathType Leaf
+					if ($outputExists -and $pragmaExists) {
+						throw "Aut2Exe produced both the isolated and pragma output paths for $($target.Source)."
+					}
 					if ($outputExists -or $pragmaExists) { break }
 					Start-Sleep -Milliseconds 100
 				} while ([datetime]::UtcNow -lt $outputDeadline)
@@ -328,6 +349,9 @@ function Invoke-ReleaseCompile {
 				$lastLength = -1L
 				$stableSamples = 0
 				do {
+					if ((Test-Path -LiteralPath $output -PathType Leaf) -and (Test-Path -LiteralPath $pragmaOutput -PathType Leaf)) {
+						throw "Aut2Exe produced both the isolated and pragma output paths for $($target.Source)."
+					}
 					$currentLength = (Get-Item -LiteralPath $producedPath).Length
 					if ($currentLength -gt 0 -and $currentLength -eq $lastLength) { $stableSamples++ }
 					else { $stableSamples = 0 }
@@ -431,6 +455,9 @@ function Assert-CompiledSourceIdentity {
         if ([string]$record.provenance.source -ine [string]$target.Source) {
             throw "Provenance source mismatch for $($target.Output)."
         }
+        if ([string]$record.provenance.pragma_output -cne [string]$target.PragmaOutput) {
+            throw "Provenance pragma output mismatch for $($target.Output)."
+        }
         if ([string]$record.provenance.toolchain -ine "AutoIt Aut2Exe") {
             throw "Provenance toolchain mismatch for $($target.Output)."
         }
@@ -488,6 +515,7 @@ function Read-ReviewedCandidateManifest {
 	foreach ($target in $compileTargets) {
 		$record = @($records | Where-Object { [string]$_.path -ceq [string]$target.Output }) | Select-Object -First 1
 		$recordMatches = $record -and [string]$record.source -ceq [string]$target.Source -and
+			[string]$record.pragma_output -ceq [string]$target.PragmaOutput -and
 			[string]$record.subsystem -ceq [string]$target.Subsystem
 		if (-not $recordMatches) {
 			throw "Reviewed candidate identity mismatch for $($target.Output)."
@@ -610,6 +638,7 @@ try {
             $candidateFiles += [ordered]@{
                 path = $target.Output.Replace('\', '/')
                 source = $target.Source.Replace('\', '/')
+                pragma_output = $target.PragmaOutput.Replace('\', '/')
                 subsystem = $target.Subsystem
                 flags = @("/x86", $target.Subsystem, "/nopack", "/comp", "2")
                 bytes = (Get-Item -LiteralPath $path).Length
@@ -664,12 +693,6 @@ try {
         Copy-Item -LiteralPath $builtPath -Destination (Join-Path $payloadRoot $target.Output)
     }
 
-    $sourceMini = Join-Path $repositoryRoot $pinnedMiniPath
-    if ((Get-Item -LiteralPath $sourceMini).Length -ne $pinnedMiniBytes -or (Get-Sha256Lower -Path $sourceMini) -ne $pinnedMiniSha256) {
-        throw "The pinned Mini GUI is not the exact reviewed upstream binary. It must never be rebuilt or rebranded."
-    }
-    Copy-Item -LiteralPath $sourceMini -Destination (Join-Path $payloadRoot $pinnedMiniPath)
-
     $sourceMarker = Join-Path $repositoryRoot "MyBot.run.txt"
     if (-not (Test-Path -LiteralPath $sourceMarker -PathType Leaf) -or (Get-Item -LiteralPath $sourceMarker).Length -ne 0) {
         throw "MyBot.run.txt must exist in the source root and be exactly zero bytes."
@@ -709,6 +732,16 @@ try {
             sha256 = Get-Sha256Lower -Path $file.FullName
         }
     }
+    $compiledTargetRecords = @()
+    foreach ($target in $compileTargets) {
+        $compiledTargetRecords += [ordered]@{
+            path = $target.Output.Replace('\', '/')
+            source = $target.Source.Replace('\', '/')
+            pragma_output = $target.PragmaOutput.Replace('\', '/')
+            subsystem = $target.Subsystem
+            flags = @("/x86", $target.Subsystem, "/nopack", "/comp", "2")
+        }
+    }
     $releaseManifest = [ordered]@{
         schema_version = 1
         product = "My Bot 2.0"
@@ -718,12 +751,12 @@ try {
         architecture = "x86"
         compiler_version = $compilerVersion
 		compiler_sha256 = $compilerSha256
-		compiler_signer = $compilerSigner
+        compiler_signer = $compilerSigner
         compile_flags = @("/x86", "/gui or /console", "/nopack", "/comp 2")
+        compiled_targets = $compiledTargetRecords
         source_commit = $sourceCommit
         source_tree_clean = ($gitStatus.Count -eq 0)
         binary_provenance_verified = $provenanceVerified
-        pinned_mini_rebuilt = $false
         code_signing_performed = $false
         signing_claim = "none"
         imgloc_redistribution_permission_acknowledged = ($Mode -eq "PublicDistribution")

@@ -14,24 +14,26 @@ class ReleasePackagingStaticTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.source = SCRIPT.read_text(encoding="utf-8")
 
-    def test_exact_local_compile_matrix_and_no_mini_rebuild(self) -> None:
+    def test_exact_local_compile_matrix_includes_reviewed_mini_gui(self) -> None:
         expected = {
-            "My Bot 2.0.au3": "My Bot 2.0.exe",
-            "MyBot.run.EngineProbe.au3": "MyBot.run.EngineProbe.exe",
-            "MyBot.run.au3": "MyBot.run.exe",
-            "MyBot.run.Watchdog.au3": "MyBot.run.Watchdog.exe",
-            "MyBot.run.Wmi.au3": "MyBot.run.Wmi.exe",
+            "My Bot 2.0.au3": ("My Bot 2.0.exe", "My Bot 2.0.exe"),
+            "MyBot.run.EngineProbe.au3": ("MyBot.run.EngineProbe.exe", "MyBot.run.EngineProbe.exe"),
+            "MyBot.run.au3": ("MyBot.run.exe", "MyBot.run.exe"),
+            "MyBot.run.MiniGui.au3": ("MyBot.run.MiniGui.exe", "MyBot.run.MiniGui.dev.exe"),
+            "MyBot.run.Watchdog.au3": ("MyBot.run.Watchdog.exe", "MyBot.run.Watchdog.exe"),
+            "MyBot.run.Wmi.au3": ("MyBot.run.Wmi.exe", "MyBot.run.Wmi.exe"),
         }
-        matrix = dict(
-            re.findall(
-                r'\{ Source = "([^"]+)"; Output = "([^"]+)"; Subsystem = "/(?:gui|console)" \}',
+        matrix = {
+            source: (output, pragma_output)
+            for source, output, pragma_output in re.findall(
+                r'\{ Source = "([^"]+)"; Output = "([^"]+)"; Subsystem = "/(?:gui|console)"; PragmaOutput = "([^"]+)" \}',
                 self.source,
             )
-        )
+        }
         self.assertEqual(expected, matrix)
-        self.assertNotRegex(
+        self.assertIn(
+            'Source = "MyBot.run.MiniGui.au3"; Output = "MyBot.run.MiniGui.exe"; Subsystem = "/gui"; PragmaOutput = "MyBot.run.MiniGui.dev.exe"',
             self.source,
-            r'\{ Source = "MyBot\.run\.MiniGui\.au3"; Output = "MyBot\.run\.MiniGui\.exe";',
         )
 
     def test_compile_flags_are_explicit_and_x86(self) -> None:
@@ -56,7 +58,9 @@ class ReleasePackagingStaticTests(unittest.TestCase):
         compile_body = self.source.split("function Invoke-ReleaseCompile", 1)[1].split(
             "function Get-ProvenanceRecord", 1
         )[0]
-        self.assertIn("$pragmaOutput = Join-Path $repositoryRoot $target.Output", compile_body)
+        self.assertIn("$pragmaOutput = Join-Path $repositoryRoot $target.PragmaOutput", compile_body)
+        self.assertIn("Compile source must declare exactly one output pragma", compile_body)
+        self.assertIn("Compile source output pragma does not match the release contract", compile_body)
         self.assertIn("$hadOriginalOutput", compile_body)
         self.assertIn("Move-Item -LiteralPath $pragmaOutput -Destination $output", compile_body)
         self.assertIn("Aut2Exe returned success but produced no output", compile_body)
@@ -68,13 +72,12 @@ class ReleasePackagingStaticTests(unittest.TestCase):
         self.assertIn("finally", compile_body)
         self.assertNotRegex(compile_body, r"(?m)^\s*;\s*[A-Za-z]")
 
-    def test_pinned_mini_identity_is_independent_of_provenance(self) -> None:
-        self.assertIn(
-            '$pinnedMiniSha256 = "ae26c098ceb3c74e3d7f567834d9135257e094172e32140f4a5b615eaf90ceda"',
-            self.source,
-        )
-        self.assertIn("$pinnedMiniBytes = 1634304", self.source)
-        self.assertIn("It must never be rebuilt or rebranded", self.source)
+    def test_mini_gui_uses_reviewed_candidate_and_provenance_flow(self) -> None:
+        self.assertNotIn("$pinnedMini", self.source)
+        self.assertNotIn("pinned_mini_rebuilt", self.source)
+        self.assertIn("foreach ($target in $compileTargets)", self.source)
+        self.assertIn("Assert-CompiledSourceIdentity -Provenance $provenance", self.source)
+        self.assertIn("Provenance pragma output mismatch", self.source)
 
     def test_local_state_and_protected_noise_are_excluded(self) -> None:
         for token in (
@@ -172,6 +175,8 @@ class ReleasePackagingStaticTests(unittest.TestCase):
         self.assertNotIn("[bool]$manifest.source_tree_clean", self.source)
         self.assertIn('[string]$manifest.signing_claim -ceq "none"', self.source)
         self.assertIn("Reviewed candidate compile flags mismatch", self.source)
+        self.assertIn("pragma_output = $target.PragmaOutput.Replace", self.source)
+        self.assertIn("compiled_targets = $compiledTargetRecords", self.source)
         self.assertIn("921e51d0d9f94c05c5ed10d2d2a80620c8ed930cc48d71e2ce0a5bab4a4f8158", self.source)
         self.assertIn("CN=AutoIt Consulting Ltd, O=AutoIt Consulting Ltd, L=Birmingham, C=GB", self.source)
 

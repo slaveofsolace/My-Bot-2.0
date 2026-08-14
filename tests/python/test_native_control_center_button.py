@@ -18,12 +18,22 @@ class NativeControlCenterButtonTests(unittest.TestCase):
         self.assertIn('ShellExecute("http://127.0.0.1:8765/")', source)
         self.assertIn('$g_hFrmBot_URL_PIC, $g_hFrmBot_URL_PIC2', source)
 
-    def test_shipped_controller_remains_provenance_locked(self):
+    def test_reviewed_controller_is_locked_to_local_build_provenance(self):
         source = (ROOT / "MyBot.run.MiniGui.au3").read_text(encoding="utf-8-sig")
         launcher = (ROOT / "My Bot 2.0.au3").read_text(encoding="utf-8-sig")
         self.assertIn('#pragma compile(Out, MyBot.run.MiniGui.dev.exe)', source)
-        self.assertIn('Global Const $g_sControllerSha256 = "ae26c098', launcher)
-        self.assertIn("Global Const $g_iControllerBytes = 1634304", launcher)
+        self.assertNotIn("g_sControllerSha256", launcher)
+        self.assertNotIn("g_iControllerBytes", launcher)
+        self.assertIn('Global Const $g_sBinaryProvenancePath = @ScriptDir & "\\config\\binary-provenance.json"', launcher)
+        provenance = launcher[
+            launcher.index("Func _ControllerProvenanceMatches"):
+            launcher.index("EndFunc   ;==>_ControllerProvenanceMatches")
+        ]
+        self.assertIn('"kind"\\s*:\\s*"local-build"', provenance)
+        self.assertIn('"source"\\s*:\\s*"MyBot\\.run\\.MiniGui\\.au3"', provenance)
+        self.assertIn("UBound($aIdentity) <> 2", provenance)
+        self.assertIn("FileGetSize($g_sControllerPath) = $iExpectedBytes", provenance)
+        self.assertIn("_FileSha256($g_sControllerPath) = $sExpectedSha256", provenance)
 
     def test_dock_target_comes_from_the_bound_controller_instance(self):
         launcher = (ROOT / "My Bot 2.0.au3").read_text(encoding="utf-8-sig")

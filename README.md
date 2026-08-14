@@ -246,8 +246,8 @@ Anything reported as an *error* means the clone is incomplete or something is ge
 
 <br>
 
-For the built application, double-click **`My Bot 2.0.exe`**. It starts the exact pinned MyBot.run
-v8.2 **`MyBot.run.MiniGui.exe`** with the required administrator permission and opens the local
+For the built application, double-click **`My Bot 2.0.exe`**. It starts the reviewed x86
+**`MyBot.run.MiniGui.exe`** built from this same source commit with the required administrator permission and opens the local
 Control Center in your browser. The Mini GUI remains visible and functional as the native safety
 controller for Start, Stop, Pause and Resume. It launches the modern **`MyBot.run.exe`** backend in
 `/ng` mode with `/guipid` set to that exact Mini GUI process. The browser Control Center remains the
@@ -256,15 +256,17 @@ primary planner while the backend performs the automation work.
 The launcher snaps the Mini GUI beside the selected exact BlueStacks top-level window. This is a
 side-by-side layout of two independent windows: it does not embed, reparent or rename BlueStacks.
 
-For source development, right-click `MyBot.run.au3` and choose **Run Script (x86)**.
+For source development, right-click `My Bot 2.0.au3` and choose **Run Script (x86)**. The launcher
+owns the managed-engine supervision token; directly starting `MyBot.run.au3` intentionally fails
+closed at Start because no external process would bound a stalled managed initialization.
 
 > Use the **32-bit** option. The bot refuses to start under x64 and will tell you so, but it saves
 > a confusing minute to get it right the first time.
 
-The built launcher, exact pinned `MyBot.run.MiniGui.exe`, `MyBot.run.exe`,
+The built launcher, reviewed `MyBot.run.MiniGui.exe`, `MyBot.run.exe`,
 `MyBot.run.exe.config`, and empty `MyBot.run.txt` compatibility marker must remain beside each
 other. The marker is required and must remain zero bytes. The Mini GUI and backend keep their
-upstream filenames and resource identities because the inherited image engine validates them; the
+upstream filenames because the inherited image engine validates its host contract; the
 configuration loads managed dependencies from `lib`. These are internal compatibility details,
 not the product name.
 
@@ -284,7 +286,7 @@ profile. Nothing is written outside that and the repository directory.
 | Bot starts but sees nothing | Emulator is not at 860 × 732, or ADB is not connected. |
 | Bot attaches to the wrong window | More than one instance running. Pick the instance explicitly on the planner's Emulator tab. |
 | Clicks land in the wrong place | Resolution mismatch, or emulator DPI scaling is off its default. |
-| Start reports `Managed engine did not answer` | The isolated DLL probe timed out. Check `.NET Framework` and Windows Security health, resolve any Defender `5008`/`3002` failures, then restart My Bot 2.0. Do not add a broad antivirus exclusion. |
+| Start reports `Managed engine did not answer` | The real backend's supervised managed-engine initialization did not return before its bounded deadline. Use Stop once, preserve the phase receipt and log, then restart through `My Bot 2.0.exe`; do not add a broad antivirus exclusion or disable protection. |
 | Include errors on startup | Incomplete clone. Run `python tools/repo_audit.py` — it lists every include that fails to resolve. |
 
 [`docs/INSTALL.md`](docs/INSTALL.md) goes deeper on each.
@@ -458,7 +460,7 @@ the actual game. Listing it honestly beats a progress bar.
 <br>
 
 [`tests/fixtures/current-client/manifest.json`](tests/fixtures/current-client/manifest.json) lists
-**20 required captures**, all currently missing: Town Hall 18, Guardians, the six-Hero Hero Hall,
+**28 required captures**, all currently missing: Town Hall 18, Guardians, the six-Hero Hero Hall,
 Dragon Duke, each battle surface entry screen, Hero Journey, Global Chat, battle fast-forward, the
 Builder Base changes, and the current army screens.
 

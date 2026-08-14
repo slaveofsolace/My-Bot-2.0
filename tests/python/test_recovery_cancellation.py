@@ -51,8 +51,11 @@ class RecoveryCancellationTests(unittest.TestCase):
         self.assertLess(surrender_body.index("If _Sleep(1) Then Return True"), surrender_body.index("ReturnHome("))
 
     def test_sleep_polls_control_bridge_before_run_state_exit(self):
-        poll = SLEEP.index('If IsFunc("RunControlPoll") Then Call("RunControlPoll")')
+        callback = SLEEP.index('Local $sRunControlPollCallback = "RunControl" & "Poll"')
+        poll = SLEEP.index("Call($sRunControlPollCallback)", callback)
         exit_gate = SLEEP.index("If $CheckRunState And Not $g_bRunState Then")
+        self.assertNotIn('IsFunc("RunControlPoll")', SLEEP)
+        self.assertLess(callback, poll)
         self.assertLess(poll, exit_gate)
 
 

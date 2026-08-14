@@ -9,7 +9,7 @@ Observed on the 2026-08-12 BlueStacks 5/Pie64 test session while the engine was 
 | Process | Approximate working set | Role |
 | --- | ---: | --- |
 | BlueStacks `HD-Player.exe` | 1.30 GiB | Android VM and game; dominant cost |
-| `MyBot.run.MiniGui.exe` | 53 MiB | Pinned native safety controller |
+| `MyBot.run.MiniGui.exe` | 53 MiB | Reviewed native safety controller |
 | Control Center `pythonw.exe` | 34 MiB | Loopback-only planner service |
 | `My Bot 2.0.exe` | 28 MiB | docking/recovery/background controller |
 | `MyBot.run.exe` | 11 MiB | native automation backend working set |

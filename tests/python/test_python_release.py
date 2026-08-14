@@ -68,14 +68,11 @@ class ReleaseFixture:
             runtime_directories=("COCBot",),
             runtime_files=runtime_files,
             runtime_config_directories=(),
-            pinned_mini_bytes=len(b"PINNED-MINI"),
-            pinned_mini_sha256=digest(b"PINNED-MINI"),
         )
 
         write(self.repo, "COCBot/engine.au3", "; engine\n")
         write(self.repo, "Languages/English.ini", "canonical english\n")
         write(self.repo, "MyBot.run.version.au3", 'Global Const $g_sProductVersion = "v2.0.0"\n')
-        write(self.repo, "MyBot.run.MiniGui.exe", b"PINNED-MINI")
         write(self.repo, "MyBot.run.txt", b"")
         write(self.repo, "tools/install_local_runtime.py", "# installer\n")
         write(self.repo, "tools/repo_audit.py", "raise SystemExit(0)\n")
@@ -100,6 +97,7 @@ class ReleaseFixture:
                 {
                     "path": target.output,
                     "source": target.source,
+                    "pragma_output": target.pragma_output,
                     "subsystem": target.subsystem,
                     "flags": list(target.flags),
                     "bytes": len(data),
@@ -136,18 +134,7 @@ class ReleaseFixture:
         self.package_commit = run_git(self.repo, "rev-parse", "HEAD")
 
     def _provenance(self, binaries: dict[str, bytes], source_commit: str) -> str:
-        artifacts = [
-            {
-                "path": "MyBot.run.MiniGui.exe",
-                "sha256": digest(b"PINNED-MINI"),
-                "bytes": len(b"PINNED-MINI"),
-                "provenance": {
-                    "kind": "inherited-repository",
-                    "source_id": "test-upstream",
-                    "introduced_commit": "0" * 40,
-                },
-            }
-        ]
+        artifacts = []
         for target in self.targets:
             data = binaries.get(target.output, f"OLD:{target.output}".encode())
             artifacts.append(
@@ -158,6 +145,7 @@ class ReleaseFixture:
                     "provenance": {
                         "kind": "local-build",
                         "source": target.source,
+                        "pragma_output": target.pragma_output,
                         "toolchain": "AutoIt Aut2Exe",
                         "tool_version": self.contract.compiler_version,
                         "tool_signer": self.contract.provenance_tool_signer,
@@ -175,25 +163,29 @@ class ReleaseFixture:
 
 
 class PythonReleaseContractTests(unittest.TestCase):
-    def test_default_compile_matrix_is_exact_and_mini_is_never_rebuilt(self) -> None:
+    def test_default_compile_matrix_is_exact_and_mini_is_reviewed_gui_target(self) -> None:
         matrix = [
-            (target.source, target.output, target.subsystem, list(target.flags))
+            (target.source, target.output, target.subsystem, target.pragma_output, list(target.flags))
             for target in release.DEFAULT_CONTRACT.compile_targets
         ]
         self.assertEqual(
             matrix,
             [
-                ("My Bot 2.0.au3", "My Bot 2.0.exe", "/gui", ["/x86", "/gui", "/nopack", "/comp", "2"]),
-                ("MyBot.run.EngineProbe.au3", "MyBot.run.EngineProbe.exe", "/gui", ["/x86", "/gui", "/nopack", "/comp", "2"]),
-                ("MyBot.run.au3", "MyBot.run.exe", "/gui", ["/x86", "/gui", "/nopack", "/comp", "2"]),
-                ("MyBot.run.Watchdog.au3", "MyBot.run.Watchdog.exe", "/gui", ["/x86", "/gui", "/nopack", "/comp", "2"]),
-                ("MyBot.run.Wmi.au3", "MyBot.run.Wmi.exe", "/console", ["/x86", "/console", "/nopack", "/comp", "2"]),
+                ("My Bot 2.0.au3", "My Bot 2.0.exe", "/gui", "My Bot 2.0.exe", ["/x86", "/gui", "/nopack", "/comp", "2"]),
+                ("MyBot.run.EngineProbe.au3", "MyBot.run.EngineProbe.exe", "/gui", "MyBot.run.EngineProbe.exe", ["/x86", "/gui", "/nopack", "/comp", "2"]),
+                ("MyBot.run.au3", "MyBot.run.exe", "/gui", "MyBot.run.exe", ["/x86", "/gui", "/nopack", "/comp", "2"]),
+                ("MyBot.run.MiniGui.au3", "MyBot.run.MiniGui.exe", "/gui", "MyBot.run.MiniGui.dev.exe", ["/x86", "/gui", "/nopack", "/comp", "2"]),
+                ("MyBot.run.Watchdog.au3", "MyBot.run.Watchdog.exe", "/gui", "MyBot.run.Watchdog.exe", ["/x86", "/gui", "/nopack", "/comp", "2"]),
+                ("MyBot.run.Wmi.au3", "MyBot.run.Wmi.exe", "/console", "MyBot.run.Wmi.exe", ["/x86", "/console", "/nopack", "/comp", "2"]),
             ],
         )
-        self.assertNotIn(
-            release.DEFAULT_CONTRACT.pinned_mini_path,
-            {target.output for target in release.DEFAULT_CONTRACT.compile_targets},
+        mini = next(
+            target
+            for target in release.DEFAULT_CONTRACT.compile_targets
+            if target.output == "MyBot.run.MiniGui.exe"
         )
+        self.assertEqual(mini.flags, ("/x86", "/gui", "/nopack", "/comp", "2"))
+        self.assertEqual(mini.pragma_output, "MyBot.run.MiniGui.dev.exe")
 
     def test_path_filter_rejects_local_state_and_preserves_canonical_english_exception(self) -> None:
         for path in (
@@ -267,14 +259,25 @@ class PythonReleaseContractTests(unittest.TestCase):
 
             manifest_path = fixture.candidate / "candidate-hashes.json"
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-            manifest["binaries"][0]["flags"][0] = "/x64"
+            mini_index = next(
+                index
+                for index, target in enumerate(fixture.contract.compile_targets)
+                if target.output == "MyBot.run.MiniGui.exe"
+            )
+            manifest["binaries"][mini_index]["pragma_output"] = "MyBot.run.MiniGui.exe"
+            manifest_path.write_bytes(release.deterministic_json(manifest))
+            with self.assertRaisesRegex(release.ReleaseError, "identity or flags mismatch"):
+                release.read_candidate_manifest(fixture.candidate, "2.0.0", fixture.contract)
+
+            manifest = json.loads(release.deterministic_json(fixture.candidate_manifest))
+            manifest["binaries"][mini_index]["flags"][1] = "/console"
             manifest_path.write_bytes(release.deterministic_json(manifest))
             with self.assertRaisesRegex(release.ReleaseError, "flags mismatch"):
                 release.read_candidate_manifest(fixture.candidate, "2.0.0", fixture.contract)
 
             manifest_path.write_bytes(release.deterministic_json(fixture.candidate_manifest))
-            first = fixture.contract.compile_targets[0].output
-            (fixture.candidate / first).write_bytes(b"tampered")
+            mini_output = fixture.contract.compile_targets[mini_index].output
+            (fixture.candidate / mini_output).write_bytes(b"tampered")
             with self.assertRaisesRegex(release.ReleaseError, "do not match"):
                 release.read_candidate_manifest(fixture.candidate, "2.0.0", fixture.contract)
 
@@ -314,31 +317,41 @@ class PythonReleaseContractTests(unittest.TestCase):
             root = Path(temp)
             stage = root / "candidate"
             stage.mkdir()
-            target = release.CompileTarget("source.au3", "program.exe", "/gui")
-            write(root, target.source, "; source\n")
+            target = release.CompileTarget("source.au3", "program.exe", "/gui", "program.dev.exe")
+            write(root, target.source, "#pragma compile(Out, program.dev.exe)\n; source\n")
             original = b"ORIGINAL-BINARY"
-            write(root, target.output, original)
+            write(root, target.pragma_output, original)
 
             def successful_run(args, **_kwargs):
                 self.assertEqual(
                     [os.fspath(value) for value in args[-5:]],
                     ["/x86", "/gui", "/nopack", "/comp", "2"],
                 )
-                write(root, target.output, b"NEW-CANDIDATE")
+                write(root, target.pragma_output, b"NEW-CANDIDATE")
                 return subprocess.CompletedProcess(args, 0, "", "")
 
             with mock.patch.object(release, "_run", side_effect=successful_run):
                 candidate = release._compile_one(Path("compiler.exe"), root, stage, target)
             self.assertEqual(candidate.read_bytes(), b"NEW-CANDIDATE")
-            self.assertEqual((root / target.output).read_bytes(), original)
+            self.assertEqual((root / target.pragma_output).read_bytes(), original)
+            self.assertFalse((root / target.output).exists())
 
             def failed_run(args, **_kwargs):
+                write(root, target.pragma_output, b"PARTIAL-CANDIDATE")
                 return subprocess.CompletedProcess(args, 7, "", "compile failed")
 
             with mock.patch.object(release, "_run", side_effect=failed_run):
                 with self.assertRaisesRegex(release.ReleaseError, "exit code 7"):
                     release._compile_one(Path("compiler.exe"), root, stage, target)
-            self.assertEqual((root / target.output).read_bytes(), original)
+            self.assertEqual((root / target.pragma_output).read_bytes(), original)
+            self.assertFalse((root / target.output).exists())
+
+            write(root, target.source, "#pragma compile(Out, wrong.exe)\n; source\n")
+            with mock.patch.object(release, "_run") as compiler_run:
+                with self.assertRaisesRegex(release.ReleaseError, "output pragma does not match"):
+                    release._compile_one(Path("compiler.exe"), root, stage, target)
+            compiler_run.assert_not_called()
+            self.assertEqual((root / target.pragma_output).read_bytes(), original)
 
     def test_zip_publish_cannot_overwrite_a_concurrent_destination(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
@@ -390,7 +403,20 @@ class PythonReleaseContractTests(unittest.TestCase):
             self.assertEqual(manifest["source_commit"], fixture.package_commit)
             self.assertIs(manifest["source_tree_clean"], True)
             self.assertIs(manifest["binary_provenance_verified"], True)
-            self.assertIs(manifest["pinned_mini_rebuilt"], False)
+            self.assertNotIn("pinned_mini_rebuilt", manifest)
+            self.assertEqual(
+                manifest["compiled_targets"],
+                [
+                    {
+                        "path": target.output,
+                        "source": target.source,
+                        "pragma_output": target.pragma_output,
+                        "subsystem": target.subsystem,
+                        "flags": list(target.flags),
+                    }
+                    for target in fixture.contract.compile_targets
+                ],
+            )
             self.assertIs(manifest["code_signing_performed"], False)
             self.assertEqual(manifest["signing_claim"], "none")
             self.assertIs(manifest["imgloc_redistribution_permission_acknowledged"], False)
@@ -416,25 +442,17 @@ class PythonReleaseContractTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as temp:
             fixture = ReleaseFixture(Path(temp))
-            first = fixture.contract.compile_targets[0]
-            write(fixture.repo, first.output, b"different promoted bytes")
-            run_git(fixture.repo, "add", first.output)
-            run_git(fixture.repo, "commit", "-m", "drift promoted binary")
+            mini = next(
+                target
+                for target in fixture.contract.compile_targets
+                if target.output == "MyBot.run.MiniGui.exe"
+            )
+            write(fixture.repo, mini.output, b"different promoted bytes")
+            run_git(fixture.repo, "add", mini.output)
+            run_git(fixture.repo, "commit", "-m", "drift promoted Mini binary")
             with self.assertRaisesRegex(release.ReleaseError, "Promoted Git binary differs"):
                 release.package_reviewed(
                     fixture.repo, fixture.candidate, "2.0.0", Path(temp) / "drift", fixture.contract
-                )
-
-        with tempfile.TemporaryDirectory() as temp:
-            fixture = ReleaseFixture(Path(temp))
-            bad_contract = replace(fixture.contract, pinned_mini_sha256="0" * 64)
-            with self.assertRaisesRegex(release.ReleaseError, "pinned Mini GUI"):
-                release.package_reviewed(
-                    fixture.repo,
-                    fixture.candidate,
-                    "2.0.0",
-                    Path(temp) / "mini-drift",
-                    bad_contract,
                 )
 
         with tempfile.TemporaryDirectory() as temp:

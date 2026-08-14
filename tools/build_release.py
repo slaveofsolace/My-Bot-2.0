@@ -4,10 +4,10 @@
 This is the non-PowerShell release boundary.  It intentionally implements the
 same two-phase contract as ``Build-Release.ps1``:
 
-1. compile five exact, pinned x86 candidates from a clean source commit;
+1. compile six exact x86 candidates from a clean source commit;
 2. review and promote those bytes plus binary provenance in a later commit;
 3. package only the reviewed candidates from a clean descendant whose only
-   intervening changes are the five binaries and binary provenance.
+   intervening changes are the six binaries and binary provenance.
 
 The tool never creates a public-distribution package.  The inherited ImgLoc
 redistribution rights remain unresolved; ``LocalRuntime`` means local use only.
@@ -43,6 +43,7 @@ class CompileTarget:
     source: str
     output: str
     subsystem: str
+    pragma_output: str
 
     @property
     def flags(self) -> tuple[str, ...]:
@@ -55,9 +56,6 @@ class ReleaseContract:
     runtime_directories: tuple[str, ...]
     runtime_files: tuple[str, ...]
     runtime_config_directories: tuple[str, ...]
-    pinned_mini_path: str
-    pinned_mini_sha256: str
-    pinned_mini_bytes: int
     compiler_sha256: str
     compiler_version: str
     compiler_signer: str
@@ -67,11 +65,27 @@ class ReleaseContract:
 
 DEFAULT_CONTRACT = ReleaseContract(
     compile_targets=(
-        CompileTarget("My Bot 2.0.au3", "My Bot 2.0.exe", "/gui"),
-        CompileTarget("MyBot.run.EngineProbe.au3", "MyBot.run.EngineProbe.exe", "/gui"),
-        CompileTarget("MyBot.run.au3", "MyBot.run.exe", "/gui"),
-        CompileTarget("MyBot.run.Watchdog.au3", "MyBot.run.Watchdog.exe", "/gui"),
-        CompileTarget("MyBot.run.Wmi.au3", "MyBot.run.Wmi.exe", "/console"),
+        CompileTarget("My Bot 2.0.au3", "My Bot 2.0.exe", "/gui", "My Bot 2.0.exe"),
+        CompileTarget(
+            "MyBot.run.EngineProbe.au3",
+            "MyBot.run.EngineProbe.exe",
+            "/gui",
+            "MyBot.run.EngineProbe.exe",
+        ),
+        CompileTarget("MyBot.run.au3", "MyBot.run.exe", "/gui", "MyBot.run.exe"),
+        CompileTarget(
+            "MyBot.run.MiniGui.au3",
+            "MyBot.run.MiniGui.exe",
+            "/gui",
+            "MyBot.run.MiniGui.dev.exe",
+        ),
+        CompileTarget(
+            "MyBot.run.Watchdog.au3",
+            "MyBot.run.Watchdog.exe",
+            "/gui",
+            "MyBot.run.Watchdog.exe",
+        ),
+        CompileTarget("MyBot.run.Wmi.au3", "MyBot.run.Wmi.exe", "/console", "MyBot.run.Wmi.exe"),
     ),
     runtime_directories=(
         "COCBot",
@@ -116,9 +130,6 @@ DEFAULT_CONTRACT = ReleaseContract(
         "config/runtime-evidence.schema.json",
     ),
     runtime_config_directories=("config/game", "config/ui"),
-    pinned_mini_path="MyBot.run.MiniGui.exe",
-    pinned_mini_sha256="ae26c098ceb3c74e3d7f567834d9135257e094172e32140f4a5b615eaf90ceda",
-    pinned_mini_bytes=1_634_304,
     compiler_sha256="921e51d0d9f94c05c5ed10d2d2a80620c8ed930cc48d71e2ce0a5bab4a4f8158",
     compiler_version="3.3.16.1",
     compiler_signer="CN=AutoIt Consulting Ltd, O=AutoIt Consulting Ltd, L=Birmingham, C=GB",
@@ -149,8 +160,9 @@ SAFE_MANIFEST_KEYS = frozenset(
     }
 )
 SAFE_CANDIDATE_RECORD_KEYS = frozenset(
-    {"path", "source", "subsystem", "flags", "bytes", "sha256"}
+    {"path", "source", "pragma_output", "subsystem", "flags", "bytes", "sha256"}
 )
+OUT_PRAGMA_RE = re.compile(r"(?im)^\s*#pragma\s+compile\(Out,\s*([^)]+?)\s*\)\s*$")
 
 
 def _run(
@@ -191,10 +203,6 @@ def sha256_file(path: Path) -> str:
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
-
-
-def sha256_bytes(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
 
 
 def deterministic_json(value: object) -> bytes:
@@ -583,22 +591,42 @@ def _wait_for_stable_output(paths: Sequence[Path], deadline_seconds: float = 30.
     raise ReleaseError("Aut2Exe output did not become present, non-empty, and stable within 30 seconds.")
 
 
+def _declared_pragma_output(repo: Path, source: Path, target: CompileTarget) -> Path:
+    try:
+        text = source.read_text(encoding="utf-8-sig")
+    except (OSError, UnicodeDecodeError) as exc:
+        raise ReleaseError(f"Compile source is not readable UTF-8: {target.source}") from exc
+    matches = OUT_PRAGMA_RE.findall(text)
+    if len(matches) != 1:
+        raise ReleaseError(f"Compile source must declare exactly one output pragma: {target.source}")
+    declared = normalize_relative_path(matches[0].strip().replace("\\", "/"))
+    expected = normalize_relative_path(target.pragma_output)
+    if declared != expected:
+        raise ReleaseError(
+            f"Compile source output pragma does not match the release contract: {target.source} "
+            f"(declared={declared}, expected={expected})"
+        )
+    return repo.joinpath(*PurePosixPath(expected).parts)
+
+
 def _compile_one(compiler: Path, repo: Path, stage: Path, target: CompileTarget) -> Path:
     source = repo / Path(target.source)
     if not source.is_file():
         raise ReleaseError(f"Compile source is missing: {target.source}")
     isolated_output = stage / target.output
-    pragma_output = repo / target.output
+    pragma_output = _declared_pragma_output(repo, source, target)
     # Keep the rollback copy beside the source output, not under the temporary
     # candidate stage.  If a hostile/broken compiler replaces the output path
     # with a directory or reparse point, the original bytes survive cleanup and
     # the operator receives the exact recovery path.
-    backup = repo / f".{target.output}.release-backup-{uuid.uuid4().hex}.exe"
+    backup = pragma_output.with_name(
+        f".{pragma_output.name}.release-backup-{uuid.uuid4().hex}.exe"
+    )
+    if pragma_output.exists() and (_is_reparse_point(pragma_output) or not pragma_output.is_file()):
+        raise ReleaseError(f"Compile output path is not a regular non-reparse file: {pragma_output}")
     had_original = pragma_output.is_file()
     if had_original:
         pragma_output.replace(backup)
-    elif pragma_output.exists():
-        raise ReleaseError(f"Compile output path is not a regular file: {pragma_output}")
     try:
         result = _run(
             [
@@ -639,6 +667,7 @@ def _candidate_record(path: Path, target: CompileTarget) -> dict[str, object]:
     return {
         "path": target.output,
         "source": target.source,
+        "pragma_output": target.pragma_output,
         "subsystem": target.subsystem,
         "flags": list(target.flags),
         "bytes": path.stat().st_size,
@@ -748,6 +777,7 @@ def read_candidate_manifest(
         if (
             record.get("path") != target.output
             or record.get("source") != target.source
+            or record.get("pragma_output") != target.pragma_output
             or record.get("subsystem") != target.subsystem
             or record.get("flags") != list(target.flags)
         ):
@@ -864,6 +894,7 @@ def _validate_local_build_provenance(
         required_origin = {
             "kind": "local-build",
             "source": target.source,
+            "pragma_output": target.pragma_output,
             "toolchain": "AutoIt Aut2Exe",
             "tool_version": contract.compiler_version,
             "tool_signer": contract.provenance_tool_signer,
@@ -1040,11 +1071,6 @@ def package_reviewed(
         for relative in _selected_release_paths(tracked, contract):
             write_new(payload / Path(relative), git_blob(repo, package_commit, relative))
 
-        mini = git_blob(repo, package_commit, contract.pinned_mini_path)
-        if len(mini) != contract.pinned_mini_bytes or sha256_bytes(mini) != contract.pinned_mini_sha256:
-            raise ReleaseError("The pinned Mini GUI is not the exact reviewed upstream binary.")
-        write_new(payload / contract.pinned_mini_path, mini)
-
         marker = git_blob(repo, package_commit, "MyBot.run.txt")
         if marker != b"":
             raise ReleaseError("MyBot.run.txt must exist in Git and remain exactly zero bytes.")
@@ -1098,10 +1124,19 @@ def package_reviewed(
             "compiler_sha256": manifest["compiler_sha256"],
             "compiler_signer": manifest["compiler_signer"],
             "compile_flags": ["/x86", "/gui or /console", "/nopack", "/comp 2"],
+            "compiled_targets": [
+                {
+                    "path": target.output,
+                    "source": target.source,
+                    "pragma_output": target.pragma_output,
+                    "subsystem": target.subsystem,
+                    "flags": list(target.flags),
+                }
+                for target in contract.compile_targets
+            ],
             "source_commit": package_commit,
             "source_tree_clean": True,
             "binary_provenance_verified": True,
-            "pinned_mini_rebuilt": False,
             "code_signing_performed": False,
             "signing_claim": "none",
             "imgloc_redistribution_permission_acknowledged": False,

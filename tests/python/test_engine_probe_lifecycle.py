@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[2]
 PARENT = ROOT / "COCBot" / "functions" / "Other" / "MBRFunc.au3"
 ACTION = ROOT / "COCBot" / "MBR GUI Action.au3"
 MAIN = ROOT / "MyBot.run.au3"
+SLEEP = ROOT / "COCBot" / "functions" / "Other" / "_Sleep.au3"
 
 
 def function_body(source: str, name: str) -> str:
@@ -21,6 +22,7 @@ class EngineProbeLifecycleTests(unittest.TestCase):
         cls.parent = PARENT.read_text(encoding="utf-8-sig")
         cls.action = ACTION.read_text(encoding="utf-8-sig")
         cls.main = MAIN.read_text(encoding="utf-8-sig")
+        cls.sleep = SLEEP.read_text(encoding="utf-8-sig")
 
     def test_supervisor_environment_is_consumed_before_backend_entrypoint(self) -> None:
         for env_name in (
@@ -37,7 +39,7 @@ class EngineProbeLifecycleTests(unittest.TestCase):
         self.assertIn('"^[0-9a-f]{64}$"', self.parent[: self.parent.index("Func MBRFunc(")])
         self.assertIn('"^[0-9a-f]{16}$"', self.parent[: self.parent.index("Func MBRFunc(")])
 
-    def test_pinned_mini_captures_then_clears_environment_for_scoped_forwarding(self) -> None:
+    def test_reviewed_mini_captures_then_clears_environment_for_scoped_forwarding(self) -> None:
         declarations = self.parent[: self.parent.index("Func MBRFunc(")]
         self.assertIn('^mybot\\.run(?:\\.minigui)?\\.(?:exe|au3)$', declarations)
         self.assertIn('StringLower(@ScriptName) = "mybot.run.exe"', declarations)
@@ -137,13 +139,27 @@ class EngineProbeLifecycleTests(unittest.TestCase):
 
     def test_start_request_id_callback_fails_closed_and_initialization_requires_it(self) -> None:
         request = function_body(self.parent, "_MBRFuncCurrentStartRequestId")
-        self.assertIn('IsFunc($sCallback)', request)
+        self.assertNotIn("IsFunc($sCallback)", request)
+        self.assertIn("Call($sCallback)", request)
+        self.assertIn("Local $iCallError = @error", request)
+        self.assertIn("Local $iCallExtended = @extended", request)
+        self.assertIn("0xDEAD", request)
+        self.assertIn("0xBEEF", request)
+        self.assertNotIn('IsFunc($sCallback)', request)
         self.assertIn('"^[A-Za-z0-9._-]{1,80}$"', request)
         self.assertIn('Return ""', request)
         initialize = function_body(self.parent, "MBRFuncInitialize")
         required = initialize.index('If _MBRFuncCurrentStartRequestId() = "" Then')
         prepared = initialize.index('_MBRFuncPublishEngineReceipt("prepared")')
         self.assertLess(required, prepared)
+
+    def test_optional_string_callbacks_use_call_instead_of_isfunc(self) -> None:
+        unavailable = function_body(self.parent, "MBRFuncMarkUnavailable")
+        self.assertNotIn("IsFunc($sEventCallback)", unavailable)
+        self.assertIn("Call($sEventCallback", unavailable)
+        self.assertNotIn('IsFunc("RunControlPoll")', self.sleep)
+        self.assertIn('"RunControl" & "Poll"', self.sleep)
+        self.assertIn("Call($sRunControlPollCallback)", self.sleep)
 
 
 if __name__ == "__main__":

@@ -66,7 +66,7 @@ baseline. From the extracted release directory, run:
 
 The source must contain `[general] defaultprofile=...` in `profile.ini`, and the selected profile
 folder must exist. The selected name is limited to letters, numbers, dot, underscore, and hyphen so
-the exact pinned Mini GUI can forward it safely. Migration refuses to overwrite anything already in
+the reviewed Mini GUI can forward it safely. Migration refuses to overwrite anything already in
 the per-user Profiles directory. It copies the source; it never moves or deletes it.
 
 Do not use this copy option for configuration folders from an older MyBot version. The inherited
@@ -91,8 +91,8 @@ For normal use, run:
 My Bot 2.0.exe
 ```
 
-The launcher requests elevation and starts the exact pinned MyBot.run v8.2
-`MyBot.run.MiniGui.exe`. The Mini GUI stays visible and functional as the native safety controller
+The launcher requests elevation and starts the exact reviewed MyBot.run v8.2-compatible
+`MyBot.run.MiniGui.exe` built from the same source commit. The Mini GUI stays visible and functional as the native safety controller
 for Start, Stop, Pause and Resume. It launches `MyBot.run.exe` as the modern `/ng` backend and
 passes its exact process ID through `/guipid`. The launcher also selects the validated per-user
 default profile and passes only that profile plus `/nowatchdog` to the exact Mini GUI. The installer
@@ -113,10 +113,10 @@ the other; restoring either restores and re-docks both. The bot continues throug
 capture and input without requiring BlueStacks to take foreground focus. Command-line automation
 may use `/background` and `/foreground` for the same paired transition.
 
-Keep `My Bot 2.0.exe`, the exact pinned `MyBot.run.MiniGui.exe`, `MyBot.run.exe`,
+Keep `My Bot 2.0.exe`, the reviewed `MyBot.run.MiniGui.exe`, `MyBot.run.exe`,
 `MyBot.run.exe.config`, and the empty `MyBot.run.txt` compatibility marker together. The marker is
-required and must remain zero bytes. The Mini GUI and backend names and identities are retained
-because the inherited image engine validates them; the configuration lets the backend load its
+required and must remain zero bytes. The Mini GUI and backend names are retained because the
+inherited image engine validates its host contract; the configuration lets the backend load its
 managed dependencies from `lib`.
 
 Closing the Mini GUI stops the native controller/backend pair. This independent downstream layout
@@ -192,10 +192,9 @@ still being established. For local development:
 5. keep the source commit SHA beside the output
 6. do not publish the output as an official project release without dependency and smoke-test evidence
 
-Related development entry points such as Watchdog should be compiled from their matching source at
-the same commit. A locally compiled or rebranded Mini GUI is not a drop-in replacement for the exact
-pinned v8.2 Mini GUI used by the normal compatibility path unless that identity-sensitive path has
-been separately proved.
+Related development entry points, including the Mini GUI and Watchdog, must be compiled from their
+matching source at the same reviewed commit. Do not substitute an unrelated or rebranded controller:
+the release gate binds the exact reviewed Mini bytes and provenance to the package.
 
 ### Redistribution boundary
 
@@ -243,9 +242,9 @@ either window.
 | Settings behave unexpectedly | Confirm `profile.ini` and the selected folder under `%LOCALAPPDATA%\My Bot 2.0\Profiles`. Reproduce with a fresh current-version profile; do not reuse an older-version INI. |
 | Stop takes too long | Capture the current engine state and last action. A blocked input or unbounded retry must be fixed rather than hidden by force-closing. |
 | An AutoIt error dialog blocks restart | Preserve `artifacts/launcher-recovery.log`, then run `My Bot 2.0.exe /recover`. Recovery logs and closes only checkout-owned AutoIt errors and exact-path bot processes; it does not click through arbitrary Windows dialogs. |
-| Mini GUI opens but the backend closes or ImgLoc blocks the run | Confirm the exact pinned v8.2 Mini GUI and backend are unmodified, `MyBot.run.exe.config` is beside them, and `MyBot.run.txt` exists as a zero-byte file. Do not rename or patch the protected binaries. |
-| Managed engine does not answer within 15 seconds | The isolated probe has already stopped the hung helper. Confirm Windows Security protection is running and review its Operational log. If Defender or the 32-bit CLR is stalled, restart Windows once, then relaunch the app. Do not add antivirus exclusions or disable tamper protection. |
-| Start reports `Managed engine did not answer` | The x86 helper contained a mixed-mode DLL startup stall. Inspect Windows Security and `.NET Framework` health. Defender Operational events `5008` followed by `3002` indicate an engine/filter failure that must be repaired before retrying; restart My Bot 2.0 afterward. Do not disable Defender or add a broad exclusion. |
+| Mini GUI opens but the backend closes or ImgLoc blocks the run | Confirm the reviewed Mini GUI and backend match `binary-provenance.json`, `MyBot.run.exe.config` is beside them, and `MyBot.run.txt` exists as a zero-byte file. Do not rename or patch packaged binaries. |
+| Managed engine initialization does not return | The resident launcher supervises the real backend process and records its last initialization phase. Use Stop once; the launcher validates the exact PID and creation identity before closing a blocked backend. Preserve the log and receipt evidence, and do not add antivirus exclusions or disable protection. |
+| Start reports missing managed-engine ownership | Launch through `My Bot 2.0.exe`, not the backend directly. Verify the launcher, Mini GUI, and backend were built and packaged together from the same reviewed release. |
 | Antivirus warning | Build from reviewed source. Verify any native DLL or inherited executable independently. Do not disable endpoint protection as an installation step. |
 | Game account warning or penalty | Stop using the environment. Supercell prohibits unapproved gameplay bots on live accounts. Use only environments and accounts for which explicit authorization exists. |
 

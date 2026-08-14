@@ -131,7 +131,9 @@ Func MBRFuncMarkUnavailable($sReason)
 	; Mini GUI includes the engine wrapper without the run-event layer. Build the optional callback
 	; name at runtime so Au3Check does not require that full-only function in reduced entry points.
 	Local $sEventCallback = "RunEventLogEngine" & "Unavailable"
-	If IsFunc($sEventCallback) Then Call($sEventCallback, $sReason)
+	; IsFunc() accepts a function value, not a string name. Call() is the supported dynamic
+	; dispatch primitive and reports a missing callback as @error=0xDEAD/@extended=0xBEEF.
+	Call($sEventCallback, $sReason)
 EndFunc   ;==>MBRFuncMarkUnavailable
 
 ; MyBot.run.dll validates this upstream release marker when its managed image exports start.
@@ -210,8 +212,12 @@ EndFunc   ;==>_MBRFuncEngineReceiptPathSafe
 
 Func _MBRFuncCurrentStartRequestId()
 	Local $sCallback = "RunControlCurrentCommand" & "Id"
-	If Not IsFunc($sCallback) Then Return ""
-	Local $sRequestId = String(Call($sCallback))
+	Local $vRequestId = Call($sCallback)
+	Local $iCallError = @error
+	Local $iCallExtended = @extended
+	If $iCallError = 0xDEAD And $iCallExtended = 0xBEEF Then Return ""
+	If $iCallError Then Return ""
+	Local $sRequestId = String($vRequestId)
 	If Not StringRegExp($sRequestId, "^[A-Za-z0-9._-]{1,80}$") Then Return ""
 	Return $sRequestId
 EndFunc   ;==>_MBRFuncCurrentStartRequestId
