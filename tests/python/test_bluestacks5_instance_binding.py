@@ -7,6 +7,9 @@ ROOT = Path(__file__).resolve().parents[2]
 SOURCE = (ROOT / "COCBot/functions/Android/AndroidBluestacks5.au3").read_text(
     encoding="utf-8-sig"
 )
+ANDROID_SOURCE = (ROOT / "COCBot/functions/Android/Android.au3").read_text(
+    encoding="utf-8-sig"
+)
 
 
 def function_body(name: str) -> str:
@@ -46,6 +49,25 @@ class BlueStacks5InstanceBindingTests(unittest.TestCase):
             surface,
         )
         self.assertNotIn('WinGetTitle($hWindow) = ""', surface)
+
+    def test_bound_adb_surface_never_enters_synchronous_qt_window_management(self) -> None:
+        match = re.search(
+            r"(?ms)^Func HideAndroidWindow\([^\r\n]*\).*?^EndFunc",
+            ANDROID_SOURCE,
+        )
+        self.assertIsNotNone(match)
+        body = match.group(0)
+        guard = (
+            '$g_sAndroidEmulator = "BlueStacks5" And '
+            "IsArray(GetBlueStacks5ModernAdbSurfacePosition())"
+        )
+        self.assertIn(guard, body)
+        self.assertIn(
+            'SetDebugLog("BlueStacks5 modern ADB surface bound; preserving the Qt window state")',
+            body,
+        )
+        self.assertLess(body.index(guard), body.index("ResumeAndroid()"))
+        self.assertLess(body.index("Return SetError(0, 0, 1)"), body.index("ResumeAndroid()"))
 
 
 if __name__ == "__main__":

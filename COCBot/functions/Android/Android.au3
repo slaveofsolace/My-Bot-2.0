@@ -4397,6 +4397,13 @@ Func HideAndroidWindow($bHide = True, $bRestorePosAndActivateWhenShow = Default,
 	If $bFastCheck = Default Then $bFastCheck = True
 	If $hHWndAfter = Default Then $hHWndAfter = $HWND_TOPMOST
 	SetDebugLog("HideAndroidWindow: " & $bHide & ", " & $bRestorePosAndActivateWhenShow & ", " & $bFastCheck & ", " & $sSource)
+	; Current BlueStacks 5 Qt shells can block the AutoIt thread inside synchronous WinMove/
+	; foreground APIs. When the exact instance is already bound to its ADB listener and both
+	; capture and input use that ADB surface, window movement is unnecessary and unsafe.
+	If $g_sAndroidEmulator = "BlueStacks5" And IsArray(GetBlueStacks5ModernAdbSurfacePosition()) Then
+		SetDebugLog("BlueStacks5 modern ADB surface bound; preserving the Qt window state")
+		Return SetError(0, 0, 1)
+	EndIf
 	ResumeAndroid()
 	SetError(0)
 	If $bFastCheck Then
