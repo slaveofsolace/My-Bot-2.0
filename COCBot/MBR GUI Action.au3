@@ -158,6 +158,76 @@ Func _BotStartOpenHomeLootCart(ByRef $sStartError)
 	Return True
 EndFunc   ;==>_BotStartOpenHomeLootCart
 
+; Run the request-only terminal route on the already-running exact BlueStacks instance. Requesting
+; troops does not require the mixed-mode attack engine; keeping this route ahead of MBRFuncInitialize
+; prevents an unrelated CLR startup failure from turning a bounded request into a 90-second stall.
+Func _BotStartOpenClanRequest(ByRef $sStartError)
+	If RunControlStopRequested() Then Return _BotOpenCollectorsReject("Clan request cancelled before attachment", "cancelled")
+	If Not RunExecutionApplyPrepared($sStartError) Then Return _BotOpenCollectorsReject($sStartError)
+	Local $oIntent = RunExecutionPreparedIntent()
+	If Not IsObj($oIntent) Or Not ClanRequestRouteAccountMatches($oIntent, $g_sProfileCurrentName) Then _
+		Return _BotOpenCollectorsReject("The active profile no longer matches the account bound at Start")
+	If WinGetAndroidHandle() = 0 Then Return _BotOpenCollectorsReject("The exact BlueStacks 5 instance is not already running")
+	If Not $g_bAndroidAdbScreencap Or Not $g_bAndroidAdbClick Or Not AndroidControlAvailable() Or _
+			Not IsArray(GetBlueStacks5ModernAdbSurfacePosition()) Then _
+		Return _BotOpenCollectorsReject("The exact BlueStacks 5 ADB capture/click surface is not available")
+	If Not OpenHomeCollectorsProveHome() Then Return _BotOpenCollectorsReject("The current screen is not the proven Home Village")
+	If RunControlStopRequested() Then Return _BotOpenCollectorsReject("Clan request cancelled before execution", "cancelled")
+
+	$g_bRunState = True
+	$g_bTogglePauseAllowed = False
+	If Not RunExecutionBegin($sStartError) Then Return _BotOpenCollectorsReject($sStartError)
+	RunControlReportStartOutcome(True, "Clan request-only pass started")
+	RunEventLogClanRequestStarted()
+
+	Local $oOutcome = ClanRequestRouteRunAdapter("_ClanRequestLiveOpenArmyOverview", "_ClanRequestLiveDetectState", _
+			"_ClanRequestLiveOpenDialog", "_ClanRequestLiveIssueSend", "_ClanRequestLiveStopRequested", _
+			"_ClanRequestLiveCloseAndProveHome")
+	If Not IsObj($oOutcome) Then
+		$sStartError = "Clan request adapter returned no bounded outcome"
+	Else
+		Local $sOutcome = String($oOutcome.Item("state"))
+		If $sOutcome = $CLAN_REQUEST_OUTCOME_CANCELLED Or RunControlStopRequested() Or Not $g_bRunState Then
+			RunExecutionComplete("stopped")
+			RunControlReportOneShotOutcome("stopped", "Clan request stopped")
+			Return False
+		EndIf
+		If Not $oOutcome.Item("home_proven") Then
+			RunEventLogClanRequestUnconfirmed($oOutcome.Item("send_issued"), _
+					$oOutcome.Item("detail") & "; Home Village was not re-proven")
+			$sStartError = "Home Village could not be re-proven after the request dialog; Send will not be retried"
+		Else
+			RunEventLogClanRequestHomeVerified($sOutcome)
+			Switch $sOutcome
+				Case $CLAN_REQUEST_OUTCOME_COMMITTED
+					RunEventLogClanRequestCommitted()
+				Case $CLAN_REQUEST_OUTCOME_UNAVAILABLE
+					RunEventLogClanRequestUnavailable($oOutcome.Item("before_state"))
+				Case $CLAN_REQUEST_OUTCOME_UNCONFIRMED
+					RunEventLogClanRequestUnconfirmed($oOutcome.Item("send_issued"), $oOutcome.Item("detail"))
+					$sStartError = $oOutcome.Item("detail") & "; Send will not be retried"
+				Case Else
+					$sStartError = "Clan request adapter returned an unknown terminal state"
+			EndSwitch
+		EndIf
+	EndIf
+
+	If $sStartError <> "" Then
+		RunEventLogRunFailed("regular", $RUN_VERIFICATION_DIAGNOSTIC, $sStartError)
+		RunExecutionCancelPrepared($sStartError)
+		RunControlReportOneShotOutcome("failed", $sStartError)
+		Return False
+	EndIf
+
+	Local $sReason = $sOutcome = $CLAN_REQUEST_OUTCOME_COMMITTED ? "clan-request-committed" : "clan-request-unavailable"
+	RunExecutionComplete($sReason)
+	Local $sMessage = $sOutcome = $CLAN_REQUEST_OUTCOME_COMMITTED ? _
+			"Clan request committed and Home Village re-proven" : "Clan request unavailable; no Send input was issued"
+	RunControlReportOneShotOutcome("completed", $sMessage)
+	SetLog("Run Planner: " & $sMessage, $COLOR_SUCCESS)
+	Return True
+EndFunc   ;==>_BotStartOpenClanRequest
+
 Func _BotEngineCheckFinish($bPassed, $sMessage)
 	If $sMessage = "" Then $sMessage = $bPassed ? "Managed engine check passed" : "Managed engine check failed"
 	; Native terminalization is the linearization point. A Stop accepted before it changes the
@@ -211,6 +281,7 @@ Func BotStart($bAutostartDelay = 0)
 	If $iOpenCollectorsMode = 1 Then Return FuncReturn(_BotStartOpenHomeCollectors($sStartError))
 	If $iOpenCollectorsMode = 2 Then Return FuncReturn(_BotStartOpenHomeLootCart($sStartError))
 	If $iOpenCollectorsMode = -1 Then Return FuncReturn(_BotOpenCollectorsReject($sStartError))
+	If ClanRequestRouteSelected($oPreparedIntent) Then Return FuncReturn(_BotStartOpenClanRequest($sStartError))
 
 	If Not MBRFuncProbeEngine($sStartError) Then
 		SetLog("Engine unavailable: " & $sStartError, $COLOR_ERROR)

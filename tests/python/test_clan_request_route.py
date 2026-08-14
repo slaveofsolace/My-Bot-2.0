@@ -76,6 +76,7 @@ class ClanRequestRouteTests(unittest.TestCase):
         cls.execution = (ROOT / "COCBot/functions/Run/RunExecution.au3").read_text(encoding="utf-8")
         cls.contract = (ROOT / "COCBot/functions/Run/RunExecutionContract.au3").read_text(encoding="utf-8")
         cls.run_bot = (ROOT / "MyBot.run.au3").read_text(encoding="utf-8")
+        cls.gui_action = (ROOT / "COCBot/MBR GUI Action.au3").read_text(encoding="utf-8")
 
     def test_contract_is_request_only_and_exactly_bound(self) -> None:
         validate = function_body(self.route, "ClanRequestRouteValidate")
@@ -190,6 +191,32 @@ class ClanRequestRouteTests(unittest.TestCase):
         self.assertLess(clan, generic)
         self.assertIn("ClanRequestRouteExecute()", run_bot[clan:passive])
         self.assertIn("Return", run_bot[clan:passive])
+
+        bot_start = function_body(self.gui_action, "BotStart")
+        request_dispatch = bot_start.index("ClanRequestRouteSelected($oPreparedIntent)")
+        managed_probe = bot_start.index("MBRFuncProbeEngine")
+        self.assertLess(request_dispatch, managed_probe)
+        self.assertIn("_BotStartOpenClanRequest", bot_start[request_dispatch:managed_probe])
+
+    def test_open_request_path_never_enters_generic_or_managed_startup(self) -> None:
+        open_request = function_body(self.gui_action, "_BotStartOpenClanRequest")
+        for forbidden in (
+            "MBRFunc",
+            "ForumAuthentication",
+            "ResumeAndroid",
+            "SaveConfig",
+            "readConfig",
+            "applyConfig",
+            "OpenAndroid",
+            "Initiate(",
+            "btnStop",
+        ):
+            self.assertNotIn(forbidden, open_request)
+        self.assertIn("RunExecutionApplyPrepared", open_request)
+        self.assertIn("OpenHomeCollectorsProveHome", open_request)
+        self.assertIn("ClanRequestRouteRunAdapter", open_request)
+        self.assertIn("RunExecutionComplete", open_request)
+        self.assertIn("RunControlReportOneShotOutcome", open_request)
 
     def test_event_schema_has_truthful_terminal_states(self) -> None:
         schema = json.loads((ROOT / "config/run-event.schema.json").read_text(encoding="utf-8"))
