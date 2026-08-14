@@ -248,13 +248,64 @@ class RuntimeEvidenceTest(unittest.TestCase):
 
     def test_readiness_imports_validation_and_rejects_invalid_pass(self) -> None:
         valid = evaluate_readiness(root=self.root, now=NOW)
+        self.assertEqual(3, valid["schema_version"])
         self.assertEqual(1, valid["ready"])
+        self.assertEqual(1, valid["exact_current_binary_records"])
+        self.assertEqual(1, valid["current_binary_ready"])
+        self.assertTrue(valid["results"][0]["current_binary_ready"])
         self.record["checks"] = self.record["checks"][:1]
         self.save_record()
         invalid = evaluate_readiness(root=self.root, now=NOW)
         self.assertEqual(0, invalid["ready"])
+        self.assertEqual(0, invalid["exact_current_binary_records"])
+        self.assertEqual(0, invalid["current_binary_ready"])
         self.assertTrue(invalid["errors"])
         self.assertIn("run-plan.valid", invalid["results"][0]["rejected_evidence"])
+
+    def test_paired_dirty_binary_and_provenance_cannot_claim_exact_current(self) -> None:
+        dirty_binary = b"new-current-binary\x00"
+        (self.root / "bin/MyBot.run.exe").write_bytes(dirty_binary)
+        self.write_json(
+            "config/binary-provenance.json",
+            {
+                "schema_version": 1,
+                "artifacts": [
+                    {
+                        "path": "bin/MyBot.run.exe",
+                        "sha256": digest(dirty_binary),
+                        "bytes": len(dirty_binary),
+                    }
+                ],
+            },
+        )
+        report = evaluate_readiness(root=self.root, now=NOW)
+        self.assertEqual(1, report["ready"])
+        self.assertEqual(0, report["exact_current_binary_records"])
+        self.assertEqual(0, report["current_binary_ready"])
+        self.assertFalse(report["results"][0]["current_binary_ready"])
+        self.assertIn(
+            "missing exact-current-binary test types: end-to-end",
+            report["results"][0]["current_binary_blockers"],
+        )
+        self.assertIn(
+            "current binary provenance has uncommitted changes: config/binary-provenance.json",
+            report["current_binary_validation"]["errors"],
+        )
+        self.assertIn(
+            "current binary has uncommitted changes: bin/MyBot.run.exe",
+            report["current_binary_validation"]["errors"],
+        )
+
+    def test_duplicate_evidence_ids_are_rejected_for_exact_current_reporting(self) -> None:
+        self.write_json("tests/evidence/runtime/duplicate.json", self.record)
+        report = evaluate_readiness(root=self.root, now=NOW)
+        self.assertEqual(0, report["ready"])
+        self.assertEqual(0, report["exact_current_binary_records"])
+        self.assertEqual(0, report["current_binary_ready"])
+        self.assertIn(
+            "duplicate evidence_id cannot be evaluated as exact-current: run-plan.valid",
+            report["current_binary_validation"]["errors"],
+        )
 
     def test_required_fixture_without_mapping_is_not_ready(self) -> None:
         self.catalog["capabilities"][0]["fixture_status"] = "required"

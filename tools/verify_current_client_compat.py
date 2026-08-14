@@ -207,6 +207,7 @@ def main() -> int:
         "heroes.six-slot-layout",
         "village.collectors",
         "village.donations",
+        "village.clan-request",
         "army.training",
         "village.upgrades-home",
         "builder-base.upgrades",

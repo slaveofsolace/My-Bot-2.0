@@ -147,19 +147,31 @@ army to match.
 |---|---|
 | Run engine — plan, intent, session, quota, loadout, events | Written, contract-tested |
 | Run Planner tab | Written, renders from generated metadata |
-| My Bot 2.0 launcher and local Control Center | Source-tested; the current source revision still needs a fresh binary/runtime receipt |
+| My Bot 2.0 launcher and local Control Center | The 2026-08-13 e05c415a LocalRuntime checkpoint installed and launched twice in a connected-but-idle state; current HEAD is post-checkpoint and unbuilt |
 | Windows compile — Au3Check, both AutoIt versions | Green |
 | Game model through July 2026 | Catalogued from official sources |
 | LDPlayer 9 and MuMu Player 12 adapters | Written, **never run on real hardware** |
 | Screen recognition for the current client | Historical TH17 observations exist; all required current-client fixtures remain missing for the current source revision |
-| Attack execution | Older binaries completed bounded Standard and Smart TH17 observations; neither proves the current source revision or general strategy quality |
+| Managed Start and attack execution | Unproved for both the 2026-08-13 e05c415a LocalRuntime checkpoint and the post-checkpoint, unbuilt current HEAD; older binaries completed bounded Standard and Smart TH17 observations only |
 
-**The honest summary:** older reviewed binaries produced bounded TH17 observations for zoom,
+**The honest summary:** the 2026-08-13 e05c415a LocalRuntime checkpoint contains six reviewed x86 AutoIt
+targets and a 2,578-file integrity manifest. It installed successfully and completed two clean idle
+launches against the existing BlueStacks/Pie64 chain. Those launches remained connected-but-idle,
+the engine probe stayed `not-run`, and no managed Start or gameplay action occurred. They prove the
+package, installer, launcher chain, and idle host integrity—not farming, donation, request, upgrade,
+training, battle, or other account behavior.
+
+Current HEAD now contains post-checkpoint source changes and has not been rebuilt. The historical ZIP
+therefore does not contain or verify current HEAD; a new compile and LocalRuntime package are required
+before any binary claim can be made for this revision.
+
+Older reviewed binaries produced bounded TH17 observations for zoom,
 red-line geometry, troop and Hero deployment, battle accounting, Return Home, automatic stop, and
-part of the Smart spell policy. Those receipts are useful regression references, but they do not
-verify a binary built from the current source revision, every required current-client fixture, or an
-improvement in strategy quality. Other Town Halls, armies, surfaces, and most gameplay scopes remain
-unverified; CI does not substitute for those runs.
+part of the Smart spell policy. Those receipts are useful regression references, but they verify
+neither the historical checkpoint's managed Start/gameplay nor the post-checkpoint source revision,
+every required current-client fixture, or an improvement in strategy quality. Other Town Halls,
+armies, surfaces, and most gameplay scopes remain unverified; package integrity and CI do not
+substitute for those runs.
 
 ---
 
@@ -522,8 +534,9 @@ upgrade data; the current Army Recipe and Cookbook structures.
 All shipped executables, DLLs and archives are recorded in
 [`config/binary-provenance.json`](config/binary-provenance.json) with exact SHA-256 hashes, sizes,
 and either their repository-introduction commit or local AutoIt build chain. The repository audit
-fails if a publishable binary is missing from that manifest or changes without review. Reproducible
-compilation and a signed release manifest are still not set up.
+fails if a publishable binary is missing from that manifest or changes without review. A deterministic
+internal LocalRuntime ZIP and integrity manifest exist; code signing and a rights-cleared public
+release remain unset.
 
 Integrity records are not redistribution permission. Public binary redistribution remains on hold
 for the inherited ImgLoc component until written permission is obtained from its rights holder or it

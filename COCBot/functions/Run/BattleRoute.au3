@@ -63,7 +63,7 @@ Func BattleRouteCreate($sMode = "regular")
 			$bLimitedAttacks = True
 		Case "builder"
 			$sSurface = "builder-base"
-			$sFixture = "builder.home.extra-builder"
+			$sFixture = "builder.battle.entry"
 			$bLegacyFallback = True
 		Case Else
 			Return SetError(2, 0, 0)

@@ -113,7 +113,9 @@ def main() -> int:
         errors.append("excluded_unverified_claims must document both removed August claims")
 
     capability_ids = {item.get("id") for item in capabilities.get("capabilities", []) if isinstance(item, dict)}
-    fixture_ids = {item.get("id") for item in fixtures.get("required_fixtures", []) if isinstance(item, dict)}
+    fixture_items = [item for item in fixtures.get("required_fixtures", []) if isinstance(item, dict)]
+    fixture_ids = {item.get("id") for item in fixture_items}
+    fixture_by_id = {item.get("id"): item for item in fixture_items}
 
     surfaces = battles.get("surfaces")
     if not isinstance(surfaces, list) or not surfaces:
@@ -146,6 +148,10 @@ def main() -> int:
                 errors.append(f"battle surface {surface_id} references missing fixture {fixture_id}")
 
     by_surface = {item.get("id"): item for item in surfaces}
+    if by_surface.get("builder", {}).get("fixture_ids") != ["builder.battle.entry"]:
+        errors.append("builder battle surface must use the dedicated builder.battle.entry fixture")
+    if fixture_by_id.get("builder.battle.entry", {}).get("capability_ids") != ["builder-base.battles"]:
+        errors.append("builder.battle.entry fixture must map exactly to builder-base.battles")
     regular = by_surface.get("regular", {})
     ranked = by_surface.get("ranked", {})
     if regular.get("minimum_town_hall") != 2 or regular.get("trophy_effect") != "none" or regular.get("attack_budget", {}).get("kind") != "unlimited":

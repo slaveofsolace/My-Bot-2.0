@@ -37,6 +37,9 @@ AssertTrue(CurrentGameGetBattleAttackBudget("regular", $sKind, $iValue, $sUnit),
 AssertTrue($sKind = "unlimited" And $iValue = -1, "regular battles are unlimited")
 AssertTrue(CurrentGameGetBattleMinimumTH("regular") = 2, "regular battles unlock at Town Hall 2")
 AssertTrue(CurrentGameGetBattleMinimumTH("ranked") = 7, "ranked battles unlock at Town Hall 7")
+Local $iBuilderSurface = CurrentGameFindBattleSurface("builder")
+AssertTrue($iBuilderSurface >= 0, "Builder Base battle surface is catalogued")
+AssertTrue($g_aCurrentGameBattleSurfaces[$iBuilderSurface][$eGameBattleFixtureIds] = "builder.battle.entry", "Builder Base battles use their dedicated entry fixture")
 
 AssertTrue(CurrentGameGetBattleAttackBudget("legend-iii", $sKind, $iValue, $sUnit), "Legend III budget is available")
 AssertTrue($sKind = "fixed" And $iValue = 24 And $sUnit = "per-week", "Legend III has 24 weekly attacks")

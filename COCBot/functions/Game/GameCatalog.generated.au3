@@ -258,7 +258,7 @@ Func _InitializeCurrentGameCatalogGenerated()
 	$g_aCurrentGameBattleSurfaces[6][$eGameBattleBudgetValue] = -1
 	$g_aCurrentGameBattleSurfaces[6][$eGameBattleBudgetUnit] = ""
 	$g_aCurrentGameBattleSurfaces[6][$eGameBattleTrophyEffect] = "builder-ranking"
-	$g_aCurrentGameBattleSurfaces[6][$eGameBattleFixtureIds] = "builder.home.extra-builder|builder.upgrades.list"
+	$g_aCurrentGameBattleSurfaces[6][$eGameBattleFixtureIds] = "builder.battle.entry"
 	$g_aCurrentGameBattleSurfaces[6][$eGameBattleRecognitionStatus] = "fixture-required"
 	$g_aCurrentGameBattleSurfaces[6][$eGameBattleExecutionStatus] = "blocked"
 	$g_aCurrentGameBattleSurfaces[6][$eGameBattleLegacyFallbackAllowed] = False

@@ -106,7 +106,7 @@
       "schedule": "continuous",
       "attack_budget": {"kind": "ui-reported", "value": null, "unit": null},
       "trophy_effect": "builder-ranking",
-      "fixture_ids": ["builder.home.extra-builder", "builder.upgrades.list"],
+      "fixture_ids": ["builder.battle.entry"],
       "recognition_status": "fixture-required",
       "execution_status": "blocked",
       "legacy_fallback_allowed": false

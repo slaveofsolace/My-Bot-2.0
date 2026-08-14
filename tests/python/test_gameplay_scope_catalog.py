@@ -16,6 +16,7 @@ class GameplayScopeCatalogTests(unittest.TestCase):
         expected = {
             "village.collectors": "COCBot/functions/Village/Collect.au3",
             "village.donations": "COCBot/functions/Village/DonateCC.au3",
+            "village.clan-request": "COCBot/functions/Run/ClanRequestRoute.au3",
             "army.training": "COCBot/functions/CreateArmy/TrainSystem.au3",
             "village.upgrades-home": "COCBot/functions/Village/Auto Upgrade.au3",
             "builder-base.upgrades": "COCBot/functions/Village/BuilderBase/SuggestedUpgrades.au3",
@@ -33,9 +34,11 @@ class GameplayScopeCatalogTests(unittest.TestCase):
                 self.assertTrue((ROOT / implementation).is_file())
                 self.assertEqual(capability["runtime_evidence"], "required")
                 self.assertTrue(self.policies[capability_id]["required_tests"])
-                if capability_id != "runtime.recovery":
+                if capability_id not in {"runtime.recovery", "village.clan-request"}:
                     self.assertEqual(capability["status"], "legacy-implemented")
+                if capability_id != "runtime.recovery":
                     self.assertEqual(capability["fixture_status"], "required")
+        self.assertEqual(self.capabilities["village.clan-request"]["status"], "engine-added")
 
     def test_memu_is_static_only_and_names_exact_runtime_gate(self):
         capability = self.capabilities["emulator.memu"]
@@ -82,7 +85,7 @@ class GameplayScopeCatalogTests(unittest.TestCase):
         }
         expected = {
             "army.manage_training": "army.training",
-            "donate.request_when_short": "village.donations",
+            "donate.request_when_short": "village.clan-request",
             "events.clan_games": "events.clan-games",
             "events.collect_resources": "village.collectors",
         }
@@ -103,6 +106,33 @@ class GameplayScopeCatalogTests(unittest.TestCase):
         self.assertIn("settingEvidenceActive", planner)
         self.assertIn("setting.availability && !same(plan[setting.id], setting.default)", planner)
         self.assertGreaterEqual(planner.count("option.availability === 'gated' && !plan['run.diagnostic_mode']"), 2)
+
+    def test_planner_capability_links_match_the_surface_being_gated(self):
+        settings = json.loads((ROOT / "config/ui/run-planner.settings.json").read_text(encoding="utf-8-sig"))
+        by_id = {
+            setting["id"]: setting
+            for section in settings["sections"]
+            for setting in section["settings"]
+        }
+
+        def option_capabilities(setting_id, value):
+            option = next(item for item in by_id[setting_id]["options"] if item["value"] == value)
+            return set(option["capability_ids"])
+
+        self.assertEqual(option_capabilities("run.surface", "builder"), {"builder-base.battles"})
+        self.assertEqual(option_capabilities("run.strategy", "builder.baby-dragon"), {"builder-base.battles"})
+        self.assertEqual(option_capabilities("run.strategy", "home.clan-request"), {"village.clan-request"})
+        self.assertEqual(option_capabilities("events.laboratory", "cheapest"), {"village.laboratory"})
+        self.assertEqual(option_capabilities("events.laboratory", "priority-list"), {"village.laboratory"})
+        self.assertEqual(option_capabilities("upgrade.policy", "suggested"), {"village.upgrades-home"})
+        self.assertIn("village.upgrades-home", option_capabilities("upgrade.policy", "walls"))
+        self.assertIn("village.upgrades-home", option_capabilities("upgrade.policy", "all"))
+        self.assertIn("village.laboratory", option_capabilities("upgrade.policy", "all"))
+        for value in ("matching", "anything"):
+            self.assertEqual(
+                option_capabilities("donate.mode", value),
+                {"village.donations", "chat.global-chat"},
+            )
 
 
 if __name__ == "__main__":

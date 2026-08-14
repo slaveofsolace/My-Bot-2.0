@@ -48,7 +48,24 @@ Require evidence for one capability:
 python tools/validate_runtime_evidence.py --require-capability emulator.ldplayer9
 ```
 
-No capability is promoted automatically. `tools/evaluate_support_readiness.py` reports whether the documented fixture and evidence gates are complete; a reviewed source change is still required to change a capability status to `supported`.
+No capability is promoted automatically. `tools/evaluate_support_readiness.py` reports two distinct
+views: `ready` / `ready_for_support_review` accepts trusted ancestor-binary records as historical
+lineage, while `exact_current_binary_records` / `current_binary_ready` additionally require each
+trusted record's binary hash and byte size to match the binary and provenance committed at `HEAD`.
+Exact-current reporting rejects the match if either worktree path differs from `HEAD`.
+A reviewed source change is still required to change a capability status to `supported`.
+
+The 2026-08-13 e05c415a LocalRuntime checkpoint is historical package/installer evidence, not
+capability evidence. Its
+ZIP is 32,199,253 bytes with SHA-256
+`0c5dd237c9193d2e8ce8ffa44438304ef3ee6c1691c370055f442f18a366803b`; six reviewed x86 targets and
+the 2,578-file manifest validated, and the installed chain completed two connected-but-idle launches.
+The engine probe remained `not-run`; managed Start and all gameplay were unexercised. Therefore that
+checkpoint does not create a runtime-evidence record or promote any fixture or capability.
+
+Current HEAD is post-checkpoint and unbuilt. The historical ZIP does not contain the current source
+changes and cannot count as exact-current evidence until a new binary set is compiled, reviewed, and
+packaged.
 
 Every capability that declares `fixture_status: required` must map to an explicit capture target in `tests/fixtures/current-client/manifest.json`. Defining a target improves traceability only: a missing image remains `missing` and cannot promote readiness.
 

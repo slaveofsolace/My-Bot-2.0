@@ -978,10 +978,10 @@
               "value": "regular",
               "label": "Regular Battles",
               "summary": "Unlimited attacks, no Trophy risk.",
-              "description": "Ordinary matchmaking. Attacks are unlimited and Trophies are not at stake, which makes this the surface to use while you are still confirming that a build behaves the way you expect. A bounded source adapter and an older-binary supervised receipt exist, but no binary built from the current 438d43a1 source, current-client fixture packet, or live human review is recorded.",
+              "description": "Ordinary matchmaking. Attacks are unlimited and Trophies are not at stake, which makes this the surface to use while you are still confirming that a build behaves the way you expect. A bounded source adapter and an older-binary supervised gameplay receipt exist. The 2026-08-13 e05c415a LocalRuntime checkpoint passed install and idle-launch checks. This source revision is post-checkpoint and unbuilt; the checkpoint's managed Start path and gameplay were not exercised, and current-client fixtures and live human review are still absent.",
               "availability": "gated",
               "runtime_verified": false,
-              "disabled_reason": "Current-source binary evidence, current-client fixtures, and live human review are still missing.",
+              "disabled_reason": "The 2026-08-13 e05c415a LocalRuntime checkpoint passed idle launch only. This post-checkpoint source revision is unbuilt; managed Start, gameplay, current-client fixtures, and live human review are still unproved.",
               "capability_ids": [
                 "battle.regular-ranked-split"
               ],
@@ -1087,7 +1087,7 @@
               "runtime_verified": false,
               "disabled_reason": "The native execution contract has no adapter for this battle surface; selecting it cannot start a run.",
               "capability_ids": [
-                "builder-base.additional-builder"
+                "builder-base.battles"
               ],
               "prerequisites": [
                 "Builder Hall unlocked"
@@ -1126,33 +1126,33 @@
               "value": "legacy.standard",
               "label": "Standard deployment",
               "summary": "The built-in side and line deployment routine.",
-              "description": "An older-binary supervised run confirmed Standard could issue the trained-army and selected-Hero deployment, observe an empty troop bar, and return home. That single completion confirms the route and actuator, not strategy quality; it did not exercise planned ability or spell actions, and it is not proof for a binary built from the current 438d43a1 source or the current client.",
+              "description": "An older-binary supervised run confirmed Standard could issue the trained-army and selected-Hero deployment, observe an empty troop bar, and return home. That single completion confirms the route and actuator, not strategy quality; it did not exercise planned ability or spell actions. The 2026-08-13 e05c415a LocalRuntime checkpoint has install and idle-launch evidence only. This source revision is post-checkpoint and unbuilt; neither proves managed Start or current-client gameplay.",
               "availability": "gated",
               "runtime_verified": false,
-              "disabled_reason": "Current-source binary evidence, current-client fixtures, and live human review are still missing.",
+              "disabled_reason": "The 2026-08-13 e05c415a LocalRuntime checkpoint passed idle launch only. This post-checkpoint source revision is unbuilt; managed Start, gameplay, current-client fixtures, and live human review remain unproved.",
               "capability_ids": [],
               "prerequisites": [
                 "A ready trained army",
                 "A supervised diagnostic operator"
               ],
               "recommended": false,
-              "warning": "The historical receipt proves an older build only; treat this source revision as unverified."
+              "warning": "The historical gameplay receipt proves an older build only; the 2026-08-13 e05c415a LocalRuntime checkpoint proves only install and idle launch."
             },
             {
               "value": "smart.local",
               "label": "Smart Attack (research-guided)",
               "summary": "Concentrates the current army using a Town Hall-aware local policy.",
-              "description": "The deterministic Town Hall policy is versioned in config/game/smart-attack-strategies.json and executed locally. One older-binary bounded supervised TH17 run observed three zoom gestures, 240 red-line points, deterministic BL-side selection, 23-to-zero troop deployment, four selected Hero phase commands, Rage 3-to-zero, one Freeze decrement, and an automatic one-battle stop. That receipt does not verify a binary built from the current 438d43a1 source, current-client fixtures, live human review, strategy quality, or every Town Hall and army.",
+              "description": "The deterministic Town Hall policy is versioned in config/game/smart-attack-strategies.json and executed locally. One older-binary bounded supervised TH17 run observed three zoom gestures, 240 red-line points, deterministic BL-side selection, 23-to-zero troop deployment, four selected Hero phase commands, Rage 3-to-zero, one Freeze decrement, and an automatic one-battle stop. The 2026-08-13 e05c415a LocalRuntime checkpoint has install and idle-launch evidence only. This source revision is post-checkpoint and unbuilt; neither verifies managed Start, current-client gameplay, fixtures, live human review, strategy quality, or every Town Hall and army.",
               "availability": "gated",
               "runtime_verified": false,
-              "disabled_reason": "Current-source binary evidence, current-client fixtures, and live human review are still missing.",
+              "disabled_reason": "The 2026-08-13 e05c415a LocalRuntime checkpoint passed idle launch only. This post-checkpoint source revision is unbuilt; managed Start, gameplay, current-client fixtures, and live human review remain unproved.",
               "capability_ids": [],
               "prerequisites": [
                 "A ready trained army",
                 "A supervised diagnostic operator"
               ],
               "recommended": false,
-              "warning": "Historical TH17 mechanics evidence exists, but this source revision and other Town Halls and armies remain unverified."
+              "warning": "Historical TH17 mechanics evidence exists, but the 2026-08-13 e05c415a LocalRuntime checkpoint has only install and idle-launch evidence."
             },
             {
               "value": "home.collectors",
@@ -1180,7 +1180,9 @@
               "availability": "gated",
               "runtime_verified": false,
               "disabled_reason": "Current-client Clan request recognition still needs a supervised runtime receipt.",
-              "capability_ids": [],
+              "capability_ids": [
+                "village.clan-request"
+              ],
               "prerequisites": [
                 "Request when available enabled",
                 "Exact emulator instance",
@@ -1215,7 +1217,7 @@
               "runtime_verified": false,
               "disabled_reason": "Not implemented for the current Builder Base layout.",
               "capability_ids": [
-                "builder-base.additional-builder"
+                "builder-base.battles"
               ],
               "prerequisites": [
                 "Builder Base recognition"
@@ -1798,10 +1800,10 @@
               "value": "bluestacks5",
               "label": "BlueStacks 5",
               "summary": "The inherited BlueStacks 5 backend.",
-              "description": "An older binary was exercised on BlueStacks 5.22.252.1008/Pie64 through exact window binding, ADB readiness, current-client game readiness, and bounded Start/Stop smoke tests. That receipt does not prove a binary built from the current 438d43a1 source, current-client capture/input fixtures, live human review, or a completed attack.",
+              "description": "An older binary was exercised on BlueStacks 5.22.252.1008/Pie64 through exact window binding, ADB readiness, current-client game readiness, and bounded Start/Stop smoke tests. The 2026-08-13 e05c415a LocalRuntime checkpoint was then installed and launched twice against the existing BlueStacks/Pie64 chain in a connected-but-idle state. Its engine probe remained not-run, and no managed Start or gameplay was exercised. This source revision is post-checkpoint and unbuilt.",
               "availability": "gated",
               "runtime_verified": false,
-              "disabled_reason": "The prior attachment smoke predates the current binary; current-client capture/input fixtures and live human review are missing.",
+              "disabled_reason": "The 2026-08-13 e05c415a LocalRuntime checkpoint passed connected idle launch only. This post-checkpoint source revision is unbuilt; managed Start, gameplay, current-client capture/input fixtures, and live human review remain unproved.",
               "capability_ids": [
                 "emulator.bluestacks5"
               ],
@@ -1811,7 +1813,7 @@
                 "A supervised diagnostic operator"
               ],
               "recommended": false,
-              "warning": "Treat BlueStacks attachment as unverified until the current binary completes a fresh supervised smoke."
+              "warning": "Treat BlueStacks gameplay as unverified; the 2026-08-13 e05c415a LocalRuntime checkpoint has only connected idle-launch evidence."
             },
             {
               "value": "memu",
@@ -2423,6 +2425,7 @@
               "runtime_verified": false,
               "disabled_reason": "Clan chat recognition has not been captured since Global Chat.",
               "capability_ids": [
+                "village.donations",
                 "chat.global-chat"
               ],
               "prerequisites": [
@@ -2440,6 +2443,7 @@
               "runtime_verified": false,
               "disabled_reason": "Clan chat recognition has not been captured since Global Chat.",
               "capability_ids": [
+                "village.donations",
                 "chat.global-chat"
               ],
               "prerequisites": [
@@ -2492,7 +2496,7 @@
           "availability": "gated",
           "runtime_verified": false,
           "capability_ids": [
-            "village.donations"
+            "village.clan-request"
           ],
           "prerequisites": [
             "Current Clan Castle request dialog recognition"
@@ -2579,7 +2583,7 @@
               "runtime_verified": false,
               "disabled_reason": "The native execution contract currently accepts only Laboratory off.",
               "capability_ids": [
-                "village.town-hall-18"
+                "village.laboratory"
               ],
               "prerequisites": [
                 "Laboratory screen recognition"
@@ -2596,7 +2600,7 @@
               "runtime_verified": false,
               "disabled_reason": "Priority lists are not implemented yet.",
               "capability_ids": [
-                "village.town-hall-18"
+                "village.laboratory"
               ],
               "prerequisites": [
                 "Laboratory screen recognition"
@@ -2667,6 +2671,7 @@
               "runtime_verified": false,
               "disabled_reason": "Wall levels have not been re-confirmed for the current client.",
               "capability_ids": [
+                "village.upgrades-home",
                 "village.town-hall-18"
               ],
               "prerequisites": [
@@ -2684,7 +2689,7 @@
               "runtime_verified": false,
               "disabled_reason": "The native execution contract has no suggested-upgrade adapter.",
               "capability_ids": [
-                "builder-base.additional-builder"
+                "village.upgrades-home"
               ],
               "prerequisites": [
                 "Upgrade menu recognition"
@@ -2701,6 +2706,8 @@
               "runtime_verified": false,
               "disabled_reason": "Not implemented against the current upgrade and Hero screens.",
               "capability_ids": [
+                "village.upgrades-home",
+                "village.laboratory",
                 "village.town-hall-18",
                 "heroes.six-slot-layout"
               ],

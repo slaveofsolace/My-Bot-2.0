@@ -33,13 +33,15 @@ Global Const $g_sUserDataRoot = @LocalAppDataDir & "\My Bot 2.0"
 Global Const $g_sProfilesRoot = $g_sUserDataRoot & "\Profiles"
 Global Const $g_sProfilesIniPath = $g_sProfilesRoot & "\profile.ini"
 Global Const $g_sFirstRunProfile = "MyVillage"
-Global Const $g_sControllerTitlePattern = "^My Bot Mini v8\.2\.0(?: \(.+\))?$"
+; Match only the reviewed Mini build's own product title.  The inherited engine version remains
+; v8.2.0, but the rebuilt controller intentionally presents the My Bot 2.0 product/version title.
+Global Const $g_sControllerTitlePattern = "^My Bot 2\.0 Mini v2\.0\.0(?: \([A-Za-z0-9_. -]{1,64}\))?$"
 Global Const $g_iDockGap = 8
 Global Const $g_iDockWaitMs = 600000
 Global Const $g_iDockTransitionPollMs = 1000
 Global Const $g_iDockStablePollMs = 5000
 Global Const $g_iErrorAlreadyExists = 183
-Global Const $g_sRecoveryLogPath = @ScriptDir & "\artifacts\launcher-recovery.log"
+Global Const $g_sRecoveryLogPath = $g_sUserDataRoot & "\launcher-recovery.log"
 Global Const $g_sPlannerServiceName = "my-bot-control-center"
 Global Const $g_sPlannerScriptPath = @ScriptDir & "\tools\planner_ui.py"
 Global Const $g_sPlannerOwnershipSchema = "my-bot-planner-owner-v1"
@@ -176,8 +178,12 @@ EndIf
 
 $hController = _WaitForControllerWindow($iControllerPid, 60000)
 If Not $hController Then
-	_ShowError("The native controller did not become ready." & @CRLF & @CRLF & _
-		"My Bot 2.0 left the controller process running so its log can be inspected.")
+	; Mini normally launches the backend and planner before its window is ready. Never close only the
+	; parent here and orphan that descendant chain. The explicit Recovery route re-proves and closes
+	; planner, backend, and controller in ownership order.
+	_EngineSupervisorDisarm("controller window readiness timed out; controller stack left intact for recovery")
+	_ShowError("The native controller did not become ready, so its process stack was left intact for exact-ownership recovery." & @CRLF & @CRLF & _
+		"Do not press Start. Run My Bot 2.0 Recovery before launching again, then inspect:" & @CRLF & $g_sRecoveryLogPath)
 	Exit 4
 EndIf
 
@@ -925,6 +931,7 @@ Func _CountExactPathProcesses($sProcessName, $sExpectedPath)
 EndFunc   ;==>_CountExactPathProcesses
 
 Func _RecoveryLog($sMessage)
+	If Not FileExists($g_sUserDataRoot) Then DirCreate($g_sUserDataRoot)
 	FileWriteLine($g_sRecoveryLogPath, @YEAR & "-" & @MON & "-" & @MDAY & "T" & @HOUR & ":" & @MIN & ":" & @SEC & " " & $sMessage)
 EndFunc   ;==>_RecoveryLog
 
@@ -1063,7 +1070,7 @@ EndFunc   ;==>_ProcessImagePath
 Func _ControllerBlueStacksTitle($hController)
 	If Not WinExists($hController) Then Return ""
 	Local $aMatch = StringRegExp(WinGetTitle($hController), _
-		"^My Bot Mini v8\.2\.0 \(([A-Za-z0-9_. -]{1,64})\)$", $STR_REGEXPARRAYMATCH)
+		"^My Bot 2\.0 Mini v2\.0\.0 \(([A-Za-z0-9_. -]{1,64})\)$", $STR_REGEXPARRAYMATCH)
 	If @error Or Not IsArray($aMatch) Or UBound($aMatch) <> 1 Then Return ""
 	Return "BlueStacks5-" & $aMatch[0]
 EndFunc   ;==>_ControllerBlueStacksTitle

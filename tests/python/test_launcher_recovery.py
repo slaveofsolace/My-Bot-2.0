@@ -370,6 +370,21 @@ class LauncherRecoveryContractTests(unittest.TestCase):
         self.assertIn("$g_iLauncherErrorTimeoutSec", body)
         self.assertLess(body.index('_RecoveryLog("launcher error;'), body.index("MsgBox("))
 
+    def test_launcher_recovery_log_uses_created_per_user_parent(self):
+        self.assertIn('Global Const $g_sRecoveryLogPath = $g_sUserDataRoot & "\\launcher-recovery.log"', LAUNCHER)
+        body = autoit_function(LAUNCHER, "_RecoveryLog")
+        self.assertIn("DirCreate($g_sUserDataRoot)", body)
+        self.assertLess(body.index("DirCreate($g_sUserDataRoot)"), body.index("FileWriteLine($g_sRecoveryLogPath"))
+
+    def test_launcher_accepts_only_the_reviewed_current_mini_title(self):
+        self.assertIn(
+            'Global Const $g_sControllerTitlePattern = "^My Bot 2\\.0 Mini v2\\.0\\.0(?: \\([A-Za-z0-9_. -]{1,64}\\))?$"',
+            LAUNCHER,
+        )
+        self.assertNotIn('^My Bot Mini v8\\.2\\.0', LAUNCHER)
+        instance = autoit_function(LAUNCHER, "_ControllerBlueStacksTitle")
+        self.assertIn('"^My Bot 2\\.0 Mini v2\\.0\\.0 \\(([A-Za-z0-9_. -]{1,64})\\)$"', instance)
+
     def test_launcher_owns_a_visible_control_center_strip(self):
         self.assertIn('GUICreate("My Bot 2.0 Control"', LAUNCHER)
         self.assertIn('GUICtrlCreateButton("OPEN CONTROL CENTER"', LAUNCHER)
@@ -392,6 +407,14 @@ class LauncherRecoveryContractTests(unittest.TestCase):
         existing = LAUNCHER[LAUNCHER.index("If $hController Then"):LAUNCHER.index("; A keeper that won the startup race")]
         self.assertIn("engine init supervision not armed: existing controller", existing)
         self.assertNotIn("_EngineSupervisorPrepareLaunch", existing)
+
+    def test_launcher_timeout_preserves_the_descendant_stack_for_exact_recovery(self):
+        timeout = LAUNCHER[LAUNCHER.index("$hController = _WaitForControllerWindow($iControllerPid, 60000)"):LAUNCHER.index("; The invisible launcher remains")]
+        self.assertIn("controller stack left intact for recovery", timeout)
+        self.assertIn("process stack was left intact for exact-ownership recovery", timeout)
+        self.assertIn("Do not press Start. Run My Bot 2.0 Recovery", timeout)
+        self.assertNotIn("ProcessClose(", timeout)
+        self.assertNotIn("_CloseOwnedControllerAfterStartupTimeout", LAUNCHER)
 
     def test_engine_supervisor_receipt_binds_complete_process_chain(self):
         validator = autoit_function(LAUNCHER, "_EngineSupervisorReceiptMatches")

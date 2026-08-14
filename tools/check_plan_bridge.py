@@ -819,7 +819,8 @@ def main() -> int:
             '"kind"\\s*:\\s*"local-build"',
             '"source"\\s*:\\s*"MyBot\\.run\\.MiniGui\\.au3"',
             'UBound($aIdentity) <> 2',
-            'Global Const $g_sControllerTitlePattern = "^My Bot Mini v8\\.2\\.0(?: \\(.+\\))?$"',
+            'Global Const $g_sControllerTitlePattern = "^My Bot 2\\.0 Mini v2\\.0\\.0(?: \\([A-Za-z0-9_. -]{1,64}\\))?$"',
+            'Global Const $g_sRecoveryLogPath = $g_sUserDataRoot & "\\launcher-recovery.log"',
             'Global Const $g_iDockGap = 8',
         ):
             if required not in launcher_source:
@@ -869,11 +870,28 @@ def main() -> int:
             if required not in controller_match_body:
                 errors.append(f"launcher no longer re-proves the Mini controller identity via {required}")
 
+        startup_timeout = launcher_entry.split("$hController = _WaitForControllerWindow($iControllerPid, 60000)", 1)
+        startup_timeout_body = startup_timeout[1] if len(startup_timeout) > 1 else ""
+        for required in (
+            '_EngineSupervisorDisarm("controller window readiness timed out;',
+            "controller stack left intact for recovery",
+            "Do not press Start. Run My Bot 2.0 Recovery",
+        ):
+            if required not in startup_timeout_body:
+                errors.append(f"launcher readiness timeout no longer preserves the descendant stack and fails visibly via {required}")
+        if "ProcessClose(" in startup_timeout_body:
+            errors.append("launcher readiness timeout can partially close the controller stack instead of requiring exact recovery")
+
+        recovery_log = launcher_source.split("Func _RecoveryLog(", 1)
+        recovery_log_body = recovery_log[1].split("EndFunc", 1)[0] if len(recovery_log) > 1 else ""
+        if "DirCreate($g_sUserDataRoot)" not in recovery_log_body:
+            errors.append("launcher recovery logging no longer creates its per-user parent directory")
+
         controller_instance = launcher_source.split("Func _ControllerBlueStacksTitle($hController)", 1)
         controller_instance_body = controller_instance[1].split("EndFunc", 1)[0] if len(controller_instance) > 1 else ""
         for required in (
             "WinGetTitle($hController)",
-            '"^My Bot Mini v8\\.2\\.0 \\(([A-Za-z0-9_. -]{1,64})\\)$"',
+            '"^My Bot 2\\.0 Mini v2\\.0\\.0 \\(([A-Za-z0-9_. -]{1,64})\\)$"',
             'Return "BlueStacks5-" & $aMatch[0]',
         ):
             if required not in controller_instance_body:

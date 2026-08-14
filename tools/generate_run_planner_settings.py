@@ -113,8 +113,10 @@ def build_surface_options(surfaces: dict) -> list[dict]:
         regular = sid == "regular"
         if regular:
             prose += (
-                " A bounded source adapter and an older-binary supervised receipt exist, but no binary built from "
-                "the current 438d43a1 source, current-client fixture packet, or live human review is recorded."
+                " A bounded source adapter and an older-binary supervised gameplay receipt exist. The 2026-08-13 "
+                "e05c415a LocalRuntime checkpoint passed install and idle-launch checks. This source revision is "
+                "post-checkpoint and unbuilt; the checkpoint's managed Start path and gameplay were not exercised, "
+                "and current-client fixtures and live human review are still absent."
             )
             prerequisites = prerequisites + ["Allow unverified with a supervised diagnostic acknowledgement"]
         options.append(option(
@@ -124,12 +126,14 @@ def build_surface_options(surfaces: dict) -> list[dict]:
             description=prose,
             availability="gated" if regular else "planned",
             disabled_reason=(
-                "Current-source binary evidence, current-client fixtures, and live human review are still missing."
+                "The 2026-08-13 e05c415a LocalRuntime checkpoint passed idle launch only. This post-checkpoint "
+                "source revision is unbuilt; managed Start, gameplay, current-client fixtures, and live human "
+                "review are still unproved."
             ) if regular else (
                 "The native execution contract has no adapter for this battle surface; selecting it cannot start a run."
             ),
             capability_ids=["battle.legend-tiers"] if sid.startswith("legend") else (
-                ["builder-base.additional-builder"] if sid == "builder" else (
+                ["builder-base.battles"] if sid == "builder" else (
                     ["battle.revenge"] if sid == "revenge" else ["battle.regular-ranked-split"])),
             prerequisites=prerequisites,
             recommended=(sid == "regular"),
@@ -308,23 +312,25 @@ def main() -> int:
                                    "An older-binary supervised run confirmed Standard could issue the trained-army and selected-"
                                    "Hero deployment, observe an empty troop bar, and return home. That single "
                                    "completion confirms the route and actuator, not strategy quality; it did not "
-                                   "exercise planned ability or spell actions, and it is not proof for a binary "
-                                   "built from the current 438d43a1 source or the current client.",
+                                   "exercise planned ability or spell actions. The 2026-08-13 e05c415a LocalRuntime "
+                                   "checkpoint has install and idle-launch evidence only. This source revision is "
+                                   "post-checkpoint and unbuilt; neither proves managed Start or current-client gameplay.",
                                    "gated", [], ["A ready trained army", "A supervised diagnostic operator"],
-                                   disabled_reason="Current-source binary evidence, current-client fixtures, and live human review are still missing.",
-                                   warning="The historical receipt proves an older build only; treat this source revision as unverified."),
+                                   disabled_reason="The 2026-08-13 e05c415a LocalRuntime checkpoint passed idle launch only. This post-checkpoint source revision is unbuilt; managed Start, gameplay, current-client fixtures, and live human review remain unproved.",
+                                   warning="The historical gameplay receipt proves an older build only; the 2026-08-13 e05c415a LocalRuntime checkpoint proves only install and idle launch."),
                             option("smart.local", "Smart Attack (research-guided)",
                                    "Concentrates the current army using a Town Hall-aware local policy.",
                                    "The deterministic Town Hall policy is versioned in config/game/smart-attack-"
                                    "strategies.json and executed locally. One older-binary bounded supervised TH17 run observed "
                                    "three zoom gestures, 240 red-line points, deterministic BL-side selection, "
                                    "23-to-zero troop deployment, four selected Hero phase commands, Rage 3-to-zero, "
-                                   "one Freeze decrement, and an automatic one-battle stop. That receipt does not "
-                                   "verify a binary built from the current 438d43a1 source, current-client fixtures, "
-                                   "live human review, strategy quality, or every Town Hall and army.",
+                                   "one Freeze decrement, and an automatic one-battle stop. The 2026-08-13 e05c415a "
+                                   "LocalRuntime checkpoint has install and idle-launch evidence only. This source "
+                                   "revision is post-checkpoint and unbuilt; neither verifies managed Start, current-"
+                                   "client gameplay, fixtures, live human review, strategy quality, or every Town Hall and army.",
                                    "gated", [], ["A ready trained army", "A supervised diagnostic operator"],
-                                   disabled_reason="Current-source binary evidence, current-client fixtures, and live human review are still missing.",
-                                    warning="Historical TH17 mechanics evidence exists, but this source revision and other Town Halls and armies remain unverified."),
+                                   disabled_reason="The 2026-08-13 e05c415a LocalRuntime checkpoint passed idle launch only. This post-checkpoint source revision is unbuilt; managed Start, gameplay, current-client fixtures, and live human review remain unproved.",
+                                    warning="Historical TH17 mechanics evidence exists, but the 2026-08-13 e05c415a LocalRuntime checkpoint has only install and idle-launch evidence."),
                              option("home.collectors", "Home maintenance - collectors only",
                                     "Empty Home Village mines and collectors once, without matchmaking.",
                                     "Runs one bounded collector pass, re-proves the Home Village screen, then stops. "
@@ -339,7 +345,7 @@ def main() -> int:
                                    "It requires a fresh Available button, permits one Send, proves the fresh transition "
                                    "to AlreadyMade, re-proves Home Village, then stops. It never enters donation, army "
                                    "editing, training, collectors, upgrades, events, account rotation, or battle paths.",
-                                   "gated", [], ["Request when available enabled", "Exact emulator instance", "A supervised diagnostic operator"],
+                                   "gated", ["village.clan-request"], ["Request when available enabled", "Exact emulator instance", "A supervised diagnostic operator"],
                                    disabled_reason="Current-client Clan request recognition still needs a supervised runtime receipt.",
                                    warning="Diagnostic only: this may post one real Clan request. Send is never retried."),
                             option("legacy.smart-farm", "Smart farm",
@@ -352,7 +358,7 @@ def main() -> int:
                                    "Deployment routine for Builder Base battles.",
                                    "A Builder Base specific deployment. It is not implemented against the current "
                                    "Builder Base layout yet.",
-                                   "planned", ["builder-base.additional-builder"], ["Builder Base recognition"],
+                                   "planned", ["builder-base.battles"], ["Builder Base recognition"],
                                    disabled_reason="Not implemented for the current Builder Base layout."),
                         ],
                     },
@@ -452,11 +458,13 @@ def main() -> int:
                                    "The inherited BlueStacks 5 backend.",
                                    "An older binary was exercised on BlueStacks 5.22.252.1008/Pie64 through exact window binding, ADB "
                                    "readiness, current-client game readiness, and bounded Start/Stop smoke tests. "
-                                   "That receipt does not prove a binary built from the current 438d43a1 source, "
-                                   "current-client capture/input fixtures, live human review, or a completed attack.",
+                                   "The 2026-08-13 e05c415a LocalRuntime checkpoint was then installed and launched "
+                                   "twice against the existing BlueStacks/Pie64 chain in a connected-but-idle state. "
+                                   "Its engine probe remained not-run, and no managed Start or gameplay was exercised. "
+                                   "This source revision is post-checkpoint and unbuilt.",
                                    "gated", ["emulator.bluestacks5"], ["BlueStacks 5 installed", "Exact instance selected", "A supervised diagnostic operator"],
-                                   disabled_reason="The prior attachment smoke predates the current binary; current-client capture/input fixtures and live human review are missing.",
-                                   warning="Treat BlueStacks attachment as unverified until the current binary completes a fresh supervised smoke."),
+                                   disabled_reason="The 2026-08-13 e05c415a LocalRuntime checkpoint passed connected idle launch only. This post-checkpoint source revision is unbuilt; managed Start, gameplay, current-client capture/input fixtures, and live human review remain unproved.",
+                                   warning="Treat BlueStacks gameplay as unverified; the 2026-08-13 e05c415a LocalRuntime checkpoint has only connected idle-launch evidence."),
                             option("memu", "MEmu",
                                    "Inherited exact-instance MEmu backend.",
                                    "Discovers MEmu VM instances, reads their ADB host and port from VM information, "
@@ -656,19 +664,19 @@ def main() -> int:
                                    "Spend surplus on wall upgrades.",
                                    "Puts spare resources into walls, which is the least risky upgrade because it "
                                    "does not occupy a Builder.",
-                                   "gated", ["village.town-hall-18"], ["Current wall recognition"],
+                                   "gated", ["village.upgrades-home", "village.town-hall-18"], ["Current wall recognition"],
                                    disabled_reason="Wall levels have not been re-confirmed for the current client."),
                             option("suggested", "Suggested upgrades",
                                    "Follow the in-game suggested upgrade list.",
                                    "Uses the game's own suggestions, which requires reading the upgrade menu as it "
                                    "currently appears.",
-                                   "planned", ["builder-base.additional-builder"], ["Upgrade menu recognition"],
+                                   "planned", ["village.upgrades-home"], ["Upgrade menu recognition"],
                                    disabled_reason="The native execution contract has no suggested-upgrade adapter."),
                             option("all", "Everything",
                                    "Walls, buildings, laboratory, and Heroes.",
                                    "The full upgrade routine across every category. It depends on the six-Hero "
                                    "layout and the Town Hall 18 building set.",
-                                   "planned", ["village.town-hall-18", "heroes.six-slot-layout"],
+                                   "planned", ["village.upgrades-home", "village.laboratory", "village.town-hall-18", "heroes.six-slot-layout"],
                                    ["Current upgrade and Hero recognition"],
                                    disabled_reason="Not implemented against the current upgrade and Hero screens."),
                         ],
@@ -945,13 +953,13 @@ def main() -> int:
                                    "Donate when the request text matches.",
                                    "Reads the request and donates only what was asked for. Depends on reading clan "
                                    "chat, which moved when Global Chat was added.",
-                                   "gated", ["chat.global-chat"], ["Clan chat recognition"],
+                                   "gated", ["village.donations", "chat.global-chat"], ["Clan chat recognition"],
                                    disabled_reason="Clan chat recognition has not been captured since Global Chat."),
                             option("anything", "Donate anything",
                                    "Fill any request with whatever is available.",
                                    "Donates without matching the request. Fast, and reliably annoys clan mates who "
                                    "asked for something specific.",
-                                   "gated", ["chat.global-chat"], ["Clan chat recognition"],
+                                   "gated", ["village.donations", "chat.global-chat"], ["Clan chat recognition"],
                                    disabled_reason="Clan chat recognition has not been captured since Global Chat.",
                                    warning="Expect complaints if your clan cares what it receives."),
                         ],
@@ -996,7 +1004,7 @@ def main() -> int:
                         "engine_binding": "RunPlan.donate_request_when_short",
                         "availability": "gated",
                         "runtime_verified": False,
-                        "capability_ids": ["village.donations"],
+                        "capability_ids": ["village.clan-request"],
                         "prerequisites": ["Current Clan Castle request dialog recognition"],
                         "disabled_reason": "The request path is inherited but has no current-client supervised receipt.",
                         "warning": "A diagnostic run may post a real clan request.",
@@ -1070,13 +1078,13 @@ def main() -> int:
                                    "Always start the cheapest research.",
                                    "Keeps the lab permanently busy at the lowest cost. Needs the lab screen read "
                                    "accurately, including the Town Hall 18 additions.",
-                                   "planned", ["village.town-hall-18"], ["Laboratory screen recognition"],
+                                   "planned", ["village.laboratory"], ["Laboratory screen recognition"],
                                    disabled_reason="The native execution contract currently accepts only Laboratory off."),
                             option("priority-list", "Follow a priority list",
                                    "Work down a configured order.",
                                    "Researches in the order you specify, skipping anything unaffordable. Needs both "
                                    "lab recognition and a stored priority list.",
-                                   "planned", ["village.town-hall-18"], ["Laboratory screen recognition"],
+                                   "planned", ["village.laboratory"], ["Laboratory screen recognition"],
                                    disabled_reason="Priority lists are not implemented yet."),
                         ],
                     },

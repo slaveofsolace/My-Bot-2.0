@@ -502,13 +502,14 @@ def main() -> int:
     def option_map(setting_id: str) -> dict[str, dict]:
         return {item.get("value"): item for item in settings_by_id.get(setting_id, {}).get("options", [])}
 
+    historical_checkpoint = "2026-08-13 e05c415a localruntime checkpoint"
     surface_options = option_map("run.surface")
     regular_option = surface_options.get("regular", {})
     if regular_option.get("availability") != "gated" or regular_option.get("runtime_verified") is not False:
         errors.append("Regular Battles must remain diagnostic-only until the current binary and client are reviewed")
     regular_copy = " ".join(str(regular_option.get(field, "")).lower() for field in ("description", "disabled_reason"))
-    if "current 438d43a1 source" not in regular_copy or "live human review" not in regular_copy:
-        errors.append("Regular Battles must name the missing current-source and human-review evidence")
+    if not all(term in regular_copy for term in (historical_checkpoint, "idle", "post-checkpoint", "unbuilt", "managed start", "gameplay", "live human review")):
+        errors.append("Regular Battles must distinguish the historical idle checkpoint from the unbuilt source and missing gameplay proof")
     for surface_id, surface_option in surface_options.items():
         if surface_id != "regular" and surface_option.get("availability") not in {"planned", "unsupported"}:
             errors.append(f"{surface_id}: a surface with no native adapter must not remain selectable")
@@ -521,8 +522,8 @@ def main() -> int:
     if standard_option.get("availability") != "gated" or standard_option.get("runtime_verified") is not False:
         errors.append("legacy.standard must remain diagnostic-only until the current binary and client are reviewed")
     standard_copy = " ".join(str(standard_option.get(field, "")).lower() for field in ("description", "disabled_reason", "warning"))
-    if "older-binary" not in standard_copy or "current 438d43a1 source" not in standard_copy:
-        errors.append("legacy.standard must distinguish its older-binary receipt from current-source evidence")
+    if not all(term in standard_copy for term in ("older-binary", historical_checkpoint, "idle-launch", "post-checkpoint", "unbuilt", "managed start", "gameplay")):
+        errors.append("legacy.standard must distinguish older gameplay, the historical idle checkpoint, and the unbuilt source")
     smart_option = strategy_options.get("smart.local", {})
     if smart_option.get("availability") != "gated" or smart_option.get("runtime_verified") is not False:
         errors.append("smart.local must remain diagnostic-only until the current binary and client are reviewed")
@@ -530,11 +531,30 @@ def main() -> int:
         str(smart_option.get(field, "")).lower()
         for field in ("description", "warning")
     )
-    if "older-binary bounded supervised th17 run" not in smart_copy or "strategy quality" not in smart_copy or "current 438d43a1 source" not in smart_copy:
-        errors.append("smart.local must keep its historical mechanics receipt narrower than current-source or quality proof")
+    if not all(term in smart_copy for term in ("older-binary bounded supervised th17 run", "strategy quality", historical_checkpoint, "idle-launch", "post-checkpoint", "unbuilt", "managed start", "gameplay")):
+        errors.append("smart.local must keep historical mechanics and checkpoint evidence narrower than the unbuilt source or quality proof")
     for strategy_id in ("legacy.smart-farm", "builder.baby-dragon"):
         if strategy_options.get(strategy_id, {}).get("availability") not in {"planned", "unsupported"}:
             errors.append(f"{strategy_id}: strategy with no native adapter must not remain selectable")
+
+    expected_option_capabilities = {
+        ("run.surface", "builder"): {"builder-base.battles"},
+        ("run.strategy", "builder.baby-dragon"): {"builder-base.battles"},
+        ("run.strategy", "home.clan-request"): {"village.clan-request"},
+        ("upgrade.policy", "walls"): {"village.upgrades-home", "village.town-hall-18"},
+        ("upgrade.policy", "suggested"): {"village.upgrades-home"},
+        ("upgrade.policy", "all"): {"village.upgrades-home", "village.laboratory", "village.town-hall-18", "heroes.six-slot-layout"},
+        ("donate.mode", "matching"): {"village.donations", "chat.global-chat"},
+        ("donate.mode", "anything"): {"village.donations", "chat.global-chat"},
+        ("events.laboratory", "cheapest"): {"village.laboratory"},
+        ("events.laboratory", "priority-list"): {"village.laboratory"},
+    }
+    for (setting_id, value), expected in expected_option_capabilities.items():
+        actual = set(option_map(setting_id).get(value, {}).get("capability_ids", []))
+        if actual != expected:
+            errors.append(f"{setting_id}.{value}: capability mapping drifted: {sorted(actual)!r}")
+    if set(settings_by_id.get("donate.request_when_short", {}).get("capability_ids", [])) != {"village.clan-request"}:
+        errors.append("donate.request_when_short must use the request-only capability gate")
 
     for script_id, script_option in option_map("run.attack_script").items():
         if script_option.get("availability") != "gated" or script_option.get("runtime_verified") is not False:
@@ -547,8 +567,8 @@ def main() -> int:
         str(bluestacks_option.get(field, "")).lower()
         for field in ("description", "disabled_reason", "warning")
     )
-    if "older binary" not in bluestacks_copy or "current 438d43a1 source" not in bluestacks_copy or "live human review" not in bluestacks_copy:
-        errors.append("BlueStacks 5 must distinguish its older smoke from current-source and human-review evidence")
+    if not all(term in bluestacks_copy for term in ("older binary", historical_checkpoint, "connected-but-idle", "post-checkpoint", "unbuilt", "managed start", "gameplay", "live human review")):
+        errors.append("BlueStacks 5 must distinguish older smoke, the historical idle checkpoint, and the unbuilt source")
 
     presets = settings.get("presets")
     if not isinstance(presets, dict):

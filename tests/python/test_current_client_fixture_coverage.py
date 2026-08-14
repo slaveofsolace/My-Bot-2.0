@@ -40,6 +40,7 @@ class CurrentClientFixtureCoverageTests(unittest.TestCase):
         expected = {
             "village.collectors": "home.maintenance.ready",
             "village.donations": "home.maintenance.ready",
+            "village.clan-request": "home.maintenance.ready",
             "village.upgrades-home": "home.maintenance.ready",
             "village.laboratory": "home.laboratory.ready",
             "army.training": "army.training.ready",
