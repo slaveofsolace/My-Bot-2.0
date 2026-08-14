@@ -244,6 +244,28 @@ Func RunControlReportRunFailure($sMessage)
 	RunControlWriteStatus(True)
 EndFunc   ;==>RunControlReportRunFailure
 
+; Terminalize a bounded Start that deliberately returns idle without entering BotStop. This is used
+; by input-minimal one-shot adapters whose cleanup must not call ResumeAndroid or legacy Stop work.
+Func RunControlReportOneShotOutcome($sOutcome, $sMessage)
+	Local $bStopAccepted = $g_bRunControlStopRequested
+	$g_bRunControlStopRequested = False
+	$g_bRunControlStartInProgress = False
+	$g_bRunControlEngineCheckRequested = False
+	$g_sRunControlActiveStartRequestId = ""
+	$g_sRunControlPendingStartRequestId = ""
+	$g_bRunState = False
+	$g_iBotAction = $eBotNoAction
+	If $bStopAccepted And $g_sRunControlLastCommand = "stop" And $g_sRunControlLastOutcome = "accepted" Then
+		$g_sRunControlLastOutcome = "stopped"
+	ElseIf $g_sRunControlLastCommand = "start" And _
+			($g_sRunControlLastOutcome = "accepted" Or $g_sRunControlLastOutcome = "started") Then
+		$g_sRunControlLastOutcome = $sOutcome
+	EndIf
+	$g_sRunControlMessage = $sMessage
+	RunControlWriteStatus(True)
+	Return $bStopAccepted ? "stopped" : $sOutcome
+EndFunc   ;==>RunControlReportOneShotOutcome
+
 Func RunControlBeginStart()
 	If $g_bRunControlStartInProgress And StringRegExp($g_sRunControlActiveStartRequestId, "^[A-Za-z0-9._-]{1,80}$") Then Return
 	If StringRegExp($g_sRunControlPendingStartRequestId, "^[A-Za-z0-9._-]{1,80}$") Then

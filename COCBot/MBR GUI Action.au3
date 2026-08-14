@@ -21,6 +21,75 @@ Func _BotStartReject($sReason)
 	Return False
 EndFunc   ;==>_BotStartReject
 
+Func _BotOpenCollectorsReject($sReason, $sOutcome = "rejected")
+	If $sReason = "" Then $sReason = "Template-free collectors were not started"
+	RunExecutionCancelPrepared($sReason)
+	RunControlReportOneShotOutcome($sOutcome, $sReason)
+	Return False
+EndFunc   ;==>_BotOpenCollectorsReject
+
+; Run one collectors-only pass without loading the restricted managed image engine. The emulator must
+; already be running and exactly match the bound BlueStacks 5 instance; this path never launches,
+; reboots, resizes, zooms, authenticates, searches, trains, donates, upgrades, or spends.
+Func _BotStartOpenHomeCollectors(ByRef $sStartError)
+	If RunControlStopRequested() Then Return _BotOpenCollectorsReject("Template-free collectors cancelled before attachment", "cancelled")
+	If Not RunExecutionApplyPrepared($sStartError) Then Return _BotOpenCollectorsReject($sStartError)
+	Local $oIntent = RunExecutionPreparedIntent()
+	If Not IsObj($oIntent) Or Not HomeMaintenanceRouteAccountMatches($oIntent, $g_sProfileCurrentName) Then _
+		Return _BotOpenCollectorsReject("The active profile no longer matches the account bound at Start")
+	If WinGetAndroidHandle() = 0 Then Return _BotOpenCollectorsReject("The exact BlueStacks 5 instance is not already running")
+	If Not $g_bAndroidAdbScreencap Or Not $g_bAndroidAdbClick Or Not AndroidControlAvailable() Or _
+			Not IsArray(GetBlueStacks5ModernAdbSurfacePosition()) Then _
+		Return _BotOpenCollectorsReject("The exact BlueStacks 5 ADB capture/click surface is not available")
+	If Not OpenHomeCollectorsProveHome() Then Return _BotOpenCollectorsReject("The current screen is not the proven Home Village")
+	If RunControlStopRequested() Then Return _BotOpenCollectorsReject("Template-free collectors cancelled before execution", "cancelled")
+
+	$g_bRunState = True
+	$g_bTogglePauseAllowed = False
+	If Not RunExecutionBegin($sStartError) Then Return _BotOpenCollectorsReject($sStartError)
+	RunControlReportStartOutcome(True, "Template-free Home collectors started")
+	RunEventLogMaintenanceCollectorsStarted()
+
+	Local $bCollected = OpenHomeCollectorsCollectOnePass()
+	Local $iCollectError = @error
+	Local $iCollectorClicks = @extended
+	If Not $bCollected Then
+		If $iCollectError = 2 Or RunControlStopRequested() Or Not $g_bRunState Then
+			RunExecutionComplete("stopped")
+			RunControlReportOneShotOutcome("stopped", "Template-free collectors stopped")
+			Return False
+		EndIf
+		$sStartError = "Template-free collectors failed"
+		Switch $iCollectError
+			Case 3
+				$sStartError &= ": Home Village was not proven before input"
+			Case 4
+				$sStartError &= ": the selected collector click was not accepted"
+			Case 5
+				$sStartError &= ": Home Village was not re-proven after " & $iCollectorClicks & " accepted clicks; inputs will not be retried"
+			Case Else
+				$sStartError &= ": the bounded adapter returned an unknown outcome"
+		EndSwitch
+		RunEventLogRunFailed("regular", $RUN_VERIFICATION_DIAGNOSTIC, $sStartError)
+		RunExecutionCancelPrepared($sStartError)
+		RunControlReportOneShotOutcome("failed", $sStartError)
+		Return False
+	EndIf
+
+	RunEventLogMaintenanceHomeVerified($iCollectorClicks, "disabled", "disabled", "disabled")
+	If $iCollectorClicks > 0 Then
+		RunEventLogMaintenanceCollectorsCompleted($iCollectorClicks)
+	Else
+		RunEventLogMaintenanceCollectorsNoneActionable()
+	EndIf
+	Local $sReason = $iCollectorClicks > 0 ? "home-collectors-open-complete" : "home-collectors-open-none-actionable"
+	RunExecutionComplete($sReason)
+	Local $sMessage = "Template-free Home collectors completed; collector_clicks=" & $iCollectorClicks
+	RunControlReportOneShotOutcome("completed", $sMessage)
+	SetLog("Run Planner: " & $sMessage, $COLOR_SUCCESS)
+	Return True
+EndFunc   ;==>_BotStartOpenHomeCollectors
+
 Func _BotEngineCheckFinish($bPassed, $sMessage)
 	If $sMessage = "" Then $sMessage = $bPassed ? "Managed engine check passed" : "Managed engine check failed"
 	; Native terminalization is the linearization point. A Stop accepted before it changes the
@@ -68,6 +137,10 @@ Func BotStart($bAutostartDelay = 0)
 		SetLog("Run Planner cannot start: " & $sStartError, $COLOR_ERROR)
 		Return FuncReturn(_BotStartReject($sStartError))
 	EndIf
+	Local $oPreparedIntent = RunExecutionPreparedIntent()
+	Local $iOpenCollectorsMode = OpenHomeCollectorsPreparedMode($oPreparedIntent, $sStartError)
+	If $iOpenCollectorsMode = 1 Then Return FuncReturn(_BotStartOpenHomeCollectors($sStartError))
+	If $iOpenCollectorsMode = -1 Then Return FuncReturn(_BotOpenCollectorsReject($sStartError))
 
 	If Not MBRFuncProbeEngine($sStartError) Then
 		SetLog("Engine unavailable: " & $sStartError, $COLOR_ERROR)
