@@ -1,7 +1,7 @@
 ; #FUNCTION# ====================================================================================================================
 ; Name ..........: Open Clan request
 ; Description ...: Template-free, one-send Clan Castle request for an already-running exact BlueStacks 5 Home Village.
-; Remarks .......: This adapter uses only fresh framebuffer pixels and the existing ADB click channel. It never calls
+; Remarks .......: This adapter uses only fresh framebuffer pixels and the configured Click channel (ADB or WinAPI control). It never calls
 ;                  MyBot.run.dll, ImgLoc, XML templates, OCR, training, donation, battle, upgrades, or account switching.
 ; ===============================================================================================================================
 #include-once
@@ -70,7 +70,7 @@ Func OpenClanRequestOpenArmyOverview()
 	If RunControlStopRequested() Or Not $g_bRunState Then Return False
 	If Not OpenClanRequestProveNeutralHome() Then Return False
 	If RunControlStopRequested() Or Not $g_bRunState Then Return False
-	If Not Click($OPEN_CLAN_REQUEST_ARMY_X, $OPEN_CLAN_REQUEST_ARMY_Y, 1, 120, "#OpenClanRequestArmy") Then Return False
+	If Not Click($OPEN_CLAN_REQUEST_ARMY_X, $OPEN_CLAN_REQUEST_ARMY_Y, 1, 120, "#OpenClanRequestArmy", True) Then Return False
 	If _Sleep(400, True, True, False) Then Return False
 	For $iAttempt = 1 To 10
 		If RunControlStopRequested() Or Not $g_bRunState Then Return False
@@ -100,7 +100,7 @@ Func OpenClanRequestOpenDialog($iRequestX, $iRequestY)
 	If Int($iRequestX) < 734 Or Int($iRequestX) > 773 Or Int($iRequestY) < 455 Or Int($iRequestY) > 520 Then Return 0
 	If Not OpenClanRequestArmyOverviewReady(True) Then Return 0
 	If RunControlStopRequested() Or Not $g_bRunState Then Return 0
-	If Not Click(Int($iRequestX), Int($iRequestY), 1, 120, "#OpenClanRequestDialog") Then Return 0
+	If Not Click(Int($iRequestX), Int($iRequestY), 1, 120, "#OpenClanRequestDialog", True) Then Return 0
 	If _Sleep(300, True, True, False) Then Return 0
 	For $iAttempt = 1 To 8
 		If RunControlStopRequested() Or Not $g_bRunState Then Return 0
@@ -116,7 +116,7 @@ Func OpenClanRequestIssueSend($iSendX, $iSendY)
 	If Int($iSendX) < 455 Or Int($iSendX) > 635 Or Int($iSendY) < 438 Or Int($iSendY) > 520 Then Return False
 	If Not OpenClanRequestDialogReady() Then Return False
 	If RunControlStopRequested() Or Not $g_bRunState Then Return False
-	Return Click(Int($iSendX), Int($iSendY), 1, 120, "#OpenClanRequestSend")
+	Return Click(Int($iSendX), Int($iSendY), 1, 120, "#OpenClanRequestSend", True)
 EndFunc   ;==>OpenClanRequestIssueSend
 
 ; Close only recognized request-owned overlays. A Stop authorizes no cleanup input.
@@ -125,13 +125,13 @@ Func OpenClanRequestCloseAndProveHome()
 		If RunControlStopRequested() Or Not $g_bRunState Then Return False
 		If OpenClanRequestDialogReady() Then
 			If RunControlStopRequested() Or Not $g_bRunState Then Return False
-			If Not Click($OPEN_CLAN_REQUEST_CANCEL_X, $OPEN_CLAN_REQUEST_CANCEL_Y, 1, 120, "#OpenClanRequestCancel") Then Return False
+			If Not Click($OPEN_CLAN_REQUEST_CANCEL_X, $OPEN_CLAN_REQUEST_CANCEL_Y, 1, 120, "#OpenClanRequestCancel", True) Then Return False
 			If _Sleep(300, True, True, False) Then Return False
 			ContinueLoop
 		EndIf
 		If OpenClanRequestArmyOverviewReady(False) Then
 			If RunControlStopRequested() Or Not $g_bRunState Then Return False
-			If Not Click($OPEN_CLAN_REQUEST_CLOSE_X, $OPEN_CLAN_REQUEST_CLOSE_Y, 1, 120, "#OpenClanRequestClose") Then Return False
+			If Not Click($OPEN_CLAN_REQUEST_CLOSE_X, $OPEN_CLAN_REQUEST_CLOSE_Y, 1, 120, "#OpenClanRequestClose", True) Then Return False
 			If _Sleep(300, True, True, False) Then Return False
 			ContinueLoop
 		EndIf

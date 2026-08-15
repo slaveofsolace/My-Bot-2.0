@@ -59,9 +59,9 @@ Func _BotStartOpenHomeCollectors(ByRef $sStartError)
 		Return _BotOpenCollectorsReject("The active profile no longer matches the account bound at Start")
 	Local $sAttachmentError = ""
 	If Not _BotOpenHomeRequireExactBlueStacks($sAttachmentError) Then Return _BotOpenCollectorsReject($sAttachmentError)
-	If Not $g_bAndroidAdbScreencap Or Not $g_bAndroidAdbClick Or Not AndroidControlAvailable() Or _
+	If Not $g_bAndroidAdbScreencap Or Not AndroidControlAvailable() Or _
 			Not IsArray(GetBlueStacks5ModernAdbSurfacePosition()) Then _
-		Return _BotOpenCollectorsReject("The exact BlueStacks 5 ADB capture/click surface is not available")
+		Return _BotOpenCollectorsReject("The exact BlueStacks 5 framebuffer/control surface is not available")
 	If Not OpenHomeCollectorsProveHome() Then Return _BotOpenCollectorsReject("The current screen is not the proven Home Village")
 	If RunControlStopRequested() Then Return _BotOpenCollectorsReject("Template-free collectors cancelled before execution", "cancelled")
 
@@ -119,9 +119,9 @@ Func _BotStartOpenHomeLootCart(ByRef $sStartError)
 		Return _BotOpenCollectorsReject("The active profile no longer matches the account bound at Start")
 	Local $sAttachmentError = ""
 	If Not _BotOpenHomeRequireExactBlueStacks($sAttachmentError) Then Return _BotOpenCollectorsReject($sAttachmentError)
-	If Not $g_bAndroidAdbScreencap Or Not $g_bAndroidAdbClick Or Not AndroidControlAvailable() Or _
+	If Not $g_bAndroidAdbScreencap Or Not AndroidControlAvailable() Or _
 			Not IsArray(GetBlueStacks5ModernAdbSurfacePosition()) Then _
-		Return _BotOpenCollectorsReject("The exact BlueStacks 5 ADB capture/click surface is not available")
+		Return _BotOpenCollectorsReject("The exact BlueStacks 5 framebuffer/control surface is not available")
 	If Not OpenHomeCollectorsProveHome() Then Return _BotOpenCollectorsReject("The current screen is not the proven Home Village")
 	If RunControlStopRequested() Then Return _BotOpenCollectorsReject("Template-free Loot Cart cancelled before execution", "cancelled")
 
@@ -191,9 +191,9 @@ Func _BotStartOpenHomeTreasury(ByRef $sStartError)
 		Return _BotOpenCollectorsReject("The active profile no longer matches the account bound at Start")
 	Local $sAttachmentError = ""
 	If Not _BotOpenHomeRequireExactBlueStacks($sAttachmentError) Then Return _BotOpenCollectorsReject($sAttachmentError)
-	If Not $g_bAndroidAdbScreencap Or Not $g_bAndroidAdbClick Or Not AndroidControlAvailable() Or _
+	If Not $g_bAndroidAdbScreencap Or Not AndroidControlAvailable() Or _
 			Not IsArray(GetBlueStacks5ModernAdbSurfacePosition()) Then _
-		Return _BotOpenCollectorsReject("The exact BlueStacks 5 ADB capture/click surface is not available")
+		Return _BotOpenCollectorsReject("The exact BlueStacks 5 framebuffer/control surface is not available")
 	If Not OpenHomeCollectorsProveHome() Then Return _BotOpenCollectorsReject("The current screen is not the proven Home Village")
 	If RunControlStopRequested() Then Return _BotOpenCollectorsReject("Template-free Treasury cancelled before execution", "cancelled")
 
@@ -264,9 +264,9 @@ Func _BotStartOpenDailyReward(ByRef $sStartError)
 		Return _BotOpenCollectorsReject("The active profile no longer matches the account bound at Start")
 	Local $sAttachmentError = ""
 	If Not _BotOpenHomeRequireExactBlueStacks($sAttachmentError) Then Return _BotOpenCollectorsReject($sAttachmentError)
-	If Not $g_bAndroidAdbScreencap Or Not $g_bAndroidAdbClick Or Not AndroidControlAvailable() Or _
+	If Not $g_bAndroidAdbScreencap Or Not AndroidControlAvailable() Or _
 			Not IsArray(GetBlueStacks5ModernAdbSurfacePosition()) Then _
-		Return _BotOpenCollectorsReject("The exact BlueStacks 5 ADB capture/click surface is not available")
+		Return _BotOpenCollectorsReject("The exact BlueStacks 5 framebuffer/control surface is not available")
 
 	Local $aClaim[2]
 	Local $iClaimButtons = OpenHomeDailyRewardCaptureClaim($aClaim)
@@ -368,9 +368,9 @@ Func _BotStartOpenClanRequest(ByRef $sStartError)
 		Return _BotOpenCollectorsReject("The active profile no longer matches the account bound at Start")
 	Local $sAttachmentError = ""
 	If Not _BotOpenHomeRequireExactBlueStacks($sAttachmentError) Then Return _BotOpenCollectorsReject($sAttachmentError)
-	If Not $g_bAndroidAdbScreencap Or Not $g_bAndroidAdbClick Or Not AndroidControlAvailable() Or _
+	If Not $g_bAndroidAdbScreencap Or Not AndroidControlAvailable() Or _
 			Not IsArray(GetBlueStacks5ModernAdbSurfacePosition()) Then _
-		Return _BotOpenCollectorsReject("The exact BlueStacks 5 ADB capture/click surface is not available")
+		Return _BotOpenCollectorsReject("The exact BlueStacks 5 framebuffer/control surface is not available")
 	If Not OpenHomeCollectorsProveHome() Then Return _BotOpenCollectorsReject("The current screen is not the proven Home Village")
 	If RunControlStopRequested() Then Return _BotOpenCollectorsReject("Clan request cancelled before execution", "cancelled")
 

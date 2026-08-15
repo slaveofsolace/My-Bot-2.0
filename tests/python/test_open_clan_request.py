@@ -131,6 +131,9 @@ class OpenClanRequestContract(unittest.TestCase):
         )
         for callback in expected:
             self.assertIn(callback, block)
+        self.assertIn("$g_bAndroidAdbScreencap", block)
+        self.assertIn("AndroidControlAvailable()", block)
+        self.assertNotIn("$g_bAndroidAdbClick", block)
         for legacy in (
             "_ClanRequestLiveOpenArmyOverview",
             "_ClanRequestLiveDetectState",
@@ -139,6 +142,11 @@ class OpenClanRequestContract(unittest.TestCase):
             "_ClanRequestLiveCloseAndProveHome",
         ):
             self.assertNotIn(legacy, block)
+
+    def test_all_request_inputs_force_window_control_clicks(self) -> None:
+        click_lines = [line for line in self.source.splitlines() if "Click(" in line]
+        self.assertEqual(5, len(click_lines))
+        self.assertTrue(all(", True)" in line for line in click_lines), click_lines)
 
 
 if __name__ == "__main__":

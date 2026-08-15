@@ -271,14 +271,13 @@ class OpenHomeCollectorsTest(unittest.TestCase):
             self.assertIn(f"0x{color:06X}", predicate)
         self.assertNotIn("ImgLoc", predicate)
 
-    def test_start_path_requires_exact_existing_adb_surface(self):
+    def test_start_path_requires_exact_framebuffer_and_control_surface(self):
         action = source("COCBot/MBR GUI Action.au3")
         runner = autoit_function(action, "_BotStartOpenHomeCollectors")
         for proof in (
             "HomeMaintenanceRouteAccountMatches",
             "_BotOpenHomeRequireExactBlueStacks($sAttachmentError)",
             "$g_bAndroidAdbScreencap",
-            "$g_bAndroidAdbClick",
             "AndroidControlAvailable()",
             "GetBlueStacks5ModernAdbSurfacePosition()",
             "OpenHomeCollectorsProveHome()",
@@ -300,7 +299,6 @@ class OpenHomeCollectorsTest(unittest.TestCase):
             "HomeMaintenanceRouteAccountMatches",
             "_BotOpenHomeRequireExactBlueStacks($sAttachmentError)",
             "$g_bAndroidAdbScreencap",
-            "$g_bAndroidAdbClick",
             "AndroidControlAvailable()",
             "GetBlueStacks5ModernAdbSurfacePosition()",
             "OpenHomeCollectorsProveHome()",
@@ -323,7 +321,6 @@ class OpenHomeCollectorsTest(unittest.TestCase):
             "HomeMaintenanceRouteAccountMatches",
             "_BotOpenHomeRequireExactBlueStacks($sAttachmentError)",
             "$g_bAndroidAdbScreencap",
-            "$g_bAndroidAdbClick",
             "AndroidControlAvailable()",
             "GetBlueStacks5ModernAdbSurfacePosition()",
             "OpenHomeCollectorsProveHome()",
@@ -348,7 +345,6 @@ class OpenHomeCollectorsTest(unittest.TestCase):
             "HomeMaintenanceRouteAccountMatches",
             "_BotOpenHomeRequireExactBlueStacks($sAttachmentError)",
             "$g_bAndroidAdbScreencap",
-            "$g_bAndroidAdbClick",
             "AndroidControlAvailable()",
             "GetBlueStacks5ModernAdbSurfacePosition()",
             "OpenHomeDailyRewardCaptureClaim",
@@ -374,6 +370,10 @@ class OpenHomeCollectorsTest(unittest.TestCase):
         ):
             self.assertNotIn(forbidden, daily_runner)
 
+        for runner in (runner, loot_runner, treasury_runner, daily_runner):
+            self.assertNotIn("$g_bAndroidAdbClick", runner)
+            self.assertIn("AndroidControlAvailable()", runner)
+
     def test_terminal_outcome_restores_idle_without_legacy_stop(self):
         bridge = source("COCBot/functions/Run/RunControlBridge.au3")
         outcome = autoit_function(bridge, "RunControlReportOneShotOutcome")
@@ -382,6 +382,19 @@ class OpenHomeCollectorsTest(unittest.TestCase):
         self.assertIn("$g_sRunControlActiveStartRequestId = \"\"", outcome)
         self.assertNotIn("BotStop", outcome)
         self.assertNotIn("ResumeAndroid", outcome)
+
+    def test_one_shot_home_inputs_force_window_control_clicks(self):
+        for relative, expected_count in (
+            ("COCBot/functions/Run/OpenHomeCollectors.au3", 5),
+            ("COCBot/functions/Run/OpenHomeTreasury.au3", 3),
+        ):
+            click_lines = [line for line in source(relative).splitlines() if "Click(" in line]
+            self.assertEqual(expected_count, len(click_lines), relative)
+            self.assertTrue(all(", True)" in line for line in click_lines), click_lines)
+
+        click = autoit_function(source("COCBot/functions/Other/Click.au3"), "Click")
+        self.assertIn("$bForceControl = False", source("COCBot/functions/Other/Click.au3"))
+        self.assertIn("$g_bAndroidAdbClick = True And Not $bForceControl", click)
 
 
 if __name__ == "__main__":

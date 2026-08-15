@@ -1,7 +1,7 @@
 ; #FUNCTION# ====================================================================================================================
 ; Name ..........: Open Home collectors
 ; Description ...: Template-free, one-pass Home collection for an already-running, exact BlueStacks 5 Home Village.
-; Remarks .......: This clean-room adapter uses only framebuffer pixels and the existing ADB capture/click channel. It never calls
+; Remarks .......: This clean-room adapter uses only framebuffer pixels and the configured Click channel (ADB or WinAPI control). It never calls
 ;                  MyBot.run.dll, ImgLoc, XML templates, OCR, training, upgrades, donations, or account switching.
 ; ===============================================================================================================================
 #include-once
@@ -137,7 +137,7 @@ Func OpenHomeCollectorsCollectOnePass()
 		If $iType = $OPEN_HOME_COLLECTOR_NONE Then ExitLoop
 		If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, $iClicks, False)
 		If Not _CheckPixel($aIsMain, False) Then Return SetError(3, $iClicks, False)
-		If Not Click($aFound[$iType][1], $aFound[$iType][2], 1, 120, "#OpenHomeCollector") Then
+		If Not Click($aFound[$iType][1], $aFound[$iType][2], 1, 120, "#OpenHomeCollector", True) Then
 			If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, $iClicks, False)
 			Return SetError(4, $iClicks, False)
 		EndIf
@@ -223,7 +223,7 @@ Func OpenHomeDailyRewardIssueClaim($iExpectedX, $iExpectedY)
 	If $iClaims <> 1 Or $aFreshClaim[0] <> $iExpectedX Or $aFreshClaim[1] <> $iExpectedY Then _
 		Return SetError(1, $iClaims, False)
 	If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
-	Return Click($iExpectedX, $iExpectedY, 1, 120, "#OpenHomeDailyRewardClaim")
+	Return Click($iExpectedX, $iExpectedY, 1, 120, "#OpenHomeDailyRewardClaim", True)
 EndFunc   ;==>OpenHomeDailyRewardIssueClaim
 
 ; After Claim, never accept an Okay/Confirm/sell/gem-conversion action. If the exact Daily Reward panel
@@ -236,7 +236,7 @@ Func OpenHomeDailyRewardCloseAndProveHome(ByRef $bCloseIssued)
 		If OpenHomeCollectorsProveHome() Then Return True
 		If $iAttempt = 1 And (OpenHomeDailyRewardOverlayReady() Or OpenHomeDailyRewardClaimedOverlayReady()) Then
 			If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
-			If Not Click(759, 173, 1, 120, "#OpenHomeDailyRewardClose") Then Return SetError(3, 0, False)
+			If Not Click(759, 173, 1, 120, "#OpenHomeDailyRewardClose", True) Then Return SetError(3, 0, False)
 			$bCloseIssued = True
 		EndIf
 		If $iAttempt < 8 And _Sleep(250, True, True, False) Then Return SetError(2, 0, False)
@@ -306,14 +306,14 @@ EndFunc   ;==>OpenHomeLootCartDetectCollect
 
 Func OpenHomeLootCartIssueOpen($iX, $iY)
 	If RunControlStopRequested() Or Not $g_bRunState Or Not _CheckPixel($aIsMain, False) Then Return False
-	Local $bIssued = Click(Int($iX), Int($iY), 1, 120, "#OpenHomeLootCart")
+	Local $bIssued = Click(Int($iX), Int($iY), 1, 120, "#OpenHomeLootCart", True)
 	If $bIssued Then RunEventLogMaintenanceLootCartOpenIssued(1)
 	Return $bIssued
 EndFunc   ;==>OpenHomeLootCartIssueOpen
 
 Func OpenHomeLootCartIssueCollect($iX, $iY)
 	If RunControlStopRequested() Or Not $g_bRunState Or Not OpenHomeLootCartCollectPanelReady() Then Return False
-	Local $bIssued = Click(Int($iX), Int($iY), 1, 120, "#OpenHomeLootCartCollect")
+	Local $bIssued = Click(Int($iX), Int($iY), 1, 120, "#OpenHomeLootCartCollect", True)
 	If $bIssued Then RunEventLogMaintenanceLootCartCollectIssued(1)
 	Return $bIssued
 EndFunc   ;==>OpenHomeLootCartIssueCollect

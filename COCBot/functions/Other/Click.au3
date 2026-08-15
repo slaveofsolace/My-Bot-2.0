@@ -1,8 +1,8 @@
 ; #FUNCTION# ====================================================================================================================
 ; Name ..........: Click, PureClick, ClickP
 ; Description ...: Clicks the BS screen on desired location
-; Syntax ........: Click($x, $y, $times, $speed)
-; Parameters ....: $x, $y are mandatory, $times and $speed are optional
+; Syntax ........: Click($x, $y, $times, $speed, $debugtxt, $bForceControl)
+; Parameters ....: $x, $y are mandatory; optional $bForceControl bypasses ADB input for a verified window-control click
 ; Return values .: None
 ; Author ........: (2014)
 ; Modified ......: HungLe (may-2015) Sardo 2015-08
@@ -17,7 +17,7 @@
 #include <WinAPISys.au3>
 #include "..\Run\RunPacingGate.au3"
 
-Func Click($x, $y, $times = 1, $speed = 120, $debugtxt = "")
+Func Click($x, $y, $times = 1, $speed = 120, $debugtxt = "", $bForceControl = False)
 	Local $txt = "", $aPrevCoor[2] = [$x, $y], $bIssued = False
 	If $g_bUseRandomClick Then
 		$x = Random($x - 5, $x + 5, 1)
@@ -43,7 +43,7 @@ Func Click($x, $y, $times = 1, $speed = 120, $debugtxt = "")
 	; space themselves with their own speed argument, and a second delay on top would double-space something tuned.
 	If RunPacingGateAction() Then Return False
 
-	If $g_bAndroidAdbClick = True Then
+	If $g_bAndroidAdbClick = True And Not $bForceControl Then
 		Local $bAndroidIssued = AndroidClick($x, $y, $times, $speed)
 		Local $iAndroidError = @error, $iAndroidExtended = @extended
 		RunPacingSettle()
