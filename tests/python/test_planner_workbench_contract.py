@@ -43,7 +43,7 @@ class PlannerWorkbenchContract(unittest.TestCase):
         self.assertEqual(treasury["availability"], "planned")
         self.assertEqual(settings["events.collect_daily_reward"]["default"], False)
         self.assertEqual(settings["events.collect_daily_reward"]["type"], "boolean")
-        self.assertEqual(settings["events.collect_daily_reward"]["availability"], "planned")
+        self.assertEqual(settings["events.collect_daily_reward"]["availability"], "gated")
         self.assertEqual(settings["run.town_hall"]["default"], 0)
         self.assertEqual(settings["runtime.instance"]["type"], "instance-select")
         self.assertEqual(settings["army.recipe_name"]["type"], "text")

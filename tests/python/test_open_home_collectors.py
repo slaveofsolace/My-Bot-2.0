@@ -85,9 +85,10 @@ class OpenHomeCollectorsTest(unittest.TestCase):
         self.assertLess(start.index("OpenHomeCollectorsPreparedMode"), start.index("MBRFuncProbeEngine"))
         self.assertIn("$iOpenCollectorsMode = 1", start)
         self.assertIn("$iOpenCollectorsMode = 2", start)
+        self.assertIn("$iOpenCollectorsMode = 3", start)
         self.assertIn("$iOpenCollectorsMode = -1", start)
 
-    def test_mode_allows_exact_collectors_or_loot_cart_and_bluestacks_only(self):
+    def test_mode_allows_exact_collectors_loot_cart_or_daily_reward_and_bluestacks_only(self):
         route = source("COCBot/functions/Run/OpenHomeCollectors.au3")
         mode = autoit_function(route, "OpenHomeCollectorsPreparedMode")
         self.assertIn('events_collect_resources', mode)
@@ -98,10 +99,11 @@ class OpenHomeCollectorsTest(unittest.TestCase):
         ):
             self.assertIn(field, mode)
         self.assertIn('<> "bluestacks5"', mode)
-        self.assertIn("$bCollectors And $bLootCart", mode)
-        self.assertIn("$bDailyReward Or $bTreasury", mode)
+        self.assertIn("$iSelected <> 1", mode)
+        self.assertIn("$bTreasury Or", mode)
         self.assertIn("$OPEN_HOME_MODE_REJECTED", mode)
         self.assertIn("$OPEN_HOME_MODE_LOOT_CART", mode)
+        self.assertIn("$OPEN_HOME_MODE_DAILY_REWARD", mode)
 
     def test_adapter_is_template_free_and_has_no_spending_actuator(self):
         route = source("COCBot/functions/Run/OpenHomeCollectors.au3")
@@ -124,7 +126,7 @@ class OpenHomeCollectorsTest(unittest.TestCase):
         self.assertNotIn("$g_sImg", route)
         self.assertLess(route.index("ForceCaptureRegion()"), route.index("AndroidScreencap("))
         self.assertIn("AndroidScreencap(", route)
-        self.assertEqual(route.count("Click("), 3)
+        self.assertEqual(route.count("Click("), 5)
 
     def test_every_click_is_bounded_by_stop_and_home_proof(self):
         route = source("COCBot/functions/Run/OpenHomeCollectors.au3")
@@ -178,9 +180,62 @@ class OpenHomeCollectorsTest(unittest.TestCase):
             self.assertEqual(function.count("Click("), 1)
         self.assertIn("_CheckPixel($aIsMain, False)", issue_open)
         self.assertIn("OpenHomeLootCartCollectPanelReady()", issue_collect)
-        self.assertNotIn("Okay", route)
-        self.assertNotIn("Confirm", route)
-        self.assertNotIn("Gem", route)
+        loot_scope = issue_open + issue_collect + autoit_function(route, "OpenHomeLootCartProveHome")
+        self.assertNotIn("Okay", loot_scope)
+        self.assertNotIn("Confirm", loot_scope)
+        self.assertNotIn("Gem", loot_scope)
+
+    def test_daily_reward_recognizer_matches_the_verified_positive_fixture(self):
+        width, height, pixel = png_rgb(ROOT / "tests/fixtures/current-client/images/home.daily-reward.png")
+        self.assertEqual((width, height), (860, 732))
+        overlay = {
+            (759, 173): (0xFFFFFF, 20),
+            (746, 173): (0x616161, 36),
+            (772, 173): (0x606060, 36),
+            (759, 160): (0xACACAC, 36),
+            (759, 186): (0x595959, 36),
+            (430, 155): (0xA57315, 44),
+            (80, 285): (0x844A00, 44),
+        }
+        claim = {
+            (252, 326): (0xCAED87, 44),
+            (342, 326): (0xCAED87, 44),
+            (297, 310): (0xDEFF8D, 44),
+            (297, 342): (0x6F9438, 44),
+        }
+        for point, (color, variation) in {**overlay, **claim}.items():
+            actual = pixel(*point)
+            target = ((color >> 16) & 0xFF, (color >> 8) & 0xFF, color & 0xFF)
+            self.assertTrue(all(abs(a - b) <= variation for a, b in zip(actual, target)), (point, actual, target))
+
+        route = source("COCBot/functions/Run/OpenHomeCollectors.au3")
+        overlay_source = autoit_function(route, "OpenHomeDailyRewardOverlayReady")
+        claim_source = autoit_function(route, "_OpenHomeDailyRewardClaimCandidateReady")
+        find_source = autoit_function(route, "OpenHomeDailyRewardFindClaim")
+        for color, _variation in overlay.values():
+            self.assertIn(f"0x{color:06X}", overlay_source)
+        for color, _variation in claim.values():
+            self.assertIn(f"0x{color:06X}", claim_source)
+        self.assertIn("Local $aCandidates[7][2]", find_source)
+        self.assertNotIn("ImgLoc", overlay_source + claim_source + find_source)
+
+    def test_daily_reward_inputs_are_fresh_bounded_and_never_confirm(self):
+        route = source("COCBot/functions/Run/OpenHomeCollectors.au3")
+        issue = autoit_function(route, "OpenHomeDailyRewardIssueClaim")
+        click = issue.index("Click(")
+        self.assertLess(issue.index("OpenHomeDailyRewardCaptureClaim"), click)
+        self.assertGreaterEqual(issue[:click].count("RunControlStopRequested()"), 2)
+        self.assertIn("$iClaims <> 1", issue)
+        self.assertEqual(issue.count("Click("), 1)
+
+        cleanup = autoit_function(route, "OpenHomeDailyRewardCloseAndProveHome")
+        close = cleanup.index("Click(")
+        self.assertLess(cleanup.rindex("RunControlStopRequested()", 0, close), close)
+        self.assertIn("OpenHomeCollectorsProveHome()", cleanup)
+        self.assertIn("OpenHomeDailyRewardOverlayReady()", cleanup)
+        self.assertEqual(cleanup.count("Click("), 1)
+        for forbidden in ("Okay", "Confirm", "GemClick", "findMultiple", "findImage"):
+            self.assertNotIn(forbidden, issue + cleanup)
 
     def test_start_path_requires_exact_existing_adb_surface(self):
         action = source("COCBot/MBR GUI Action.au3")
@@ -228,6 +283,37 @@ class OpenHomeCollectorsTest(unittest.TestCase):
             "btnStop",
         ):
             self.assertNotIn(forbidden, loot_runner)
+
+        daily_runner = autoit_function(action, "_BotStartOpenDailyReward")
+        for proof in (
+            "HomeMaintenanceRouteAccountMatches",
+            "WinGetAndroidHandle() = 0",
+            "$g_bAndroidAdbScreencap",
+            "$g_bAndroidAdbClick",
+            "AndroidControlAvailable()",
+            "GetBlueStacks5ModernAdbSurfacePosition()",
+            "OpenHomeDailyRewardCaptureClaim",
+            "OpenHomeDailyRewardIssueClaim",
+            "OpenHomeDailyRewardCloseAndProveHome",
+            "RunEventLogMaintenanceDailyRewardClickIssued",
+            "RunEventLogMaintenanceHomeVerified",
+        ):
+            self.assertIn(proof, daily_runner)
+        for forbidden in (
+            "MBRFunc",
+            "ForumAuthentication",
+            "OpenAndroid",
+            "InitiateLayout",
+            "ZoomOut",
+            "BotDetectFirstTime",
+            "btnStop",
+            "GemClick",
+            "ClickP(",
+            "PureClick(",
+            "findMultiple(",
+            "findImage(",
+        ):
+            self.assertNotIn(forbidden, daily_runner)
 
     def test_terminal_outcome_restores_idle_without_legacy_stop(self):
         bridge = source("COCBot/functions/Run/RunControlBridge.au3")

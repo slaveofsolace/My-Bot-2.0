@@ -2693,7 +2693,7 @@
           "default": false,
           "required": false,
           "engine_binding": "RunPlan.events_collect_daily_reward",
-          "availability": "planned",
+          "availability": "gated",
           "runtime_verified": false,
           "capability_ids": [
             "events.daily-reward"
@@ -2702,8 +2702,8 @@
             "Current startup Daily Reward recognition",
             "No-gems policy"
           ],
-          "disabled_reason": "Startup Daily Reward recognition is not wired without the restricted inherited image engine.",
-          "warning": "Unavailable in this build. A future clean-room recognizer must never convert a full reward into gems."
+          "disabled_reason": "The bounded clean-room route needs one supervised current-client Claim receipt.",
+          "warning": "This can claim one real Daily Reward. It never accepts Okay, Confirm, sell, or gem-conversion actions."
         },
         {
           "id": "events.collect_loot_cart",

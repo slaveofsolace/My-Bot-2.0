@@ -71,7 +71,7 @@
     },
     {
       "id": "home.daily-reward",
-      "status": "missing",
+      "status": "verified",
       "purpose": "Startup Daily Reward window and its single no-gems Claim state",
       "capability_ids": [
         "events.daily-reward"

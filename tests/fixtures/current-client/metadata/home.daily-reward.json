@@ -1,0 +1,76 @@
+{
+  "schema_version": 2,
+  "fixture_id": "home.daily-reward",
+  "captured_at": "2026-08-15T09:28:56Z",
+  "game_version": "18.400.9",
+  "source_type": "authorized-test-account",
+  "width": 860,
+  "height": 732,
+  "sha256": "33a759cb71627aa48a7f032966e50ceb540b9c736d125ca98bd532347c5429c9",
+  "raw_sha256": "7a213afd6e468b7205d9b26de3e59d2c028317483ab3654e39459a84bbce4b40",
+  "redacted_sha256": "33a759cb71627aa48a7f032966e50ceb540b9c736d125ca98bd532347c5429c9",
+  "redacted": true,
+  "redaction_masks": [
+    {
+      "x": 56,
+      "y": 7,
+      "width": 154,
+      "height": 31,
+      "fill_hex": "#000000FF"
+    },
+    {
+      "x": 654,
+      "y": 10,
+      "width": 164,
+      "height": 38,
+      "fill_hex": "#000000FF"
+    },
+    {
+      "x": 654,
+      "y": 61,
+      "width": 164,
+      "height": 40,
+      "fill_hex": "#000000FF"
+    },
+    {
+      "x": 654,
+      "y": 112,
+      "width": 164,
+      "height": 40,
+      "fill_hex": "#000000FF"
+    },
+    {
+      "x": 786,
+      "y": 154,
+      "width": 68,
+      "height": 43,
+      "fill_hex": "#000000FF"
+    }
+  ],
+  "redaction_pixel_changes": 26953,
+  "privacy_review_method": "decoded-pixel-diff-v1",
+  "redaction_notes": "Player name and four resource total regions replaced with opaque black rectangles; Daily Reward title, close control, seven reward slots, and Claim button are unchanged.",
+  "assertions": [
+    "The canonical 860x732 frame shows the startup Daily Reward overlay with its wood-panel bounds and top-right close control intact.",
+    "Exactly one large green Claim button is visible in the canonical Day 2 slot; Day 1 is visibly claimed and the later days are locked.",
+    "No Okay, Confirm, sell, gem-conversion, or other premium-currency action is visible.",
+    "All privacy masks are outside the Daily Reward title, close control, seven reward slots, and Claim button geometry used by recognition."
+  ],
+  "replay_contract": {
+    "schema_version": 1,
+    "adapter": "production.open-home-daily-reward-v1",
+    "expected_state": "home.daily-reward.claim-ready",
+    "safe_regions": [
+      {
+        "id": "claim",
+        "x": 239,
+        "y": 305,
+        "width": 117,
+        "height": 40
+      }
+    ]
+  },
+  "reviewed_by": "Codex supervised live audit",
+  "reviewed_at": "2026-08-15T09:29:22Z",
+  "notes": "Positive startup Daily Reward frame captured from the authorized MyVillage BlueStacks5 Pie64 account before any claim input."
+}

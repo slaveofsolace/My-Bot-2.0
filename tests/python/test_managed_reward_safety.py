@@ -5,6 +5,8 @@ import unittest
 ROOT = Path(__file__).resolve().parents[2]
 RUN_EXECUTION = (ROOT / "COCBot/functions/Run/RunExecution.au3").read_text(encoding="utf-8-sig")
 OBSTACLES = (ROOT / "COCBot/functions/Main Screen/checkObstacles.au3").read_text(encoding="utf-8-sig")
+OPEN_HOME = (ROOT / "COCBot/functions/Run/OpenHomeCollectors.au3").read_text(encoding="utf-8-sig")
+GUI_ACTION = (ROOT / "COCBot/MBR GUI Action.au3").read_text(encoding="utf-8-sig")
 
 
 REWARD_FLAGS = (
@@ -47,22 +49,30 @@ class ManagedRewardSafetyTest(unittest.TestCase):
         self.assertLess(close, early_return)
         self.assertLess(early_return, claim_search)
 
-        managed = body.index("If RunExecutionManagedPlanPrepared() Then", claim_search)
-        legacy = body.index("For $j = 0 To UBound($aAllCoords) - 1", managed)
-        managed_body = body[managed:legacy]
-        self.assertIn("If $iClaimButtons <> 1 Then", managed_body)
-        self.assertIn("RunControlStopRequested() Or Not $g_bRunState", managed_body)
-        self.assertEqual(managed_body.count("Local $bClaimIssued = Click("), 1)
-        self.assertIn('RunExecutionRecordDailyReward($bClaimIssued ? "click-issued" : "click-rejected", 1', managed_body)
-        self.assertIn("If $bClaimIssued Then RunEventLogMaintenanceDailyRewardClickIssued(1)", managed_body)
-        self.assertLess(
-            managed_body.index("RunExecutionRecordDailyReward("),
-            managed_body.index("RunEventLogMaintenanceDailyRewardClickIssued(1)"),
-        )
-        self.assertIn("Never click an Okay/Confirm button here", managed_body)
-        self.assertNotIn("ClickP(", managed_body)
-        self.assertNotIn("Okay Btn", managed_body)
-        self.assertNotIn("Confirm", managed_body.replace("Okay/Confirm", ""))
+        dispatch_start = GUI_ACTION.index("Func BotStart(")
+        dispatch_end = GUI_ACTION.index("EndFunc", dispatch_start)
+        dispatch = GUI_ACTION[dispatch_start:dispatch_end]
+        self.assertLess(dispatch.index("OpenHomeCollectorsPreparedMode"), dispatch.index("MBRFuncProbeEngine"))
+        self.assertIn("$iOpenCollectorsMode = 3", dispatch)
+        self.assertIn("_BotStartOpenDailyReward", dispatch)
+
+        issue_start = OPEN_HOME.index("Func OpenHomeDailyRewardIssueClaim")
+        issue_end = OPEN_HOME.index("EndFunc", issue_start)
+        issue = OPEN_HOME[issue_start:issue_end]
+        self.assertEqual(issue.count("Click("), 1)
+        self.assertIn("OpenHomeDailyRewardCaptureClaim", issue)
+        self.assertIn("$iClaims <> 1", issue)
+        self.assertGreaterEqual(issue.count("RunControlStopRequested()"), 2)
+
+        cleanup_start = OPEN_HOME.index("Func OpenHomeDailyRewardCloseAndProveHome")
+        cleanup_end = OPEN_HOME.index("EndFunc", cleanup_start)
+        cleanup = OPEN_HOME[cleanup_start:cleanup_end]
+        self.assertEqual(cleanup.count("Click("), 1)
+        self.assertIn("OpenHomeDailyRewardOverlayReady()", cleanup)
+        self.assertIn("OpenHomeCollectorsProveHome()", cleanup)
+        self.assertNotIn("findMultiple", OPEN_HOME)
+        self.assertNotIn("ClickP(", OPEN_HOME)
+        self.assertNotIn("GemClick(", OPEN_HOME)
 
     def test_no_gem_conversion_is_available_to_any_managed_plan(self) -> None:
         reset = RUN_EXECUTION.index("A reviewed plan is closed-world")

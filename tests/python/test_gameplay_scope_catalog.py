@@ -17,7 +17,7 @@ class GameplayScopeCatalogTests(unittest.TestCase):
             "village.collectors": "COCBot/functions/Run/OpenHomeCollectors.au3",
             "village.loot-cart": "COCBot/functions/Run/LootCartRoute.au3",
             "village.treasury": "COCBot/functions/Run/TreasuryRoute.au3",
-            "events.daily-reward": "COCBot/functions/Main Screen/checkObstacles.au3",
+            "events.daily-reward": "COCBot/functions/Run/OpenHomeCollectors.au3",
             "village.donations": "COCBot/functions/Village/DonateCC.au3",
             "village.clan-request": "COCBot/functions/Run/ClanRequestRoute.au3",
             "army.training": "COCBot/functions/CreateArmy/TrainSystem.au3",
@@ -99,7 +99,7 @@ class GameplayScopeCatalogTests(unittest.TestCase):
             "events.collect_treasury": "village.treasury",
             "events.collect_daily_reward": "events.daily-reward",
         }
-        planned = {"events.collect_treasury", "events.collect_daily_reward"}
+        planned = {"events.collect_treasury"}
         for setting_id, capability_id in expected.items():
             with self.subTest(setting_id=setting_id):
                 setting = by_id[setting_id]

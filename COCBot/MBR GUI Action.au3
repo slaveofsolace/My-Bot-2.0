@@ -28,6 +28,13 @@ Func _BotOpenCollectorsReject($sReason, $sOutcome = "rejected")
 	Return False
 EndFunc   ;==>_BotOpenCollectorsReject
 
+Func _BotOpenDailyRewardFail($sReason)
+	If $sReason = "" Then $sReason = "Template-free Daily Reward failed"
+	RunExecutionCancelPrepared($sReason)
+	RunControlReportOneShotOutcome("failed", $sReason)
+	Return False
+EndFunc   ;==>_BotOpenDailyRewardFail
+
 ; Run one collectors-only pass without loading the restricted managed image engine. The emulator must
 ; already be running and exactly match the bound BlueStacks 5 instance; this path never launches,
 ; reboots, resizes, zooms, authenticates, searches, trains, donates, upgrades, or spends.
@@ -158,6 +165,109 @@ Func _BotStartOpenHomeLootCart(ByRef $sStartError)
 	Return True
 EndFunc   ;==>_BotStartOpenHomeLootCart
 
+; Run the startup Daily Reward on the already-running exact BlueStacks instance. Recognition and
+; input are framebuffer/ADB-only; no managed engine, ImgLoc, OCR, authentication, or generic obstacle
+; handler is entered. The only irreversible input is one freshly re-proven Claim button.
+Func _BotStartOpenDailyReward(ByRef $sStartError)
+	If RunControlStopRequested() Then Return _BotOpenCollectorsReject("Template-free Daily Reward cancelled before attachment", "cancelled")
+	If Not RunExecutionApplyPrepared($sStartError) Then Return _BotOpenCollectorsReject($sStartError)
+	Local $oIntent = RunExecutionPreparedIntent()
+	If Not IsObj($oIntent) Or Not HomeMaintenanceRouteAccountMatches($oIntent, $g_sProfileCurrentName) Then _
+		Return _BotOpenCollectorsReject("The active profile no longer matches the account bound at Start")
+	If WinGetAndroidHandle() = 0 Then Return _BotOpenCollectorsReject("The exact BlueStacks 5 instance is not already running")
+	If Not $g_bAndroidAdbScreencap Or Not $g_bAndroidAdbClick Or Not AndroidControlAvailable() Or _
+			Not IsArray(GetBlueStacks5ModernAdbSurfacePosition()) Then _
+		Return _BotOpenCollectorsReject("The exact BlueStacks 5 ADB capture/click surface is not available")
+
+	Local $aClaim[2]
+	Local $iClaimButtons = OpenHomeDailyRewardCaptureClaim($aClaim)
+	If @error Then Return _BotOpenCollectorsReject("The Daily Reward framebuffer could not be captured")
+	Local $bOverlayReady = OpenHomeDailyRewardOverlayReady()
+	If RunControlStopRequested() Then Return _BotOpenCollectorsReject("Template-free Daily Reward cancelled before execution", "cancelled")
+
+	$g_bRunState = True
+	$g_bTogglePauseAllowed = False
+	If Not RunExecutionBegin($sStartError) Then Return _BotOpenCollectorsReject($sStartError)
+	RunControlReportStartOutcome(True, "Template-free Daily Reward pass started")
+	RunEventLogMaintenanceDailyRewardStarted()
+
+	If Not $bOverlayReady Then
+		RunExecutionRecordDailyReward("not-seen", 0, False, "The startup Daily Reward overlay was not present")
+		RunEventLogMaintenanceDailyRewardUnavailable("not-seen")
+		If Not OpenHomeCollectorsProveHome() Then
+			$sStartError = "Daily Reward was not present and the current screen was not the proven Home Village"
+			RunEventLogRunFailed("regular", $RUN_VERIFICATION_DIAGNOSTIC, $sStartError)
+			Return _BotOpenDailyRewardFail($sStartError)
+		EndIf
+		RunEventLogMaintenanceHomeVerified(0, "not-seen", "disabled", "disabled")
+		RunExecutionComplete("home-daily-reward-none-actionable")
+		RunControlReportOneShotOutcome("completed", "Daily Reward unavailable; no Claim input was issued")
+		Return True
+	EndIf
+
+	If $iClaimButtons = 0 Then
+		RunExecutionRecordDailyReward("none-actionable", 0, False, "Daily Reward overlay had no actionable Claim button")
+		RunEventLogMaintenanceDailyRewardUnavailable("none-actionable")
+		Local $bNoClaimCloseIssued = False
+		If Not OpenHomeDailyRewardCloseAndProveHome($bNoClaimCloseIssued) Then
+			$sStartError = "Daily Reward had no Claim button and Home Village was not re-proven"
+			RunEventLogMaintenanceDailyRewardUnconfirmed(False, $sStartError)
+			RunEventLogRunFailed("regular", $RUN_VERIFICATION_DIAGNOSTIC, $sStartError)
+			Return _BotOpenDailyRewardFail($sStartError)
+		EndIf
+		RunEventLogMaintenanceHomeVerified(0, "none-actionable", "disabled", "disabled")
+		RunExecutionComplete("home-daily-reward-none-actionable")
+		RunControlReportOneShotOutcome("completed", "Daily Reward had no actionable Claim; Home Village re-proven")
+		Return True
+	EndIf
+
+	If $iClaimButtons <> 1 Then
+		$sStartError = "Daily Reward recognition was ambiguous; claim_buttons=" & $iClaimButtons
+		RunExecutionRecordDailyReward("ambiguous", 0, False, $sStartError)
+		RunEventLogMaintenanceDailyRewardUnconfirmed(False, $sStartError)
+		RunEventLogRunFailed("regular", $RUN_VERIFICATION_DIAGNOSTIC, $sStartError)
+		Return _BotOpenDailyRewardFail($sStartError)
+	EndIf
+
+	If RunControlStopRequested() Or Not $g_bRunState Then
+		RunExecutionComplete("stopped")
+		RunControlReportOneShotOutcome("stopped", "Template-free Daily Reward stopped before Claim")
+		Return False
+	EndIf
+	Local $bClaimIssued = OpenHomeDailyRewardIssueClaim($aClaim[0], $aClaim[1])
+	Local $iClaimError = @error
+	If Not $bClaimIssued Then
+		If $iClaimError = 2 Or RunControlStopRequested() Or Not $g_bRunState Then
+			RunExecutionComplete("stopped")
+			RunControlReportOneShotOutcome("stopped", "Template-free Daily Reward stopped before Claim")
+			Return False
+		EndIf
+		$sStartError = "The one Daily Reward Claim attempt was rejected after fresh recognition"
+		RunExecutionRecordDailyReward("click-rejected", 1, False, $sStartError)
+		RunEventLogMaintenanceDailyRewardUnconfirmed(False, $sStartError)
+		RunEventLogRunFailed("regular", $RUN_VERIFICATION_DIAGNOSTIC, $sStartError)
+		Return _BotOpenDailyRewardFail($sStartError)
+	EndIf
+
+	RunExecutionRecordDailyReward("click-issued", 1, True, _
+			"One Claim input was accepted; no Okay, Confirm, sell, or gem-conversion input was attempted")
+	RunEventLogMaintenanceDailyRewardClickIssued(1)
+	Local $bCloseIssued = False
+	If Not OpenHomeDailyRewardCloseAndProveHome($bCloseIssued) Then
+		$sStartError = "Daily Reward Claim was issued but Home Village was not re-proven; the Claim will not be retried"
+		RunEventLogMaintenanceDailyRewardUnconfirmed(True, $sStartError)
+		RunEventLogRunFailed("regular", $RUN_VERIFICATION_DIAGNOSTIC, $sStartError)
+		Return _BotOpenDailyRewardFail($sStartError)
+	EndIf
+
+	RunEventLogMaintenanceHomeVerified(0, "click-issued", "disabled", "disabled")
+	RunExecutionComplete("home-daily-reward-complete")
+	Local $sMessage = "Template-free Daily Reward completed; claim_attempts=1; close_issued=" & String($bCloseIssued)
+	RunControlReportOneShotOutcome("completed", $sMessage)
+	SetLog("Run Planner: " & $sMessage, $COLOR_SUCCESS)
+	Return True
+EndFunc   ;==>_BotStartOpenDailyReward
+
 ; Run the request-only terminal route on the already-running exact BlueStacks instance. Requesting
 ; troops does not require the mixed-mode attack engine; keeping this route ahead of MBRFuncInitialize
 ; prevents an unrelated CLR startup failure from turning a bounded request into a 90-second stall.
@@ -277,9 +387,10 @@ Func BotStart($bAutostartDelay = 0)
 	EndIf
 	Local $oPreparedIntent = RunExecutionPreparedIntent()
 	Local $iOpenCollectorsMode = OpenHomeCollectorsPreparedMode($oPreparedIntent, $sStartError)
-	; OpenHomeCollectorsPreparedMode contract: 1=collectors, 2=Loot Cart, -1=fail-closed Home selection.
+	; OpenHomeCollectorsPreparedMode contract: 1=collectors, 2=Loot Cart, 3=Daily Reward, -1=fail-closed Home selection.
 	If $iOpenCollectorsMode = 1 Then Return FuncReturn(_BotStartOpenHomeCollectors($sStartError))
 	If $iOpenCollectorsMode = 2 Then Return FuncReturn(_BotStartOpenHomeLootCart($sStartError))
+	If $iOpenCollectorsMode = 3 Then Return FuncReturn(_BotStartOpenDailyReward($sStartError))
 	If $iOpenCollectorsMode = -1 Then Return FuncReturn(_BotOpenCollectorsReject($sStartError))
 	If ClanRequestRouteSelected($oPreparedIntent) Then Return FuncReturn(_BotStartOpenClanRequest($sStartError))
 

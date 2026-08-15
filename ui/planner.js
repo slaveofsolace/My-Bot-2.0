@@ -1044,7 +1044,8 @@ function clientProblems(plan = PLAN) {
     const dailyReward = plan['events.collect_daily_reward'] === true;
     const lootCart = plan['events.collect_loot_cart'] === true;
     const treasury = plan['events.collect_treasury'] === true;
-    if (dailyReward || treasury || collectors === lootCart) addProblem(problems, 'Choose exactly one available template-free task: collectors or Loot Cart. Daily Reward and Treasury remain unavailable.', 'events.collect_resources');
+    const selectedHomeTasks = [collectors, dailyReward, lootCart, treasury].filter(Boolean).length;
+    if (treasury || selectedHomeTasks !== 1) addProblem(problems, 'Choose exactly one available template-free task: collectors, Loot Cart, or startup Daily Reward. Treasury remains unavailable.', 'events.collect_resources');
     if (plan['army.manage_training'] || plan['army.wait_for_full'] || plan['army.train_spells'] || plan['army.train_sieges']) addProblem(problems, 'Home maintenance requires training, army wait, spells, and sieges off.', 'army.manage_training');
     if (asList(plan['run.heroes']).length) addProblem(problems, 'Home maintenance requires no selected Heroes.', 'run.heroes');
     if (Number(plan['run.duration_minutes']) !== 0 || Number(plan['run.max_battles']) !== 0 || plan['run.stop_on_star_bonus'] || Number(plan['run.max_failures']) !== 0) addProblem(problems, 'Home maintenance is one pass; duration, battles, star bonus, and failure limits must be 0/off.', 'run.max_battles');

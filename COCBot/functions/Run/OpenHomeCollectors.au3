@@ -10,11 +10,12 @@
 Global Const $OPEN_HOME_MODE_OTHER = 0
 Global Const $OPEN_HOME_MODE_COLLECTORS = 1
 Global Const $OPEN_HOME_MODE_LOOT_CART = 2
+Global Const $OPEN_HOME_MODE_DAILY_REWARD = 3
 Global Const $OPEN_HOME_MODE_REJECTED = -1
 
-; Return 0 for another route, 1 for exact resource collectors, 2 for an exact Loot Cart pass, and -1 for a Home task
-; that still needs an independently reviewed adapter. This prevents an unavailable reward task from
-; silently falling through to the restricted inherited image engine.
+; Return 0 for another route, 1 for exact resource collectors, 2 for an exact Loot Cart pass, 3 for the
+; startup Daily Reward, and -1 for a Home task that still needs an independently reviewed adapter. This
+; prevents an unavailable reward task from silently falling through to the restricted inherited image engine.
 Func OpenHomeCollectorsPreparedMode(ByRef $oIntent, ByRef $sError)
 	$sError = ""
 	If Not IsObj($oIntent) Or Not HomeMaintenanceRouteSelected($oIntent) Then Return $OPEN_HOME_MODE_OTHER
@@ -23,15 +24,18 @@ Func OpenHomeCollectorsPreparedMode(ByRef $oIntent, ByRef $sError)
 	Local $bDailyReward = $oPlan.Item("events_collect_daily_reward")
 	Local $bLootCart = $oPlan.Item("events_collect_loot_cart")
 	Local $bTreasury = $oPlan.Item("events_collect_treasury")
-	If $bDailyReward Or $bTreasury Or ($bCollectors And $bLootCart) Or (Not $bCollectors And Not $bLootCart) Then
-		$sError = "This build can run one template-free Home task at a time: resource collectors or Loot Cart; Daily Reward and Treasury remain unavailable"
+	Local $iSelected = ($bCollectors ? 1 : 0) + ($bDailyReward ? 1 : 0) + ($bLootCart ? 1 : 0) + ($bTreasury ? 1 : 0)
+	If $bTreasury Or $iSelected <> 1 Then
+		$sError = "This build can run one template-free Home task at a time: resource collectors, Loot Cart, or startup Daily Reward; Treasury remains unavailable"
 		Return $OPEN_HOME_MODE_REJECTED
 	EndIf
 	If StringLower(StringStripWS(String($oPlan.Item("emulator")), $STR_STRIPALL)) <> "bluestacks5" Then
 		$sError = "Template-free Home collection currently requires the exact BlueStacks 5 adapter"
 		Return $OPEN_HOME_MODE_REJECTED
 	EndIf
-	Return $bCollectors ? $OPEN_HOME_MODE_COLLECTORS : $OPEN_HOME_MODE_LOOT_CART
+	If $bCollectors Then Return $OPEN_HOME_MODE_COLLECTORS
+	If $bLootCart Then Return $OPEN_HOME_MODE_LOOT_CART
+	Return $OPEN_HOME_MODE_DAILY_REWARD
 EndFunc   ;==>OpenHomeCollectorsPreparedMode
 
 Func _OpenHomeCollectorBitmapPixel($hBitmap, $iX, $iY)
@@ -143,6 +147,81 @@ Func _OpenHomePixelNear($iX, $iY, $iExpected, $iVariation = 32)
 	If $g_hBitmap = 0 Or $iX < 0 Or $iX >= $g_iGAME_WIDTH Or $iY < 0 Or $iY >= $g_iGAME_HEIGHT Then Return False
 	Return _ColorCheck(Hex(_OpenHomeCollectorBitmapPixel($g_hBitmap, $iX, $iY), 6), Hex($iExpected, 6), $iVariation)
 EndFunc   ;==>_OpenHomePixelNear
+
+; The startup Daily Reward overlay is fixed to the canonical 860x732 client surface. These anchors
+; cover the wood panel and the exact grayscale close control without depending on OCR, ImgLoc, or a
+; language-specific label. The private live frame is represented by the verified redacted fixture.
+Func OpenHomeDailyRewardOverlayReady()
+	If $g_hBitmap = 0 Then Return False
+	Return _OpenHomePixelNear(759, 173, 0xFFFFFF, 20) And _
+			_OpenHomePixelNear(746, 173, 0x616161, 36) And _
+			_OpenHomePixelNear(772, 173, 0x606060, 36) And _
+			_OpenHomePixelNear(759, 160, 0xACACAC, 36) And _
+			_OpenHomePixelNear(759, 186, 0x595959, 36) And _
+			_OpenHomePixelNear(430, 155, 0xA57315, 44) And _
+			_OpenHomePixelNear(80, 285, 0x844A00, 44)
+EndFunc   ;==>OpenHomeDailyRewardOverlayReady
+
+; A Claim button is a 117x40 green control. Sampling four interior edges avoids its localized white
+; label while rejecting the small green claimed check and the gray/brown inactive day controls.
+Func _OpenHomeDailyRewardClaimCandidateReady($iX, $iY)
+	Return _OpenHomePixelNear($iX - 45, $iY, 0xCAED87, 44) And _
+			_OpenHomePixelNear($iX + 45, $iY, 0xCAED87, 44) And _
+			_OpenHomePixelNear($iX, $iY - 16, 0xDEFF8D, 44) And _
+			_OpenHomePixelNear($iX, $iY + 16, 0x6F9438, 44)
+EndFunc   ;==>_OpenHomeDailyRewardClaimCandidateReady
+
+; $aClaim receives the sole canonical Claim center. Return 0 for no overlay/no claim, 1 for the exact
+; actionable state, or >1 for an ambiguous state that must never receive input.
+Func OpenHomeDailyRewardFindClaim(ByRef $aClaim)
+	If Not IsArray($aClaim) Or UBound($aClaim) < 2 Or Not OpenHomeDailyRewardOverlayReady() Then Return 0
+	Local $aCandidates[7][2] = [[149, 326], [297, 326], [445, 326], [149, 477], [297, 477], [445, 477], [592, 477]]
+	Local $iMatches = 0
+	For $i = 0 To UBound($aCandidates) - 1
+		If Not _OpenHomeDailyRewardClaimCandidateReady($aCandidates[$i][0], $aCandidates[$i][1]) Then ContinueLoop
+		If $iMatches = 0 Then
+			$aClaim[0] = $aCandidates[$i][0]
+			$aClaim[1] = $aCandidates[$i][1]
+		EndIf
+		$iMatches += 1
+	Next
+	Return $iMatches
+EndFunc   ;==>OpenHomeDailyRewardFindClaim
+
+Func OpenHomeDailyRewardCaptureClaim(ByRef $aClaim)
+	If Not OpenHomeCollectorsCapture() Then Return SetError(1, 0, 0)
+	Return OpenHomeDailyRewardFindClaim($aClaim)
+EndFunc   ;==>OpenHomeDailyRewardCaptureClaim
+
+; Re-capture and re-resolve immediately before the irreversible Claim input. A changed/moved/ambiguous
+; button is rejected, and the one attempt is never retried.
+Func OpenHomeDailyRewardIssueClaim($iExpectedX, $iExpectedY)
+	If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
+	Local $aFreshClaim[2]
+	Local $iClaims = OpenHomeDailyRewardCaptureClaim($aFreshClaim)
+	If $iClaims <> 1 Or $aFreshClaim[0] <> $iExpectedX Or $aFreshClaim[1] <> $iExpectedY Then _
+		Return SetError(1, $iClaims, False)
+	If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
+	Return Click($iExpectedX, $iExpectedY, 1, 120, "#OpenHomeDailyRewardClaim")
+EndFunc   ;==>OpenHomeDailyRewardIssueClaim
+
+; After Claim, never accept an Okay/Confirm/sell/gem-conversion action. If the exact Daily Reward panel
+; remains, one reversible close click is allowed; otherwise only a passive Home proof can succeed.
+Func OpenHomeDailyRewardCloseAndProveHome(ByRef $bCloseIssued)
+	$bCloseIssued = False
+	If _Sleep(1200, True, True, False) Then Return SetError(2, 0, False)
+	For $iAttempt = 1 To 8
+		If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
+		If OpenHomeCollectorsProveHome() Then Return True
+		If $iAttempt = 1 And OpenHomeDailyRewardOverlayReady() Then
+			If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
+			If Not Click(759, 173, 1, 120, "#OpenHomeDailyRewardClose") Then Return SetError(3, 0, False)
+			$bCloseIssued = True
+		EndIf
+		If $iAttempt < 8 And _Sleep(250, True, True, False) Then Return SetError(2, 0, False)
+	Next
+	Return SetError(4, 0, False)
+EndFunc   ;==>OpenHomeDailyRewardCloseAndProveHome
 
 ; Current-client 860x732 Home Village cue for the in-game "Collect" label above a Loot Cart.
 ; Eight anti-aliased glyph pixels make the cue unique in the verified redacted Home fixture while

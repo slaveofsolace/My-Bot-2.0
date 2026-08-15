@@ -12,12 +12,14 @@ from tools.replay_current_client_fixtures import (
     CLAN_REQUEST_DIALOG_ADAPTER,
     DEFAULT_MANIFEST,
     FixtureReplayError,
+    HOME_DAILY_REWARD_ADAPTER,
     HOME_LOOT_CART_ADAPTER,
     HOME_MAIN_ADAPTER,
     RecognitionResult,
     SafeRegion,
     UnsafeActionAttempt,
     recognize_clan_request_dialog,
+    recognize_home_daily_reward,
     recognize_home_loot_cart,
     recognize_home_main,
     replay_verified_fixtures,
@@ -119,13 +121,14 @@ class FixtureRepository:
 
 
 class CurrentClientFixtureReplayTests(unittest.TestCase):
-    def test_committed_home_clan_request_and_loot_cart_fixtures_replay_production_predicates(self) -> None:
+    def test_committed_home_clan_request_loot_cart_and_daily_reward_fixtures_replay_production_predicates(self) -> None:
         report = replay_verified_fixtures(
             DEFAULT_MANIFEST,
             recognizers={
                 HOME_MAIN_ADAPTER: recognize_home_main,
                 CLAN_REQUEST_DIALOG_ADAPTER: recognize_clan_request_dialog,
                 HOME_LOOT_CART_ADAPTER: recognize_home_loot_cart,
+                HOME_DAILY_REWARD_ADAPTER: recognize_home_daily_reward,
             },
             require_verified=True,
         )
@@ -133,11 +136,12 @@ class CurrentClientFixtureReplayTests(unittest.TestCase):
         self.assertIn("home.maintenance.ready", report.replayed_fixture_ids)
         self.assertIn("clan.request.available", report.replayed_fixture_ids)
         self.assertIn("home.loot-cart", report.replayed_fixture_ids)
+        self.assertIn("home.daily-reward", report.replayed_fixture_ids)
         self.assertEqual(
             set(report.checked_adapters),
-            {HOME_MAIN_ADAPTER, CLAN_REQUEST_DIALOG_ADAPTER, HOME_LOOT_CART_ADAPTER},
+            {HOME_MAIN_ADAPTER, CLAN_REQUEST_DIALOG_ADAPTER, HOME_LOOT_CART_ADAPTER, HOME_DAILY_REWARD_ADAPTER},
         )
-        self.assertEqual(report.unknown_checks, 3)
+        self.assertEqual(report.unknown_checks, 4)
 
     def test_verified_fixture_replays_pixels_regions_and_unknown_fail_closed(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

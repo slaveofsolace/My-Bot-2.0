@@ -103,6 +103,7 @@ class RecognitionResult:
 HOME_MAIN_ADAPTER = "production.home-main-pixel-v1"
 CLAN_REQUEST_DIALOG_ADAPTER = "production.open-clan-request-dialog-v1"
 HOME_LOOT_CART_ADAPTER = "production.open-home-loot-cart-cue-v1"
+HOME_DAILY_REWARD_ADAPTER = "production.open-home-daily-reward-v1"
 HOME_MAIN_REGION = SafeRegion(id="home-proof", x=378, y=10, width=1, height=1)
 CLAN_REQUEST_SEND_REGION = SafeRegion(id="send", x=455, y=438, width=181, height=83)
 
@@ -201,6 +202,76 @@ def _load_home_loot_cart_contract() -> tuple[
     return anchors, scan_regions
 
 
+@functools.lru_cache(maxsize=1)
+def _load_home_daily_reward_contract() -> tuple[
+    tuple[tuple[int, int, int, int], ...],
+    tuple[tuple[int, int, int, int], ...],
+    tuple[tuple[int, int], ...],
+]:
+    source = OPEN_HOME_COLLECTORS_SOURCE.read_text(encoding="utf-8-sig")
+    overlay_function = re.search(
+        r"Func\s+OpenHomeDailyRewardOverlayReady\(\)(.*?)EndFunc",
+        source,
+        re.DOTALL,
+    )
+    if overlay_function is None:
+        raise FixtureReplayError("cannot load the production Daily Reward overlay predicate")
+    overlay_anchors = tuple(
+        (int(x), int(y), int(color, 16), int(variation))
+        for x, y, color, variation in re.findall(
+            r"_OpenHomePixelNear\(\s*(\d+)\s*,\s*(\d+)\s*,\s*0x([0-9A-Fa-f]{6})\s*,\s*(\d+)\s*\)",
+            overlay_function.group(1),
+        )
+    )
+    if len(overlay_anchors) != 7:
+        raise FixtureReplayError(
+            f"production Daily Reward overlay predicate has {len(overlay_anchors)} anchors; expected exactly 7"
+        )
+
+    claim_function = re.search(
+        r"Func\s+_OpenHomeDailyRewardClaimCandidateReady\(\$iX,\s*\$iY\)(.*?)EndFunc",
+        source,
+        re.DOTALL,
+    )
+    if claim_function is None:
+        raise FixtureReplayError("cannot load the production Daily Reward Claim predicate")
+    claim_anchors: list[tuple[int, int, int, int]] = []
+    for x_sign, x_value, y_sign, y_value, color, variation in re.findall(
+        r"_OpenHomePixelNear\(\s*\$iX(?:\s*([+-])\s*(\d+))?\s*,\s*"
+        r"\$iY(?:\s*([+-])\s*(\d+))?\s*,\s*0x([0-9A-Fa-f]{6})\s*,\s*(\d+)\s*\)",
+        claim_function.group(1),
+    ):
+        dx = int(x_value or 0) * (-1 if x_sign == "-" else 1)
+        dy = int(y_value or 0) * (-1 if y_sign == "-" else 1)
+        claim_anchors.append((dx, dy, int(color, 16), int(variation)))
+    if len(claim_anchors) != 4:
+        raise FixtureReplayError(
+            f"production Daily Reward Claim predicate has {len(claim_anchors)} anchors; expected exactly 4"
+        )
+
+    find_function = re.search(
+        r"Func\s+OpenHomeDailyRewardFindClaim\(ByRef\s+\$aClaim\)(.*?)EndFunc",
+        source,
+        re.DOTALL,
+    )
+    if find_function is None:
+        raise FixtureReplayError("cannot load the production Daily Reward candidate centers")
+    candidate_match = re.search(
+        r"Local\s+\$aCandidates\[7\]\[2\]\s*=\s*(\[\[.*?\]\])",
+        find_function.group(1),
+        re.DOTALL,
+    )
+    if candidate_match is None:
+        raise FixtureReplayError("production Daily Reward candidate centers are missing")
+    centers = tuple(
+        (int(x), int(y))
+        for x, y in re.findall(r"\[(\d+)\s*,\s*(\d+)\]", candidate_match.group(1))
+    )
+    if centers != ((149, 326), (297, 326), (445, 326), (149, 477), (297, 477), (445, 477), (592, 477)):
+        raise FixtureReplayError("production Daily Reward candidate centers changed outside the reviewed contract")
+    return overlay_anchors, tuple(claim_anchors), centers
+
+
 def recognize_home_main(image: DecodedPng, _sink: "NoOpActionSink") -> RecognitionResult | None:
     if not _pixel_near(image, *_load_home_main_anchor()):
         return None
@@ -233,6 +304,28 @@ def recognize_home_loot_cart(
                         (SafeRegion(id="loot-cart-cue", x=x, y=y, width=cue_width, height=cue_height),),
                     )
     return None
+
+
+def recognize_home_daily_reward(
+    image: DecodedPng,
+    _sink: "NoOpActionSink",
+) -> RecognitionResult | None:
+    overlay_anchors, claim_anchors, centers = _load_home_daily_reward_contract()
+    if not all(_pixel_near(image, *anchor) for anchor in overlay_anchors):
+        return None
+    matches = [
+        (x, y)
+        for x, y in centers
+        if all(_pixel_near(image, x + dx, y + dy, color, variation)
+               for dx, dy, color, variation in claim_anchors)
+    ]
+    if len(matches) != 1:
+        return None
+    x, y = matches[0]
+    return RecognitionResult(
+        "home.daily-reward.claim-ready",
+        (SafeRegion(id="claim", x=x - 58, y=y - 21, width=117, height=40),),
+    )
 
 
 class PassiveRecognizer(Protocol):
@@ -530,6 +623,7 @@ def main(argv: list[str] | None = None) -> int:
                 HOME_MAIN_ADAPTER: recognize_home_main,
                 CLAN_REQUEST_DIALOG_ADAPTER: recognize_clan_request_dialog,
                 HOME_LOOT_CART_ADAPTER: recognize_home_loot_cart,
+                HOME_DAILY_REWARD_ADAPTER: recognize_home_daily_reward,
             },
             require_verified=args.require_verified,
         )

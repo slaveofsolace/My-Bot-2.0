@@ -383,10 +383,11 @@ def engine_preflight(plan: dict) -> list[str]:
         daily_reward = bool(plan.get("events.collect_daily_reward"))
         loot_cart = bool(plan.get("events.collect_loot_cart"))
         treasury = bool(plan.get("events.collect_treasury"))
-        if daily_reward or treasury or collectors == loot_cart:
+        selected_home_tasks = sum(bool(value) for value in (collectors, daily_reward, loot_cart, treasury))
+        if treasury or selected_home_tasks != 1:
             problems.append(
-                "events: choose exactly one available template-free task: collectors or Loot Cart; "
-                "Daily Reward and Treasury remain unavailable"
+                "events: choose exactly one available template-free task: collectors, Loot Cart, or startup Daily Reward; "
+                "Treasury remains unavailable"
             )
         if manages_training or bool(plan.get("army.wait_for_full")) or bool(plan.get("army.train_spells")) or bool(plan.get("army.train_sieges")):
             problems.append("army: Home maintenance requires training, army wait, spells, and sieges off")
