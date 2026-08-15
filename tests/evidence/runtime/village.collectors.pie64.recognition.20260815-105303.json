@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "evidence_id": "village.collectors.pie64.recognition.20260815-105303",
+  "capability_id": "village.collectors",
+  "test_type": "game-surface-recognition",
+  "result": "passed",
+  "captured_at": "2026-08-15T15:53:03Z",
+  "commit_sha": "1e92785e723c3885deecff47090db6639616aeb5",
+  "redacted": true,
+  "environment": {
+    "os": "Windows 11 Home",
+    "os_version": "10.0.26200",
+    "autoit_version": "3.3.16.1",
+    "emulator": "BlueStacks5",
+    "emulator_version": "5.22.252.1008",
+    "instance_index": 0,
+    "instance_name": "Pie64",
+    "game_version": "18.400.9"
+  },
+  "binary": {
+    "path": "MyBot.run.exe",
+    "sha256": "a87a719e5608d528d7130c83644cf8cd5f3206608d87a459bd6478129658168c",
+    "bytes": 3342848
+  },
+  "checks": [
+    {
+      "id": "collectors.recognized",
+      "result": "passed",
+      "details": "The installed clean-room classifier recognized strict Gold, Elixir, and Dark Elixir bubbles on a visually confirmed Home Village and the route accepted exactly three bounded inputs without invoking inherited ImgLoc."
+    },
+    {
+      "id": "storage-state.confirmed",
+      "result": "passed",
+      "details": "Gold increased by 166,893, Elixir by 166,873, and Dark Elixir by 1,893; gems remained exactly 3,092. No generated warning HTML or warning browser window appeared."
+    }
+  ],
+  "reviewer": {
+    "name": "My Bot 2.0 runtime review",
+    "reviewed_at": "2026-08-15T15:57:41Z"
+  },
+  "artifact_refs": [
+    {
+      "kind": "repository",
+      "path": "tests/evidence/runtime/artifacts/home-collectors-cleanroom.pie64.20260815-105303.json",
+      "sha256": "f7a3e672d3ba63340621cd4025c4ba9f23ed8dad726fbf4c52b8dec34486a47e",
+      "bytes": 5176
+    }
+  ],
+  "notes": "Redacted exact-binary recognition evidence for the independent collector classifier. Raw frames remain local because they contain player identifiers. No Loot Cart, Treasury, Daily Reward, donation, request, upgrade, battle, or other Home recognition is claimed."
+}

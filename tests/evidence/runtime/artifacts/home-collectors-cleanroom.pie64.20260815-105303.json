@@ -1,0 +1,130 @@
+{
+  "schema_version": 1,
+  "artifact_id": "home-collectors-cleanroom.pie64.20260815-105303",
+  "captured_at": "2026-08-15T15:53:03Z",
+  "commit_sha": "1e92785e723c3885deecff47090db6639616aeb5",
+  "redacted": true,
+  "scope": "One collectors-only Home Village pass using the clean-room pixel recognizer in the reviewed installed LocalRuntime. Battles, search, training, donations, troop requests, upgrades, account switching, premium-currency actions, Daily Reward, Loot Cart, and Treasury were disabled.",
+  "environment": {
+    "os": "Windows 11 Home",
+    "os_version": "10.0.26200",
+    "autoit_version": "3.3.16.1",
+    "emulator": "BlueStacks5",
+    "emulator_version": "5.22.252.1008",
+    "instance_index": 0,
+    "instance_name": "Pie64",
+    "game_version": "18.400.9"
+  },
+  "reviewed_install": {
+    "version": "2.0.0",
+    "architecture": "x86",
+    "source_commit": "aec002a3259c0881d78136f47f0fd2a88e8c861a",
+    "binary_commit": "1e92785e723c3885deecff47090db6639616aeb5",
+    "release_manifest_sha256": "772aa9d76edf50173843144ee78977f1fc85ad7e67d5c1738bbc08d4513deaaf",
+    "package_sha256": "ad0d610db9753dc160f9c4133acfbbca790b3c62e770b5244832c7e55140f222",
+    "package_bytes": 32283168,
+    "manifest_records": 2584,
+    "manifest_missing": 0,
+    "manifest_size_mismatches": 0,
+    "manifest_hash_mismatches": 0
+  },
+  "binary": {
+    "path": "MyBot.run.exe",
+    "sha256": "a87a719e5608d528d7130c83644cf8cd5f3206608d87a459bd6478129658168c",
+    "bytes": 3342848
+  },
+  "precondition_observation": {
+    "initial_inactivity_dialog_observed": true,
+    "first_start_failed_closed_before_collection_input": true,
+    "single_reload_game_input_issued": true,
+    "player_exit_observed_after_reload": true,
+    "exact_pie64_instance_relaunched_before_successful_baseline": true,
+    "home_village_visually_confirmed_before_successful_route": true,
+    "no_emulator_crash_during_successful_route": true
+  },
+  "plan": {
+    "strategy": "home.collectors",
+    "diagnostic_mode": true,
+    "exact_emulator_instance": true,
+    "collect_resources": true,
+    "daily_reward": false,
+    "loot_cart": false,
+    "treasury": false,
+    "max_battles": 0,
+    "training": false,
+    "donations": false,
+    "troop_requests": false,
+    "upgrades": false,
+    "account_queue": false,
+    "gem_actions_authorized": false,
+    "validation_problems": 0,
+    "original_saved_plan_restored_sha256": "4eebc7e142ce3c25ec45406dc88d2a92a40c7ae7396c4f05ebac3a7c670f949a"
+  },
+  "recognition": {
+    "implementation": "COCBot/functions/Run/CollectorBubbleRecognizer.au3",
+    "inherited_imgloc_invoked": false,
+    "initial_screen": "home-village",
+    "home_signature_confirmed": true,
+    "strict_bubble_types_before": ["gold", "elixir", "dark-elixir"],
+    "accepted_clicks": 3,
+    "home_reproved_after_final_click": true,
+    "generated_html_files_before": 0,
+    "generated_html_files_after": 0,
+    "warning_browser_windows_before": 0,
+    "warning_browser_windows_after": 0,
+    "raw_frames_committed": false,
+    "raw_frames_nonclaim": "Transient frames contained player identifiers and were reviewed locally only; no identifying frame is committed."
+  },
+  "resource_observation": {
+    "before": {"gold": 16013137, "elixir": 17909670, "dark_elixir": 207971, "gems": 3092},
+    "after": {"gold": 16180030, "elixir": 18076543, "dark_elixir": 209864, "gems": 3092},
+    "delta": {"gold": 166893, "elixir": 166873, "dark_elixir": 1893, "gems": 0},
+    "gems_unchanged": true
+  },
+  "completed_run": {
+    "start_accepted": true,
+    "duration_ms": 20479,
+    "final_state": "idle",
+    "run_state": false,
+    "plan_active": false,
+    "last_outcome": "completed",
+    "engine_probe_state": "passed",
+    "collector_clicks": 3,
+    "event_types": [
+      "session.preparing",
+      "session.started",
+      "maintenance.collectors.started",
+      "maintenance.home-verified",
+      "maintenance.collectors.completed",
+      "session.stopping",
+      "session.completed"
+    ]
+  },
+  "preservation": {
+    "external_profile_sha256": "157fed76c5fedf2dd18f2e6cdb1bd562b0396faa300a6630a68da825319abc0e",
+    "installed_english_sha256": "360f8055f331e09803ddd278411db71a6e4a7f77d57ca7080b672cd07659a0ad",
+    "backend_identity_preserved_during_successful_route": true,
+    "original_saved_plan_restored": true
+  },
+  "forbidden_activity": {
+    "battle_events": 0,
+    "search_events": 0,
+    "training_events": 0,
+    "donation_events": 0,
+    "request_events": 0,
+    "upgrade_events": 0,
+    "account_events": 0,
+    "gem_or_purchase_events": 0,
+    "gem_balance_changed": false
+  },
+  "assertions": {
+    "collectors_recognized": true,
+    "storage_state_confirmed": true,
+    "collectors_collected": true,
+    "home_restored": true,
+    "protected_warning_absent": true,
+    "no_gem_action": true,
+    "configuration_preserved": true
+  },
+  "privacy": "Only allowlisted operational state, resource totals, durations, and integrity digests are retained. Raw frames, player and clan names, account identifiers, request identifiers, process identifiers, creation timestamps, filesystem paths, machine identifiers, chat, payment information, and launch tokens are omitted."
+}
