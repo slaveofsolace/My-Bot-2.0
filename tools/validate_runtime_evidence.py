@@ -77,7 +77,9 @@ PROHIBITED_KEYS = {
 }
 
 ENGINE_INITIALIZATION_CAPABILITY = "orchestration.engine-initialization"
-ENGINE_INITIALIZATION_ARTIFACT_PATTERN = re.compile(r"^check-engine\.pie64\.\d{8}$")
+ENGINE_INITIALIZATION_ARTIFACT_PATTERN = re.compile(
+    r"^check-engine\.pie64\.\d{8}(?:-\d{6})?$"
+)
 ENGINE_INITIALIZATION_PHASES = {
     1: "prepared",
     2: "pool-entered",
@@ -498,9 +500,8 @@ def _verify_engine_initialization_artifact(root: Path, record: dict[str, Any], a
     candidates = [
         item for item in artifact_refs
         if isinstance(item, dict)
-        and re.search(
-            r"(?:^|/)check-engine\.pie64\.\d{8}\.json$",
-            str(item.get("path", "")).replace("\\", "/"),
+        and ENGINE_INITIALIZATION_ARTIFACT_PATTERN.fullmatch(
+            PurePosixPath(str(item.get("path", "")).replace("\\", "/")).stem
         )
     ]
     if len(candidates) != 1:

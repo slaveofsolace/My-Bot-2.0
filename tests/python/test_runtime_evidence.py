@@ -349,6 +349,23 @@ class EngineInitializationArtifactContractTest(unittest.TestCase):
             ),
         )
 
+    def test_engine_artifact_id_allows_collision_safe_timestamp(self) -> None:
+        artifact = deepcopy(self.artifact)
+        artifact["artifact_id"] = "check-engine.pie64.20260815-053443"
+        self.assertEqual(
+            [],
+            validate_engine_initialization_artifact(
+                self.record,
+                artifact,
+                expected_artifact_id="check-engine.pie64.20260815-053443",
+            ),
+        )
+
+    def test_engine_artifact_id_rejects_malformed_timestamp(self) -> None:
+        artifact = deepcopy(self.artifact)
+        artifact["artifact_id"] = "check-engine.pie64.20260815-05344"
+        self.assertIn("artifact_id is not canonical", self.validate(artifact))
+
     def test_attached_or_running_final_state_is_rejected(self) -> None:
         artifact = deepcopy(self.artifact)
         artifact["final_state"]["run_state"] = True
