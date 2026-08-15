@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "evidence_id": "village.loot-cart.pie64.20260815",
+  "capability_id": "village.loot-cart",
+  "test_type": "end-to-end",
+  "result": "passed",
+  "captured_at": "2026-08-15T07:49:39Z",
+  "commit_sha": "9ac57b33f039c01bd08577a0e60d249a26d59c40",
+  "redacted": true,
+  "environment": {
+    "os": "Windows 11 Home",
+    "os_version": "10.0.26200",
+    "autoit_version": "3.3.16.1",
+    "emulator": "BlueStacks5",
+    "emulator_version": "5.22.252.1008",
+    "instance_index": 0,
+    "instance_name": "Pie64",
+    "game_version": "18.400.9"
+  },
+  "binary": {
+    "path": "MyBot.run.exe",
+    "sha256": "c789c829e3e6bbd3845b1b1743fb84c6e6f4a19e83bbaacd3428344a8ade2d7f",
+    "bytes": 3336192
+  },
+  "checks": [
+    {
+      "id": "loot-cart.collect-issued",
+      "result": "passed",
+      "details": "The bounded route issued exactly one cart-open input and one Collect input, no confirmation input, then completed with state=collect-issued. Gold increased by 132,134, elixir by 132,132, and dark elixir by 768."
+    },
+    {
+      "id": "home.restored",
+      "result": "passed",
+      "details": "The route passively re-proved Home after Collect and returned idle/completed with run_state=false, plan_active=false, and engine_probe_state=not-run."
+    },
+    {
+      "id": "gems.untouched",
+      "result": "passed",
+      "details": "The gem balance was exactly 3,092 before and after; the route emitted confirmation_inputs=0 and no gem or purchase event."
+    }
+  ],
+  "reviewer": {
+    "name": "My Bot 2.0 runtime review",
+    "reviewed_at": "2026-08-15T07:58:00Z"
+  },
+  "artifact_refs": [
+    {
+      "kind": "repository",
+      "path": "tests/evidence/runtime/artifacts/home-loot-cart.pie64.20260815.json",
+      "sha256": "01f4eecf1f5f4f50a3a46d3c61253609848588dca3bda476803ed08640dc6237",
+      "bytes": 4474
+    }
+  ],
+  "notes": "One bounded exact-current template-free Loot Cart pass. No battle, search, training, donation, upgrade, account, premium-currency, Daily Reward, Treasury, or collector-building action was executed or inferred."
+}

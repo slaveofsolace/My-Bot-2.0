@@ -51,8 +51,8 @@
     },
     {
       "id": "home.loot-cart",
-      "status": "missing",
-      "purpose": "Main-village Loot Cart and its exact no-confirmation Collect state",
+      "status": "verified",
+      "purpose": "Main-village Loot Cart edge-cue recognition; the Collect state is proved separately by runtime evidence",
       "capability_ids": [
         "village.loot-cart"
       ],

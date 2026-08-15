@@ -49,6 +49,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MANIFEST = ROOT / "tests/fixtures/current-client/manifest.json"
 SCREEN_COORDINATES_SOURCE = ROOT / "COCBot/functions/Config/ScreenCoordinates.au3"
 OPEN_CLAN_REQUEST_SOURCE = ROOT / "COCBot/functions/Run/OpenClanRequest.au3"
+OPEN_HOME_COLLECTORS_SOURCE = ROOT / "COCBot/functions/Run/OpenHomeCollectors.au3"
 
 
 class FixtureReplayError(RuntimeError):
@@ -101,6 +102,7 @@ class RecognitionResult:
 
 HOME_MAIN_ADAPTER = "production.home-main-pixel-v1"
 CLAN_REQUEST_DIALOG_ADAPTER = "production.open-clan-request-dialog-v1"
+HOME_LOOT_CART_ADAPTER = "production.open-home-loot-cart-cue-v1"
 HOME_MAIN_REGION = SafeRegion(id="home-proof", x=378, y=10, width=1, height=1)
 CLAN_REQUEST_SEND_REGION = SafeRegion(id="send", x=455, y=438, width=181, height=83)
 
@@ -154,6 +156,51 @@ def _load_clan_request_dialog_anchors() -> tuple[tuple[int, int, int, int], ...]
     return anchors
 
 
+@functools.lru_cache(maxsize=1)
+def _load_home_loot_cart_contract() -> tuple[
+    tuple[tuple[int, int, int, int], ...],
+    tuple[tuple[int, int, int, int], ...],
+]:
+    source = OPEN_HOME_COLLECTORS_SOURCE.read_text(encoding="utf-8-sig")
+    cue_function = re.search(
+        r"Func\s+_OpenHomeLootCartCueAt\(\$iX,\s*\$iY\)(.*?)EndFunc",
+        source,
+        re.DOTALL,
+    )
+    if cue_function is None:
+        raise FixtureReplayError("cannot load the production Loot Cart cue predicate")
+    anchors = tuple(
+        (int(dx or 0), int(dy or 0), int(color, 16), 32)
+        for dx, dy, color in re.findall(
+            r"_OpenHomePixelNear\(\s*\$iX(?:\s*\+\s*(\d+))?\s*,\s*"
+            r"\$iY(?:\s*\+\s*(\d+))?\s*,\s*0x([0-9A-Fa-f]{6})\s*\)",
+            cue_function.group(1),
+        )
+    )
+    if len(anchors) != 8:
+        raise FixtureReplayError(
+            f"production Loot Cart cue predicate has {len(anchors)} anchors; expected exactly 8"
+        )
+
+    detect_function = re.search(
+        r"Func\s+OpenHomeLootCartDetectCue\(\)(.*?)EndFunc",
+        source,
+        re.DOTALL,
+    )
+    if detect_function is None:
+        raise FixtureReplayError("cannot load the production Loot Cart scan regions")
+    scan_regions = tuple(
+        tuple(int(value) for value in match)
+        for match in re.findall(
+            r"_OpenHomeLootCartScanRegion\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)",
+            detect_function.group(1),
+        )
+    )
+    if scan_regions != ((0, 80, 150, 515), (680, 80, 830, 515), (150, 515, 680, 600)):
+        raise FixtureReplayError("production Loot Cart scan regions changed outside the reviewed contract")
+    return anchors, scan_regions
+
+
 def recognize_home_main(image: DecodedPng, _sink: "NoOpActionSink") -> RecognitionResult | None:
     if not _pixel_near(image, *_load_home_main_anchor()):
         return None
@@ -167,6 +214,25 @@ def recognize_clan_request_dialog(
     if not all(_pixel_near(image, *anchor) for anchor in _load_clan_request_dialog_anchors()):
         return None
     return RecognitionResult("clan.request.send-ready", (CLAN_REQUEST_SEND_REGION,))
+
+
+def recognize_home_loot_cart(
+    image: DecodedPng,
+    _sink: "NoOpActionSink",
+) -> RecognitionResult | None:
+    anchors, scan_regions = _load_home_loot_cart_contract()
+    cue_width = max(anchor[0] for anchor in anchors) + 1
+    cue_height = max(anchor[1] for anchor in anchors) + 1
+    for left, top, right, bottom in scan_regions:
+        for x in range(left, right + 1):
+            for y in range(top, bottom + 1):
+                if all(_pixel_near(image, x + dx, y + dy, color, variation)
+                       for dx, dy, color, variation in anchors):
+                    return RecognitionResult(
+                        "home.loot-cart",
+                        (SafeRegion(id="loot-cart-cue", x=x, y=y, width=cue_width, height=cue_height),),
+                    )
+    return None
 
 
 class PassiveRecognizer(Protocol):
@@ -463,6 +529,7 @@ def main(argv: list[str] | None = None) -> int:
             recognizers={
                 HOME_MAIN_ADAPTER: recognize_home_main,
                 CLAN_REQUEST_DIALOG_ADAPTER: recognize_clan_request_dialog,
+                HOME_LOOT_CART_ADAPTER: recognize_home_loot_cart,
             },
             require_verified=args.require_verified,
         )

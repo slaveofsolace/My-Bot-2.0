@@ -1,0 +1,61 @@
+{
+  "schema_version": 2,
+  "fixture_id": "home.loot-cart",
+  "captured_at": "2026-08-15T07:53:54Z",
+  "game_version": "18.400.9",
+  "source_type": "authorized-test-account",
+  "width": 860,
+  "height": 732,
+  "sha256": "867b40649ad15a320de09a351ef0d0a03d923858f739ebf375d95d64a65870da",
+  "raw_sha256": "ab78027b0a1f35ddaaee2036db88519d757c9053f31eadc7e896b719f99a8ebc",
+  "redacted_sha256": "867b40649ad15a320de09a351ef0d0a03d923858f739ebf375d95d64a65870da",
+  "redacted": true,
+  "redaction_masks": [
+    {
+      "x": 64,
+      "y": 0,
+      "width": 166,
+      "height": 62,
+      "fill_hex": "#000000FF"
+    },
+    {
+      "x": 650,
+      "y": 0,
+      "width": 210,
+      "height": 210,
+      "fill_hex": "#000000FF"
+    },
+    {
+      "x": 390,
+      "y": 305,
+      "width": 150,
+      "height": 36,
+      "fill_hex": "#000000FF"
+    }
+  ],
+  "redaction_pixel_changes": 59638,
+  "privacy_review_method": "decoded-pixel-diff-v1",
+  "redaction_notes": "Opaque masks cover the player label, resource and premium balances, and clan label; the exact Loot Cart Collect cue remains unmasked.",
+  "assertions": [
+    "The production eight-anchor Collect glyph is visible at the left Home edge and does not intersect a privacy mask.",
+    "The canonical Home frame and the complete Loot Cart scan area remain at the native 860x732 resolution without resizing or recoloring.",
+    "Decoded-pixel comparison proves that every changed pixel is inside one of the three declared solid privacy masks."
+  ],
+  "reviewed_by": "My Bot 2.0 runtime review",
+  "reviewed_at": "2026-08-15T07:55:59Z",
+  "notes": "Captured immediately before the supervised no-gem Loot Cart pass that issued one cart-open and one Collect input, then re-proved Home. The Collect panel is not inferred from this frame; it is proved by the separate exact-current runtime receipt.",
+  "replay_contract": {
+    "schema_version": 1,
+    "adapter": "production.open-home-loot-cart-cue-v1",
+    "expected_state": "home.loot-cart",
+    "safe_regions": [
+      {
+        "id": "loot-cart-cue",
+        "x": 5,
+        "y": 244,
+        "width": 30,
+        "height": 6
+      }
+    ]
+  }
+}

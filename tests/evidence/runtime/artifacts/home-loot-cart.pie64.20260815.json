@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "artifact_id": "home-loot-cart.pie64.20260815",
+  "captured_at": "2026-08-15T07:49:39Z",
+  "commit_sha": "9ac57b33f039c01bd08577a0e60d249a26d59c40",
+  "redacted": true,
+  "scope": "One exact template-free Loot Cart pass in the reviewed installed LocalRuntime. Battles, search, training, donations, upgrades, account switching, premium-currency actions, collectors, Daily Reward, and Treasury were disabled.",
+  "environment": {
+    "os": "Windows 11 Home",
+    "os_version": "10.0.26200",
+    "autoit_version": "3.3.16.1",
+    "emulator": "BlueStacks5",
+    "emulator_version": "5.22.252.1008",
+    "instance_index": 0,
+    "instance_name": "Pie64",
+    "game_version": "18.400.9"
+  },
+  "reviewed_install": {
+    "version": "2.0.0",
+    "architecture": "x86",
+    "source_commit": "4c4320205602dc70c373013652dbf70b992392e4",
+    "binary_commit": "9ac57b33f039c01bd08577a0e60d249a26d59c40",
+    "release_manifest_sha256": "6f0c81143fa2a0acff7d8b6ab8beb68229670a51a3fe999607c3af7e5b20f795",
+    "package_sha256": "a34aa902c0db7c04bcabf8bf205362c1faafa56f4c30db96bdad8e479775fe80",
+    "package_bytes": 32267129,
+    "manifest_records": 2583
+  },
+  "binary": {
+    "path": "MyBot.run.exe",
+    "sha256": "c789c829e3e6bbd3845b1b1743fb84c6e6f4a19e83bbaacd3428344a8ade2d7f",
+    "bytes": 3336192
+  },
+  "plan": {
+    "strategy": "home.collectors",
+    "diagnostic_mode": true,
+    "exact_emulator_instance": true,
+    "collect_resources": false,
+    "daily_reward": false,
+    "loot_cart": true,
+    "treasury": false,
+    "max_battles": 0,
+    "training": false,
+    "donations": false,
+    "upgrades": false,
+    "account_queue": false,
+    "gem_actions_authorized": false
+  },
+  "recognition": {
+    "initial_screen": "home-village",
+    "home_signature_confirmed": true,
+    "fixture_id": "home.loot-cart",
+    "fixture_sha256": "867b40649ad15a320de09a351ef0d0a03d923858f739ebf375d95d64a65870da",
+    "source_derived_cue_anchors": 8,
+    "reviewed_cue_region": {"x": 5, "y": 244, "width": 30, "height": 6},
+    "production_scan_regions": 3,
+    "collect_panel_anchors": 8,
+    "collect_panel_confirmed_before_input": true,
+    "fresh_home_proof_before_cart_input": true,
+    "home_reproved_after_collect_input": true,
+    "raw_frames_retained": false,
+    "raw_frames_nonclaim": "Transient frames contained player and clan identifiers and were reviewed locally only. The committed home.loot-cart fixture is the reusable redacted cue proof; the intermediate Collect panel is proved by the exact runtime route receipt rather than a retained frame."
+  },
+  "resource_observation": {
+    "before": {"gold": 15114355, "elixir": 16901891, "dark_elixir": 190668, "gems": 3092},
+    "after": {"gold": 15246489, "elixir": 17034023, "dark_elixir": 191436, "gems": 3092},
+    "delta": {"gold": 132134, "elixir": 132132, "dark_elixir": 768, "gems": 0},
+    "gems_unchanged": true
+  },
+  "completed_run": {
+    "start_http_status": 202,
+    "duration_ms": 5682,
+    "final_state": "idle",
+    "run_state": false,
+    "plan_active": false,
+    "last_outcome": "completed",
+    "last_message": "Template-free Loot Cart completed; state=collect-issued",
+    "engine_probe_state": "not-run",
+    "cart_open_attempts": 1,
+    "collect_attempts": 1,
+    "confirmation_inputs": 0,
+    "event_types": [
+      "session.preparing",
+      "session.started",
+      "maintenance.loot-cart.started",
+      "maintenance.loot-cart.open-issued",
+      "maintenance.loot-cart.collect-issued",
+      "maintenance.loot-cart.home-verified",
+      "maintenance.home-verified",
+      "session.stopping",
+      "session.completed"
+    ]
+  },
+  "forbidden_activity": {
+    "battle_events": 0,
+    "search_events": 0,
+    "training_events": 0,
+    "donation_events": 0,
+    "upgrade_events": 0,
+    "account_events": 0,
+    "confirmation_inputs": 0,
+    "gem_or_purchase_events": 0,
+    "gem_balance_changed": false
+  },
+  "assertions": {
+    "loot_cart_recognized": true,
+    "collect_button_confirmed": true,
+    "loot_cart_collect_issued": true,
+    "home_restored": true,
+    "gems_untouched": true,
+    "no_confirmation_path": true
+  },
+  "privacy": "Only allowlisted operational state, resource totals, durations, and integrity digests are retained. Raw frames, player and clan names, account and profile identifiers, request identifiers, process identifiers, creation timestamps, filesystem paths, machine identifiers, chat, payment information, and launch tokens are omitted."
+}
