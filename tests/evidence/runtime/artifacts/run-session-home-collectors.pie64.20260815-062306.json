@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "artifact_id": "run-session-home-collectors.pie64.20260815-062306",
+  "captured_at": "2026-08-15T11:23:06Z",
+  "commit_sha": "bc2de4c081ce23461fb4a4e245d9571ffed59f38",
+  "redacted": true,
+  "scope": "Exact installed run-plan, run-session, event, and BlueStacks readiness lifecycle from one bounded collectors-only Home Village pass. The session identifier is intentionally omitted; correlation is retained as a boolean assertion over the captured event delta.",
+  "environment": {
+    "os": "Windows 11 Home",
+    "os_version": "10.0.26200",
+    "autoit_version": "3.3.16.1",
+    "emulator": "BlueStacks5",
+    "emulator_version": "5.22.252.1008",
+    "instance_index": 0,
+    "instance_name": "Pie64",
+    "game_version": "18.400.9"
+  },
+  "reviewed_install": {
+    "version": "2.0.0",
+    "architecture": "x86",
+    "source_commit": "823a9e7020859a199b26f020504f1465df6e4ae4",
+    "binary_commit": "bc2de4c081ce23461fb4a4e245d9571ffed59f38",
+    "release_manifest_sha256": "7aa75ded6d474f2f0618a36fea52fe7588beb0a6b825f02e596a1a6bbc7a0a23",
+    "package_sha256": "a624d921322b09c34d7c43e6c90ebdc06181baf124fb792d79662b84d6e22776"
+  },
+  "binary": {
+    "path": "MyBot.run.exe",
+    "sha256": "2b78e840314fcb7f208408acd04bb8fceb7826a3f66d8c124fc33b1d4445a9d6",
+    "bytes": 3339264
+  },
+  "plan": {
+    "strategy": "home.collectors",
+    "saved_with_zero_problems": true,
+    "diagnostic_mode": true,
+    "collect_resources": true,
+    "daily_reward": false,
+    "loot_cart": false,
+    "treasury": false,
+    "max_battles": 0,
+    "training": false,
+    "donations": false,
+    "upgrades": false,
+    "account_queue": false,
+    "gem_actions_authorized": false
+  },
+  "readiness_timeline": {
+    "sample_interval_ms": 100,
+    "samples": 190,
+    "starting_unattached_observed": true,
+    "emulator_and_window_attached_observed": true,
+    "adb_ready_observed": true,
+    "running_game_ready_observed": true,
+    "same_backend_generation": true,
+    "terminal_idle_observed": true
+  },
+  "event_delta": {
+    "all_events_share_one_session": true,
+    "session_identifier_retained": false,
+    "sequence_strictly_monotonic": true,
+    "elapsed_time_strictly_monotonic": true,
+    "events": [
+      {"sequence": 1, "timestamp_ms": 2, "type": "session.preparing"},
+      {"sequence": 2, "timestamp_ms": 8327, "type": "session.started"},
+      {"sequence": 3, "timestamp_ms": 8336, "type": "maintenance.collectors.started"},
+      {"sequence": 4, "timestamp_ms": 19716, "type": "maintenance.home-verified"},
+      {"sequence": 5, "timestamp_ms": 19718, "type": "maintenance.collectors.completed"},
+      {"sequence": 6, "timestamp_ms": 19727, "type": "session.stopping"},
+      {"sequence": 7, "timestamp_ms": 19734, "type": "session.completed"}
+    ]
+  },
+  "terminal_state": {
+    "state": "idle",
+    "run_state": false,
+    "plan_active": false,
+    "session_cleared": true,
+    "last_outcome": "completed",
+    "last_message": "Template-free Home collectors completed; collector_clicks=3"
+  },
+  "forbidden_activity": {
+    "battle_events": 0,
+    "search_events": 0,
+    "training_events": 0,
+    "donation_events": 0,
+    "upgrade_events": 0,
+    "account_events": 0,
+    "gem_or_purchase_events": 0
+  },
+  "assertions": {
+    "plan_accepted": true,
+    "run_started": true,
+    "game_ready": true,
+    "run_stopped": true,
+    "emulator_detected": true,
+    "adb_connected": true,
+    "session_started": true,
+    "session_correlated": true,
+    "session_completed": true,
+    "event_session_correlated": true,
+    "event_sequence_monotonic": true,
+    "event_completed": true
+  },
+  "privacy": "Only event types, sequence numbers, elapsed times, readiness booleans, terminal state, and reviewed-build digests are retained. Session, request, process, profile, account, player, clan, path, machine, and launch-token identifiers are omitted."
+}

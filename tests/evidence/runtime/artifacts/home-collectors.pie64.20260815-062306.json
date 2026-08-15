@@ -1,0 +1,132 @@
+{
+  "schema_version": 1,
+  "artifact_id": "home-collectors.pie64.20260815-062306",
+  "captured_at": "2026-08-15T11:23:06Z",
+  "commit_sha": "bc2de4c081ce23461fb4a4e245d9571ffed59f38",
+  "redacted": true,
+  "scope": "One exact collectors-only Home Village pass in the reviewed installed LocalRuntime. Battles, search, training, donations, upgrades, account switching, premium-currency actions, Daily Reward, Loot Cart, and Treasury were disabled.",
+  "environment": {
+    "os": "Windows 11 Home",
+    "os_version": "10.0.26200",
+    "autoit_version": "3.3.16.1",
+    "emulator": "BlueStacks5",
+    "emulator_version": "5.22.252.1008",
+    "instance_index": 0,
+    "instance_name": "Pie64",
+    "game_version": "18.400.9"
+  },
+  "reviewed_install": {
+    "version": "2.0.0",
+    "architecture": "x86",
+    "source_commit": "823a9e7020859a199b26f020504f1465df6e4ae4",
+    "binary_commit": "bc2de4c081ce23461fb4a4e245d9571ffed59f38",
+    "release_manifest_sha256": "7aa75ded6d474f2f0618a36fea52fe7588beb0a6b825f02e596a1a6bbc7a0a23",
+    "package_sha256": "a624d921322b09c34d7c43e6c90ebdc06181baf124fb792d79662b84d6e22776",
+    "package_bytes": 32273091,
+    "manifest_records": 2583,
+    "manifest_missing": 0,
+    "manifest_size_mismatches": 0,
+    "manifest_hash_mismatches": 0
+  },
+  "binary": {
+    "path": "MyBot.run.exe",
+    "sha256": "2b78e840314fcb7f208408acd04bb8fceb7826a3f66d8c124fc33b1d4445a9d6",
+    "bytes": 3339264
+  },
+  "precondition_observation": {
+    "inactivity_reload_crashed_previous_emulator_process": true,
+    "clean_exact_instance_restarted_before_baseline": true,
+    "single_player_process_before_route": true,
+    "single_adb_device_before_route": true,
+    "no_emulator_crash_during_route": true
+  },
+  "plan": {
+    "strategy": "home.collectors",
+    "diagnostic_mode": true,
+    "exact_emulator_instance": true,
+    "collect_resources": true,
+    "daily_reward": false,
+    "loot_cart": false,
+    "treasury": false,
+    "max_battles": 0,
+    "training": false,
+    "donations": false,
+    "upgrades": false,
+    "account_queue": false,
+    "gem_actions_authorized": false,
+    "validation_problems": 0
+  },
+  "readiness_observation": {
+    "run_state_true_observed": true,
+    "plan_active_true_observed": true,
+    "emulator_attached_true_observed": true,
+    "window_attached_true_observed": true,
+    "adb_ready_true_observed": true,
+    "game_ready_true_observed": true,
+    "sample_interval_ms": 100,
+    "samples": 190
+  },
+  "recognition": {
+    "initial_screen": "home-village",
+    "home_signature_confirmed": true,
+    "strict_bubble_types_before": ["gold", "elixir", "dark-elixir"],
+    "accepted_clicks": 3,
+    "fresh_home_proof_before_every_click": true,
+    "home_reproved_after_final_click": true,
+    "raw_frames_retained": false,
+    "raw_frames_nonclaim": "Transient frames contained player and clan identifiers and were reviewed locally only. The committed home.maintenance.ready fixture remains the reusable redacted Home proof."
+  },
+  "resource_observation": {
+    "before": {"gold": 15074310, "elixir": 16970823, "dark_elixir": 197324, "gems": 3092},
+    "after": {"gold": 15230536, "elixir": 17127049, "dark_elixir": 199097, "gems": 3092},
+    "delta": {"gold": 156226, "elixir": 156226, "dark_elixir": 1773, "gems": 0},
+    "gems_unchanged": true
+  },
+  "completed_run": {
+    "start_accepted": true,
+    "duration_ms": 19734,
+    "final_state": "idle",
+    "run_state": false,
+    "plan_active": false,
+    "last_outcome": "completed",
+    "engine_probe_state": "passed",
+    "collector_clicks": 3,
+    "event_types": [
+      "session.preparing",
+      "session.started",
+      "maintenance.collectors.started",
+      "maintenance.home-verified",
+      "maintenance.collectors.completed",
+      "session.stopping",
+      "session.completed"
+    ]
+  },
+  "preservation": {
+    "external_profile_sha256": "157fed76c5fedf2dd18f2e6cdb1bd562b0396faa300a6630a68da825319abc0e",
+    "installed_english_sha256": "360f8055f331e09803ddd278411db71a6e4a7f77d57ca7080b672cd07659a0ad",
+    "emulator_identity_preserved_during_route": true,
+    "adb_server_identity_preserved_during_route": true,
+    "backend_identity_preserved_during_route": true,
+    "backend_owned_adb_helpers_closed_after_route": 2,
+    "main_adb_daemon_preserved": true
+  },
+  "forbidden_activity": {
+    "battle_events": 0,
+    "search_events": 0,
+    "training_events": 0,
+    "donation_events": 0,
+    "upgrade_events": 0,
+    "account_events": 0,
+    "gem_or_purchase_events": 0,
+    "gem_balance_changed": false
+  },
+  "assertions": {
+    "collectors_recognized": true,
+    "storage_state_confirmed": true,
+    "collectors_collected": true,
+    "home_restored": true,
+    "no_gem_action": true,
+    "configuration_preserved": true
+  },
+  "privacy": "Only allowlisted operational state, resource totals, durations, and integrity digests are retained. Raw frames, player and clan names, account and profile identifiers, request identifiers, process identifiers, creation timestamps, filesystem paths, machine identifiers, chat, payment information, and launch tokens are omitted."
+}

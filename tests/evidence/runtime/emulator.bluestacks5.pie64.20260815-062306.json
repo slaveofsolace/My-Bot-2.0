@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "evidence_id": "emulator.bluestacks5.pie64.20260815-062306",
+  "capability_id": "emulator.bluestacks5",
+  "test_type": "emulator-smoke",
+  "result": "passed",
+  "captured_at": "2026-08-15T11:23:06Z",
+  "commit_sha": "bc2de4c081ce23461fb4a4e245d9571ffed59f38",
+  "redacted": true,
+  "environment": {
+    "os": "Windows 11 Home",
+    "os_version": "10.0.26200",
+    "autoit_version": "3.3.16.1",
+    "emulator": "BlueStacks5",
+    "emulator_version": "5.22.252.1008",
+    "instance_index": 0,
+    "instance_name": "Pie64",
+    "game_version": "18.400.9"
+  },
+  "binary": {
+    "path": "MyBot.run.exe",
+    "sha256": "2b78e840314fcb7f208408acd04bb8fceb7826a3f66d8c124fc33b1d4445a9d6",
+    "bytes": 3339264
+  },
+  "checks": [
+    {
+      "id": "emulator.detected",
+      "result": "passed",
+      "details": "The exact BlueStacks 5 Pie64 instance was detected and remained attached throughout the controlled route."
+    },
+    {
+      "id": "adb.connected",
+      "result": "passed",
+      "details": "ADB readiness was true at the running boundary; the main BlueStacks daemon identity remained unchanged and backend-owned helper clients were closed after the route."
+    },
+    {
+      "id": "game.ready",
+      "result": "passed",
+      "details": "The running status reached game_ready=true and the clean pre-route player process remained stable through terminal idle."
+    }
+  ],
+  "reviewer": {
+    "name": "My Bot 2.0 runtime review",
+    "reviewed_at": "2026-08-15T11:25:56Z"
+  },
+  "artifact_refs": [
+    {
+      "kind": "repository",
+      "path": "tests/evidence/runtime/artifacts/run-session-home-collectors.pie64.20260815-062306.json",
+      "sha256": "fb626fb9bf8f9043c91c890746e372bef87d52579d44b7ac85ef9fd74362f1f2",
+      "bytes": 3877
+    }
+  ],
+  "notes": "Exact-current BlueStacks 5 smoke evidence for the clean player generation established before this route. A previous player generation crashed during an inactivity reload before the captured baseline; no crash occurred during the evidenced run."
+}
