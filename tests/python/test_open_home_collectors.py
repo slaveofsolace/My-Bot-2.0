@@ -145,6 +145,13 @@ class OpenHomeCollectorsTest(unittest.TestCase):
         self.assertIn("RunControlStopRequested()", detect)
         self.assertIn("Return SetError(2", detect)
 
+    def test_home_proof_synchronizes_authoritative_game_readiness(self):
+        route = source("COCBot/functions/Run/OpenHomeCollectors.au3")
+        proof = autoit_function(route, "OpenHomeCollectorsProveHome")
+        self.assertIn("Local $bHomeProven = _CheckPixel($aIsMain, False)", proof)
+        self.assertIn("$g_bMainWindowOk = $bHomeProven", proof)
+        self.assertLess(proof.index("$g_bMainWindowOk = $bHomeProven"), proof.index("Return $bHomeProven"))
+
     def test_loot_cart_recognizer_matches_the_verified_home_fixture(self):
         width, height, pixel = png_rgb(ROOT / "tests/fixtures/current-client/images/home.maintenance.ready.png")
         self.assertEqual((width, height), (860, 732))

@@ -102,7 +102,12 @@ EndFunc   ;==>OpenHomeCollectorsCapture
 
 Func OpenHomeCollectorsProveHome()
 	If Not OpenHomeCollectorsCapture() Then Return False
-	Return _CheckPixel($aIsMain, False)
+	Local $bHomeProven = _CheckPixel($aIsMain, False)
+	; The terminal Home routes deliberately bypass IsMainPage(), but the control bridge publishes
+	; game_ready from the same authoritative main-window flag. Keep the two proofs synchronized so
+	; a freshly recognized Home route cannot report running while falsely claiming the game is not ready.
+	$g_bMainWindowOk = $bHomeProven
+	Return $bHomeProven
 EndFunc   ;==>OpenHomeCollectorsProveHome
 
 ; Issue at most one accepted click per resource type. Every decision uses a fresh frame; Home and Stop
