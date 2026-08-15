@@ -100,8 +100,11 @@ EndFunc   ;==>decodeSingleCoord
 
 Func RetrieveImglocProperty($key, $property)
 	; Get the property
-	Local $aValue = DllCall($g_hLibMyBot, "str", "GetProperty", "str", $key, "str", $property)
-	If @error Then _logErrorDLLCall($g_sLibMyBotPath, @error) ; check for error with DLL call
+	Local $aValue = DllCallMyBot("GetProperty", "str", $key, "str", $property)
+	If @error Then
+		_logErrorDLLCall($g_sLibMyBotPath, @error) ; check for error with DLL call
+		Return ""
+	EndIf
 	If UBound($aValue) = 0 Then
 		Return ""
 	EndIf
@@ -409,7 +412,7 @@ Func findImage($sImageName, $sImageTile, $sImageArea, $maxReturnPoints = 1, $bFo
 EndFunc   ;==>findImage
 
 Func GetDeployableNextTo($sPoints, $distance = 3, $redlineoverride = "")
-	Local $result = DllCall($g_hLibMyBot, "str", "GetDeployableNextTo", "str", $sPoints, "int", $distance, "str", $redlineoverride)
+	Local $result = DllCallMyBot("GetDeployableNextTo", "str", $sPoints, "int", $distance, "str", $redlineoverride)
 	Local $error = @error ; Store error values as they reset at next function call
 	Local $extError = @extended
 	If $error Then
@@ -425,7 +428,7 @@ Func GetDeployableNextTo($sPoints, $distance = 3, $redlineoverride = "")
 EndFunc   ;==>GetDeployableNextTo
 
 Func GetOffsetRedline($sArea = "TL", $distance = 3)
-	Local $result = DllCall($g_hLibMyBot, "str", "GetOffSetRedline", "str", $sArea, "int", $distance)
+	Local $result = DllCallMyBot("GetOffSetRedline", "str", $sArea, "int", $distance)
 	Local $error = @error ; Store error values as they reset at next function call
 	Local $extError = @extended
 	If $error Then

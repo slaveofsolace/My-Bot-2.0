@@ -127,6 +127,17 @@ class ManagedExportSupervisionTests(unittest.TestCase):
         blocked = public_wrapper.index("Inherited ImgLoc recognition is disabled", guard)
         self.assertLess(guard, blocked)
         self.assertNotIn("_DllCallMyBot(", public_wrapper)
+        self.assertIn("Return SetError(1, 0, $aBlocked)", public_wrapper)
+
+    def test_no_other_source_can_bypass_the_blocked_recognition_wrapper(self) -> None:
+        bypasses: list[str] = []
+        for path in (ROOT / "COCBot").rglob("*.au3"):
+            if path == MBR_FUNC:
+                continue
+            text = read_autoit_source(path)
+            if 'DllCall($g_hLibMyBot' in text:
+                bypasses.append(path.relative_to(ROOT).as_posix())
+        self.assertEqual(bypasses, [])
 
 
 if __name__ == "__main__":

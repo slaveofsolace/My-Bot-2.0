@@ -44,6 +44,7 @@ MAIN = ROOT / "MyBot.run.au3"
 LAUNCHER = ROOT / "My Bot 2.0.au3"
 ENGINE_PROBE = ROOT / "MyBot.run.EngineProbe.au3"
 ENGINE_PROBE_CONFIG = ROOT / "MyBot.run.EngineProbe.exe.config"
+MBR_FUNC = ROOT / "COCBot/functions/Other/MBRFunc.au3"
 COLLECTOR_RECOGNIZER = ROOT / "COCBot/functions/Run/CollectorBubbleRecognizer.au3"
 
 # The value shapes RunPlanFileParse produces. Anything else in a written plan would reach the AutoIt side
@@ -62,6 +63,14 @@ PACING_BOUNDS = {
 
 def load(path: Path):
     return json.loads(path.read_text(encoding="utf-8-sig"))
+
+
+def read_autoit_source(path: Path) -> str:
+    data = path.read_bytes()
+    try:
+        return data.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return data.decode("cp1252")
 
 
 def autoit_constants(source: str) -> dict[str, int]:
@@ -668,6 +677,18 @@ def main() -> int:
     public_imgloc_body = public_imgloc[1].split("EndFunc", 1)[0] if len(public_imgloc) > 1 else ""
     if "_DllCallMyBot(" in public_imgloc_body or "SuspendAndroid" in public_imgloc_body:
         errors.append("public inherited recognition can invoke the protected ImgLoc export")
+    if "Return SetError(1, 0, $aBlocked)" not in public_imgloc_body:
+        errors.append("blocked inherited recognition no longer reports an actionable call failure")
+
+    for source_path in (ROOT / "COCBot").rglob("*.au3"):
+        if source_path == MBR_FUNC:
+            continue
+        source_text = read_autoit_source(source_path)
+        if 'DllCall($g_hLibMyBot' in source_text:
+            errors.append(
+                "managed recognition bypasses the fail-closed wrapper: "
+                + str(source_path.relative_to(ROOT)).replace("\\", "/")
+            )
     for forbidden in ("DllCallMyBot", "FindTile", "SearchMultipleTiles", "ShellExecute", ".html"):
         if forbidden in collector_recognizer_source:
             errors.append(f"clean-room collector recognizer reached protected runtime behavior: {forbidden}")

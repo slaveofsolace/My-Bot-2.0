@@ -295,23 +295,6 @@ Func MBRFuncProbeEngine(ByRef $sError, $iTimeoutMs = 15000)
 	Return True
 EndFunc   ;==>MBRFuncProbeEngine
 
-; Private DllCall MyBot.run.dll function call
-Func _DllCallMyBot($sFunc, $sType1 = Default, $vParam1 = Default, $sType2 = Default, $vParam2 = Default, $sType3 = Default, $vParam3 = Default, $sType4 = Default, $vParam4 = Default, $sType5 = Default, $vParam5 = Default _
-		, $sType6 = Default, $vParam6 = Default, $sType7 = Default, $vParam7 = Default, $sType8 = Default, $vParam8 = Default, $sType9 = Default, $vParam9 = Default, $sType10 = Default, $vParam10 = Default)
-	If Not $g_bLibMyBotInitialized Then Return SetError(1, 0, 0)
-	If $sType1 = Default Then Return DllCall($g_hLibMyBot, "str", $sFunc)
-	If $sType2 = Default Then Return DllCall($g_hLibMyBot, "str", $sFunc, $sType1, $vParam1)
-	If $sType3 = Default Then Return DllCall($g_hLibMyBot, "str", $sFunc, $sType1, $vParam1, $sType2, $vParam2)
-	If $sType4 = Default Then Return DllCall($g_hLibMyBot, "str", $sFunc, $sType1, $vParam1, $sType2, $vParam2, $sType3, $vParam3)
-	If $sType5 = Default Then Return DllCall($g_hLibMyBot, "str", $sFunc, $sType1, $vParam1, $sType2, $vParam2, $sType3, $vParam3, $sType4, $vParam4)
-	If $sType6 = Default Then Return DllCall($g_hLibMyBot, "str", $sFunc, $sType1, $vParam1, $sType2, $vParam2, $sType3, $vParam3, $sType4, $vParam4, $sType5, $vParam5)
-	If $sType7 = Default Then Return DllCall($g_hLibMyBot, "str", $sFunc, $sType1, $vParam1, $sType2, $vParam2, $sType3, $vParam3, $sType4, $vParam4, $sType5, $vParam5, $sType6, $vParam6)
-	If $sType8 = Default Then Return DllCall($g_hLibMyBot, "str", $sFunc, $sType1, $vParam1, $sType2, $vParam2, $sType3, $vParam3, $sType4, $vParam4, $sType5, $vParam5, $sType6, $vParam6, $sType7, $vParam7)
-	If $sType9 = Default Then Return DllCall($g_hLibMyBot, "str", $sFunc, $sType1, $vParam1, $sType2, $vParam2, $sType3, $vParam3, $sType4, $vParam4, $sType5, $vParam5, $sType6, $vParam6, $sType7, $vParam7, $sType8, $vParam8)
-	If $sType10 = Default Then Return DllCall($g_hLibMyBot, "str", $sFunc, $sType1, $vParam1, $sType2, $vParam2, $sType3, $vParam3, $sType4, $vParam4, $sType5, $vParam5, $sType6, $vParam6, $sType7, $vParam7, $sType8, $vParam8, $sType9, $vParam9)
-	Return DllCall($g_hLibMyBot, "str", $sFunc, $sType1, $vParam1, $sType2, $vParam2, $sType3, $vParam3, $sType4, $vParam4, $sType5, $vParam5, $sType6, $vParam6, $sType7, $vParam7, $sType8, $vParam8, $sType9, $vParam9, $sType10, $vParam10)
-EndFunc   ;==>_DllCallMyBot
-
 Func DllCallMyBotIsActive()
 	Return $g_bLibMyBotActive
 EndFunc   ;==>DllCallMyBotIsActive
@@ -327,7 +310,7 @@ Func DllCallMyBot($sFunc, $sType1 = Default, $vParam1 = Default, $sType2 = Defau
 	; invoke any public recognition export: it can generate and open lib/<message-id>.html. Callers
 	; receive the same critical-error shape and must stop or use an independently implemented adapter.
 	Local $aBlocked[1] = ["-2|Inherited ImgLoc recognition is disabled in this fork; licensed permission or a clean-room recognizer is required"]
-	Return SetError(0, 0, $aBlocked)
+	Return SetError(1, 0, $aBlocked)
 EndFunc   ;==>DllCallMyBot
 
 Func debugMBRFunctions($iDebugSearchArea = 0, $iDebugRedArea = 0, $iDebugOcr = 0)

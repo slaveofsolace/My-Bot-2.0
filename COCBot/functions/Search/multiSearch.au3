@@ -125,10 +125,13 @@ Func multiMatches($directory, $maxReturnPoints = 0, $fullCocAreas = "DCD", $redL
 
 	; Perform the search
 	Local $res = DllCallMyBot("SearchMultipleTilesBetweenLevels", "handle", $g_hHBitmap2, "str", $directory, "str", $fullCocAreas, "Int", $maxReturnPoints, "str", $redLines, "Int", $minLevel, "Int", $maxLevel)
-	If @error Then _logErrorDLLCall($g_sLibMyBotPath, @error)
+	If @error Then
+		_logErrorDLLCall($g_sLibMyBotPath, @error)
+		Return $aResult
+	EndIf
 
 	; Get the redline data
-	$aValue = DllCall($g_hLibMyBot, "str", "GetProperty", "str", "redline", "str", "")
+	$aValue = DllCallMyBot("GetProperty", "str", "redline", "str", "")
 	If @error Then _logErrorDLLCall($g_sLibMyBotPath, @error)
 	$redLines = $aValue[0]
 
