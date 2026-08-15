@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "evidence_id": "village.clan-request-recognition.pie64.20260815",
+  "capability_id": "village.clan-request",
+  "test_type": "game-surface-recognition",
+  "result": "passed",
+  "captured_at": "2026-08-15T06:50:06Z",
+  "commit_sha": "9ac57b33f039c01bd08577a0e60d249a26d59c40",
+  "redacted": true,
+  "environment": {
+    "os": "Windows 11 Home",
+    "os_version": "10.0.26200",
+    "autoit_version": "3.3.16.1",
+    "emulator": "BlueStacks5",
+    "emulator_version": "5.22.252.1008",
+    "instance_index": 0,
+    "instance_name": "Pie64",
+    "game_version": "18.400.9"
+  },
+  "binary": {
+    "path": "MyBot.run.exe",
+    "sha256": "c789c829e3e6bbd3845b1b1743fb84c6e6f4a19e83bbaacd3428344a8ade2d7f",
+    "bytes": 3336192
+  },
+  "checks": [
+    {
+      "id": "clan-request.available-recognized",
+      "result": "passed",
+      "details": "The exact installed framebuffer recognizer accepted the Army Overview structural anchors and the fresh green Available button before any request input."
+    },
+    {
+      "id": "clan-request.dialog-confirmed",
+      "result": "passed",
+      "details": "After the bounded Request input, the exact dialog frame, white message panel, green Send control, and orange Cancel control were freshly confirmed before the sole Send attempt."
+    }
+  ],
+  "reviewer": {
+    "name": "My Bot 2.0 runtime review",
+    "reviewed_at": "2026-08-15T07:00:00Z"
+  },
+  "artifact_refs": [
+    {
+      "kind": "repository",
+      "path": "tests/evidence/runtime/artifacts/clan-request.pie64.20260815.json",
+      "sha256": "5e0cf8ce9b96d75d4ee9ff7f8c88b2fd15b2a893132c655d1ccae1cc7857889b",
+      "bytes": 4731
+    }
+  ],
+  "notes": "Redacted exact-binary recognition evidence. Committed redacted Army Overview and request-dialog derivatives are integrity-bound; raw live frames containing player or clan identifiers were not retained."
+}

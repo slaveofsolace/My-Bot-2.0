@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "artifact_id": "clan-request.pie64.20260815",
+  "captured_at": "2026-08-15T06:50:06Z",
+  "commit_sha": "9ac57b33f039c01bd08577a0e60d249a26d59c40",
+  "redacted": true,
+  "scope": "One exact request-only Home Village pass in the reviewed installed LocalRuntime. One Send was permitted after fresh Available and dialog recognition; donations, training, collectors, upgrades, events, account switching, battle, and gem actions were disabled.",
+  "environment": {
+    "os": "Windows 11 Home",
+    "os_version": "10.0.26200",
+    "autoit_version": "3.3.16.1",
+    "emulator": "BlueStacks5",
+    "emulator_version": "5.22.252.1008",
+    "instance_index": 0,
+    "instance_name": "Pie64",
+    "game_version": "18.400.9"
+  },
+  "reviewed_install": {
+    "version": "2.0.0",
+    "architecture": "x86",
+    "source_commit": "4c4320205602dc70c373013652dbf70b992392e4",
+    "binary_commit": "9ac57b33f039c01bd08577a0e60d249a26d59c40",
+    "release_manifest_sha256": "6f0c81143fa2a0acff7d8b6ab8beb68229670a51a3fe999607c3af7e5b20f795",
+    "package_sha256": "a34aa902c0db7c04bcabf8bf205362c1faafa56f4c30db96bdad8e479775fe80",
+    "package_bytes": 32267129,
+    "manifest_records": 2583,
+    "manifest_missing_before_run": 0,
+    "manifest_hash_mismatches_before_run": 0
+  },
+  "binary": {
+    "path": "MyBot.run.exe",
+    "sha256": "c789c829e3e6bbd3845b1b1743fb84c6e6f4a19e83bbaacd3428344a8ade2d7f",
+    "bytes": 3336192
+  },
+  "plan": {
+    "strategy": "home.clan-request",
+    "diagnostic_mode": true,
+    "exact_emulator_instance": true,
+    "request_when_available": true,
+    "send_attempt_cap": 1,
+    "collectors": false,
+    "daily_reward": false,
+    "loot_cart": false,
+    "treasury": false,
+    "max_battles": 0,
+    "training": false,
+    "donations": false,
+    "upgrades": false,
+    "account_queue": false,
+    "gem_actions_authorized": false
+  },
+  "recognition": {
+    "initial_screen": "home-village",
+    "home_signature_confirmed": true,
+    "army_overview_confirmed": true,
+    "available_button_confirmed": true,
+    "request_dialog_confirmed": true,
+    "send_attempts": 1,
+    "send_issued": 1,
+    "fresh_state_transition": "Available -> AlreadyMade",
+    "home_reproved_after_send": true,
+    "committed_redacted_fixture_sha256": {
+      "army.training.ready": "d75802245915e97b7fdaf5ac410339bd067ba33d2d76bfb64ed806311a199be6",
+      "clan.request.available": "04615dad2e42ed1171dd789f5a8f9d711860873783f685f68c66309d6486c1c0"
+    },
+    "raw_live_frames_retained": false,
+    "raw_live_frames_nonclaim": "Transient frames contained player and clan identifiers and were reviewed locally only. The committed fixture derivatives are redacted and integrity-bound."
+  },
+  "completed_run": {
+    "start_http_status": 202,
+    "duration_ms": 16718,
+    "final_state": "idle",
+    "run_state": false,
+    "plan_active": false,
+    "last_outcome": "completed",
+    "engine_probe_state": "not-run",
+    "event_types": [
+      "session.preparing",
+      "session.started",
+      "maintenance.clan-request.started",
+      "maintenance.clan-request.home-verified",
+      "maintenance.clan-request.committed",
+      "session.stopping",
+      "session.completed"
+    ]
+  },
+  "preservation": {
+    "external_profile_before_sha256": "157fed76c5fedf2dd18f2e6cdb1bd562b0396faa300a6630a68da825319abc0e",
+    "external_profile_after_sha256": "157fed76c5fedf2dd18f2e6cdb1bd562b0396faa300a6630a68da825319abc0e",
+    "installed_english_before_sha256": "360f8055f331e09803ddd278411db71a6e4a7f77d57ca7080b672cd07659a0ad",
+    "installed_english_after_sha256": "360f8055f331e09803ddd278411db71a6e4a7f77d57ca7080b672cd07659a0ad",
+    "gem_balance_before": 3092,
+    "gem_balance_after": 3092,
+    "emulator_identity_preserved": true,
+    "adb_server_identity_preserved": true
+  },
+  "forbidden_activity": {
+    "battle_events": 0,
+    "search_events": 0,
+    "training_events": 0,
+    "donation_events": 0,
+    "collector_events": 0,
+    "upgrade_events": 0,
+    "account_events": 0,
+    "gem_or_purchase_events": 0,
+    "send_retries": 0,
+    "gem_balance_changed": false
+  },
+  "assertions": {
+    "clan_request_available_recognized": true,
+    "clan_request_dialog_confirmed": true,
+    "clan_request_sent": true,
+    "clan_request_already_made_confirmed": true,
+    "home_restored": true,
+    "no_gem_action": true,
+    "configuration_preserved": true
+  },
+  "privacy": "Only allowlisted operational state, counts, durations, and integrity digests are retained. Raw live frames, player and clan names, request text, account and profile identifiers, request identifiers, process identifiers, creation timestamps, filesystem paths, machine identifiers, chat, payment information, and launch tokens are omitted."
+}

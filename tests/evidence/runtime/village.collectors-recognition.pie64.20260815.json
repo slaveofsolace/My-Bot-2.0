@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "evidence_id": "village.collectors-recognition.pie64.20260815",
+  "capability_id": "village.collectors",
+  "test_type": "game-surface-recognition",
+  "result": "passed",
+  "captured_at": "2026-08-15T06:51:26Z",
+  "commit_sha": "9ac57b33f039c01bd08577a0e60d249a26d59c40",
+  "redacted": true,
+  "environment": {
+    "os": "Windows 11 Home",
+    "os_version": "10.0.26200",
+    "autoit_version": "3.3.16.1",
+    "emulator": "BlueStacks5",
+    "emulator_version": "5.22.252.1008",
+    "instance_index": 0,
+    "instance_name": "Pie64",
+    "game_version": "18.400.9"
+  },
+  "binary": {
+    "path": "MyBot.run.exe",
+    "sha256": "c789c829e3e6bbd3845b1b1743fb84c6e6f4a19e83bbaacd3428344a8ade2d7f",
+    "bytes": 3336192
+  },
+  "checks": [
+    {
+      "id": "collectors.recognized",
+      "result": "passed",
+      "details": "The exact installed route recognized strict gold, elixir, and dark-elixir collector bubbles on a freshly proved Home Village and accepted exactly three bounded inputs."
+    },
+    {
+      "id": "storage-state.confirmed",
+      "result": "passed",
+      "details": "Gold, elixir, and dark-elixir totals each increased after the accepted inputs while the gem total remained exactly 3,092."
+    }
+  ],
+  "reviewer": {
+    "name": "My Bot 2.0 runtime review",
+    "reviewed_at": "2026-08-15T07:00:00Z"
+  },
+  "artifact_refs": [
+    {
+      "kind": "repository",
+      "path": "tests/evidence/runtime/artifacts/home-collectors.pie64.20260815.json",
+      "sha256": "402627e7f6034f9466a2e0500f979120cf0113ddc1d653ee2e4ff39899ad8b44",
+      "bytes": 4179
+    }
+  ],
+  "notes": "Redacted exact-binary recognition evidence. Raw live frames were not retained because they contained player and clan identifiers; the separate committed redacted Home fixture remains the reusable capture proof."
+}

@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "artifact_id": "loot-cart-absent.pie64.20260815",
+  "captured_at": "2026-08-15T06:52:25Z",
+  "commit_sha": "9ac57b33f039c01bd08577a0e60d249a26d59c40",
+  "redacted": true,
+  "scope": "One exact Loot Cart-only diagnostic pass with no actionable cart present. This is absence and fail-closed evidence only; it does not claim that a real Loot Cart was recognized or collected.",
+  "binary": {
+    "path": "MyBot.run.exe",
+    "sha256": "c789c829e3e6bbd3845b1b1743fb84c6e6f4a19e83bbaacd3428344a8ade2d7f",
+    "bytes": 3336192
+  },
+  "result": {
+    "start_http_status": 202,
+    "final_outcome": "completed",
+    "route_state": "unavailable",
+    "recognizer_state": "cart-absent",
+    "cart_open_inputs": 0,
+    "collect_inputs": 0,
+    "confirmation_inputs": 0,
+    "gem_conversion_inputs": 0,
+    "home_passively_reproved": true,
+    "engine_probe_state": "not-run",
+    "event_types": [
+      "session.preparing",
+      "session.started",
+      "maintenance.loot-cart.started",
+      "maintenance.loot-cart.home-verified",
+      "maintenance.loot-cart.unavailable",
+      "maintenance.home-verified",
+      "session.stopping",
+      "session.completed"
+    ]
+  },
+  "capability_nonclaim": "The village.loot-cart runtime policy still requires an actionable cart, confirmed Collect button, one collect-issued receipt, Home restoration, and gems untouched. This absence run satisfies none of those positive collection requirements.",
+  "privacy": "No raw frame, player, clan, account, profile, process, path, machine, or request identifier is retained."
+}
