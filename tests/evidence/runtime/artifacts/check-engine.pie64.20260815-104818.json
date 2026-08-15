@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "artifact_id": "engine-initialization-cleanroom.pie64.20260815-104818",
+  "artifact_id": "check-engine.pie64.20260815-104818",
   "captured_at": "2026-08-15T15:48:18Z",
   "commit_sha": "1e92785e723c3885deecff47090db6639616aeb5",
   "redacted": true,

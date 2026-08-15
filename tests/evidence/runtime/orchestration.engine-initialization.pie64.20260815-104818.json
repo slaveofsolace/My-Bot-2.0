@@ -21,6 +21,6 @@
     }
   ],
   "reviewer": {"name": "My Bot 2.0 runtime review", "reviewed_at": "2026-08-15T16:05:00Z"},
-  "artifact_refs": [{"kind": "repository", "path": "tests/evidence/runtime/artifacts/engine-initialization-cleanroom.pie64.20260815-104818.json", "sha256": "8d952c8e354e6c6f7b553b3df193f0f628b946b5837f51260ab237ff58e983b9", "bytes": 3155}],
+  "artifact_refs": [{"kind": "repository", "path": "tests/evidence/runtime/artifacts/check-engine.pie64.20260815-104818.json", "sha256": "54ebb418e5b148bc63c41c0c9695912946caff94d2ee7b70213e9c95e73a8709", "bytes": 3136}],
   "notes": "Exact-current real-backend initialization evidence. It proves no-input engine readiness only, not battle or other gameplay."
 }
