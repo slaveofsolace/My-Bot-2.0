@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "evidence_id": "orchestration.run-event.pie64.20260815-052123",
+  "capability_id": "orchestration.run-event",
+  "test_type": "end-to-end",
+  "result": "passed",
+  "captured_at": "2026-08-15T10:21:23Z",
+  "commit_sha": "0265e1f2916cf3a8e62b0865f82736d52aebf790",
+  "redacted": true,
+  "environment": {
+    "os": "Windows 11 Home",
+    "os_version": "10.0.26200",
+    "autoit_version": "3.3.16.1",
+    "emulator": "BlueStacks5",
+    "emulator_version": "5.22.252.1008",
+    "instance_index": 0,
+    "instance_name": "Pie64",
+    "game_version": "18.400.9"
+  },
+  "binary": {
+    "path": "MyBot.run.exe",
+    "sha256": "b15c9af8d949c59e4cdca66ed87e66dcbe356a876bac672af8c7290edd4eaf65",
+    "bytes": 3339264
+  },
+  "checks": [
+    {
+      "id": "event.session-correlated",
+      "result": "passed",
+      "details": "All seven captured lifecycle and maintenance events shared one redacted session reference and no unrelated gameplay event appeared in the delta."
+    },
+    {
+      "id": "event.sequence-monotonic",
+      "result": "passed",
+      "details": "Event sequences 1 through 7 and elapsed timestamps 22 through 15,309 milliseconds were strictly increasing."
+    },
+    {
+      "id": "event.completed",
+      "result": "passed",
+      "details": "The final event was session.completed sequence 7 and it was followed by authoritative idle status with no active session."
+    }
+  ],
+  "reviewer": {
+    "name": "My Bot 2.0 runtime review",
+    "reviewed_at": "2026-08-15T10:42:00Z"
+  },
+  "artifact_refs": [
+    {
+      "kind": "repository",
+      "path": "tests/evidence/runtime/artifacts/run-session-home-collectors.pie64.20260815-052123.json",
+      "sha256": "418c374887ba093609a54702b02dcac866f5b8c254f837154eaa72a92cd4dec9",
+      "bytes": 3308
+    }
+  ],
+  "notes": "Exact-current diagnostic event-stream evidence from a bounded collectors-only route. No battle was executed and no broader gameplay capability is claimed."
+}
