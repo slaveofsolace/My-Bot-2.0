@@ -134,8 +134,8 @@
     },
     {
       "path": "My Bot 2.0.exe",
-      "sha256": "b6ac44361fc23aa388ca3c18031ca79051dfa065a92c78000aa3076b30c94c99",
-      "bytes": 1125376,
+      "sha256": "94278ce6179fc8be0be7eaa2beedc9b27ff5350a07ff5e621921825d5677f4a8",
+      "bytes": 1126912,
       "provenance": {
         "kind": "local-build",
         "source": "My Bot 2.0.au3",
@@ -143,7 +143,7 @@
         "toolchain": "AutoIt Aut2Exe",
         "tool_version": "3.3.16.1",
         "tool_signer": "AutoIt Consulting Ltd",
-        "source_commit": "0831fe09559c96b4c70f5a9017485fab95a06ba4",
+        "source_commit": "37e18906d082dc380b4436f28a242edb4c35d3c2",
         "compiler_sha256": "921e51d0d9f94c05c5ed10d2d2a80620c8ed930cc48d71e2ce0a5bab4a4f8158",
         "compile_flags": [
           "/x86",
@@ -157,7 +157,7 @@
     },
     {
       "path": "MyBot.run.EngineProbe.exe",
-      "sha256": "e4a6c8b496462c9a3032123eac581930a7580213514ef63c5c2ab47df93a1611",
+      "sha256": "a6c1e1708bb3f0cab597670c3aba4aa00214f51951a2224df2868332cadb0c3a",
       "bytes": 963584,
       "provenance": {
         "kind": "local-build",
@@ -166,7 +166,7 @@
         "toolchain": "AutoIt Aut2Exe",
         "tool_version": "3.3.16.1",
         "tool_signer": "AutoIt Consulting Ltd",
-        "source_commit": "0831fe09559c96b4c70f5a9017485fab95a06ba4",
+        "source_commit": "37e18906d082dc380b4436f28a242edb4c35d3c2",
         "compiler_sha256": "921e51d0d9f94c05c5ed10d2d2a80620c8ed930cc48d71e2ce0a5bab4a4f8158",
         "compile_flags": [
           "/x86",
@@ -180,7 +180,7 @@
     },
     {
       "path": "MyBot.run.exe",
-      "sha256": "84a13cbd9fec598965e0b66afffe31870347cb63315031b0aa3c2b58b68a64e6",
+      "sha256": "1c0e8f7a9b1df03cd9a36d299c7f9dc6c816c1ebb39597344521ee7bcf51f65c",
       "bytes": 3339776,
       "provenance": {
         "kind": "local-build",
@@ -189,7 +189,7 @@
         "toolchain": "AutoIt Aut2Exe",
         "tool_version": "3.3.16.1",
         "tool_signer": "AutoIt Consulting Ltd",
-        "source_commit": "0831fe09559c96b4c70f5a9017485fab95a06ba4",
+        "source_commit": "37e18906d082dc380b4436f28a242edb4c35d3c2",
         "compiler_sha256": "921e51d0d9f94c05c5ed10d2d2a80620c8ed930cc48d71e2ce0a5bab4a4f8158",
         "compile_flags": [
           "/x86",
@@ -203,7 +203,7 @@
     },
     {
       "path": "MyBot.run.MiniGui.exe",
-      "sha256": "3fdee4671e98ebc3e887d85695e15d94e4b0fea32aa058a7b1320538f065bf55",
+      "sha256": "f430eb2defc82d142f279ee9c507ee43ec6a14ce6fc3d3c9d3cd9fd91b069192",
       "bytes": 1751040,
       "provenance": {
         "kind": "local-build",
@@ -212,7 +212,7 @@
         "toolchain": "AutoIt Aut2Exe",
         "tool_version": "3.3.16.1",
         "tool_signer": "AutoIt Consulting Ltd",
-        "source_commit": "0831fe09559c96b4c70f5a9017485fab95a06ba4",
+        "source_commit": "37e18906d082dc380b4436f28a242edb4c35d3c2",
         "compiler_sha256": "921e51d0d9f94c05c5ed10d2d2a80620c8ed930cc48d71e2ce0a5bab4a4f8158",
         "compile_flags": [
           "/x86",
@@ -226,7 +226,7 @@
     },
     {
       "path": "MyBot.run.Watchdog.exe",
-      "sha256": "5204bb533b2f16a1bb7dd0d6eddcc8ec04748d1e393d8ddaa0e1c4ad697da2d6",
+      "sha256": "7358e2926b76c136231887d3f9a1f02f826726ebbc142ec844db60fc3d187a98",
       "bytes": 1354240,
       "provenance": {
         "kind": "local-build",
@@ -235,7 +235,7 @@
         "toolchain": "AutoIt Aut2Exe",
         "tool_version": "3.3.16.1",
         "tool_signer": "AutoIt Consulting Ltd",
-        "source_commit": "0831fe09559c96b4c70f5a9017485fab95a06ba4",
+        "source_commit": "37e18906d082dc380b4436f28a242edb4c35d3c2",
         "compiler_sha256": "921e51d0d9f94c05c5ed10d2d2a80620c8ed930cc48d71e2ce0a5bab4a4f8158",
         "compile_flags": [
           "/x86",
@@ -249,7 +249,7 @@
     },
     {
       "path": "MyBot.run.Wmi.exe",
-      "sha256": "d0692b603e030963bc29dab815d9ac1be633fd2e1d869311753f7b09f32a7408",
+      "sha256": "54469a7a5ee2fa073d5b8a93d33263c145a98ec7e9337db7d9ec80a162dbe771",
       "bytes": 1350144,
       "provenance": {
         "kind": "local-build",
@@ -258,7 +258,7 @@
         "toolchain": "AutoIt Aut2Exe",
         "tool_version": "3.3.16.1",
         "tool_signer": "AutoIt Consulting Ltd",
-        "source_commit": "0831fe09559c96b4c70f5a9017485fab95a06ba4",
+        "source_commit": "37e18906d082dc380b4436f28a242edb4c35d3c2",
         "compiler_sha256": "921e51d0d9f94c05c5ed10d2d2a80620c8ed930cc48d71e2ce0a5bab4a4f8158",
         "compile_flags": [
           "/x86",
