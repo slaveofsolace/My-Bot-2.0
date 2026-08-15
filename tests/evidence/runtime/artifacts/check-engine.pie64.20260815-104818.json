@@ -4,7 +4,7 @@
   "captured_at": "2026-08-15T15:48:18Z",
   "commit_sha": "1e92785e723c3885deecff47090db6639616aeb5",
   "redacted": true,
-  "scope": "One no-input managed-engine initialization check in the real installed backend before the clean-room collector run.",
+  "scope": "Managed-engine initialization in the reviewed installed backend, returning to idle before plan preparation, authentication, emulator discovery, ADB, recognition, or game input.",
   "environment": {
     "os": "Windows 11 Home",
     "os_version": "10.0.26200",
@@ -16,63 +16,94 @@
     "game_version": "18.400.9"
   },
   "reviewed_install": {
-    "source_commit": "aec002a3259c0881d78136f47f0fd2a88e8c861a",
-    "binary_commit": "1e92785e723c3885deecff47090db6639616aeb5",
+    "version": "2.0.0",
+    "architecture": "x86",
+    "source_commit": "1e92785e723c3885deecff47090db6639616aeb5",
     "release_manifest_sha256": "772aa9d76edf50173843144ee78977f1fc85ad7e67d5c1738bbc08d4513deaaf",
     "package_sha256": "ad0d610db9753dc160f9c4133acfbbca790b3c62e770b5244832c7e55140f222",
-    "manifest_records": 2584
+    "package_bytes": 32283168,
+    "manifest_records": 2584,
+    "manifest_missing_after_check": 0,
+    "manifest_size_mismatches_after_check": 0,
+    "manifest_hash_mismatches_after_check": 0
   },
   "binary": {
     "path": "MyBot.run.exe",
     "sha256": "a87a719e5608d528d7130c83644cf8cd5f3206608d87a459bd6478129658168c",
     "bytes": 3342848
   },
-  "baseline": {
+  "command": {
+    "action": "check-engine",
+    "http_status": 202,
+    "accepted": true,
+    "native_command_queued": true,
+    "request_identifier_retained": false
+  },
+  "initial_state": {
     "state": "idle",
     "run_state": false,
     "plan_active": false,
+    "engine_available": true,
     "engine_probe_state": "not-run",
+    "emulator_attached": false,
+    "window_attached": false,
+    "adb_ready": false,
+    "game_ready": false,
+    "plan_exists": false
+  },
+  "supervision": {
+    "lineage_verified": true,
+    "same_backend_identity_before_and_after": true,
+    "request_receipt_identity_matched": true,
+    "sampled_receipt_phases": [
+      {"sequence": 1, "phase": "prepared"},
+      {"sequence": 2, "phase": "pool-entered"},
+      {"sequence": 3, "phase": "pool-returned"},
+      {"sequence": 4, "phase": "max-entered"},
+      {"sequence": 5, "phase": "max-returned"},
+      {"sequence": 6, "phase": "android-entered"},
+      {"sequence": 7, "phase": "android-returned"},
+      {"sequence": 8, "phase": "gui-entered"},
+      {"sequence": 9, "phase": "initialized"}
+    ],
+    "terminal_sequence": 9,
+    "terminal_phase": "initialized",
+    "finalization_outcome": "initialized",
+    "receipt_removed": true,
+    "cancel_removed": true,
+    "command_removed": true,
+    "sampling_note": "The observer retained the monotonic supervised phases through initialized; the launcher finalized the unchanged backend generation and removed all control artifacts."
+  },
+  "final_state": {
+    "state": "idle",
+    "run_state": false,
+    "plan_active": false,
+    "session_cleared": true,
+    "engine_available": true,
+    "engine_probe_state": "passed",
+    "last_command": "check-engine",
+    "last_outcome": "passed",
     "emulator_attached": false,
     "window_attached": false,
     "adb_ready": false,
     "game_ready": false
   },
-  "check": {
-    "command": "check-engine",
-    "accepted": true,
-    "backend_generation_preserved": true,
-    "receipt_phases_monotonic_through_initialized": true,
-    "terminal_sequence": 9,
-    "supervisor_finalized_initialized": true,
-    "receipt_absent_after_finalize": true,
-    "cancel_absent_after_finalize": true,
-    "events": [
-      {"sequence": 1, "type": "engine.check.started"},
-      {"sequence": 2, "type": "engine.check.passed"}
-    ]
-  },
-  "terminal": {
-    "state": "idle",
-    "run_state": false,
-    "plan_active": false,
-    "engine_available": true,
-    "engine_probe_state": "passed",
-    "last_command": "check-engine",
-    "last_outcome": "passed"
-  },
+  "events": [
+    {"sequence": 1, "type": "engine.check.started", "verification_state": "unverified-diagnostic"},
+    {"sequence": 2, "type": "engine.check.passed", "verification_state": "unverified-diagnostic"}
+  ],
   "preservation": {
-    "original_saved_plan_sha256": "4eebc7e142ce3c25ec45406dc88d2a92a40c7ae7396c4f05ebac3a7c670f949a",
-    "external_profile_sha256": "157fed76c5fedf2dd18f2e6cdb1bd562b0396faa300a6630a68da825319abc0e",
-    "installed_english_sha256": "360f8055f331e09803ddd278411db71a6e4a7f77d57ca7080b672cd07659a0ad",
-    "existing_emulator_and_adb_generations_preserved": true,
-    "generated_warning_html_files": 0
-  },
-  "forbidden_activity": {
-    "emulator_input": 0,
-    "game_input": 0,
-    "plan_session_started": false,
-    "battle_search_training_donation_upgrade_account_events": 0,
-    "gameplay_or_purchase_action": false
+    "external_profile_before_sha256": "157fed76c5fedf2dd18f2e6cdb1bd562b0396faa300a6630a68da825319abc0e",
+    "external_profile_after_sha256": "157fed76c5fedf2dd18f2e6cdb1bd562b0396faa300a6630a68da825319abc0e",
+    "installed_english_before_sha256": "360f8055f331e09803ddd278411db71a6e4a7f77d57ca7080b672cd07659a0ad",
+    "installed_english_after_sha256": "360f8055f331e09803ddd278411db71a6e4a7f77d57ca7080b672cd07659a0ad",
+    "release_manifest_before_sha256": "772aa9d76edf50173843144ee78977f1fc85ad7e67d5c1738bbc08d4513deaaf",
+    "release_manifest_after_sha256": "772aa9d76edf50173843144ee78977f1fc85ad7e67d5c1738bbc08d4513deaaf",
+    "plan_absent_before_and_after": true,
+    "operator_saved_plan_restored_after_capture": true,
+    "restored_plan_sha256": "4eebc7e142ce3c25ec45406dc88d2a92a40c7ae7396c4f05ebac3a7c670f949a",
+    "emulator_process_identity_preserved": true,
+    "adb_daemon_identity_preserved": true
   },
   "assertions": {
     "check_engine_accepted": true,
@@ -82,7 +113,8 @@
     "supervisor_finalized": true,
     "diagnostic_events_exact": true,
     "game_input_absent": true,
+    "new_adb_processes": 0,
     "configuration_preserved": true
   },
-  "privacy": "Request, session, process, creation-time, filesystem, machine, profile, account, and launch-token identifiers are omitted."
+  "privacy": "Only allowlisted operational state and integrity digests are retained. Raw request, launch-token, process, creation-time, profile-name, account, player, clan, chat, payment, path, machine, and operator identifiers are omitted."
 }
