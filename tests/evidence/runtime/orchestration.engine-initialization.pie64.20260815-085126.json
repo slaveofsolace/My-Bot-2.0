@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "evidence_id": "orchestration.engine-initialization.pie64.20260815-085126",
+  "capability_id": "orchestration.engine-initialization",
+  "test_type": "end-to-end",
+  "result": "passed",
+  "captured_at": "2026-08-15T13:51:26Z",
+  "commit_sha": "70da5c04fb66b9e23724311a98933e20103df218",
+  "redacted": true,
+  "environment": {
+    "os": "Windows 11 Home",
+    "os_version": "10.0.26200",
+    "autoit_version": "3.3.16.1",
+    "emulator": "BlueStacks5 (running, not attached)",
+    "emulator_version": "5.22.252.1008",
+    "instance_index": 0,
+    "instance_name": "Pie64",
+    "game_version": "not observed by engine check"
+  },
+  "binary": {
+    "path": "MyBot.run.exe",
+    "sha256": "1c0e8f7a9b1df03cd9a36d299c7f9dc6c816c1ebb39597344521ee7bcf51f65c",
+    "bytes": 3339776
+  },
+  "checks": [
+    {
+      "id": "check-engine.accepted",
+      "result": "passed",
+      "details": "The loopback control API returned HTTP 202 for one check-engine command and queued it to the exact reviewed installed backend."
+    },
+    {
+      "id": "backend.identity-preserved",
+      "result": "passed",
+      "details": "Every sampled receipt matched the accepted request and one launcher, controller, and backend generation; the same backend remained after terminal idle."
+    },
+    {
+      "id": "engine.initialized",
+      "result": "passed",
+      "details": "The observer retained all nine monotonic supervised phases from prepared through initialized and authoritative health reported engine_probe_state passed."
+    },
+    {
+      "id": "idle.restored",
+      "result": "passed",
+      "details": "The backend returned to idle with run_state false, plan_active false, no live session, and no run plan present during the check."
+    },
+    {
+      "id": "supervisor.finalized",
+      "result": "passed",
+      "details": "The resident launcher logged initialized finalization and removed the engine receipt, cancel receipt, and native command file."
+    },
+    {
+      "id": "diagnostic-events.exact",
+      "result": "passed",
+      "details": "The fresh installed runtime event delta contained exactly engine.check.started sequence 1 and engine.check.passed sequence 2."
+    },
+    {
+      "id": "game-input.absent",
+      "result": "passed",
+      "details": "Before and after the check, emulator_attached, window_attached, adb_ready, and game_ready were false; the running BlueStacks process and sole ADB daemon were unchanged and no ADB client was created."
+    },
+    {
+      "id": "configuration.preserved",
+      "result": "passed",
+      "details": "External profile, installed English, and release-manifest hashes were unchanged, no plan appeared during the check, all 2,583 manifest records remained byte-exact, and the operator's saved plan was restored afterward with its original hash."
+    }
+  ],
+  "reviewer": {
+    "name": "My Bot 2.0 runtime review",
+    "reviewed_at": "2026-08-15T13:51:48Z"
+  },
+  "artifact_refs": [
+    {
+      "kind": "repository",
+      "path": "tests/evidence/runtime/artifacts/check-engine.pie64.20260815-085126.json",
+      "sha256": "39648b57b4ef08a9276f1cd75daacc66be5f5aec327fad9ee02c29eb3bf2ee8c",
+      "bytes": 5132
+    }
+  ],
+  "notes": "Exact-current evidence for managed-engine initialization only. It proves no-input engine readiness and supervisor cleanup in the reviewed installed package; it does not prove emulator attachment, recognition, battle, training, donation, upgrade, account, or other gameplay behavior."
+}
