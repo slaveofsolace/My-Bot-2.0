@@ -1,0 +1,151 @@
+{
+  "schema_version": 1,
+  "artifact_id": "run-session-home-collectors.pie64.20260815-090340",
+  "captured_at": "2026-08-15T14:04:00Z",
+  "commit_sha": "70da5c04fb66b9e23724311a98933e20103df218",
+  "redacted": true,
+  "scope": "One exact collectors-only Home Village pass in the reviewed installed LocalRuntime. Battles, search, training, donations, troop requests, upgrades, Laboratory, account switching, Daily Reward, Loot Cart, Treasury, and premium-currency actions were disabled.",
+  "environment": {
+    "os": "Windows 11 Home",
+    "os_version": "10.0.26200",
+    "autoit_version": "3.3.16.1",
+    "emulator": "BlueStacks5",
+    "emulator_version": "5.22.252.1008",
+    "instance_index": 0,
+    "instance_name": "Pie64",
+    "game_version": "18.400.22"
+  },
+  "reviewed_install": {
+    "version": "2.0.0",
+    "architecture": "x86",
+    "compiled_source_commit": "37e18906d082dc380b4436f28a242edb4c35d3c2",
+    "binary_commit": "70da5c04fb66b9e23724311a98933e20103df218",
+    "release_manifest_sha256": "78e9eae9830b5ae3203aabb6db21105a74b48961f4c16b8515977ea065f1882b",
+    "package_sha256": "31f44bcb5f7fc47c31aed56c4ae77111db5d762d2e523c3075c1749468554e20",
+    "package_bytes": 32277393,
+    "manifest_records": 2583
+  },
+  "binary": {
+    "path": "MyBot.run.exe",
+    "sha256": "1c0e8f7a9b1df03cd9a36d299c7f9dc6c816c1ebb39597344521ee7bcf51f65c",
+    "bytes": 3339776
+  },
+  "plan": {
+    "strategy": "home.collectors",
+    "diagnostic_mode": true,
+    "validation_problems": 0,
+    "exact_emulator_instance": true,
+    "collect_resources": true,
+    "daily_reward": false,
+    "loot_cart": false,
+    "treasury": false,
+    "max_battles": 0,
+    "training": false,
+    "donations": false,
+    "troop_request": false,
+    "upgrades": false,
+    "laboratory": false,
+    "account_queue": false,
+    "generic_retries": 0,
+    "gem_actions_authorized": false,
+    "saved_plan_sha256": "8b4f7364fcb37ca902c532f72bdcbaf4f058239f1b0ec15466a272fcd0bde055"
+  },
+  "readiness_observation": {
+    "start_http_accepted": true,
+    "run_state_true_observed": true,
+    "plan_active_true_observed": true,
+    "emulator_attached_true_observed": true,
+    "window_attached_true_observed": true,
+    "adb_ready_true_observed": true,
+    "game_ready_true_observed": true,
+    "same_status_sample": true
+  },
+  "recognition": {
+    "initial_screen": "home-village",
+    "strict_bubble_types_before": [
+      "gold",
+      "elixir",
+      "dark-elixir"
+    ],
+    "accepted_clicks": 3,
+    "fresh_home_proof_before_every_click": true,
+    "home_reproved_after_final_click": true,
+    "raw_frames_retained": false,
+    "raw_frames_nonclaim": "Transient local screenshots contained player and clan identifiers and were not committed."
+  },
+  "resource_observation": {
+    "before": {
+      "gold": 15578863,
+      "elixir": 17475376,
+      "dark_elixir": 203048,
+      "gems": 3092
+    },
+    "after": {
+      "gold": 15794834,
+      "elixir": 17691347,
+      "dark_elixir": 205496,
+      "gems": 3092
+    },
+    "delta": {
+      "gold": 215971,
+      "elixir": 215971,
+      "dark_elixir": 2448,
+      "gems": 0
+    },
+    "gems_unchanged": true
+  },
+  "completed_run": {
+    "session_started": true,
+    "duration_ms": 19715,
+    "final_state": "idle",
+    "run_state": false,
+    "plan_active": false,
+    "last_outcome": "completed",
+    "collector_clicks": 3,
+    "event_types": [
+      "session.preparing",
+      "session.started",
+      "maintenance.collectors.started",
+      "maintenance.home-verified",
+      "maintenance.collectors.completed",
+      "session.stopping",
+      "session.completed"
+    ]
+  },
+  "recovery_observation": {
+    "reviewed_recovery_invoked": true,
+    "launcher_closed": true,
+    "controller_closed": true,
+    "backend_closed": true,
+    "planner_closed": true,
+    "backend_owned_adb_helpers_closed": 2,
+    "main_adb_daemon_preserved": true,
+    "emulator_process_preserved": true,
+    "port_8765_listener_absent": true,
+    "fresh_idle_stack_relaunched": true,
+    "operator_plan_restored_sha256": "4eebc7e142ce3c25ec45406dc88d2a92a40c7ae7396c4f05ebac3a7c670f949a"
+  },
+  "preservation": {
+    "external_profile_sha256": "157fed76c5fedf2dd18f2e6cdb1bd562b0396faa300a6630a68da825319abc0e",
+    "installed_english_sha256": "360f8055f331e09803ddd278411db71a6e4a7f77d57ca7080b672cd07659a0ad",
+    "release_manifest_sha256": "78e9eae9830b5ae3203aabb6db21105a74b48961f4c16b8515977ea065f1882b",
+    "player_identity_preserved": true,
+    "adb_server_identity_preserved": true
+  },
+  "forbidden_activity": {
+    "battle_events": 0,
+    "search_events": 0,
+    "training_events": 0,
+    "donation_events": 0,
+    "troop_request_events": 0,
+    "daily_reward_events": 0,
+    "loot_cart_events": 0,
+    "treasury_events": 0,
+    "upgrade_events": 0,
+    "laboratory_events": 0,
+    "account_events": 0,
+    "gem_or_purchase_events": 0,
+    "gem_balance_changed": false
+  },
+  "privacy": "Only allowlisted operational state, resource totals, durations, and integrity digests are retained. Raw frames, player and clan names, account and profile identifiers, request identifiers, process identifiers, creation timestamps, filesystem paths, machine identifiers, chat, payment information, and launch tokens are omitted."
+}
