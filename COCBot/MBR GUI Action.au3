@@ -180,9 +180,9 @@ Func _BotStartOpenClanRequest(ByRef $sStartError)
 	RunControlReportStartOutcome(True, "Clan request-only pass started")
 	RunEventLogClanRequestStarted()
 
-	Local $oOutcome = ClanRequestRouteRunAdapter("_ClanRequestLiveOpenArmyOverview", "_ClanRequestLiveDetectState", _
-			"_ClanRequestLiveOpenDialog", "_ClanRequestLiveIssueSend", "_ClanRequestLiveStopRequested", _
-			"_ClanRequestLiveCloseAndProveHome")
+	Local $oOutcome = ClanRequestRouteRunAdapter("OpenClanRequestOpenArmyOverview", "OpenClanRequestDetectState", _
+			"OpenClanRequestOpenDialog", "OpenClanRequestIssueSend", "_ClanRequestLiveStopRequested", _
+			"OpenClanRequestCloseAndProveHome")
 	If Not IsObj($oOutcome) Then
 		$sStartError = "Clan request adapter returned no bounded outcome"
 	Else
