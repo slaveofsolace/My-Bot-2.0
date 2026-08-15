@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "evidence_id": "village.loot-cart.pie64.recognition.20260815-052635",
+  "capability_id": "village.loot-cart",
+  "test_type": "game-surface-recognition",
+  "result": "passed",
+  "captured_at": "2026-08-15T10:26:35Z",
+  "commit_sha": "0265e1f2916cf3a8e62b0865f82736d52aebf790",
+  "redacted": true,
+  "environment": {
+    "os": "Windows 11 Home",
+    "os_version": "10.0.26200",
+    "autoit_version": "3.3.16.1",
+    "emulator": "BlueStacks5",
+    "emulator_version": "5.22.252.1008",
+    "instance_index": 0,
+    "instance_name": "Pie64",
+    "game_version": "18.400.9"
+  },
+  "binary": {
+    "path": "MyBot.run.exe",
+    "sha256": "b15c9af8d949c59e4cdca66ed87e66dcbe356a876bac672af8c7290edd4eaf65",
+    "bytes": 3339264
+  },
+  "checks": [
+    {
+      "id": "loot-cart.recognized",
+      "result": "passed",
+      "details": "The committed redacted 860x732 fixture replays the production eight-anchor Loot Cart Collect cue at the exact reviewed Home-edge region and the same adapter rejects an all-black frame."
+    },
+    {
+      "id": "collect-button.confirmed",
+      "result": "passed",
+      "details": "After one cart-open input, the exact installed route required all eight fixed Collect-panel anchors before accepting its only Collect input; the ordered open-issued and collect-issued receipts were captured in the same run."
+    }
+  ],
+  "reviewer": {
+    "name": "My Bot 2.0 runtime review",
+    "reviewed_at": "2026-08-15T10:27:30Z"
+  },
+  "artifact_refs": [
+    {
+      "kind": "repository",
+      "path": "tests/evidence/runtime/artifacts/home-loot-cart.pie64.20260815-052635.json",
+      "sha256": "5da8733a584c0fbb0ad657d35147f47668b6bd0c8b3003bba31039ba89b3e2b1",
+      "bytes": 4826
+    }
+  ],
+  "notes": "The reusable fixture proves the Home-edge cue. The Collect panel is a separate transient state and is credited only from the exact-current ordered runtime receipt, not inferred from the fixture."
+}
