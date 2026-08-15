@@ -1,0 +1,76 @@
+{
+  "schema_version": 2,
+  "fixture_id": "home.daily-reward.claimed",
+  "captured_at": "2026-08-15T09:58:40Z",
+  "game_version": "18.400.9",
+  "source_type": "authorized-test-account",
+  "width": 860,
+  "height": 732,
+  "sha256": "03acc7bc3fb34065caa40b348d34bcfa1b2f0bdc802f7d530731fa747e159d7d",
+  "raw_sha256": "e195ace1f2111de71896202794f3058e8ff40287d9e9edf377644fcf725a2ef5",
+  "redacted_sha256": "03acc7bc3fb34065caa40b348d34bcfa1b2f0bdc802f7d530731fa747e159d7d",
+  "redacted": true,
+  "redaction_masks": [
+    {
+      "x": 56,
+      "y": 7,
+      "width": 154,
+      "height": 31,
+      "fill_hex": "#000000FF"
+    },
+    {
+      "x": 654,
+      "y": 10,
+      "width": 164,
+      "height": 38,
+      "fill_hex": "#000000FF"
+    },
+    {
+      "x": 654,
+      "y": 61,
+      "width": 164,
+      "height": 40,
+      "fill_hex": "#000000FF"
+    },
+    {
+      "x": 654,
+      "y": 112,
+      "width": 164,
+      "height": 40,
+      "fill_hex": "#000000FF"
+    },
+    {
+      "x": 786,
+      "y": 154,
+      "width": 68,
+      "height": 43,
+      "fill_hex": "#000000FF"
+    }
+  ],
+  "redaction_pixel_changes": 26955,
+  "privacy_review_method": "decoded-pixel-diff-v1",
+  "redaction_notes": "Player name and four resource total regions replaced with opaque black rectangles; post-claim Daily Reward controls remain unchanged.",
+  "assertions": [
+    "The canonical 860x732 frame shows the Daily Reward overlay after one Claim, with Day 2 visibly marked Claimed.",
+    "The top-right close control has the exact post-claim red geometry while the wood-panel anchors remain visible.",
+    "No Claim, Okay, Confirm, sell, gem-conversion, or other premium-currency action is visible.",
+    "All privacy masks are outside the wood-panel and red close-control pixels used by recognition."
+  ],
+  "replay_contract": {
+    "schema_version": 1,
+    "adapter": "production.open-home-daily-reward-claimed-v1",
+    "expected_state": "home.daily-reward.claimed-close-ready",
+    "safe_regions": [
+      {
+        "id": "close",
+        "x": 741,
+        "y": 154,
+        "width": 36,
+        "height": 38
+      }
+    ]
+  },
+  "reviewed_by": "Codex supervised live audit",
+  "reviewed_at": "2026-08-15T10:00:01Z",
+  "notes": "Positive post-claim frame from the authorized MyVillage BlueStacks5 Pie64 account after one supervised no-gem Claim input."
+}

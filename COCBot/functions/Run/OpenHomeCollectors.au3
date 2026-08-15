@@ -162,6 +162,20 @@ Func OpenHomeDailyRewardOverlayReady()
 			_OpenHomePixelNear(80, 285, 0x844A00, 44)
 EndFunc   ;==>OpenHomeDailyRewardOverlayReady
 
+; After a successful Claim the same close control changes from gray to red. Keep this as a separate
+; current-client predicate so Claim recognition still depends only on the pre-claim fixture, while
+; cleanup can prove the exact post-claim state before issuing its one reversible close input.
+Func OpenHomeDailyRewardClaimedOverlayReady()
+	If $g_hBitmap = 0 Then Return False
+	Return _OpenHomePixelNear(759, 173, 0xFFFFFF, 20) And _
+			_OpenHomePixelNear(746, 173, 0xF02328, 28) And _
+			_OpenHomePixelNear(772, 173, 0xF02227, 28) And _
+			_OpenHomePixelNear(759, 160, 0xF38F8D, 36) And _
+			_OpenHomePixelNear(759, 186, 0xDC2125, 28) And _
+			_OpenHomePixelNear(430, 155, 0xA57315, 44) And _
+			_OpenHomePixelNear(80, 285, 0x844A00, 44)
+EndFunc   ;==>OpenHomeDailyRewardClaimedOverlayReady
+
 ; A Claim button is a 117x40 green control. Sampling four interior edges avoids its localized white
 ; label while rejecting the small green claimed check and the gray/brown inactive day controls.
 Func _OpenHomeDailyRewardClaimCandidateReady($iX, $iY)
@@ -213,7 +227,7 @@ Func OpenHomeDailyRewardCloseAndProveHome(ByRef $bCloseIssued)
 	For $iAttempt = 1 To 8
 		If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
 		If OpenHomeCollectorsProveHome() Then Return True
-		If $iAttempt = 1 And OpenHomeDailyRewardOverlayReady() Then
+		If $iAttempt = 1 And (OpenHomeDailyRewardOverlayReady() Or OpenHomeDailyRewardClaimedOverlayReady()) Then
 			If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
 			If Not Click(759, 173, 1, 120, "#OpenHomeDailyRewardClose") Then Return SetError(3, 0, False)
 			$bCloseIssued = True

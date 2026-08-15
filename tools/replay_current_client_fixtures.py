@@ -104,6 +104,7 @@ HOME_MAIN_ADAPTER = "production.home-main-pixel-v1"
 CLAN_REQUEST_DIALOG_ADAPTER = "production.open-clan-request-dialog-v1"
 HOME_LOOT_CART_ADAPTER = "production.open-home-loot-cart-cue-v1"
 HOME_DAILY_REWARD_ADAPTER = "production.open-home-daily-reward-v1"
+HOME_DAILY_REWARD_CLAIMED_ADAPTER = "production.open-home-daily-reward-claimed-v1"
 HOME_MAIN_REGION = SafeRegion(id="home-proof", x=378, y=10, width=1, height=1)
 CLAN_REQUEST_SEND_REGION = SafeRegion(id="send", x=455, y=438, width=181, height=83)
 
@@ -272,6 +273,30 @@ def _load_home_daily_reward_contract() -> tuple[
     return overlay_anchors, tuple(claim_anchors), centers
 
 
+@functools.lru_cache(maxsize=1)
+def _load_home_daily_reward_claimed_contract() -> tuple[tuple[int, int, int, int], ...]:
+    source = OPEN_HOME_COLLECTORS_SOURCE.read_text(encoding="utf-8-sig")
+    function = re.search(
+        r"Func\s+OpenHomeDailyRewardClaimedOverlayReady\(\)(.*?)EndFunc",
+        source,
+        re.DOTALL,
+    )
+    if function is None:
+        raise FixtureReplayError("cannot load the production claimed Daily Reward overlay predicate")
+    anchors = tuple(
+        (int(x), int(y), int(color, 16), int(variation))
+        for x, y, color, variation in re.findall(
+            r"_OpenHomePixelNear\(\s*(\d+)\s*,\s*(\d+)\s*,\s*0x([0-9A-Fa-f]{6})\s*,\s*(\d+)\s*\)",
+            function.group(1),
+        )
+    )
+    if len(anchors) != 7:
+        raise FixtureReplayError(
+            f"production claimed Daily Reward predicate has {len(anchors)} anchors; expected exactly 7"
+        )
+    return anchors
+
+
 def recognize_home_main(image: DecodedPng, _sink: "NoOpActionSink") -> RecognitionResult | None:
     if not _pixel_near(image, *_load_home_main_anchor()):
         return None
@@ -325,6 +350,18 @@ def recognize_home_daily_reward(
     return RecognitionResult(
         "home.daily-reward.claim-ready",
         (SafeRegion(id="claim", x=x - 58, y=y - 21, width=117, height=40),),
+    )
+
+
+def recognize_home_daily_reward_claimed(
+    image: DecodedPng,
+    _sink: "NoOpActionSink",
+) -> RecognitionResult | None:
+    if not all(_pixel_near(image, *anchor) for anchor in _load_home_daily_reward_claimed_contract()):
+        return None
+    return RecognitionResult(
+        "home.daily-reward.claimed-close-ready",
+        (SafeRegion(id="close", x=741, y=154, width=36, height=38),),
     )
 
 
@@ -624,6 +661,7 @@ def main(argv: list[str] | None = None) -> int:
                 CLAN_REQUEST_DIALOG_ADAPTER: recognize_clan_request_dialog,
                 HOME_LOOT_CART_ADAPTER: recognize_home_loot_cart,
                 HOME_DAILY_REWARD_ADAPTER: recognize_home_daily_reward,
+                HOME_DAILY_REWARD_CLAIMED_ADAPTER: recognize_home_daily_reward_claimed,
             },
             require_verified=args.require_verified,
         )

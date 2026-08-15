@@ -13,6 +13,7 @@ from tools.replay_current_client_fixtures import (
     DEFAULT_MANIFEST,
     FixtureReplayError,
     HOME_DAILY_REWARD_ADAPTER,
+    HOME_DAILY_REWARD_CLAIMED_ADAPTER,
     HOME_LOOT_CART_ADAPTER,
     HOME_MAIN_ADAPTER,
     RecognitionResult,
@@ -20,6 +21,7 @@ from tools.replay_current_client_fixtures import (
     UnsafeActionAttempt,
     recognize_clan_request_dialog,
     recognize_home_daily_reward,
+    recognize_home_daily_reward_claimed,
     recognize_home_loot_cart,
     recognize_home_main,
     replay_verified_fixtures,
@@ -129,6 +131,7 @@ class CurrentClientFixtureReplayTests(unittest.TestCase):
                 CLAN_REQUEST_DIALOG_ADAPTER: recognize_clan_request_dialog,
                 HOME_LOOT_CART_ADAPTER: recognize_home_loot_cart,
                 HOME_DAILY_REWARD_ADAPTER: recognize_home_daily_reward,
+                HOME_DAILY_REWARD_CLAIMED_ADAPTER: recognize_home_daily_reward_claimed,
             },
             require_verified=True,
         )
@@ -137,11 +140,18 @@ class CurrentClientFixtureReplayTests(unittest.TestCase):
         self.assertIn("clan.request.available", report.replayed_fixture_ids)
         self.assertIn("home.loot-cart", report.replayed_fixture_ids)
         self.assertIn("home.daily-reward", report.replayed_fixture_ids)
+        self.assertIn("home.daily-reward.claimed", report.replayed_fixture_ids)
         self.assertEqual(
             set(report.checked_adapters),
-            {HOME_MAIN_ADAPTER, CLAN_REQUEST_DIALOG_ADAPTER, HOME_LOOT_CART_ADAPTER, HOME_DAILY_REWARD_ADAPTER},
+            {
+                HOME_MAIN_ADAPTER,
+                CLAN_REQUEST_DIALOG_ADAPTER,
+                HOME_LOOT_CART_ADAPTER,
+                HOME_DAILY_REWARD_ADAPTER,
+                HOME_DAILY_REWARD_CLAIMED_ADAPTER,
+            },
         )
-        self.assertEqual(report.unknown_checks, 4)
+        self.assertEqual(report.unknown_checks, 5)
 
     def test_verified_fixture_replays_pixels_regions_and_unknown_fail_closed(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

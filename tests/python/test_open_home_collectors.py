@@ -233,9 +233,35 @@ class OpenHomeCollectorsTest(unittest.TestCase):
         self.assertLess(cleanup.rindex("RunControlStopRequested()", 0, close), close)
         self.assertIn("OpenHomeCollectorsProveHome()", cleanup)
         self.assertIn("OpenHomeDailyRewardOverlayReady()", cleanup)
+        self.assertIn("OpenHomeDailyRewardClaimedOverlayReady()", cleanup)
         self.assertEqual(cleanup.count("Click("), 1)
         for forbidden in ("Okay", "Confirm", "GemClick", "findMultiple", "findImage"):
             self.assertNotIn(forbidden, issue + cleanup)
+
+    def test_daily_reward_claimed_close_matches_the_verified_positive_fixture(self):
+        width, height, pixel = png_rgb(
+            ROOT / "tests/fixtures/current-client/images/home.daily-reward.claimed.png"
+        )
+        self.assertEqual((width, height), (860, 732))
+        anchors = {
+            (759, 173): (0xFFFFFF, 20),
+            (746, 173): (0xF02328, 28),
+            (772, 173): (0xF02227, 28),
+            (759, 160): (0xF38F8D, 36),
+            (759, 186): (0xDC2125, 28),
+            (430, 155): (0xA57315, 44),
+            (80, 285): (0x844A00, 44),
+        }
+        for point, (color, variation) in anchors.items():
+            actual = pixel(*point)
+            target = ((color >> 16) & 0xFF, (color >> 8) & 0xFF, color & 0xFF)
+            self.assertTrue(all(abs(a - b) <= variation for a, b in zip(actual, target)), (point, actual, target))
+
+        route = source("COCBot/functions/Run/OpenHomeCollectors.au3")
+        predicate = autoit_function(route, "OpenHomeDailyRewardClaimedOverlayReady")
+        for color, _variation in anchors.values():
+            self.assertIn(f"0x{color:06X}", predicate)
+        self.assertNotIn("ImgLoc", predicate)
 
     def test_start_path_requires_exact_existing_adb_surface(self):
         action = source("COCBot/MBR GUI Action.au3")
