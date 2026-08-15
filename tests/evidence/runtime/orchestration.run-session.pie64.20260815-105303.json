@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "evidence_id": "orchestration.run-session.pie64.20260815-105303",
+  "capability_id": "orchestration.run-session",
+  "test_type": "end-to-end",
+  "result": "passed",
+  "captured_at": "2026-08-15T15:53:03Z",
+  "commit_sha": "1e92785e723c3885deecff47090db6639616aeb5",
+  "redacted": true,
+  "environment": {"os": "Windows 11 Home", "os_version": "10.0.26200", "autoit_version": "3.3.16.1", "emulator": "BlueStacks5", "emulator_version": "5.22.252.1008", "instance_index": 0, "instance_name": "Pie64", "game_version": "18.400.9"},
+  "binary": {"path": "MyBot.run.exe", "sha256": "a87a719e5608d528d7130c83644cf8cd5f3206608d87a459bd6478129658168c", "bytes": 3342848},
+  "checks": [
+    {"id": "session.started", "result": "passed", "details": "The bounded run emitted session.preparing followed by session.started when the validated plan became active."},
+    {"id": "session.correlated", "result": "passed", "details": "All seven events carried one nonempty session identity; the retained artifact records the reviewed equality assertion without retaining the identifier."},
+    {"id": "session.completed", "result": "passed", "details": "The route emitted stopping and completed, then returned idle with run_state=false, plan_active=false, and the session cleared."}
+  ],
+  "reviewer": {"name": "My Bot 2.0 runtime review", "reviewed_at": "2026-08-15T16:05:00Z"},
+  "artifact_refs": [{"kind": "repository", "path": "tests/evidence/runtime/artifacts/run-session-home-collectors-cleanroom.pie64.20260815-105303.json", "sha256": "4adf2e0b4f577702bb1c7a0dc104a43a516529e7ade5aacb69d7ed285a023228", "bytes": 3866}],
+  "notes": "Exact-current diagnostic session lifecycle from a collectors-only route; runtime identifiers are deliberately omitted."
+}

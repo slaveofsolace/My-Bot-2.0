@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "evidence_id": "orchestration.engine-initialization.pie64.20260815-104818",
+  "capability_id": "orchestration.engine-initialization",
+  "test_type": "end-to-end",
+  "result": "passed",
+  "captured_at": "2026-08-15T15:48:18Z",
+  "commit_sha": "1e92785e723c3885deecff47090db6639616aeb5",
+  "redacted": true,
+  "environment": {"os": "Windows 11 Home", "os_version": "10.0.26200", "autoit_version": "3.3.16.1", "emulator": "BlueStacks5", "emulator_version": "5.22.252.1008", "instance_index": 0, "instance_name": "Pie64", "game_version": "18.400.9"},
+  "binary": {"path": "MyBot.run.exe", "sha256": "a87a719e5608d528d7130c83644cf8cd5f3206608d87a459bd6478129658168c", "bytes": 3342848},
+  "checks": [
+    {"id": "check-engine.accepted", "result": "passed", "details": "The loopback Control Center accepted one check-engine command in the fresh installed backend."},
+    {"id": "backend.identity-preserved", "result": "passed", "details": "The same exact backend generation remained alive from idle/not-run through idle/passed."},
+    {"id": "engine.initialized", "result": "passed", "details": "The supervisor observed the monotonic real-host receipt through initialized sequence 9."},
+    {"id": "idle.restored", "result": "passed", "details": "The command returned state=idle, run_state=false, plan_active=false, and last_outcome=passed."},
+    {"id": "supervisor.finalized", "result": "passed", "details": "The launcher logged initialized finalization and both receipt and cancel files were absent afterward."},
+    {"id": "diagnostic-events.exact", "result": "passed", "details": "The exact diagnostic delta was engine.check.started followed by engine.check.passed."},
+    {"id": "game-input.absent", "result": "passed", "details": "No emulator or game input was attempted; emulator/window/ADB/game readiness remained false for the check."},
+    {"id": "configuration.preserved", "result": "passed", "details": "The saved plan, external profile, installed English file, emulator generation, and main ADB generation were unchanged."
+    }
+  ],
+  "reviewer": {"name": "My Bot 2.0 runtime review", "reviewed_at": "2026-08-15T16:05:00Z"},
+  "artifact_refs": [{"kind": "repository", "path": "tests/evidence/runtime/artifacts/engine-initialization-cleanroom.pie64.20260815-104818.json", "sha256": "8d952c8e354e6c6f7b553b3df193f0f628b946b5837f51260ab237ff58e983b9", "bytes": 3155}],
+  "notes": "Exact-current real-backend initialization evidence. It proves no-input engine readiness only, not battle or other gameplay."
+}

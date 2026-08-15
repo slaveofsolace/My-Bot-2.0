@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "evidence_id": "emulator.bluestacks5.pie64.20260815-105303-cleanroom",
+  "capability_id": "emulator.bluestacks5",
+  "test_type": "emulator-smoke",
+  "result": "passed",
+  "captured_at": "2026-08-15T15:53:03Z",
+  "commit_sha": "1e92785e723c3885deecff47090db6639616aeb5",
+  "redacted": true,
+  "environment": {
+    "os": "Windows 11 Home",
+    "os_version": "10.0.26200",
+    "autoit_version": "3.3.16.1",
+    "emulator": "BlueStacks5",
+    "emulator_version": "5.22.252.1008",
+    "instance_index": 0,
+    "instance_name": "Pie64",
+    "game_version": "18.400.9"
+  },
+  "binary": {
+    "path": "MyBot.run.exe",
+    "sha256": "a87a719e5608d528d7130c83644cf8cd5f3206608d87a459bd6478129658168c",
+    "bytes": 3342848
+  },
+  "checks": [
+    {"id": "emulator.detected", "result": "passed", "details": "The exact BlueStacks5 Pie64 player generation and window were detected and remained bound throughout the successful route."},
+    {"id": "adb.connected", "result": "passed", "details": "The running status reported adb_ready=true and before/after framebuffer captures succeeded through the preserved main HD-Adb server."},
+    {"id": "game.ready", "result": "passed", "details": "The accepted running-state sample reported game_ready=true on the visually confirmed Home Village before collector input."}
+  ],
+  "reviewer": {"name": "My Bot 2.0 runtime review", "reviewed_at": "2026-08-15T16:05:00Z"},
+  "artifact_refs": [{"kind": "repository", "path": "tests/evidence/runtime/artifacts/run-session-home-collectors-cleanroom.pie64.20260815-105303.json", "sha256": "4adf2e0b4f577702bb1c7a0dc104a43a516529e7ade5aacb69d7ed285a023228", "bytes": 3866}],
+  "notes": "Exact-current BlueStacks5 Pie64 smoke evidence from the bounded clean-room collector route. No other emulator is promoted."
+}
