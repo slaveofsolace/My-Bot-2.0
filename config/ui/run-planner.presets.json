@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "title": "Town Hall Smart Attack starting points",
-  "description": "Research-guided one-battle settings for every current Home Village Town Hall. Choosing one loads its complete preset-owned settings, explicitly selects the Town Hall Hero loadout, and enables the bounded local Smart Attack policy for the army already trained in game. Recommended army names are guidance only; the bot never edits or retrains that army.",
+  "description": "Research-guided battle settings for every current Home Village Town Hall. They are retained as non-runnable reference plans while this fork waits for licensed ImgLoc permission or a clean-room recognizer. Choosing one only loads an unsaved draft; it never starts a run, edits an army, or retrains troops.",
   "preserved_settings": [
     "runtime.emulator",
     "runtime.instance",

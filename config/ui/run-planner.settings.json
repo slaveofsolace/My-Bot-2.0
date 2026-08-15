@@ -5,7 +5,7 @@
   "description": "Describes one run: where it attacks, when it stops, and what it does in between. Every control says whether the bot has actually been shown working.",
   "presets": {
     "title": "Town Hall Smart Attack starting points",
-    "description": "Research-guided one-battle settings for every current Home Village Town Hall. Choosing one loads its complete preset-owned settings, explicitly selects the Town Hall Hero loadout, and enables the bounded local Smart Attack policy for the army already trained in game. Recommended army names are guidance only; the bot never edits or retrains that army.",
+    "description": "Research-guided battle settings for every current Home Village Town Hall. They are retained as non-runnable reference plans while this fork waits for licensed ImgLoc permission or a clean-room recognizer. Choosing one only loads an unsaved draft; it never starts a run, edits an army, or retrains troops.",
     "preserved_settings": [
       "runtime.emulator",
       "runtime.instance",
@@ -18,7 +18,7 @@
         "town_hall": 2,
         "label": "Town Hall 2",
         "summary": "Smart all-sides deployment; GiArch is the current researched recommendation.",
-        "description": "Uses the active profile army, selects no Heroes, and spreads along every small-village side. The GiArch name is guidance; no army is silently retrained. This preset attempts one supervised battle with the current trained army and never changes its training queue.",
+        "description": "Uses the active profile army, selects no Heroes, and spreads along every small-village side. The GiArch name is guidance; no army is silently retrained. This research preset is retained for a future licensed or clean-room battle recognizer. The current fork cannot start it because inherited ImgLoc rejected exact-current supervised readiness; loading it never starts a run or changes the training queue.",
         "compatibility": "research-guided",
         "source_note": "config/game/smart-attack-strategies.json TH2 policy; community recommendation GiArch.",
         "values": {
@@ -73,7 +73,7 @@
         "town_hall": 3,
         "label": "Town Hall 3",
         "summary": "Smart all-sides deployment; GiArch is the current researched recommendation.",
-        "description": "Uses the active profile army, selects no Heroes, and spreads along every small-village side. This preset attempts one supervised battle with the current trained army and never changes its training queue.",
+        "description": "Uses the active profile army, selects no Heroes, and spreads along every small-village side. This research preset is retained for a future licensed or clean-room battle recognizer. The current fork cannot start it because inherited ImgLoc rejected exact-current supervised readiness; loading it never starts a run or changes the training queue.",
         "compatibility": "research-guided",
         "source_note": "config/game/smart-attack-strategies.json TH3 policy; community recommendation GiArch.",
         "values": {
@@ -128,7 +128,7 @@
         "town_hall": 4,
         "label": "Town Hall 4",
         "summary": "Smart one-side deployment with Barbarian King; GiLoon or easy GiArch.",
-        "description": "Concentrates the active profile army and explicitly selects the Barbarian King. This preset attempts one supervised battle with the current trained army and never changes its training queue.",
+        "description": "Concentrates the active profile army and explicitly selects the Barbarian King. This research preset is retained for a future licensed or clean-room battle recognizer. The current fork cannot start it because inherited ImgLoc rejected exact-current supervised readiness; loading it never starts a run or changes the training queue.",
         "compatibility": "research-guided",
         "source_note": "config/game/smart-attack-strategies.json TH4 policy; community recommendation GiLoon, easy GiArch.",
         "values": {
@@ -185,7 +185,7 @@
         "town_hall": 5,
         "label": "Town Hall 5",
         "summary": "Smart one-side deployment with Barbarian King; GiWi recommendation.",
-        "description": "Keeps tanks and damage dealers together behind one entry and explicitly selects the King. This preset attempts one supervised battle with the current trained army and never changes its training queue.",
+        "description": "Keeps tanks and damage dealers together behind one entry and explicitly selects the King. This research preset is retained for a future licensed or clean-room battle recognizer. The current fork cannot start it because inherited ImgLoc rejected exact-current supervised readiness; loading it never starts a run or changes the training queue.",
         "compatibility": "research-guided",
         "source_note": "config/game/smart-attack-strategies.json TH5 policy; community recommendation GiWi.",
         "values": {
@@ -242,7 +242,7 @@
         "town_hall": 6,
         "label": "Town Hall 6",
         "summary": "Smart one-side deployment with Barbarian King; GiHeWi or easy GiWi.",
-        "description": "Concentrates the current army and explicitly selects the King. This preset attempts one supervised battle with the current trained army and never changes its training queue.",
+        "description": "Concentrates the current army and explicitly selects the King. This research preset is retained for a future licensed or clean-room battle recognizer. The current fork cannot start it because inherited ImgLoc rejected exact-current supervised readiness; loading it never starts a run or changes the training queue.",
         "compatibility": "research-guided",
         "source_note": "config/game/smart-attack-strategies.json TH6 policy; community recommendation GiHeWi, easy GiWi.",
         "values": {
@@ -299,7 +299,7 @@
         "town_hall": 7,
         "label": "Town Hall 7",
         "summary": "Smart one-side deployment with Barbarian King; Mass Dragons recommendation.",
-        "description": "Uses a broad concentrated entry for the active profile army and explicitly selects the King. This preset attempts one supervised battle with the current trained army and never changes its training queue.",
+        "description": "Uses a broad concentrated entry for the active profile army and explicitly selects the King. This research preset is retained for a future licensed or clean-room battle recognizer. The current fork cannot start it because inherited ImgLoc rejected exact-current supervised readiness; loading it never starts a run or changes the training queue.",
         "compatibility": "research-guided",
         "source_note": "config/game/smart-attack-strategies.json TH7 policy; community recommendation Mass Dragons.",
         "values": {
@@ -356,7 +356,7 @@
         "town_hall": 8,
         "label": "Town Hall 8",
         "summary": "Smart one-side deployment with King and Queen; GoHo or easy Zap Dragons.",
-        "description": "Concentrates the active profile army and explicitly selects both unlocked Heroes. This preset attempts one supervised battle with the current trained army and never changes its training queue.",
+        "description": "Concentrates the active profile army and explicitly selects both unlocked Heroes. This research preset is retained for a future licensed or clean-room battle recognizer. The current fork cannot start it because inherited ImgLoc rejected exact-current supervised readiness; loading it never starts a run or changes the training queue.",
         "compatibility": "research-guided",
         "source_note": "config/game/smart-attack-strategies.json TH8 policy; community recommendation GoHo, easy Zap Dragons.",
         "values": {
@@ -414,7 +414,7 @@
         "town_hall": 9,
         "label": "Town Hall 9",
         "summary": "Smart TH-side funnel with King, Queen, and Minion Prince; QC LaLo or easy Zap Dragons.",
-        "description": "Targets the Town Hall side on live bases and explicitly selects all three available Heroes. This preset attempts one supervised battle with the current trained army and never changes its training queue.",
+        "description": "Targets the Town Hall side on live bases and explicitly selects all three available Heroes. This research preset is retained for a future licensed or clean-room battle recognizer. The current fork cannot start it because inherited ImgLoc rejected exact-current supervised readiness; loading it never starts a run or changes the training queue.",
         "compatibility": "research-guided",
         "source_note": "config/game/smart-attack-strategies.json TH9 policy; community recommendation Queen Charge LaLo, easy Zap Dragons.",
         "values": {
@@ -473,7 +473,7 @@
         "town_hall": 10,
         "label": "Town Hall 10",
         "summary": "Smart TH-side funnel with King, Queen, and Minion Prince; QC Hybrid or easy Zap Dragons.",
-        "description": "Uses a live-base TH-side funnel and explicitly selects the three unlocked Heroes. This preset attempts one supervised battle with the current trained army and never changes its training queue.",
+        "description": "Uses a live-base TH-side funnel and explicitly selects the three unlocked Heroes. This research preset is retained for a future licensed or clean-room battle recognizer. The current fork cannot start it because inherited ImgLoc rejected exact-current supervised readiness; loading it never starts a run or changes the training queue.",
         "compatibility": "research-guided",
         "source_note": "config/game/smart-attack-strategies.json TH10 policy; community recommendation Queen Charge Hybrid, easy Zap Dragons.",
         "values": {
@@ -532,7 +532,7 @@
         "town_hall": 11,
         "label": "Town Hall 11",
         "summary": "Smart TH-side funnel with Queen, Prince, and Warden; QC Hybrid or easy EDrags.",
-        "description": "Concentrates the current army through a TH-side funnel and explicitly selects Queen, Prince, and Warden. This preset attempts one supervised battle with the current trained army and never changes its training queue.",
+        "description": "Concentrates the current army through a TH-side funnel and explicitly selects Queen, Prince, and Warden. This research preset is retained for a future licensed or clean-room battle recognizer. The current fork cannot start it because inherited ImgLoc rejected exact-current supervised readiness; loading it never starts a run or changes the training queue.",
         "compatibility": "research-guided",
         "source_note": "config/game/smart-attack-strategies.json TH11 policy; community recommendation Queen Charge Hybrid, easy Electro Dragons.",
         "values": {
@@ -591,7 +591,7 @@
         "town_hall": 12,
         "label": "Town Hall 12",
         "summary": "Smart TH-side funnel with Queen, Prince, and Warden; Fireball Super Witches or easy Zap Dragons.",
-        "description": "Uses the active profile army and a TH-side funnel; explicitly selects Queen, Prince, and Warden. This preset attempts one supervised battle with the current trained army and never changes its training queue.",
+        "description": "Uses the active profile army and a TH-side funnel; explicitly selects Queen, Prince, and Warden. This research preset is retained for a future licensed or clean-room battle recognizer. The current fork cannot start it because inherited ImgLoc rejected exact-current supervised readiness; loading it never starts a run or changes the training queue.",
         "compatibility": "research-guided",
         "source_note": "config/game/smart-attack-strategies.json TH12 policy; community recommendation Fireball Super Witches, easy Zap Dragons.",
         "values": {
@@ -650,7 +650,7 @@
         "town_hall": 13,
         "label": "Town Hall 13",
         "summary": "Smart TH-side funnel with four Heroes; Fireball Super Witches or easy Electro Smash.",
-        "description": "Targets the TH side and explicitly selects Queen, Prince, Warden, and Royal Champion. This preset attempts one supervised battle with the current trained army and never changes its training queue.",
+        "description": "Targets the TH side and explicitly selects Queen, Prince, Warden, and Royal Champion. This research preset is retained for a future licensed or clean-room battle recognizer. The current fork cannot start it because inherited ImgLoc rejected exact-current supervised readiness; loading it never starts a run or changes the training queue.",
         "compatibility": "research-guided",
         "source_note": "config/game/smart-attack-strategies.json TH13 policy; community recommendation Fireball Super Witches, easy Electro Smash.",
         "values": {
@@ -710,7 +710,7 @@
         "town_hall": 14,
         "label": "Town Hall 14",
         "summary": "Smart TH-side funnel with four Heroes; Witch Spam or easy Zap Dragons.",
-        "description": "Targets the TH side and explicitly selects Queen, Prince, Warden, and Royal Champion. This preset attempts one supervised battle with the current trained army and never changes its training queue.",
+        "description": "Targets the TH side and explicitly selects Queen, Prince, Warden, and Royal Champion. This research preset is retained for a future licensed or clean-room battle recognizer. The current fork cannot start it because inherited ImgLoc rejected exact-current supervised readiness; loading it never starts a run or changes the training queue.",
         "compatibility": "research-guided",
         "source_note": "config/game/smart-attack-strategies.json TH14 policy; community recommendation Witch Spam, easy Zap Dragons.",
         "values": {
@@ -770,7 +770,7 @@
         "town_hall": 15,
         "label": "Town Hall 15",
         "summary": "Smart TH-side funnel with four Heroes; RC Walk Root Riders or easy RC Walk Dragons.",
-        "description": "Targets the TH side and explicitly selects Queen, Prince, Warden, and Royal Champion. This preset attempts one supervised battle with the current trained army and never changes its training queue.",
+        "description": "Targets the TH side and explicitly selects Queen, Prince, Warden, and Royal Champion. This research preset is retained for a future licensed or clean-room battle recognizer. The current fork cannot start it because inherited ImgLoc rejected exact-current supervised readiness; loading it never starts a run or changes the training queue.",
         "compatibility": "research-guided",
         "source_note": "config/game/smart-attack-strategies.json TH15 policy; community recommendation Royal Champion Walk Root Riders, easy Royal Champion Walk Dragons.",
         "values": {
@@ -830,7 +830,7 @@
         "town_hall": 16,
         "label": "Town Hall 16",
         "summary": "Smart TH-side funnel with four Heroes; Fireball Super Witch Druids or easy EDrags.",
-        "description": "Targets the TH side and explicitly selects the same four-Hero loadout proven by the current-client actor path. This preset attempts one supervised battle with the current trained army and never changes its training queue.",
+        "description": "Targets the TH side and explicitly selects the same four-Hero loadout proven by the current-client actor path. This research preset is retained for a future licensed or clean-room battle recognizer. The current fork cannot start it because inherited ImgLoc rejected exact-current supervised readiness; loading it never starts a run or changes the training queue.",
         "compatibility": "research-guided",
         "source_note": "config/game/smart-attack-strategies.json TH16 policy; community recommendation Fireball Super Witch Druids, easy Electro Dragons.",
         "values": {
@@ -890,7 +890,7 @@
         "town_hall": 17,
         "label": "Town Hall 17",
         "summary": "Smart TH-side funnel with four Heroes; Dragon Riders or easy Super Yeti Smash.",
-        "description": "Uses the current trained army, the current-client-proven TH-side red line, and the exact four-Hero loadout that completed the supervised 100 percent three-star run. This preset attempts one supervised battle with the current trained army and never changes its training queue.",
+        "description": "Uses the current trained army, the current-client-proven TH-side red line, and the exact four-Hero loadout that completed the supervised 100 percent three-star run. This research preset is retained for a future licensed or clean-room battle recognizer. The current fork cannot start it because inherited ImgLoc rejected exact-current supervised readiness; loading it never starts a run or changes the training queue.",
         "compatibility": "research-guided",
         "source_note": "config/game/smart-attack-strategies.json TH17 policy; community recommendation Air Defense Snipe Dragon Riders, easy Super Yeti Smash, no-Hero Electro Dragons.",
         "values": {
@@ -950,7 +950,7 @@
         "town_hall": 18,
         "label": "Town Hall 18",
         "summary": "Smart TH-side funnel with four Heroes; Meteor Golems or easy Super Bowler Smash.",
-        "description": "Uses the current trained army and the bounded TH-side actuator. It does not pretend to train a Meteor Golem, Thrower, or Dragon Rider composition. This preset attempts one supervised battle with the current trained army and never changes its training queue.",
+        "description": "Uses the current trained army and the bounded TH-side actuator. It does not pretend to train a Meteor Golem, Thrower, or Dragon Rider composition. This research preset is retained for a future licensed or clean-room battle recognizer. The current fork cannot start it because inherited ImgLoc rejected exact-current supervised readiness; loading it never starts a run or changes the training queue.",
         "compatibility": "research-guided",
         "source_note": "config/game/smart-attack-strategies.json TH18 policy; official balance plus community recommendation Fireball Meteor Golems, easy Super Bowler Smash, no-Hero Electro Dragons.",
         "values": {
@@ -1162,15 +1162,15 @@
               "value": "legacy.csv",
               "label": "Scripted (CSV)",
               "summary": "Runs a deployment script from the Strategies folder.",
-              "description": "Uses the CSV deployment scripts that ship with the bot. This is the most predictable option because the deployment order is written down rather than decided from the base layout.",
-              "availability": "gated",
+              "description": "Uses the CSV deployment scripts that ship with the bot. This is the most predictable option because the deployment order is written down rather than decided from the base layout. The exact-current supervised Start on this fork was rejected by the inherited ImgLoc runtime before matchmaking.",
+              "availability": "unsupported",
               "runtime_verified": false,
-              "disabled_reason": "The CSV actuator is wired, but a complete current-client deployment has not passed supervised review.",
+              "disabled_reason": "Battle execution is disabled: inherited ImgLoc rejected this fork. Diagnostic acknowledgement cannot bypass the licensing boundary.",
               "capability_ids": [],
               "prerequisites": [
-                "At least one CSV strategy present"
+                "Licensed ImgLoc permission or a clean-room recognizer"
               ],
-              "recommended": true,
+              "recommended": false,
               "warning": ""
             },
             {
@@ -1178,13 +1178,12 @@
               "label": "Standard deployment",
               "summary": "The built-in side and line deployment routine.",
               "description": "An older-binary supervised run confirmed Standard could issue the trained-army and selected-Hero deployment, observe an empty troop bar, and return home. That single completion confirms the route and actuator, not strategy quality; it did not exercise planned ability or spell actions. The 2026-08-14 bea12973 LocalRuntime checkpoint passed install, idle launch, and exact-current no-input managed-engine initialization. This source revision is post-checkpoint and unbuilt; neither the checkpoint nor current source proves managed Start or current-client gameplay.",
-              "availability": "gated",
+              "availability": "unsupported",
               "runtime_verified": false,
-              "disabled_reason": "The 2026-08-14 bea12973 LocalRuntime checkpoint passed no-input managed-engine initialization, but not managed Start or gameplay. This post-checkpoint source revision is unbuilt; current-client fixtures and live human review remain absent.",
+              "disabled_reason": "Battle execution is disabled: exact-current supervised readiness reached inherited ImgLoc, which rejected this fork before matchmaking. Diagnostic acknowledgement cannot bypass the licensing boundary.",
               "capability_ids": [],
               "prerequisites": [
-                "A ready trained army",
-                "A supervised diagnostic operator"
+                "Licensed ImgLoc permission or a clean-room recognizer"
               ],
               "recommended": false,
               "warning": "The historical gameplay receipt proves an older build only; the bea12973 checkpoint proves the current managed engine can initialize without emulator or game input."
@@ -1194,13 +1193,12 @@
               "label": "Smart Attack (research-guided)",
               "summary": "Concentrates the current army using a Town Hall-aware local policy.",
               "description": "The deterministic Town Hall policy is versioned in config/game/smart-attack-strategies.json and executed locally. One older-binary bounded supervised TH17 run observed three zoom gestures, 240 red-line points, deterministic BL-side selection, 23-to-zero troop deployment, four selected Hero phase commands, Rage 3-to-zero, one Freeze decrement, and an automatic one-battle stop. The 2026-08-14 bea12973 LocalRuntime checkpoint passed install, idle launch, and exact-current no-input managed-engine initialization. This source revision is post-checkpoint and unbuilt; neither the checkpoint nor current source verifies managed Start, current-client gameplay, fixtures, live human review, strategy quality, or every Town Hall and army.",
-              "availability": "gated",
+              "availability": "unsupported",
               "runtime_verified": false,
-              "disabled_reason": "The 2026-08-14 bea12973 LocalRuntime checkpoint passed no-input managed-engine initialization, but not managed Start or gameplay. This post-checkpoint source revision is unbuilt; current-client fixtures and live human review remain absent.",
+              "disabled_reason": "Battle execution is disabled: exact-current supervised readiness reached inherited ImgLoc, which rejected this fork before matchmaking. Diagnostic acknowledgement cannot bypass the licensing boundary.",
               "capability_ids": [],
               "prerequisites": [
-                "A ready trained army",
-                "A supervised diagnostic operator"
+                "Licensed ImgLoc permission or a clean-room recognizer"
               ],
               "recommended": false,
               "warning": "Historical TH17 mechanics evidence exists; bea12973 adds exact-current no-input managed-engine initialization, not gameplay proof."
@@ -1212,7 +1210,7 @@
               "description": "Runs a bounded Home pass for collectors, the Loot Cart, a full Treasury, and, when explicitly enabled, the startup Daily Reward. It re-proves Home and stops. It cannot search, attack, train, donate, upgrade, enter the Laboratory, run Clan Games, or rotate accounts.",
               "availability": "gated",
               "runtime_verified": false,
-              "disabled_reason": "Current-client collector, Loot Cart, Treasury, and Daily Reward handling still need supervised runtime receipts.",
+              "disabled_reason": "Collectors have exact-current packaged-binary proof. Loot Cart and startup Daily Reward still need positive completion receipts, and Treasury remains unavailable.",
               "capability_ids": [
                 "village.collectors",
                 "village.loot-cart",
@@ -1224,7 +1222,7 @@
                 "A supervised diagnostic operator"
               ],
               "recommended": false,
-              "warning": "Diagnostic only until supervised current-client Home maintenance receipts are recorded."
+              "warning": "Collectors are runtime-proven; every other selected Home task keeps its own fail-closed evidence gate."
             },
             {
               "value": "home.clan-request",
@@ -2674,15 +2672,15 @@
           "required": false,
           "engine_binding": "RunPlan.events_collect_resources",
           "availability": "gated",
-          "runtime_verified": false,
+          "runtime_verified": true,
           "capability_ids": [
             "village.collectors"
           ],
           "prerequisites": [
             "Current home-village collector recognition"
           ],
-          "disabled_reason": "The bounded route is wired, but collector and full-storage handling lack a supervised current-client receipt.",
-          "warning": "Select Home maintenance and use a supervised diagnostic."
+          "disabled_reason": "Exact-current packaged-binary evidence records three accepted collector clicks, Gold/Elixir/Dark Elixir increases, Home re-proof, and zero gem change. It remains gated because this is a real account action bound to one profile and emulator instance.",
+          "warning": "Runtime verified. Select Home maintenance, the exact account/emulator binding, and supervised diagnostic consent."
         },
         {
           "id": "events.collect_daily_reward",

@@ -330,7 +330,7 @@ The **Run Planner** is the last tab in the main window. Thirteen focused section
 | **Stop conditions** | Time limit, battle limit, Star Bonus, failure limit |
 | **Resource targets** | Stop once a Gold, Elixir, or Dark Elixir total is collected |
 | **Between battles** | Supported upgrade policy and account-rotation settings |
-| **Diagnostics** | Whether unverified surfaces are allowed to run |
+| **Diagnostics** | Explicit consent for gated account actions; it never overrides unsupported routes or licensing boundaries |
 
 Above those sections, the Town Hall dropdown covers TH2 through TH18. A saved plan that exactly
 matches a preset reopens with that preset identified; otherwise it shows **Custom plan — your settings**
@@ -441,7 +441,7 @@ Everything in `tools/` is standard-library Python 3.11+, so it runs anywhere:
 | `python tools/validate_game_catalog.py` | Game catalogs against their schemas |
 | `python tools/validate_ui_metadata.py` | Planner metadata against the game catalogs |
 | `python tools/check_town_hall_presets.py` | TH2-TH18 coverage, source-backed script choices, complete Hero gates, selection-time loading, and explicit save separation |
-| `powershell -File tools/run_supervised_battle_acceptance.ps1 -AuthorizeOneBattle` | One explicitly authorized Smart battle; exact zoom and troop depletion, deterministic side/start events, one issued ability per selected Hero, proven Rage and Freeze inventory decreases, internal one-battle stop, preserved plan/process identity, and operator-visible confirmation |
+| `powershell -File tools/run_supervised_battle_acceptance.ps1 -AuthorizeOneBattle` | Historical battle-harness contract and evidence collector. The current fork rejects all battle strategies before Start because inherited ImgLoc rejected exact-current supervised readiness; do not use this command to bypass that gate. |
 | `python tools/verify_current_game_model.py` | That the generated catalog is actually wired into the runtime |
 | `python tools/generate_game_catalog_autoit.py --check` | Generated catalog drift |
 | `python tools/generate_run_planner_autoit.py --check` | Generated planner drift |
@@ -476,10 +476,10 @@ the actual game. Listing it honestly beats a progress bar.
 
 <br>
 
-[`tests/fixtures/current-client/manifest.json`](tests/fixtures/current-client/manifest.json) lists
-**28 required captures**, all currently missing: Town Hall 18, Guardians, the six-Hero Hero Hall,
-Dragon Duke, each battle surface entry screen, Hero Journey, Global Chat, battle fast-forward, the
-Builder Base changes, and the current army screens.
+[`tests/fixtures/current-client/manifest.json`](tests/fixtures/current-client/manifest.json) currently
+tracks **33 required captures**: 6 are complete and 27 remain missing. The remaining set includes
+battle surfaces, current-army and Builder Base states, rewards, chat/request states, and other
+recognition boundaries that cannot be promoted from source presence alone.
 
 The manifest specifies the capture contract — 860 × 732, PNG, sRGB, with player names, clan names,
 chat text and account identifiers redacted before committing.
@@ -496,6 +496,12 @@ unconfirmed Freeze disabled further clicks. The battle completed at two stars/55
 home, and stopped on the one-battle limit. This is one automated mechanics observation without a
 stored human visual receipt—not strategy superiority, every base layout, every Town Hall policy,
 other battle surfaces, CSV scripts, or the still-missing fixture matrix.
+
+The exact-current 2026-08-15 supervised Start then reached the inherited ImgLoc `FindTile` export and
+was rejected by that dependency's anti-copycat/licensing guard before matchmaking. Native, server,
+and browser preflight now block Scripted, Standard, and Smart battle strategies even when diagnostic
+consent is enabled. Battle work can reopen only with written licensed permission or a clean-room
+recognizer; the project does not patch or bypass that guard.
 
 </details>
 

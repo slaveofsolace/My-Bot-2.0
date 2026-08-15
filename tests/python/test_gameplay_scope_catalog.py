@@ -109,7 +109,11 @@ class GameplayScopeCatalogTests(unittest.TestCase):
                     else "gated"
                 )
                 self.assertEqual(setting["availability"], expected_availability)
-                self.assertFalse(setting["runtime_verified"])
+                if setting_id == "events.collect_resources":
+                    self.assertTrue(setting["runtime_verified"])
+                    self.assertIn("zero gem change", setting["disabled_reason"].lower())
+                else:
+                    self.assertFalse(setting["runtime_verified"])
                 self.assertEqual(setting["capability_ids"], [capability_id])
                 self.assertTrue(setting["prerequisites"])
                 self.assertTrue(setting["disabled_reason"])

@@ -196,5 +196,11 @@ Func RunExecutionContractValidate(ByRef $oIntent, ByRef $sError)
 		Return SetError(16, 0, False)
 	EndIf
 
-	Return True
+	; Exact-current supervised readiness on this fork reached the inherited FindTile export, which
+	; returned its anti-copycat/licensing critical error before matchmaking. Every generic battle
+	; strategy above depends on that recognizer. Keep the detailed plan validation for truthful
+	; diagnostics, but never let diagnostic acknowledgement bypass a rejected runtime dependency.
+	$sError = "Battle routes are unavailable in this fork because the inherited ImgLoc runtime rejected exact-current supervised readiness. Licensed permission or a clean-room recognizer is required; diagnostic mode cannot bypass this gate."
+	Return SetError(17, 0, False)
+
 EndFunc   ;==>RunExecutionContractValidate

@@ -516,23 +516,27 @@ def main() -> int:
 
     strategy_options = option_map("run.strategy")
     csv_option = strategy_options.get("legacy.csv", {})
-    if csv_option.get("availability") != "gated" or csv_option.get("runtime_verified") is not False:
-        errors.append("legacy.csv: attack strategy must remain unverified until its supervised proof")
+    if csv_option.get("availability") != "unsupported" or csv_option.get("runtime_verified") is not False:
+        errors.append("legacy.csv must remain unavailable after the exact-current ImgLoc rejection")
     standard_option = strategy_options.get("legacy.standard", {})
-    if standard_option.get("availability") != "gated" or standard_option.get("runtime_verified") is not False:
-        errors.append("legacy.standard must remain diagnostic-only until the current binary and client are reviewed")
+    if standard_option.get("availability") != "unsupported" or standard_option.get("runtime_verified") is not False:
+        errors.append("legacy.standard must remain unavailable after the exact-current ImgLoc rejection")
     standard_copy = " ".join(str(standard_option.get(field, "")).lower() for field in ("description", "disabled_reason", "warning"))
     if not all(term in standard_copy for term in ("older-binary", reviewed_checkpoint, "engine initialization", "post-checkpoint", "unbuilt", "managed start", "gameplay")):
         errors.append("legacy.standard must distinguish older gameplay, the reviewed engine checkpoint, and the unbuilt source")
     smart_option = strategy_options.get("smart.local", {})
-    if smart_option.get("availability") != "gated" or smart_option.get("runtime_verified") is not False:
-        errors.append("smart.local must remain diagnostic-only until the current binary and client are reviewed")
+    if smart_option.get("availability") != "unsupported" or smart_option.get("runtime_verified") is not False:
+        errors.append("smart.local must remain unavailable after the exact-current ImgLoc rejection")
     smart_copy = " ".join(
         str(smart_option.get(field, "")).lower()
-        for field in ("description", "warning")
+        for field in ("description", "disabled_reason", "warning")
     )
     if not all(term in smart_copy for term in ("older-binary bounded supervised th17 run", "strategy quality", reviewed_checkpoint, "engine initialization", "post-checkpoint", "unbuilt", "managed start", "gameplay")):
         errors.append("smart.local must keep historical mechanics and checkpoint evidence narrower than the unbuilt source or quality proof")
+    for strategy_id in ("legacy.csv", "legacy.standard", "smart.local"):
+        blocker_copy = str(strategy_options.get(strategy_id, {}).get("disabled_reason", "")).lower()
+        if not all(term in blocker_copy for term in ("imgloc", "cannot bypass", "licensing boundary")):
+            errors.append(f"{strategy_id}: battle blocker must name ImgLoc and the non-bypassable licensing boundary")
     for strategy_id in ("legacy.smart-farm", "builder.baby-dragon"):
         if strategy_options.get(strategy_id, {}).get("availability") not in {"planned", "unsupported"}:
             errors.append(f"{strategy_id}: strategy with no native adapter must not remain selectable")

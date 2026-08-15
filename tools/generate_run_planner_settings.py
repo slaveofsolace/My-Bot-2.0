@@ -230,8 +230,9 @@ def build_presets(source: dict) -> dict:
             "label": preset["label"],
             "summary": preset["summary"],
             "description": (
-                f"{preset['description']} This preset attempts one supervised battle with the current trained army "
-                "and never changes its training queue."
+                f"{preset['description']} This research preset is retained for a future licensed or clean-room "
+                "battle recognizer. The current fork cannot start it because inherited ImgLoc rejected exact-current "
+                "supervised readiness; loading it never starts a run or changes the training queue."
             ),
             "compatibility": preset["compatibility"],
             "source_note": preset["source_note"],
@@ -305,9 +306,10 @@ def main() -> int:
                                    "Runs a deployment script from the Strategies folder.",
                                    "Uses the CSV deployment scripts that ship with the bot. This is the most "
                                    "predictable option because the deployment order is written down rather than "
-                                   "decided from the base layout.",
-                                   "gated", [], ["At least one CSV strategy present"], recommended=True,
-                                   disabled_reason="The CSV actuator is wired, but a complete current-client deployment has not passed supervised review."),
+                                   "decided from the base layout. The exact-current supervised Start on this fork "
+                                   "was rejected by the inherited ImgLoc runtime before matchmaking.",
+                                   "unsupported", [], ["Licensed ImgLoc permission or a clean-room recognizer"], recommended=False,
+                                   disabled_reason="Battle execution is disabled: inherited ImgLoc rejected this fork. Diagnostic acknowledgement cannot bypass the licensing boundary."),
                             option("legacy.standard", "Standard deployment",
                                    "The built-in side and line deployment routine.",
                                    "An older-binary supervised run confirmed Standard could issue the trained-army and selected-"
@@ -317,8 +319,8 @@ def main() -> int:
                                    "checkpoint passed install, idle launch, and exact-current no-input managed-engine "
                                    "initialization. This source revision is post-checkpoint and unbuilt; neither the "
                                    "checkpoint nor current source proves managed Start or current-client gameplay.",
-                                   "gated", [], ["A ready trained army", "A supervised diagnostic operator"],
-                                   disabled_reason="The 2026-08-14 bea12973 LocalRuntime checkpoint passed no-input managed-engine initialization, but not managed Start or gameplay. This post-checkpoint source revision is unbuilt; current-client fixtures and live human review remain absent.",
+                                   "unsupported", [], ["Licensed ImgLoc permission or a clean-room recognizer"],
+                                   disabled_reason="Battle execution is disabled: exact-current supervised readiness reached inherited ImgLoc, which rejected this fork before matchmaking. Diagnostic acknowledgement cannot bypass the licensing boundary.",
                                    warning="The historical gameplay receipt proves an older build only; the bea12973 checkpoint proves the current managed engine can initialize without emulator or game input."),
                             option("smart.local", "Smart Attack (research-guided)",
                                    "Concentrates the current army using a Town Hall-aware local policy.",
@@ -331,8 +333,8 @@ def main() -> int:
                                    "managed-engine initialization. This source revision is post-checkpoint and unbuilt; "
                                    "neither the checkpoint nor current source verifies managed Start, current-"
                                    "client gameplay, fixtures, live human review, strategy quality, or every Town Hall and army.",
-                                   "gated", [], ["A ready trained army", "A supervised diagnostic operator"],
-                                   disabled_reason="The 2026-08-14 bea12973 LocalRuntime checkpoint passed no-input managed-engine initialization, but not managed Start or gameplay. This post-checkpoint source revision is unbuilt; current-client fixtures and live human review remain absent.",
+                                   "unsupported", [], ["Licensed ImgLoc permission or a clean-room recognizer"],
+                                   disabled_reason="Battle execution is disabled: exact-current supervised readiness reached inherited ImgLoc, which rejected this fork before matchmaking. Diagnostic acknowledgement cannot bypass the licensing boundary.",
                                     warning="Historical TH17 mechanics evidence exists; bea12973 adds exact-current no-input managed-engine initialization, not gameplay proof."),
                              option("home.collectors", "Home maintenance",
                                     "Run selected one-shot Home Village collection tasks without matchmaking.",
@@ -340,8 +342,8 @@ def main() -> int:
                                     "enabled, the startup Daily Reward. It re-proves Home and stops. It cannot search, attack, "
                                     "train, donate, upgrade, enter the Laboratory, run Clan Games, or rotate accounts.",
                                     "gated", ["village.collectors", "village.loot-cart", "village.treasury", "events.daily-reward"], ["At least one Home task enabled", "A supervised diagnostic operator"],
-                                    disabled_reason="Current-client collector, Loot Cart, Treasury, and Daily Reward handling still need supervised runtime receipts.",
-                                    warning="Diagnostic only until supervised current-client Home maintenance receipts are recorded."),
+                                    disabled_reason="Collectors have exact-current packaged-binary proof. Loot Cart and startup Daily Reward still need positive completion receipts, and Treasury remains unavailable.",
+                                    warning="Collectors are runtime-proven; every other selected Home task keeps its own fail-closed evidence gate."),
                             option("home.clan-request", "Home maintenance - Clan request only",
                                    "Request Clan Castle reinforcements once, without donating or matchmaking.",
                                    "Runs one bounded request-only pass on the exact active profile and emulator instance. "
@@ -1105,11 +1107,11 @@ def main() -> int:
                         "required": False,
                         "engine_binding": "RunPlan.events_collect_resources",
                         "availability": "gated",
-                        "runtime_verified": False,
+                        "runtime_verified": True,
                         "capability_ids": ["village.collectors"],
                         "prerequisites": ["Current home-village collector recognition"],
-                        "disabled_reason": "The bounded route is wired, but collector and full-storage handling lack a supervised current-client receipt.",
-                        "warning": "Select Home maintenance and use a supervised diagnostic.",
+                        "disabled_reason": "Exact-current packaged-binary evidence records three accepted collector clicks, Gold/Elixir/Dark Elixir increases, Home re-proof, and zero gem change. It remains gated because this is a real account action bound to one profile and emulator instance.",
+                        "warning": "Runtime verified. Select Home maintenance, the exact account/emulator binding, and supervised diagnostic consent.",
                     },
                     {
                         "id": "events.collect_daily_reward",

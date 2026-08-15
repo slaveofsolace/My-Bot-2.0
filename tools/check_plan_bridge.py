@@ -160,8 +160,9 @@ def main() -> int:
     acknowledged_plan = dict(plan)
     acknowledged_plan["run.diagnostic_mode"] = True
     acknowledged_plan["run.diagnostic_note"] = "bridge audit acknowledgement"
-    if planner_ui.engine_preflight(acknowledged_plan):
-        errors.append("the acknowledged bounded default plan cannot reach the native execution contract")
+    acknowledged_problems = planner_ui.engine_preflight(acknowledged_plan)
+    if not any("inherited ImgLoc runtime rejected exact-current" in problem for problem in acknowledged_problems):
+        errors.append("diagnostic acknowledgement can bypass the exact-current ImgLoc battle blocker")
     for setting_id, bad_value in (
         ("run.surface", "builder"),
         ("run.strategy", "legacy.smart-farm"),

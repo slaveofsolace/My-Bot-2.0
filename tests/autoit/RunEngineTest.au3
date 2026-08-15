@@ -244,14 +244,15 @@ AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "managed pr
 AssertTrue(StringInStr($sError, "not closed-world") > 0, "managed-training rejection names the hidden actuator boundary")
 $oSavedEnginePlan.Item("army_manage_training") = False
 $oSavedEnginePlan.Item("max_battles") = 1
-AssertTrue(RunExecutionContractValidate($oSavedIntent, $sError), "a bounded current-army regular-battle plan crosses the execution boundary: " & $sError)
+AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "a bounded battle plan remains blocked when inherited ImgLoc rejects this fork")
+AssertTrue(StringInStr($sError, "ImgLoc runtime rejected exact-current") > 0, "the final battle gate names the observed recognizer failure")
 $oSavedPacing.Item("retry_attempts") = 1
 AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "generic retries are blocked without a visual-change observer")
 $oSavedPacing.Item("retry_attempts") = 0
 $oSavedEnginePlan.Item("notify_channel") = "windows-toast"
 AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "unwired notification channels are rejected")
 $oSavedEnginePlan.Item("notify_channel") = "log-only"
-AssertTrue(RunExecutionContractValidate($oSavedIntent, $sError), "restoring supported values clears the adapter gate: " & $sError)
+AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "restoring plan values still cannot bypass the ImgLoc licensing boundary")
 Local $oSavedRoute = $oSavedIntent.Item("route")
 $oSavedRoute.Item("diagnostic_enabled") = False
 AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "Scripted deployment cannot silently claim current-client confirmation")
@@ -262,12 +263,12 @@ $oSavedEnginePlan.Item("emulator_instance") = ""
 AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "explicit BlueStacks refuses an ambiguous default instance")
 AssertTrue(StringInStr($sError, "exact emulator instance") > 0, "the emulator instance rejection explains the account boundary")
 $oSavedEnginePlan.Item("emulator_instance") = "Pie64"
-AssertTrue(RunExecutionContractValidate($oSavedIntent, $sError), "an exact BlueStacks instance clears the account binding gate: " & $sError)
+AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "an exact BlueStacks instance does not bypass the rejected battle recognizer")
 $oSavedEnginePlan.Item("emulator_instance") = "Pie64&other"
 AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "unsafe emulator instance characters are rejected before command construction")
 $oSavedEnginePlan.Item("emulator") = "auto"
 $oSavedEnginePlan.Item("emulator_instance") = ""
-AssertTrue(RunExecutionContractValidate($oSavedIntent, $sError), "automatic single-instance detection remains supported: " & $sError)
+AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "automatic single-instance detection does not bypass the rejected battle recognizer")
 $oSavedEnginePlan.Item("strategy") = "legacy.standard"
 AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "a named CSV script cannot be paired with Standard deployment")
 $oSavedEnginePlan.Item("attack_script") = "profile-current"
@@ -281,10 +282,10 @@ AssertTrue(StringInStr($sError, "turn Manage training off") > 0, "managed-traini
 $oSavedEnginePlan.Item("army_manage_training") = False
 $oSavedEnginePlan.Item("strategy") = "legacy.csv"
 $oSavedEnginePlan.Item("attack_script") = "Barch four fingers"
-AssertTrue(RunExecutionContractValidate($oSavedIntent, $sError), "restoring Scripted accepts the named bundled-script contract: " & $sError)
+AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "Scripted remains unavailable while inherited ImgLoc rejects this fork")
 $oSavedEnginePlan.Item("strategy") = "smart.local"
 $oSavedEnginePlan.Item("attack_script") = "profile-current"
-AssertTrue(RunExecutionContractValidate($oSavedIntent, $sError), "Smart Attack maps to the exact local standard-deployment adapter: " & $sError)
+AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "Smart Attack remains unavailable while inherited ImgLoc rejects this fork")
 AssertTrue(RunExecutionSmartDropSides(5, True) = 0, "Smart Attack concentrates early villages on one scored side")
 AssertTrue(RunExecutionSmartDropSides(8, True) = 0, "Smart Attack concentrates TH6-8 on one scored side")
 AssertTrue(RunExecutionSmartDropSides(15, True) = 0, "Smart Attack scores a current-frame side instead of trusting legacy TH-side selector 5")
@@ -300,15 +301,15 @@ AssertTrue(Not RunIntentManagesTraining($oSavedIntent), "current-army intent exp
 $oSavedEnginePlan.Item("events_collect_resources") = True
 AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "current-army mode refuses pre-battle resource collection")
 $oSavedEnginePlan.Item("events_collect_resources") = False
-AssertTrue(RunExecutionContractValidate($oSavedIntent, $sError), "restoring collector work clears the current-army side-effect gate: " & $sError)
+AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "restoring collector work reaches the final ImgLoc battle gate")
 $oSavedEnginePlan.Item("events_collect_loot_cart") = True
 AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "current-army mode keeps Loot Cart collection outside the terminal path")
 $oSavedEnginePlan.Item("events_collect_loot_cart") = False
-AssertTrue(RunExecutionContractValidate($oSavedIntent, $sError), "one current trained army is accepted for exactly one battle: " & $sError)
+AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "one current trained army is not consumed while battle recognition is unavailable")
 $oSavedEnginePlan.Item("events_collect_treasury") = True
 AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "current-army mode keeps Treasury collection outside the terminal path")
 $oSavedEnginePlan.Item("events_collect_treasury") = False
-AssertTrue(RunExecutionContractValidate($oSavedIntent, $sError), "restoring Treasury work clears the current-army side-effect gate: " & $sError)
+AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "restoring Treasury work reaches the final ImgLoc battle gate")
 $oSavedEnginePlan.Item("army_wait_for_full") = False
 AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "current-army mode requires a fresh full-army readiness result")
 AssertTrue(StringInStr($sError, "Wait for full army") > 0, "current-army readiness rejection names the required setting")
@@ -331,7 +332,7 @@ $oSavedEnginePlan.Item("events_laboratory") = "off"
 $oSavedEnginePlan.Item("upgrade_policy") = "walls"
 AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "current-army mode refuses pre-battle wall or building work")
 $oSavedEnginePlan.Item("upgrade_policy") = "disabled"
-AssertTrue(RunExecutionContractValidate($oSavedIntent, $sError), "restoring terminal current-army settings clears every side-effect gate: " & $sError)
+AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "restoring terminal current-army settings still cannot bypass the ImgLoc battle gate")
 $oSavedEnginePlan.Item("strategy") = "legacy.standard"
 $oSavedEnginePlan.Item("attack_script") = "profile-current"
 $oSavedRoute.Item("diagnostic_enabled") = False

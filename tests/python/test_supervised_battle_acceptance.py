@@ -13,6 +13,16 @@ class SupervisedBattleAcceptanceContract(unittest.TestCase):
         self.assertIn("[switch]$AuthorizeOneBattle", SCRIPT)
         self.assertIn("if (-not $AuthorizeOneBattle)", SCRIPT)
 
+    def test_binds_to_the_live_runtime_and_external_profiles_owner(self):
+        self.assertIn('[string]$RuntimeRoot = ""', SCRIPT)
+        self.assertIn('[string]$ProfilesRoot = ""', SCRIPT)
+        self.assertIn('/api/health', SCRIPT)
+        self.assertIn('$RuntimeRoot = [string]$health.repo_root', SCRIPT)
+        self.assertIn('$ProfilesRoot = [string]$health.profiles_root', SCRIPT)
+        self.assertIn('does not match the live Control Center owner', SCRIPT)
+        self.assertIn('$logDir = Join-Path $profilesRoot', SCRIPT)
+        self.assertNotIn('Join-Path $root ("Profiles\\{0}\\Logs"', SCRIPT)
+
     def test_requires_exact_zoom_and_deployment_evidence(self):
         for marker in (
             "combat.zoom-verified",

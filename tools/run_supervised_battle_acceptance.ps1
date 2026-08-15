@@ -1,10 +1,27 @@
 param(
     [switch]$AuthorizeOneBattle,
-    [string]$VisualReceiptPath = ""
+    [string]$VisualReceiptPath = "",
+    [string]$RuntimeRoot = "",
+    [string]$ProfilesRoot = ""
 )
 
 $ErrorActionPreference = "Stop"
-$root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$sourceRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$health = Invoke-RestMethod -Uri "http://127.0.0.1:8765/api/health" -TimeoutSec 5
+if (-not $RuntimeRoot) { $RuntimeRoot = [string]$health.repo_root }
+if (-not $ProfilesRoot) { $ProfilesRoot = [string]$health.profiles_root }
+if (-not [System.IO.Path]::IsPathRooted($RuntimeRoot) -or -not (Test-Path -LiteralPath $RuntimeRoot -PathType Container)) {
+    throw "The live runtime root is not an existing absolute directory"
+}
+if (-not [System.IO.Path]::IsPathRooted($ProfilesRoot) -or -not (Test-Path -LiteralPath $ProfilesRoot -PathType Container)) {
+    throw "The live Profiles root is not an existing absolute directory"
+}
+$root = (Resolve-Path -LiteralPath $RuntimeRoot).Path
+$profilesRoot = (Resolve-Path -LiteralPath $ProfilesRoot).Path
+if ($root -ne (Resolve-Path -LiteralPath ([string]$health.repo_root)).Path -or
+    $profilesRoot -ne (Resolve-Path -LiteralPath ([string]$health.profiles_root)).Path) {
+    throw "The requested runtime or Profiles root does not match the live Control Center owner"
+}
 $planPath = Join-Path $root "config\run-plan.local.json"
 $binaryPath = Join-Path $root "MyBot.run.exe"
 $provenancePath = Join-Path $root "config\binary-provenance.json"
@@ -23,7 +40,7 @@ function Get-LatestNativeLog([string]$Profile) {
     if ($Profile -notmatch '^[A-Za-z0-9][A-Za-z0-9 _.-]{0,63}$' -or $Profile -in @('.', '..')) {
         throw "The active profile name is not path-safe"
     }
-    $logDir = Join-Path $root ("Profiles\{0}\Logs" -f $Profile)
+    $logDir = Join-Path $profilesRoot ("{0}\Logs" -f $Profile)
     $candidate = Get-ChildItem -LiteralPath $logDir -File -ErrorAction Stop |
         Where-Object {$_.Name -match '^\d{4}-\d{2}-\d{2}_\d{2}\.\d{2}\.\d{2}\.log$'} |
         Sort-Object LastWriteTimeUtc -Descending |

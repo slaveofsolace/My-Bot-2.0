@@ -1,9 +1,13 @@
 import json
 import pathlib
+import sys
 import unittest
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "tools"))
+
+import planner_ui  # noqa: E402
 
 
 class SmartAttackStrategyTests(unittest.TestCase):
@@ -59,7 +63,10 @@ class SmartAttackStrategyTests(unittest.TestCase):
                     options = setting["options"]
         smart = next(option for option in options if option["value"] == "smart.local")
         standard = next(option for option in options if option["value"] == "legacy.standard")
-        self.assertEqual(standard["availability"], "gated")
+        scripted = next(option for option in options if option["value"] == "legacy.csv")
+        self.assertEqual(scripted["availability"], "unsupported")
+        self.assertIn("imgloc rejected this fork", scripted["disabled_reason"].lower())
+        self.assertEqual(standard["availability"], "unsupported")
         self.assertFalse(standard["runtime_verified"])
         self.assertIn("older-binary", standard["description"].lower())
         self.assertIn("2026-08-14 bea12973 localruntime checkpoint", standard["description"].lower())
@@ -67,7 +74,9 @@ class SmartAttackStrategyTests(unittest.TestCase):
         self.assertIn("post-checkpoint", standard["description"].lower())
         self.assertIn("unbuilt", standard["description"].lower())
         self.assertIn("managed start", standard["description"].lower())
-        self.assertEqual(smart["availability"], "gated")
+        self.assertIn("imgloc", standard["disabled_reason"].lower())
+        self.assertIn("cannot bypass", standard["disabled_reason"].lower())
+        self.assertEqual(smart["availability"], "unsupported")
         self.assertFalse(smart["runtime_verified"])
         self.assertIn("local", smart["description"].lower())
         self.assertIn("older-binary bounded supervised th17 run", smart["description"].lower())
@@ -78,6 +87,22 @@ class SmartAttackStrategyTests(unittest.TestCase):
         self.assertIn("unbuilt", smart["description"].lower())
         self.assertIn("managed start", smart["description"].lower())
         self.assertIn("historical", smart["warning"].lower())
+        self.assertIn("imgloc", smart["disabled_reason"].lower())
+        self.assertIn("cannot bypass", smart["disabled_reason"].lower())
+
+    def test_every_generic_battle_strategy_fails_closed_before_start(self):
+        for strategy in ("legacy.csv", "legacy.standard", "smart.local"):
+            with self.subTest(strategy=strategy):
+                plan = planner_ui.default_plan()
+                plan["run.strategy"] = strategy
+                problems = planner_ui.engine_preflight(plan)
+                self.assertTrue(any("inherited ImgLoc runtime rejected exact-current" in item for item in problems))
+
+        contract = (ROOT / "COCBot/functions/Run/RunExecutionContract.au3").read_text(encoding="utf-8-sig")
+        browser = (ROOT / "ui/planner.js").read_text(encoding="utf-8-sig")
+        self.assertIn("Licensed permission or a clean-room recognizer is required", contract)
+        self.assertIn("diagnostic mode cannot bypass this gate", contract)
+        self.assertIn("Allow unverified cannot bypass this gate", browser)
 
     def test_each_town_hall_preset_uses_its_smart_policy_and_exact_hero_plan(self):
         catalog = json.loads((ROOT / "config/game/smart-attack-strategies.json").read_text(encoding="utf-8"))
@@ -97,9 +122,9 @@ class SmartAttackStrategyTests(unittest.TestCase):
                 self.assertFalse(preset["values"]["army.train_sieges"])
                 self.assertEqual(preset["values"]["run.duration_minutes"], 0)
                 self.assertEqual(preset["values"]["run.max_battles"], 1)
-                self.assertIn("one supervised battle", preset["description"].lower())
-                self.assertIn("current trained army", preset["description"].lower())
-                self.assertIn("never changes its training queue", preset["description"].lower())
+                self.assertIn("research preset", preset["description"].lower())
+                self.assertIn("cannot start it", preset["description"].lower())
+                self.assertIn("never starts a run or changes the training queue", preset["description"].lower())
                 self.assertIn(policy["recommended_army"], preset["source_note"])
 
     def test_battle_and_emulator_evidence_are_not_conflated(self):

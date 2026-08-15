@@ -369,6 +369,12 @@ def engine_preflight(plan: dict) -> list[str]:
         problems.append("run.surface: the native engine is currently wired only to Regular Battles")
     if strategy not in {"legacy.csv", "legacy.standard", "smart.local", "home.collectors", "home.clan-request"}:
         problems.append(f"run.strategy: {strategy or 'blank'} has no native execution adapter")
+    if strategy in {"legacy.csv", "legacy.standard", "smart.local"}:
+        problems.append(
+            "run.strategy: battle routes are unavailable in this fork because the inherited ImgLoc runtime "
+            "rejected exact-current supervised readiness; licensed permission or a clean-room recognizer is "
+            "required, and diagnostic mode cannot bypass this gate"
+        )
     if strategy != "legacy.csv" and script.lower() != "profile-current":
         problems.append("run.attack_script: a named CSV requires the Scripted strategy")
 
@@ -1119,7 +1125,11 @@ def selftest() -> int:
     diagnostic_plan = dict(plan)
     diagnostic_plan["run.diagnostic_mode"] = True
     diagnostic_plan["run.diagnostic_note"] = "selftest operator acknowledgement"
-    check(not engine_preflight(diagnostic_plan), "the acknowledged default plan reaches the native execution contract")
+    diagnostic_problems = engine_preflight(diagnostic_plan)
+    check(
+        any("ImgLoc" in problem and "cannot bypass" in problem for problem in diagnostic_problems),
+        "the acknowledged default battle plan remains blocked by the non-bypassable ImgLoc gate",
+    )
 
     preset_contract = metadata_document().get("presets", {})
     presets = preset_contract.get("items", [])
@@ -1158,7 +1168,11 @@ def selftest() -> int:
             not adjusted_preset and not rejected_preset and clean_preset == candidate,
             f"{preset_id} is already normalized",
         )
-        check(not engine_preflight(candidate), f"{preset_id} passes the native execution preflight")
+        preset_problems = engine_preflight(candidate)
+        check(
+            any("ImgLoc" in problem and "cannot bypass" in problem for problem in preset_problems),
+            f"{preset_id} remains a non-runnable research preset behind the ImgLoc gate",
+        )
         check(not (set(values) & preserved), f"{preset_id} does not overwrite preserved settings")
 
     clean, adjustments, rejected = validate_plan({"run.max_failures": 9999})
@@ -1326,8 +1340,31 @@ def selftest() -> int:
 
             connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
             body = json.dumps({
+                "run.strategy": "home.collectors",
+                "run.town_hall": 0,
+                "run.duration_minutes": 0,
+                "run.max_battles": 0,
+                "run.max_failures": 0,
+                "run.heroes": [],
                 "run.diagnostic_mode": True,
-                "run.diagnostic_note": "selftest operator acknowledgement",
+                "run.diagnostic_note": "selftest safe collectors plan",
+                "army.manage_training": False,
+                "army.wait_for_full": False,
+                "army.train_spells": False,
+                "army.train_sieges": False,
+                "pacing.retry_attempts": 0,
+                "donate.mode": "off",
+                "donate.request_when_short": False,
+                "events.clan_games": False,
+                "events.collect_resources": True,
+                "events.collect_loot_cart": False,
+                "events.collect_treasury": False,
+                "events.collect_daily_reward": False,
+                "events.laboratory": "off",
+                "upgrade.policy": "disabled",
+                "account.queue": "",
+                "runtime.emulator": "bluestacks5",
+                "runtime.instance": "Pie64",
             }).encode()
             connection.request("POST", "/api/plan", body=body, headers={"Content-Type": "application/json"})
             response = connection.getresponse()
