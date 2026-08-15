@@ -59,6 +59,8 @@ class TreasuryRouteStaticTest(unittest.TestCase):
         self.assertIn("$TREASURY_STATE_COLLECT_MISSING", detect)
         self.assertEqual(autoit_function(self.open_treasury, "OpenHomeTreasuryIssueCollect").count("Return False"), 1)
         self.assertEqual(autoit_function(self.open_treasury, "OpenHomeTreasuryIssueConfirm").count("Return False"), 1)
+        self.assertIn("If OpenHomeCollectorsProveHome() Then Return TreasuryCleanupCreate(0, False, True)", cleanup)
+        self.assertNotIn("OpenHomeCollectorsProveHome() And _OpenHomeTreasurySelectedFrameReady()", cleanup)
         self.assertIn("#OpenHomeTreasuryClose", cleanup)
         for forbidden in ("findButton(", "findMultiple(", "DllCallMyBot(", "ClickOkay(", "LocateClanCastle(", "Gem("):
             self.assertNotIn(forbidden, self.open_treasury)

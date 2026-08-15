@@ -130,8 +130,9 @@ EndFunc   ;==>OpenHomeTreasuryIssueConfirm
 
 Func OpenHomeTreasuryCleanup()
 	If _OpenHomeTreasuryStopRequested() Then Return TreasuryCleanupCreate(0, False, False)
-	If OpenHomeCollectorsProveHome() And _OpenHomeTreasurySelectedFrameReady() Then _
-		Return TreasuryCleanupCreate(0, False, True)
+	; A passively proven Home is already a complete reversible cleanup state. This also covers the
+	; zero-input unavailable path where no exact cached Clan Castle coordinate exists.
+	If OpenHomeCollectorsProveHome() Then Return TreasuryCleanupCreate(0, False, True)
 	If Not OpenHomeTreasuryWindowReady() Then Return TreasuryCleanupCreate(0, False, False)
 	If _OpenHomeTreasuryStopRequested() Then Return TreasuryCleanupCreate(0, False, False)
 	If Not Click($OPEN_HOME_TREASURY_CLOSE_X, $OPEN_HOME_TREASURY_CLOSE_Y, 1, 120, "#OpenHomeTreasuryClose", True) Then _
