@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "artifact_id": "run-session-home-collectors.pie64.20260815-080233",
+  "captured_at": "2026-08-15T13:02:33Z",
+  "commit_sha": "70da5c04fb66b9e23724311a98933e20103df218",
+  "redacted": true,
+  "scope": "Exact installed run-session and event lifecycle from one bounded collectors-only Home Village pass, followed by exact recovery of backend-owned ADB helpers. Session, request, process, profile, and account identifiers are intentionally omitted.",
+  "environment": {
+    "os": "Windows 11 Home",
+    "os_version": "10.0.26200",
+    "autoit_version": "3.3.16.1",
+    "emulator": "BlueStacks5",
+    "emulator_version": "5.22.252.1008",
+    "instance_index": 0,
+    "instance_name": "Pie64",
+    "game_version": "18.400.9"
+  },
+  "reviewed_install": {
+    "version": "2.0.0",
+    "architecture": "x86",
+    "source_commit": "37e18906d082dc380b4436f28a242edb4c35d3c2",
+    "binary_commit": "70da5c04fb66b9e23724311a98933e20103df218",
+    "release_manifest_sha256": "78e9eae9830b5ae3203aabb6db21105a74b48961f4c16b8515977ea065f1882b",
+    "package_sha256": "31f44bcb5f7fc47c31aed56c4ae77111db5d762d2e523c3075c1749468554e20"
+  },
+  "binary": {
+    "path": "MyBot.run.exe",
+    "sha256": "1c0e8f7a9b1df03cd9a36d299c7f9dc6c816c1ebb39597344521ee7bcf51f65c",
+    "bytes": 3339776
+  },
+  "plan": {
+    "strategy": "home.collectors",
+    "saved_with_zero_problems": true,
+    "diagnostic_mode": true,
+    "collect_resources": true,
+    "daily_reward": false,
+    "loot_cart": false,
+    "treasury": false,
+    "max_battles": 0,
+    "training": false,
+    "donations": false,
+    "upgrades": false,
+    "account_queue": false,
+    "gem_actions_authorized": false
+  },
+  "readiness_timeline": {
+    "run_state_observed": true,
+    "plan_active_observed": true,
+    "emulator_and_window_attached_observed": true,
+    "adb_ready_observed": true,
+    "game_ready_observed": false,
+    "game_ready_nonclaim": "No explicit sample observed game_ready=true; this artifact does not satisfy the run-plan or emulator game-ready policy.",
+    "same_backend_generation_during_route": true,
+    "terminal_idle_observed": true
+  },
+  "event_delta": {
+    "all_events_share_one_session": true,
+    "session_identifier_retained": false,
+    "sequence_strictly_monotonic": true,
+    "elapsed_time_strictly_monotonic": true,
+    "events": [
+      {"sequence": 1, "timestamp_ms": 5, "type": "session.preparing"},
+      {"sequence": 2, "timestamp_ms": 8688, "type": "session.started"},
+      {"sequence": 3, "timestamp_ms": 8701, "type": "maintenance.collectors.started"},
+      {"sequence": 4, "timestamp_ms": 22222, "type": "maintenance.home-verified"},
+      {"sequence": 5, "timestamp_ms": 22224, "type": "maintenance.collectors.completed"},
+      {"sequence": 6, "timestamp_ms": 22235, "type": "session.stopping"},
+      {"sequence": 7, "timestamp_ms": 22244, "type": "session.completed"}
+    ]
+  },
+  "terminal_state": {
+    "state": "idle",
+    "run_state": false,
+    "plan_active": false,
+    "session_cleared": true,
+    "last_outcome": "completed",
+    "last_message": "Template-free Home collectors completed; collector_clicks=3"
+  },
+  "recovery_cleanup": {
+    "backend_owned_adb_helpers_after_route": 2,
+    "backend_owned_adb_helpers_after_recovery": 0,
+    "main_adb_daemon_preserved": true,
+    "emulator_player_preserved": true,
+    "new_generation_idle": true
+  },
+  "forbidden_activity": {
+    "battle_events": 0,
+    "search_events": 0,
+    "training_events": 0,
+    "donation_events": 0,
+    "upgrade_events": 0,
+    "account_events": 0,
+    "gem_or_purchase_events": 0
+  },
+  "assertions": {
+    "session_started": true,
+    "session_correlated": true,
+    "session_completed": true,
+    "event_session_correlated": true,
+    "event_sequence_monotonic": true,
+    "event_completed": true,
+    "owned_adb_helpers_recovered": true
+  },
+  "privacy": "Only event types, sequence numbers, elapsed times, attachment booleans, terminal state, recovery counts, and reviewed-build digests are retained. Session, request, process, profile, account, player, clan, path, machine, and launch-token identifiers are omitted."
+}
