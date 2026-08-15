@@ -1,0 +1,124 @@
+{
+  "schema_version": 1,
+  "artifact_id": "check-engine.pie64.20260815-061134",
+  "captured_at": "2026-08-15T11:11:34Z",
+  "commit_sha": "bc2de4c081ce23461fb4a4e245d9571ffed59f38",
+  "redacted": true,
+  "scope": "Managed-engine initialization in the reviewed installed backend, returning to idle before plan preparation, authentication, emulator discovery, ADB, recognition, or game input. BlueStacks remained running externally but was never attached by the backend.",
+  "environment": {
+    "os": "Windows 11 Home",
+    "os_version": "10.0.26200",
+    "autoit_version": "3.3.16.1",
+    "emulator": "BlueStacks5 (running, not attached)",
+    "emulator_version": "5.22.252.1008",
+    "instance_index": 0,
+    "instance_name": "Pie64",
+    "game_version": "not observed by engine check"
+  },
+  "reviewed_install": {
+    "version": "2.0.0",
+    "architecture": "x86",
+    "source_commit": "bc2de4c081ce23461fb4a4e245d9571ffed59f38",
+    "release_manifest_sha256": "7aa75ded6d474f2f0618a36fea52fe7588beb0a6b825f02e596a1a6bbc7a0a23",
+    "package_sha256": "a624d921322b09c34d7c43e6c90ebdc06181baf124fb792d79662b84d6e22776",
+    "package_bytes": 32273091,
+    "manifest_records": 2583,
+    "manifest_missing_after_check": 0,
+    "manifest_hash_mismatches_after_check": 0
+  },
+  "binary": {
+    "path": "MyBot.run.exe",
+    "sha256": "2b78e840314fcb7f208408acd04bb8fceb7826a3f66d8c124fc33b1d4445a9d6",
+    "bytes": 3339264
+  },
+  "command": {
+    "action": "check-engine",
+    "http_status": 202,
+    "accepted": true,
+    "native_command_queued": true,
+    "request_identifier_retained": false
+  },
+  "initial_state": {
+    "state": "idle",
+    "run_state": false,
+    "plan_active": false,
+    "engine_available": true,
+    "engine_probe_state": "not-run",
+    "emulator_attached": false,
+    "window_attached": false,
+    "adb_ready": false,
+    "game_ready": false,
+    "plan_exists": false
+  },
+  "supervision": {
+    "lineage_verified": true,
+    "same_backend_identity_before_and_after": true,
+    "sampled_receipt_phases": [
+      {"sequence": 1, "phase": "prepared"},
+      {"sequence": 2, "phase": "pool-entered"},
+      {"sequence": 3, "phase": "pool-returned"},
+      {"sequence": 4, "phase": "max-entered"},
+      {"sequence": 5, "phase": "max-returned"},
+      {"sequence": 6, "phase": "android-entered"},
+      {"sequence": 7, "phase": "android-returned"},
+      {"sequence": 8, "phase": "gui-entered"},
+      {"sequence": 9, "phase": "initialized"}
+    ],
+    "terminal_sequence": 9,
+    "terminal_phase": "initialized",
+    "finalization_outcome": "initialized",
+    "receipt_removed": true,
+    "cancel_removed": true,
+    "command_removed": true,
+    "sampling_note": "A 0.5 ms observer started before command submission and independently retained every monotonic receipt phase. The launcher then finalized the unchanged backend generation and removed all three control artifacts."
+  },
+  "final_state": {
+    "state": "idle",
+    "run_state": false,
+    "plan_active": false,
+    "session_cleared": true,
+    "engine_available": true,
+    "engine_probe_state": "passed",
+    "last_command": "check-engine",
+    "last_outcome": "passed",
+    "emulator_attached": false,
+    "window_attached": false,
+    "adb_ready": false,
+    "game_ready": false
+  },
+  "events": [
+    {
+      "sequence": 1,
+      "type": "engine.check.started",
+      "verification_state": "unverified-diagnostic"
+    },
+    {
+      "sequence": 2,
+      "type": "engine.check.passed",
+      "verification_state": "unverified-diagnostic"
+    }
+  ],
+  "preservation": {
+    "external_profile_before_sha256": "157fed76c5fedf2dd18f2e6cdb1bd562b0396faa300a6630a68da825319abc0e",
+    "external_profile_after_sha256": "157fed76c5fedf2dd18f2e6cdb1bd562b0396faa300a6630a68da825319abc0e",
+    "installed_english_before_sha256": "360f8055f331e09803ddd278411db71a6e4a7f77d57ca7080b672cd07659a0ad",
+    "installed_english_after_sha256": "360f8055f331e09803ddd278411db71a6e4a7f77d57ca7080b672cd07659a0ad",
+    "release_manifest_before_sha256": "7aa75ded6d474f2f0618a36fea52fe7588beb0a6b825f02e596a1a6bbc7a0a23",
+    "release_manifest_after_sha256": "7aa75ded6d474f2f0618a36fea52fe7588beb0a6b825f02e596a1a6bbc7a0a23",
+    "plan_absent_before_and_after": true,
+    "emulator_process_identity_preserved": true,
+    "adb_daemon_identity_preserved": true
+  },
+  "assertions": {
+    "check_engine_accepted": true,
+    "backend_identity_preserved": true,
+    "engine_initialized": true,
+    "idle_restored": true,
+    "supervisor_finalized": true,
+    "diagnostic_events_exact": true,
+    "game_input_absent": true,
+    "new_adb_processes": 0,
+    "configuration_preserved": true
+  },
+  "privacy": "Only allowlisted operational state and integrity digests are retained. Raw request, launch-token, process, creation-time, profile-name, account, player, clan, chat, payment, path, machine, and operator identifiers are omitted."
+}
