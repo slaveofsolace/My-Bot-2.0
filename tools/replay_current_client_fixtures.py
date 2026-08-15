@@ -21,16 +21,19 @@ entry also needs an explicit ``replay_contract`` in its metadata, for example::
       }
     }
 
-This module deliberately ships with no pretend recognizers.  Until a production
-recognizer is wrapped and genuine captures are verified, the repository's
-current manifest replays zero fixtures and proves no current-client surface.
+The registered adapters below load their anchors from the production AutoIt
+sources, so fixture replay cannot silently drift into an easier second
+recognizer.  Each adapter must also reject an all-black frame before any replay
+report is accepted.
 """
 
 from __future__ import annotations
 
 import argparse
+import functools
 import hashlib
 import json
+import re
 import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -44,6 +47,8 @@ except ModuleNotFoundError:  # pragma: no cover - exercised by package imports.
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MANIFEST = ROOT / "tests/fixtures/current-client/manifest.json"
+SCREEN_COORDINATES_SOURCE = ROOT / "COCBot/functions/Config/ScreenCoordinates.au3"
+OPEN_CLAN_REQUEST_SOURCE = ROOT / "COCBot/functions/Run/OpenClanRequest.au3"
 
 
 class FixtureReplayError(RuntimeError):
@@ -92,6 +97,76 @@ class SafeRegion:
 class RecognitionResult:
     state: str
     safe_regions: tuple[SafeRegion, ...]
+
+
+HOME_MAIN_ADAPTER = "production.home-main-pixel-v1"
+CLAN_REQUEST_DIALOG_ADAPTER = "production.open-clan-request-dialog-v1"
+HOME_MAIN_REGION = SafeRegion(id="home-proof", x=378, y=10, width=1, height=1)
+CLAN_REQUEST_SEND_REGION = SafeRegion(id="send", x=455, y=438, width=181, height=83)
+
+
+def _pixel_near(image: DecodedPng, x: int, y: int, expected: int, variation: int) -> bool:
+    if x < 0 or y < 0 or x >= image.width or y >= image.height or image.channels < 3:
+        return False
+    offset = (y * image.width + x) * image.channels
+    actual = image.pixels[offset:offset + 3]
+    wanted = ((expected >> 16) & 0xFF, (expected >> 8) & 0xFF, expected & 0xFF)
+    return all(abs(actual[index] - wanted[index]) <= variation for index in range(3))
+
+
+@functools.lru_cache(maxsize=1)
+def _load_home_main_anchor() -> tuple[int, int, int, int]:
+    source = SCREEN_COORDINATES_SOURCE.read_text(encoding="utf-8-sig")
+    match = re.search(
+        r"Global\s+\$aIsMain\[4\]\s*=\s*\[(\d+),\s*(\d+),\s*0x([0-9A-Fa-f]{6}),\s*(\d+)\]",
+        source,
+    )
+    if match is None:
+        raise FixtureReplayError("cannot load the production $aIsMain pixel contract")
+    x, y, color, variation = match.groups()
+    anchor = (int(x), int(y), int(color, 16), int(variation))
+    if anchor[:2] != (HOME_MAIN_REGION.x, HOME_MAIN_REGION.y):
+        raise FixtureReplayError("production $aIsMain moved outside the reviewed Home proof region")
+    return anchor
+
+
+@functools.lru_cache(maxsize=1)
+def _load_clan_request_dialog_anchors() -> tuple[tuple[int, int, int, int], ...]:
+    source = OPEN_CLAN_REQUEST_SOURCE.read_text(encoding="utf-8-sig")
+    function = re.search(
+        r"Func\s+_OpenClanRequestDialogFrameReady\(\)(.*?)EndFunc",
+        source,
+        re.DOTALL,
+    )
+    if function is None:
+        raise FixtureReplayError("cannot load the production Clan request dialog predicate")
+    anchors = tuple(
+        (int(x), int(y), int(color, 16), int(variation))
+        for x, y, color, variation in re.findall(
+            r"_OpenHomePixelNear\(\s*(\d+)\s*,\s*(\d+)\s*,\s*0x([0-9A-Fa-f]{6})\s*,\s*(\d+)\s*\)",
+            function.group(1),
+        )
+    )
+    if len(anchors) != 11:
+        raise FixtureReplayError(
+            f"production Clan request dialog predicate has {len(anchors)} anchors; expected exactly 11"
+        )
+    return anchors
+
+
+def recognize_home_main(image: DecodedPng, _sink: "NoOpActionSink") -> RecognitionResult | None:
+    if not _pixel_near(image, *_load_home_main_anchor()):
+        return None
+    return RecognitionResult("home.maintenance.ready", (HOME_MAIN_REGION,))
+
+
+def recognize_clan_request_dialog(
+    image: DecodedPng,
+    _sink: "NoOpActionSink",
+) -> RecognitionResult | None:
+    if not all(_pixel_near(image, *anchor) for anchor in _load_clan_request_dialog_anchors()):
+        return None
+    return RecognitionResult("clan.request.send-ready", (CLAN_REQUEST_SEND_REGION,))
 
 
 class PassiveRecognizer(Protocol):
@@ -385,7 +460,10 @@ def main(argv: list[str] | None = None) -> int:
         report = replay_verified_fixtures(
             args.manifest,
             root=args.root,
-            recognizers={},
+            recognizers={
+                HOME_MAIN_ADAPTER: recognize_home_main,
+                CLAN_REQUEST_DIALOG_ADAPTER: recognize_clan_request_dialog,
+            },
             require_verified=args.require_verified,
         )
     except FixtureReplayError as error:

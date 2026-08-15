@@ -37,6 +37,20 @@
     "Decoded-pixel comparison proves that every changed pixel is inside one of the two declared solid privacy masks."
   ],
   "reviewed_by": "My Bot 2.0 runtime review",
-  "reviewed_at": "2026-08-14T23:47:37Z",
-  "notes": "Captured during the authorized supervised no-gem session. The private raw frame remained in memory and was not written to the repository. Status remains redacted until production template recognition is replayed against the committed derivative."
+  "reviewed_at": "2026-08-15T07:27:00Z",
+  "notes": "Captured during the authorized supervised no-gem session. The private raw frame remained in memory and was not written to the repository. The committed derivative replays the production 11-anchor dialog predicate and exposes only its bounded Send region.",
+  "replay_contract": {
+    "schema_version": 1,
+    "adapter": "production.open-clan-request-dialog-v1",
+    "expected_state": "clan.request.send-ready",
+    "safe_regions": [
+      {
+        "id": "send",
+        "x": 455,
+        "y": 438,
+        "width": 181,
+        "height": 83
+      }
+    ]
+  }
 }

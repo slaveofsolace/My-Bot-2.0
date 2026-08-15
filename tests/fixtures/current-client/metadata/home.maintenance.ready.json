@@ -45,5 +45,19 @@
   ],
   "reviewed_by": "My Bot 2.0 runtime review",
   "reviewed_at": "2026-08-14T20:24:52Z",
-  "notes": "Captured before the exact b9b39114 collectors-only pass; raw source remains private and outside the repository. An offline replay of the production color and geometry policy over the committed redacted pixels accepted gold, elixir, and dark-elixir candidates."
+  "notes": "Captured before the exact b9b39114 collectors-only pass; raw source remains private and outside the repository. An offline replay of the production color and geometry policy over the committed redacted pixels accepted gold, elixir, and dark-elixir candidates.",
+  "replay_contract": {
+    "schema_version": 1,
+    "adapter": "production.home-main-pixel-v1",
+    "expected_state": "home.maintenance.ready",
+    "safe_regions": [
+      {
+        "id": "home-proof",
+        "x": 378,
+        "y": 10,
+        "width": 1,
+        "height": 1
+      }
+    ]
+  }
 }

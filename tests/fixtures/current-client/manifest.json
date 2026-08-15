@@ -112,7 +112,7 @@
     },
     {
       "id": "clan.request.available",
-      "status": "redacted",
+      "status": "verified",
       "purpose": "Clan Castle reinforcement request availability and exact bounded Send state",
       "capability_ids": [
         "village.clan-request"

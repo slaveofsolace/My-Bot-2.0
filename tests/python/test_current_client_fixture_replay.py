@@ -9,10 +9,15 @@ import zlib
 from pathlib import Path
 
 from tools.replay_current_client_fixtures import (
+    CLAN_REQUEST_DIALOG_ADAPTER,
+    DEFAULT_MANIFEST,
     FixtureReplayError,
+    HOME_MAIN_ADAPTER,
     RecognitionResult,
     SafeRegion,
     UnsafeActionAttempt,
+    recognize_clan_request_dialog,
+    recognize_home_main,
     replay_verified_fixtures,
 )
 
@@ -112,6 +117,24 @@ class FixtureRepository:
 
 
 class CurrentClientFixtureReplayTests(unittest.TestCase):
+    def test_committed_home_and_clan_request_fixtures_replay_production_predicates(self) -> None:
+        report = replay_verified_fixtures(
+            DEFAULT_MANIFEST,
+            recognizers={
+                HOME_MAIN_ADAPTER: recognize_home_main,
+                CLAN_REQUEST_DIALOG_ADAPTER: recognize_clan_request_dialog,
+            },
+            require_verified=True,
+        )
+
+        self.assertIn("home.maintenance.ready", report.replayed_fixture_ids)
+        self.assertIn("clan.request.available", report.replayed_fixture_ids)
+        self.assertEqual(
+            set(report.checked_adapters),
+            {HOME_MAIN_ADAPTER, CLAN_REQUEST_DIALOG_ADAPTER},
+        )
+        self.assertEqual(report.unknown_checks, 2)
+
     def test_verified_fixture_replays_pixels_regions_and_unknown_fail_closed(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             repository = FixtureRepository(Path(temporary))
