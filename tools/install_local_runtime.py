@@ -41,6 +41,8 @@ REQUIRED_PACKAGE_FILES = {
 }
 FILE_ATTRIBUTE_REPARSE_POINT = 0x400
 CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+RUN_PLAN_RELATIVE = Path("config/run-plan.local.json")
+MAX_SAVED_RUN_PLAN_BYTES = 1024 * 1024
 
 
 def sha256(path: Path) -> str:
@@ -99,6 +101,8 @@ def validate_package(package_root: Path) -> dict:
         relative = normalized_relative(record.get("path", ""))
         if relative.casefold() == "profiles" or relative.casefold().startswith("profiles/"):
             raise ValueError("The LocalRuntime package manifest must exclude the mutable Profiles tree.")
+        if relative.casefold() == RUN_PLAN_RELATIVE.as_posix().casefold():
+            raise ValueError("The LocalRuntime package manifest must exclude the mutable saved run plan.")
         key = relative.casefold()
         if key in expected:
             raise ValueError(f"The package manifest contains a duplicate path: {relative}")
@@ -800,6 +804,27 @@ def copy_payload(package_root: Path, stage: Path) -> None:
     shutil.copytree(package_root, stage, symlinks=False, ignore=reject_links)
 
 
+def stage_preserved_run_plan(install_root: Path, stage: Path) -> bool:
+    source = install_root / RUN_PLAN_RELATIVE
+    if not os.path.lexists(source):
+        return False
+    attributes = getattr(source.lstat(), "st_file_attributes", 0)
+    if source.is_symlink() or attributes & FILE_ATTRIBUTE_REPARSE_POINT or not source.is_file():
+        raise ValueError(f"The saved run plan is not a regular file: {source}")
+    if source.stat().st_size > MAX_SAVED_RUN_PLAN_BYTES:
+        raise ValueError(f"The saved run plan exceeds {MAX_SAVED_RUN_PLAN_BYTES} bytes: {source}")
+    load_json(source)
+
+    destination = stage / RUN_PLAN_RELATIVE
+    if os.path.lexists(destination):
+        raise ValueError("The reviewed package unexpectedly contains the mutable saved run plan.")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source, destination)
+    if destination.stat().st_size != source.stat().st_size or sha256(destination) != sha256(source):
+        raise RuntimeError("The saved run plan was not copied exactly into the staged update.")
+    return True
+
+
 def install(args: argparse.Namespace) -> None:
     package_root = Path(args.package_root).resolve() if args.package_root else Path(__file__).resolve().parents[1]
     install_root, user_data_root, shortcut, uninstall_shortcut, key_path = safe_install_context(args)
@@ -842,8 +867,10 @@ def install(args: argparse.Namespace) -> None:
     snapshot = save_registration(shortcut, uninstall_shortcut, key_path)
     prior_moved = False
     new_installed = False
+    run_plan_preserved = False
     try:
         copy_payload(package_root, stage)
+        run_plan_preserved = stage_preserved_run_plan(install_root, stage)
         if install_root.exists():
             install_root.replace(backup)
             prior_moved = True
@@ -901,6 +928,8 @@ def install(args: argparse.Namespace) -> None:
 
     print(f"{PRODUCT_NAME} {PRODUCT_VERSION} installed at {install_root}")
     print(f"Profiles: {profiles_root}")
+    if run_plan_preserved:
+        print("Saved run plan preserved across the update.")
     if legacy_preserved is not None:
         print(f"Conflicting legacy profile data was preserved at {legacy_preserved}")
     print("Open Start and type: My Bot 2.0")

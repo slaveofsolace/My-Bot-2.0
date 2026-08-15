@@ -56,6 +56,8 @@ Avoid protected folders, cloud-synced folders, unusual Unicode paths, and deeply
 Installed releases keep mutable profiles outside the replaceable program directory at
 `%LOCALAPPDATA%\My Bot 2.0\Profiles`. A first install creates the safe `MyVillage` starting profile
 and selects it in `profile.ini`. Program upgrades and uninstall leave this per-user data in place.
+Reviewed updates also validate and preserve `config\run-plan.local.json` byte-for-byte before the
+payload swap, so the operator's saved Control Center plan survives an in-place upgrade.
 
 The installer can make a one-time, non-destructive copy of a profile directory from this same source
 baseline. From the extracted release directory, run:

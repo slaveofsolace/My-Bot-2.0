@@ -135,6 +135,22 @@ class PythonLocalRuntimeInstall(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "must exclude the mutable Profiles tree"):
                 installer.validate_package(profiles)
 
+            saved_plan = self.create_package(base / "saved-plan")
+            plan_path = saved_plan / installer.RUN_PLAN_RELATIVE
+            plan_path.write_text('{"run.strategy":"home.collectors"}\n', encoding="utf-8")
+            manifest_path = saved_plan / "release-manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["files"].append(
+                {
+                    "path": installer.RUN_PLAN_RELATIVE.as_posix(),
+                    "bytes": plan_path.stat().st_size,
+                    "sha256": digest(plan_path),
+                }
+            )
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "must exclude the mutable saved run plan"):
+                installer.validate_package(saved_plan)
+
     def test_validate_rejects_false_clean_string_and_unsafe_paths(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mybot-python-installer-") as folder:
             package = self.create_package(Path(folder))
@@ -236,11 +252,16 @@ class PythonLocalRuntimeInstall(unittest.TestCase):
                     installer.assert_profiles_junction(link, profiles)
                     sentinel = profiles / "MyVillage" / "persistent-sentinel.txt"
                     sentinel.write_text("keep", encoding="utf-8")
+                    saved_plan = install_root / installer.RUN_PLAN_RELATIVE
+                    saved_plan.parent.mkdir(parents=True, exist_ok=True)
+                    saved_plan_bytes = b'{"run.strategy":"home.clan-request","run.diagnostic_mode":true}\n'
+                    saved_plan.write_bytes(saved_plan_bytes)
 
                     new = self.create_package(root / "new", marker=b"-new")
                     self.assertEqual(installer.main(["--package-root", str(new), *common]), 0)
                     installer.assert_profiles_junction(link, profiles)
                     self.assertEqual(sentinel.read_text(encoding="utf-8"), "keep")
+                    self.assertEqual(saved_plan.read_bytes(), saved_plan_bytes)
                     new_launcher = (install_root / "My Bot 2.0.exe").read_bytes()
 
                     failed = self.create_package(root / "failed", marker=b"-failed")
@@ -249,6 +270,7 @@ class PythonLocalRuntimeInstall(unittest.TestCase):
                     self.assertEqual((install_root / "My Bot 2.0.exe").read_bytes(), new_launcher)
                     installer.assert_profiles_junction(link, profiles)
                     self.assertEqual(sentinel.read_text(encoding="utf-8"), "keep")
+                    self.assertEqual(saved_plan.read_bytes(), saved_plan_bytes)
 
                     self.assertEqual(installer.main(["--uninstall", "--install-directory", str(install_root)]), 0)
                     self.assertFalse(install_root.exists())
@@ -371,6 +393,8 @@ class PythonLocalRuntimeInstall(unittest.TestCase):
         source = MODULE_PATH.read_text(encoding="utf-8")
         transaction = source[source.index("snapshot = save_registration") :]
         self.assertLess(transaction.index("try:"), transaction.index("copy_payload(package_root, stage)"))
+        self.assertLess(transaction.index("copy_payload(package_root, stage)"), transaction.index("stage_preserved_run_plan(install_root, stage)"))
+        self.assertLess(transaction.index("stage_preserved_run_plan(install_root, stage)"), transaction.index("install_root.replace(backup)"))
         self.assertIn("if stage.exists():\n            shutil.rmtree(stage)", transaction)
         self.assertIn("or repair.exists()", source)
 

@@ -101,6 +101,12 @@ class LocalRuntimeInstallContract(unittest.TestCase):
         self.assertIn("Profiles.local-preserved-", PYTHON_INSTALLER)
         self.assertIn("shutil.copy2(source, target)", PYTHON_INSTALLER)
 
+    def test_installer_preserves_the_saved_run_plan_before_payload_swap(self) -> None:
+        self.assertIn("def stage_preserved_run_plan", PYTHON_INSTALLER)
+        transaction = PYTHON_INSTALLER[PYTHON_INSTALLER.index("snapshot = save_registration") :]
+        self.assertLess(transaction.index("stage_preserved_run_plan(install_root, stage)"), transaction.index("install_root.replace(backup)"))
+        self.assertIn("must exclude the mutable saved run plan", PYTHON_INSTALLER)
+
     def test_command_launchers_prefer_non_clr_python_installer(self) -> None:
         for source in (INSTALL_CMD, UNINSTALL_CMD):
             self.assertIn("install_local_runtime.py", source)
