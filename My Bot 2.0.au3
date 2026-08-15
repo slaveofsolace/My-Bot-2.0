@@ -260,17 +260,84 @@ Func _RecoverBotStack()
 	; backend first would discard the strongest part of the ownership chain and make a stale PID look
 	; more trustworthy than it is.
 	Local $bPlannerClosed = _CloseOwnedPlannerService()
+	; ADB shell/exec clients are direct backend children. Snapshot their exact process identity before
+	; closing Mini or the backend, because Windows retains them as orphans if the backend exits before
+	; its normal pipe teardown. The emulator-owned ADB server is not a backend child and is never selected.
+	Local $aOwnedAdbChildren = _SnapshotOwnedAdbChildren()
 	_CloseExactPathProcesses("MyBot.run.MiniGui.exe", $g_sControllerPath)
 	_CloseExactPathProcesses("MyBot.run.exe", $g_sHostPath)
+	Local $bAdbChildrenClosed = _CloseVerifiedAdbChildren($aOwnedAdbChildren)
 	_CloseExactPathProcesses("My Bot 2.0.exe", @ScriptFullPath, @AutoItPID)
 
 	Local $hController = _FindControllerWindow()
 	Local $bControllerClosed = Not $hController
 	Local $bBackendClosed = _CountExactPathProcesses("MyBot.run.exe", $g_sHostPath) = 0
-	Local $bRecovered = $bControllerClosed And $bBackendClosed And $bPlannerClosed
-	_RecoveryLog("recovery completed; controller_closed=" & $bControllerClosed & "; backend_closed=" & $bBackendClosed & "; planner_closed=" & $bPlannerClosed)
+	Local $bRecovered = $bControllerClosed And $bBackendClosed And $bPlannerClosed And $bAdbChildrenClosed
+	_RecoveryLog("recovery completed; controller_closed=" & $bControllerClosed & "; backend_closed=" & $bBackendClosed & "; planner_closed=" & $bPlannerClosed & "; adb_children_closed=" & $bAdbChildrenClosed)
 	Return $bRecovered
 EndFunc   ;==>_RecoverBotStack
+
+Func _SnapshotOwnedAdbChildren()
+	Local $aChildren[1][4]
+	Local $iCount = 0
+	Local $aBackendProcesses = ProcessList("MyBot.run.exe")
+	Local $aAdbNames[2] = ["HD-Adb.exe", "adb.exe"]
+	For $iBackend = 1 To $aBackendProcesses[0][0]
+		Local $iBackendPid = $aBackendProcesses[$iBackend][1]
+		If StringLower(_ProcessImagePath($iBackendPid)) <> StringLower($g_sHostPath) Then ContinueLoop
+		For $iName = 0 To UBound($aAdbNames) - 1
+			Local $aProcesses = ProcessList($aAdbNames[$iName])
+			For $i = 1 To $aProcesses[0][0]
+				Local $iPid = $aProcesses[$i][1]
+				If _ProcessParentPid($iPid) <> $iBackendPid Then ContinueLoop
+				Local $sCreated = _ProcessCreationId($iPid)
+				If Not StringRegExp($sCreated, "^[0-9a-f]{16}$") Then
+					_RecoveryLog("refused unprovable backend ADB child; pid=" & $iPid & "; parent=" & $iBackendPid)
+					ContinueLoop
+				EndIf
+				$iCount += 1
+				ReDim $aChildren[$iCount + 1][4]
+				$aChildren[$iCount][0] = $iPid
+				$aChildren[$iCount][1] = $sCreated
+				$aChildren[$iCount][2] = $aAdbNames[$iName]
+				$aChildren[$iCount][3] = $iBackendPid
+			Next
+		Next
+	Next
+	$aChildren[0][0] = $iCount
+	Return $aChildren
+EndFunc   ;==>_SnapshotOwnedAdbChildren
+
+Func _ProcessNameMatches($iPid, $sExpectedName)
+	Local $aProcesses = ProcessList($sExpectedName)
+	For $i = 1 To $aProcesses[0][0]
+		If $aProcesses[$i][1] = $iPid Then Return True
+	Next
+	Return False
+EndFunc   ;==>_ProcessNameMatches
+
+Func _CloseVerifiedAdbChildren(ByRef $aChildren)
+	Local $bAllClosed = True
+	For $i = 1 To $aChildren[0][0]
+		Local $iPid = $aChildren[$i][0]
+		If Not ProcessExists($iPid) Then ContinueLoop
+		Local $sCreated = $aChildren[$i][1]
+		Local $sName = $aChildren[$i][2]
+		Local $iBackendPid = $aChildren[$i][3]
+		If _ProcessCreationId($iPid) <> $sCreated Or _ProcessParentPid($iPid) <> $iBackendPid Or Not _ProcessNameMatches($iPid, $sName) Then
+			_RecoveryLog("refused changed backend ADB child; pid=" & $iPid & "; recorded_parent=" & $iBackendPid)
+			$bAllClosed = False
+			ContinueLoop
+		EndIf
+		_RecoveryLog("closing verified backend ADB child; name=" & $sName & "; pid=" & $iPid & "; parent=" & $iBackendPid)
+		Local $bCloseIssued = ProcessClose($iPid)
+		If (Not $bCloseIssued And ProcessExists($iPid)) Or Not ProcessWaitClose($iPid, 2) Then
+			_RecoveryLog("verified backend ADB child remained alive; name=" & $sName & "; pid=" & $iPid)
+			$bAllClosed = False
+		EndIf
+	Next
+	Return $bAllClosed
+EndFunc   ;==>_CloseVerifiedAdbChildren
 
 Func _PlannerReceiptString($sReceipt, $sName)
 	Local $aValue = StringRegExp($sReceipt, '"' & $sName & '"\s*:\s*"([A-Za-z0-9_-]+)"', $STR_REGEXPARRAYMATCH)

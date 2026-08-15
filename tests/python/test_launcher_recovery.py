@@ -116,6 +116,25 @@ class LauncherRecoveryContractTests(unittest.TestCase):
         self.assertIn('_CloseExactPathProcesses("MyBot.run.exe", $g_sHostPath)', LAUNCHER)
         self.assertIn('_CloseExactPathProcesses("My Bot 2.0.exe", @ScriptFullPath, @AutoItPID)', LAUNCHER)
 
+    def test_recovery_closes_only_identity_bound_backend_adb_children(self):
+        recovery = LAUNCHER[LAUNCHER.index("Func _RecoverBotStack()"):LAUNCHER.index("EndFunc   ;==>_RecoverBotStack")]
+        snapshot = LAUNCHER[LAUNCHER.index("Func _SnapshotOwnedAdbChildren()"):LAUNCHER.index("EndFunc   ;==>_SnapshotOwnedAdbChildren")]
+        close = LAUNCHER[LAUNCHER.index("Func _CloseVerifiedAdbChildren("):LAUNCHER.index("EndFunc   ;==>_CloseVerifiedAdbChildren")]
+        self.assertLess(recovery.index("_SnapshotOwnedAdbChildren()"), recovery.index('_CloseExactPathProcesses("MyBot.run.MiniGui.exe"'))
+        self.assertLess(recovery.index('_CloseExactPathProcesses("MyBot.run.exe"'), recovery.index("_CloseVerifiedAdbChildren("))
+        self.assertIn('StringLower(_ProcessImagePath($iBackendPid)) <> StringLower($g_sHostPath)', snapshot)
+        self.assertIn('Local $aAdbNames[2] = ["HD-Adb.exe", "adb.exe"]', snapshot)
+        self.assertIn("_ProcessParentPid($iPid) <> $iBackendPid", snapshot)
+        self.assertIn("_ProcessCreationId($iPid)", snapshot)
+        self.assertIn("_ProcessCreationId($iPid) <> $sCreated", close)
+        self.assertIn("_ProcessParentPid($iPid) <> $iBackendPid", close)
+        self.assertIn("Not _ProcessNameMatches($iPid, $sName)", close)
+        self.assertIn("ProcessClose($iPid)", close)
+        self.assertIn("ProcessWaitClose($iPid, 2)", close)
+        self.assertIn("And $bAdbChildrenClosed", recovery)
+        self.assertNotIn("kill-server", recovery + snapshot + close)
+        self.assertNotIn("HD-Player", recovery + snapshot + close)
+
     def test_owned_autoit_errors_are_logged_before_close(self):
         start = LAUNCHER.index("Func _CloseOwnedAutoItErrorDialogs()")
         end = LAUNCHER.index("EndFunc   ;==>_CloseOwnedAutoItErrorDialogs", start)
