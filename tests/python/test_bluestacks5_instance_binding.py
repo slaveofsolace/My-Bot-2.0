@@ -50,6 +50,31 @@ class BlueStacks5InstanceBindingTests(unittest.TestCase):
         )
         self.assertNotIn('WinGetTitle($hWindow) = ""', surface)
 
+    def test_exact_hung_instance_is_distinguished_without_process_mutation(self) -> None:
+        hung = function_body("BlueStacks5ExactInstanceWindowHung")
+        for required in (
+            "_BlueStacks5ConfiguredAdbOwnerPid()",
+            "_WinAPI_EnumWindows(False)",
+            "_BlueStacks5ModernWindowMatchesInstance($hWindow, $iAdbOwnerPid)",
+            'DllCall("user32.dll", "bool", "IsHungAppWindow", "hwnd", $hFound)',
+            "$iFound <> 1",
+        ):
+            self.assertIn(required, hung)
+        for forbidden in ("ProcessClose", "taskkill", "CloseBlueStacks5", "RebootAndroid", "OpenAndroid"):
+            self.assertNotIn(forbidden, hung)
+
+        action = (ROOT / "COCBot/MBR GUI Action.au3").read_text(encoding="utf-8-sig")
+        gate_match = re.search(
+            r"(?ms)^Func _BotOpenHomeRequireExactBlueStacks\([^\r\n]*\).*?^EndFunc",
+            action,
+        )
+        self.assertIsNotNone(gate_match)
+        gate = gate_match.group(0)
+        self.assertLess(gate.index("BlueStacks5ExactInstanceWindowHung()"), gate.index("WinGetAndroidHandle()"))
+        self.assertIn("is not responding; use Recovery", gate)
+        self.assertNotIn("ProcessClose", gate)
+        self.assertEqual(action.count("_BotOpenHomeRequireExactBlueStacks($sAttachmentError)"), 4)
+
     def test_bound_adb_surface_never_enters_synchronous_qt_window_management(self) -> None:
         match = re.search(
             r"(?ms)^Func HideAndroidWindow\([^\r\n]*\).*?^EndFunc",

@@ -51,6 +51,31 @@ Func _BlueStacks5ModernWindowMatchesInstance($hWindow, $iAdbOwnerPid)
 	Return $sTitle = "" Or StringCompare($sTitle, "BlueStacks5-" & $g_sAndroidInstance, 0) = 0
 EndFunc   ;==>_BlueStacks5ModernWindowMatchesInstance
 
+; Distinguish a uniquely bound but frozen modern player from an instance that is absent. The
+; template-free one-shot routes intentionally never launch, reboot, or terminate BlueStacks, but a
+; precise diagnostic lets the operator use the reviewed Recovery path instead of being told that an
+; exact window which still exists is "not already running".
+Func BlueStacks5ExactInstanceWindowHung()
+	Local $iAdbOwnerPid = _BlueStacks5ConfiguredAdbOwnerPid()
+	If $iAdbOwnerPid <= 0 Then Return False
+	Local $aWindows = _WinAPI_EnumWindows(False)
+	If Not IsArray($aWindows) Then Return False
+
+	Local $hFound = 0
+	Local $iFound = 0
+	For $i = 1 To $aWindows[0][0]
+		Local $hWindow = $aWindows[$i][0]
+		If Not _BlueStacks5ModernWindowMatchesInstance($hWindow, $iAdbOwnerPid) Then ContinueLoop
+		$hFound = $hWindow
+		$iFound += 1
+	Next
+	If $iFound <> 1 Or Not IsHWnd($hFound) Then Return False
+
+	Local $aHung = DllCall("user32.dll", "bool", "IsHungAppWindow", "hwnd", $hFound)
+	If @error Or Not IsArray($aHung) Then Return False
+	Return $aHung[0] <> 0
+EndFunc   ;==>BlueStacks5ExactInstanceWindowHung
+
 ; BlueStacks 5.22 moved its visible shell from the inherited BlueStacksApp class/title to a Qt
 ; top-level window. Prefer the exact configured title, but when BlueStacks publishes an empty title
 ; bind the unique Qt shell to the unique OS-owned ADB listener PID for this exact instance.

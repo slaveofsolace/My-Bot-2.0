@@ -275,7 +275,7 @@ class OpenHomeCollectorsTest(unittest.TestCase):
         runner = autoit_function(action, "_BotStartOpenHomeCollectors")
         for proof in (
             "HomeMaintenanceRouteAccountMatches",
-            "WinGetAndroidHandle() = 0",
+            "_BotOpenHomeRequireExactBlueStacks($sAttachmentError)",
             "$g_bAndroidAdbScreencap",
             "$g_bAndroidAdbClick",
             "AndroidControlAvailable()",
@@ -297,7 +297,7 @@ class OpenHomeCollectorsTest(unittest.TestCase):
         loot_runner = autoit_function(action, "_BotStartOpenHomeLootCart")
         for proof in (
             "HomeMaintenanceRouteAccountMatches",
-            "WinGetAndroidHandle() = 0",
+            "_BotOpenHomeRequireExactBlueStacks($sAttachmentError)",
             "$g_bAndroidAdbScreencap",
             "$g_bAndroidAdbClick",
             "AndroidControlAvailable()",
@@ -320,7 +320,7 @@ class OpenHomeCollectorsTest(unittest.TestCase):
         daily_runner = autoit_function(action, "_BotStartOpenDailyReward")
         for proof in (
             "HomeMaintenanceRouteAccountMatches",
-            "WinGetAndroidHandle() = 0",
+            "_BotOpenHomeRequireExactBlueStacks($sAttachmentError)",
             "$g_bAndroidAdbScreencap",
             "$g_bAndroidAdbClick",
             "AndroidControlAvailable()",

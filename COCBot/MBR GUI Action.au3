@@ -35,6 +35,19 @@ Func _BotOpenDailyRewardFail($sReason)
 	Return False
 EndFunc   ;==>_BotOpenDailyRewardFail
 
+Func _BotOpenHomeRequireExactBlueStacks(ByRef $sReason)
+	$sReason = ""
+	If BlueStacks5ExactInstanceWindowHung() Then
+		$sReason = "The exact BlueStacks 5 instance is not responding; use Recovery and restart that instance before retrying"
+		Return False
+	EndIf
+	If WinGetAndroidHandle() = 0 Then
+		$sReason = "The exact BlueStacks 5 instance is not already running"
+		Return False
+	EndIf
+	Return True
+EndFunc   ;==>_BotOpenHomeRequireExactBlueStacks
+
 ; Run one collectors-only pass without loading the restricted managed image engine. The emulator must
 ; already be running and exactly match the bound BlueStacks 5 instance; this path never launches,
 ; reboots, resizes, zooms, authenticates, searches, trains, donates, upgrades, or spends.
@@ -44,7 +57,8 @@ Func _BotStartOpenHomeCollectors(ByRef $sStartError)
 	Local $oIntent = RunExecutionPreparedIntent()
 	If Not IsObj($oIntent) Or Not HomeMaintenanceRouteAccountMatches($oIntent, $g_sProfileCurrentName) Then _
 		Return _BotOpenCollectorsReject("The active profile no longer matches the account bound at Start")
-	If WinGetAndroidHandle() = 0 Then Return _BotOpenCollectorsReject("The exact BlueStacks 5 instance is not already running")
+	Local $sAttachmentError = ""
+	If Not _BotOpenHomeRequireExactBlueStacks($sAttachmentError) Then Return _BotOpenCollectorsReject($sAttachmentError)
 	If Not $g_bAndroidAdbScreencap Or Not $g_bAndroidAdbClick Or Not AndroidControlAvailable() Or _
 			Not IsArray(GetBlueStacks5ModernAdbSurfacePosition()) Then _
 		Return _BotOpenCollectorsReject("The exact BlueStacks 5 ADB capture/click surface is not available")
@@ -103,7 +117,8 @@ Func _BotStartOpenHomeLootCart(ByRef $sStartError)
 	Local $oIntent = RunExecutionPreparedIntent()
 	If Not IsObj($oIntent) Or Not HomeMaintenanceRouteAccountMatches($oIntent, $g_sProfileCurrentName) Then _
 		Return _BotOpenCollectorsReject("The active profile no longer matches the account bound at Start")
-	If WinGetAndroidHandle() = 0 Then Return _BotOpenCollectorsReject("The exact BlueStacks 5 instance is not already running")
+	Local $sAttachmentError = ""
+	If Not _BotOpenHomeRequireExactBlueStacks($sAttachmentError) Then Return _BotOpenCollectorsReject($sAttachmentError)
 	If Not $g_bAndroidAdbScreencap Or Not $g_bAndroidAdbClick Or Not AndroidControlAvailable() Or _
 			Not IsArray(GetBlueStacks5ModernAdbSurfacePosition()) Then _
 		Return _BotOpenCollectorsReject("The exact BlueStacks 5 ADB capture/click surface is not available")
@@ -174,7 +189,8 @@ Func _BotStartOpenDailyReward(ByRef $sStartError)
 	Local $oIntent = RunExecutionPreparedIntent()
 	If Not IsObj($oIntent) Or Not HomeMaintenanceRouteAccountMatches($oIntent, $g_sProfileCurrentName) Then _
 		Return _BotOpenCollectorsReject("The active profile no longer matches the account bound at Start")
-	If WinGetAndroidHandle() = 0 Then Return _BotOpenCollectorsReject("The exact BlueStacks 5 instance is not already running")
+	Local $sAttachmentError = ""
+	If Not _BotOpenHomeRequireExactBlueStacks($sAttachmentError) Then Return _BotOpenCollectorsReject($sAttachmentError)
 	If Not $g_bAndroidAdbScreencap Or Not $g_bAndroidAdbClick Or Not AndroidControlAvailable() Or _
 			Not IsArray(GetBlueStacks5ModernAdbSurfacePosition()) Then _
 		Return _BotOpenCollectorsReject("The exact BlueStacks 5 ADB capture/click surface is not available")
@@ -277,7 +293,8 @@ Func _BotStartOpenClanRequest(ByRef $sStartError)
 	Local $oIntent = RunExecutionPreparedIntent()
 	If Not IsObj($oIntent) Or Not ClanRequestRouteAccountMatches($oIntent, $g_sProfileCurrentName) Then _
 		Return _BotOpenCollectorsReject("The active profile no longer matches the account bound at Start")
-	If WinGetAndroidHandle() = 0 Then Return _BotOpenCollectorsReject("The exact BlueStacks 5 instance is not already running")
+	Local $sAttachmentError = ""
+	If Not _BotOpenHomeRequireExactBlueStacks($sAttachmentError) Then Return _BotOpenCollectorsReject($sAttachmentError)
 	If Not $g_bAndroidAdbScreencap Or Not $g_bAndroidAdbClick Or Not AndroidControlAvailable() Or _
 			Not IsArray(GetBlueStacks5ModernAdbSurfacePosition()) Then _
 		Return _BotOpenCollectorsReject("The exact BlueStacks 5 ADB capture/click surface is not available")
