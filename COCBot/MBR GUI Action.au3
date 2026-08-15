@@ -180,6 +180,79 @@ Func _BotStartOpenHomeLootCart(ByRef $sStartError)
 	Return True
 EndFunc   ;==>_BotStartOpenHomeLootCart
 
+; Run a Treasury pass on the exact BlueStacks framebuffer without entering the managed engine or
+; inherited image recognizer. This build proves the empty/not-full terminal state and closes the exact
+; Treasury window; an actionable/full state remains fail-closed until Collect/confirm proof is reviewed.
+Func _BotStartOpenHomeTreasury(ByRef $sStartError)
+	If RunControlStopRequested() Then Return _BotOpenCollectorsReject("Template-free Treasury cancelled before attachment", "cancelled")
+	If Not RunExecutionApplyPrepared($sStartError) Then Return _BotOpenCollectorsReject($sStartError)
+	Local $oIntent = RunExecutionPreparedIntent()
+	If Not IsObj($oIntent) Or Not HomeMaintenanceRouteAccountMatches($oIntent, $g_sProfileCurrentName) Then _
+		Return _BotOpenCollectorsReject("The active profile no longer matches the account bound at Start")
+	Local $sAttachmentError = ""
+	If Not _BotOpenHomeRequireExactBlueStacks($sAttachmentError) Then Return _BotOpenCollectorsReject($sAttachmentError)
+	If Not $g_bAndroidAdbScreencap Or Not $g_bAndroidAdbClick Or Not AndroidControlAvailable() Or _
+			Not IsArray(GetBlueStacks5ModernAdbSurfacePosition()) Then _
+		Return _BotOpenCollectorsReject("The exact BlueStacks 5 ADB capture/click surface is not available")
+	If Not OpenHomeCollectorsProveHome() Then Return _BotOpenCollectorsReject("The current screen is not the proven Home Village")
+	If RunControlStopRequested() Then Return _BotOpenCollectorsReject("Template-free Treasury cancelled before execution", "cancelled")
+
+	$g_bRunState = True
+	$g_bTogglePauseAllowed = False
+	If Not RunExecutionBegin($sStartError) Then Return _BotOpenCollectorsReject($sStartError)
+	RunControlReportStartOutcome(True, "Template-free Treasury pass started")
+	RunEventLogMaintenanceTreasuryStarted()
+
+	Local $oTreasury = TreasuryRouteRunAdapter("OpenHomeTreasuryDetectCastle", "OpenHomeTreasuryIssueCastle", _
+			"OpenHomeTreasuryDetectEntry", "OpenHomeTreasuryIssueEntry", "OpenHomeTreasuryDetectCollect", _
+			"OpenHomeTreasuryIssueCollect", "OpenHomeTreasuryDetectConfirm", "OpenHomeTreasuryIssueConfirm", _
+			"_OpenHomeTreasuryStopRequested", "OpenHomeTreasuryCleanup")
+	If Not IsObj($oTreasury) Then
+		$sStartError = "Template-free Treasury returned no bounded outcome"
+	Else
+		Local $sTreasuryState = String($oTreasury.Item("state"))
+		If $sTreasuryState = $TREASURY_OUTCOME_CANCELLED Or RunControlStopRequested() Or Not $g_bRunState Then
+			RunExecutionComplete("stopped")
+			RunControlReportOneShotOutcome("stopped", "Template-free Treasury stopped")
+			Return False
+		EndIf
+		If Not $oTreasury.Item("home_proven") Then
+			RunEventLogMaintenanceTreasuryUnconfirmed($oTreasury.Item("collect_issued"), _
+					$oTreasury.Item("confirm_issued"), $oTreasury.Item("detail") & "; Home Village was not re-proven")
+			$sStartError = "Template-free Treasury could not re-prove Home; inputs will not be retried"
+		Else
+			RunEventLogMaintenanceTreasuryHomeVerified($sTreasuryState)
+			Switch $sTreasuryState
+				Case $TREASURY_OUTCOME_CONFIRM_ISSUED
+					; The accepted confirmation callback already emitted the irreversible receipt.
+				Case $TREASURY_OUTCOME_UNAVAILABLE
+					RunEventLogMaintenanceTreasuryUnavailable($oTreasury.Item("detail"))
+				Case $TREASURY_OUTCOME_UNCONFIRMED
+					RunEventLogMaintenanceTreasuryUnconfirmed($oTreasury.Item("collect_issued"), _
+							$oTreasury.Item("confirm_issued"), $oTreasury.Item("detail"))
+					$sStartError = $oTreasury.Item("detail") & "; Treasury inputs will not be retried"
+				Case Else
+					$sStartError = "Template-free Treasury returned an unknown terminal state"
+			EndSwitch
+		EndIf
+	EndIf
+
+	If $sStartError <> "" Then
+		RunEventLogRunFailed("regular", $RUN_VERIFICATION_DIAGNOSTIC, $sStartError)
+		RunExecutionCancelPrepared($sStartError)
+		RunControlReportOneShotOutcome("failed", $sStartError)
+		Return False
+	EndIf
+
+	RunEventLogMaintenanceHomeVerified(0, "disabled", "disabled", $sTreasuryState)
+	Local $sReason = $sTreasuryState = $TREASURY_OUTCOME_CONFIRM_ISSUED ? "home-treasury-complete" : "home-treasury-none-actionable"
+	RunExecutionComplete($sReason)
+	Local $sMessage = "Template-free Treasury completed; state=" & $sTreasuryState
+	RunControlReportOneShotOutcome("completed", $sMessage)
+	SetLog("Run Planner: " & $sMessage, $COLOR_SUCCESS)
+	Return True
+EndFunc   ;==>_BotStartOpenHomeTreasury
+
 ; Run the startup Daily Reward on the already-running exact BlueStacks instance. Recognition and
 ; input are framebuffer/ADB-only; no managed engine, ImgLoc, OCR, authentication, or generic obstacle
 ; handler is entered. The only irreversible input is one freshly re-proven Claim button.
@@ -404,10 +477,11 @@ Func BotStart($bAutostartDelay = 0)
 	EndIf
 	Local $oPreparedIntent = RunExecutionPreparedIntent()
 	Local $iOpenCollectorsMode = OpenHomeCollectorsPreparedMode($oPreparedIntent, $sStartError)
-	; OpenHomeCollectorsPreparedMode contract: 1=collectors, 2=Loot Cart, 3=Daily Reward, -1=fail-closed Home selection.
+	; OpenHomeCollectorsPreparedMode contract: 1=collectors, 2=Loot Cart, 3=Daily Reward, 4=Treasury, -1=invalid Home selection.
 	If $iOpenCollectorsMode = 1 Then Return FuncReturn(_BotStartOpenHomeCollectors($sStartError))
 	If $iOpenCollectorsMode = 2 Then Return FuncReturn(_BotStartOpenHomeLootCart($sStartError))
 	If $iOpenCollectorsMode = 3 Then Return FuncReturn(_BotStartOpenDailyReward($sStartError))
+	If $iOpenCollectorsMode = 4 Then Return FuncReturn(_BotStartOpenHomeTreasury($sStartError))
 	If $iOpenCollectorsMode = -1 Then Return FuncReturn(_BotOpenCollectorsReject($sStartError))
 	If ClanRequestRouteSelected($oPreparedIntent) Then Return FuncReturn(_BotStartOpenClanRequest($sStartError))
 

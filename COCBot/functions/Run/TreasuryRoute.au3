@@ -7,6 +7,7 @@
 #include-once
 
 Global Const $TREASURY_STATE_CASTLE_READY = "clan-castle-ready"
+Global Const $TREASURY_STATE_CASTLE_SELECTED = "clan-castle-selected"
 Global Const $TREASURY_STATE_CASTLE_MISSING = "clan-castle-missing"
 Global Const $TREASURY_STATE_ENTRY_READY = "treasury-entry-ready"
 Global Const $TREASURY_STATE_ENTRY_MISSING = "treasury-entry-missing"
@@ -38,7 +39,7 @@ Func TreasuryObservationValid(ByRef $oObservation)
 		Case $TREASURY_STATE_CASTLE_READY, $TREASURY_STATE_ENTRY_READY, $TREASURY_STATE_COLLECT_READY, $TREASURY_STATE_CONFIRM_READY
 			Return Int($oObservation.Item("x")) >= 0 And Int($oObservation.Item("x")) <= 859 And _
 					Int($oObservation.Item("y")) >= 0 And Int($oObservation.Item("y")) <= 731
-		Case $TREASURY_STATE_CASTLE_MISSING, $TREASURY_STATE_ENTRY_MISSING, $TREASURY_STATE_NOT_FULL, _
+		Case $TREASURY_STATE_CASTLE_SELECTED, $TREASURY_STATE_CASTLE_MISSING, $TREASURY_STATE_ENTRY_MISSING, $TREASURY_STATE_NOT_FULL, _
 				$TREASURY_STATE_HOME_STORAGE_FULL, $TREASURY_STATE_COLLECT_MISSING, $TREASURY_STATE_CONFIRM_MISSING
 			Return Int($oObservation.Item("x")) = -1 And Int($oObservation.Item("y")) = -1
 	EndSwitch
@@ -140,20 +141,28 @@ Func TreasuryRouteRunAdapter($sDetectCastleCallback, $sIssueCastleCallback, $sDe
 		Return _TreasuryRouteFinishUnlessStopped($oOutcome, $TREASURY_OUTCOME_UNCONFIRMED, "Fresh Clan Castle state was not recognized", $sStopRequestedCallback, $sCleanupCallback)
 	If String($oObservation.Item("state")) = $TREASURY_STATE_CASTLE_MISSING Then _
 		Return _TreasuryRouteFinishUnlessStopped($oOutcome, $TREASURY_OUTCOME_UNAVAILABLE, "No exact cached Clan Castle location is available", $sStopRequestedCallback, $sCleanupCallback)
-	If String($oObservation.Item("state")) <> $TREASURY_STATE_CASTLE_READY Then _
-		Return _TreasuryRouteFinishUnlessStopped($oOutcome, $TREASURY_OUTCOME_UNCONFIRMED, "Expected a verified Clan Castle coordinate", $sStopRequestedCallback, $sCleanupCallback)
-	If Call($sStopRequestedCallback) Then Return _TreasuryRouteCancel($oOutcome, "Stop requested before selecting the Clan Castle")
-	If Not _TreasuryRouteIssue($oOutcome, "castle", $sIssueCastleCallback, $oObservation) Then _
-		Return _TreasuryRouteFinishUnlessStopped($oOutcome, $TREASURY_OUTCOME_UNCONFIRMED, "The one Clan Castle selection attempt was not accepted", $sStopRequestedCallback, $sCleanupCallback)
-	If Call($sStopRequestedCallback) Then Return _TreasuryRouteCancel($oOutcome, "Stop requested after selecting the Clan Castle", True)
+	Local $bAfterInput = False
+	Switch String($oObservation.Item("state"))
+		Case $TREASURY_STATE_CASTLE_READY
+			If Call($sStopRequestedCallback) Then Return _TreasuryRouteCancel($oOutcome, "Stop requested before selecting the Clan Castle")
+			If Not _TreasuryRouteIssue($oOutcome, "castle", $sIssueCastleCallback, $oObservation) Then _
+				Return _TreasuryRouteFinishUnlessStopped($oOutcome, $TREASURY_OUTCOME_UNCONFIRMED, "The one Clan Castle selection attempt was not accepted", $sStopRequestedCallback, $sCleanupCallback)
+			$bAfterInput = True
+			If Call($sStopRequestedCallback) Then Return _TreasuryRouteCancel($oOutcome, "Stop requested after selecting the Clan Castle", True)
+		Case $TREASURY_STATE_CASTLE_SELECTED
+			; A freshly recognized selected Clan Castle needs no redundant village input.
+		Case Else
+			Return _TreasuryRouteFinishUnlessStopped($oOutcome, $TREASURY_OUTCOME_UNCONFIRMED, "Expected a verified or already-selected Clan Castle", $sStopRequestedCallback, $sCleanupCallback)
+	EndSwitch
 
 	If Not _TreasuryRouteReadObservation($sDetectEntryCallback, $oObservation) Then _
-		Return _TreasuryRouteFinishUnlessStopped($oOutcome, $TREASURY_OUTCOME_UNCONFIRMED, "The selected building was not a recognized Clan Castle with a Treasury entry", $sStopRequestedCallback, $sCleanupCallback, True)
+		Return _TreasuryRouteFinishUnlessStopped($oOutcome, $TREASURY_OUTCOME_UNCONFIRMED, "The selected building was not a recognized Clan Castle with a Treasury entry", $sStopRequestedCallback, $sCleanupCallback, $bAfterInput)
 	If String($oObservation.Item("state")) <> $TREASURY_STATE_ENTRY_READY Then _
-		Return _TreasuryRouteFinishUnlessStopped($oOutcome, $TREASURY_OUTCOME_UNCONFIRMED, "No exact Treasury entry button was recognized", $sStopRequestedCallback, $sCleanupCallback, True)
-	If Call($sStopRequestedCallback) Then Return _TreasuryRouteCancel($oOutcome, "Stop requested before opening Treasury", True)
+		Return _TreasuryRouteFinishUnlessStopped($oOutcome, $TREASURY_OUTCOME_UNCONFIRMED, "No exact Treasury entry button was recognized", $sStopRequestedCallback, $sCleanupCallback, $bAfterInput)
+	If Call($sStopRequestedCallback) Then Return _TreasuryRouteCancel($oOutcome, "Stop requested before opening Treasury", $bAfterInput)
 	If Not _TreasuryRouteIssue($oOutcome, "entry", $sIssueEntryCallback, $oObservation) Then _
-		Return _TreasuryRouteFinishUnlessStopped($oOutcome, $TREASURY_OUTCOME_UNCONFIRMED, "The one Treasury entry attempt was not accepted", $sStopRequestedCallback, $sCleanupCallback, True)
+		Return _TreasuryRouteFinishUnlessStopped($oOutcome, $TREASURY_OUTCOME_UNCONFIRMED, "The one Treasury entry attempt was not accepted", $sStopRequestedCallback, $sCleanupCallback, $bAfterInput)
+	$bAfterInput = True
 	If Call($sStopRequestedCallback) Then Return _TreasuryRouteCancel($oOutcome, "Stop requested after opening Treasury", True)
 
 	If Not _TreasuryRouteReadObservation($sDetectCollectCallback, $oObservation) Then _

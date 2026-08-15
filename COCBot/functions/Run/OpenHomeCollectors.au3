@@ -11,10 +11,11 @@ Global Const $OPEN_HOME_MODE_OTHER = 0
 Global Const $OPEN_HOME_MODE_COLLECTORS = 1
 Global Const $OPEN_HOME_MODE_LOOT_CART = 2
 Global Const $OPEN_HOME_MODE_DAILY_REWARD = 3
+Global Const $OPEN_HOME_MODE_TREASURY = 4
 Global Const $OPEN_HOME_MODE_REJECTED = -1
 
 ; Return 0 for another route, 1 for exact resource collectors, 2 for an exact Loot Cart pass, 3 for the
-; startup Daily Reward, and -1 for a Home task that still needs an independently reviewed adapter. This
+; startup Daily Reward, 4 for the bounded Treasury adapter, and -1 for an invalid Home selection. This
 ; prevents an unavailable reward task from silently falling through to the restricted inherited image engine.
 Func OpenHomeCollectorsPreparedMode(ByRef $oIntent, ByRef $sError)
 	$sError = ""
@@ -25,8 +26,8 @@ Func OpenHomeCollectorsPreparedMode(ByRef $oIntent, ByRef $sError)
 	Local $bLootCart = $oPlan.Item("events_collect_loot_cart")
 	Local $bTreasury = $oPlan.Item("events_collect_treasury")
 	Local $iSelected = ($bCollectors ? 1 : 0) + ($bDailyReward ? 1 : 0) + ($bLootCart ? 1 : 0) + ($bTreasury ? 1 : 0)
-	If $bTreasury Or $iSelected <> 1 Then
-		$sError = "This build can run one template-free Home task at a time: resource collectors, Loot Cart, or startup Daily Reward; Treasury remains unavailable"
+	If $iSelected <> 1 Then
+		$sError = "This build can run exactly one template-free Home task at a time: resource collectors, Loot Cart, Treasury, or startup Daily Reward"
 		Return $OPEN_HOME_MODE_REJECTED
 	EndIf
 	If StringLower(StringStripWS(String($oPlan.Item("emulator")), $STR_STRIPALL)) <> "bluestacks5" Then
@@ -35,6 +36,7 @@ Func OpenHomeCollectorsPreparedMode(ByRef $oIntent, ByRef $sError)
 	EndIf
 	If $bCollectors Then Return $OPEN_HOME_MODE_COLLECTORS
 	If $bLootCart Then Return $OPEN_HOME_MODE_LOOT_CART
+	If $bTreasury Then Return $OPEN_HOME_MODE_TREASURY
 	Return $OPEN_HOME_MODE_DAILY_REWARD
 EndFunc   ;==>OpenHomeCollectorsPreparedMode
 

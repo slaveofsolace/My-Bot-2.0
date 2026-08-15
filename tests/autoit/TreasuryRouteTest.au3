@@ -9,6 +9,7 @@ Global $g_sTreasuryCollectState = $TREASURY_STATE_COLLECT_READY
 Global $g_bTreasuryHome = True
 Global $g_iTreasuryInputs = 0
 Global $g_iTreasuryCleanupCalls = 0
+Global $g_bTreasuryCastleSelected = False
 
 Func AssertTrue($bCondition, $sMessage)
 	$g_iAssertions += 1
@@ -18,13 +19,14 @@ Func AssertTrue($bCondition, $sMessage)
 	EndIf
 EndFunc   ;==>AssertTrue
 
-Func FixtureReset($sCollectState = $TREASURY_STATE_COLLECT_READY, $sStopStep = "", $bHome = True)
+Func FixtureReset($sCollectState = $TREASURY_STATE_COLLECT_READY, $sStopStep = "", $bHome = True, $bCastleSelected = False)
 	$g_sTreasuryStopStep = $sStopStep
 	$g_sTreasuryPhase = "castle"
 	$g_sTreasuryCollectState = $sCollectState
 	$g_bTreasuryHome = $bHome
 	$g_iTreasuryInputs = 0
 	$g_iTreasuryCleanupCalls = 0
+	$g_bTreasuryCastleSelected = $bCastleSelected
 EndFunc   ;==>FixtureReset
 
 Func FixtureStop()
@@ -33,6 +35,7 @@ EndFunc   ;==>FixtureStop
 
 Func FixtureDetectCastle()
 	$g_sTreasuryPhase = "castle-ready"
+	If $g_bTreasuryCastleSelected Then Return TreasuryObservationCreate($TREASURY_STATE_CASTLE_SELECTED)
 	Return TreasuryObservationCreate($TREASURY_STATE_CASTLE_READY, 150, 250)
 EndFunc   ;==>FixtureDetectCastle
 
@@ -99,6 +102,13 @@ For $sStep In $aSteps
 	AssertTrue($oIssued.Item($sStep & "_attempts") = 1, $sStep & " is attempted exactly once")
 	AssertTrue($oIssued.Item($sStep & "_issued"), $sStep & " has an accepted input receipt")
 Next
+
+FixtureReset($TREASURY_STATE_NOT_FULL, "", True, True)
+Local $oAlreadySelected = FixtureRun()
+AssertTrue($oAlreadySelected.Item("state") = $TREASURY_OUTCOME_UNAVAILABLE, "already-selected Castle reaches the not-full outcome")
+AssertTrue($oAlreadySelected.Item("castle_attempts") = 0 And Not $oAlreadySelected.Item("castle_issued"), _
+		"already-selected Castle skips the redundant village input")
+AssertTrue($g_iTreasuryInputs = 1, "already-selected Castle issues only the Treasury entry input")
 AssertTrue($oIssued.Item("home_proven"), "success re-proves Home")
 
 Local $aUnavailable = [$TREASURY_STATE_NOT_FULL, $TREASURY_STATE_HOME_STORAGE_FULL]

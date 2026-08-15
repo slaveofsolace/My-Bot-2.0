@@ -338,12 +338,12 @@ def main() -> int:
                                     warning="Historical TH17 mechanics evidence exists; bea12973 adds exact-current no-input managed-engine initialization, not gameplay proof."),
                              option("home.collectors", "Home maintenance",
                                     "Run selected one-shot Home Village collection tasks without matchmaking.",
-                                    "Runs a bounded Home pass for collectors, the Loot Cart, a full Treasury, and, when explicitly "
+                                    "Runs a bounded Home pass for collectors, the Loot Cart, a Treasury not-full check, and, when explicitly "
                                     "enabled, the startup Daily Reward. It re-proves Home and stops. It cannot search, attack, "
                                     "train, donate, upgrade, enter the Laboratory, run Clan Games, or rotate accounts.",
                                     "gated", ["village.collectors", "village.loot-cart", "village.treasury", "events.daily-reward"], ["At least one Home task enabled", "A supervised diagnostic operator"],
-                                    disabled_reason="Collectors have exact-current packaged-binary proof. Loot Cart and startup Daily Reward still need positive completion receipts, and Treasury remains unavailable.",
-                                    warning="Collectors are runtime-proven; every other selected Home task keeps its own fail-closed evidence gate."),
+                                    disabled_reason="Collectors have exact-current packaged-binary proof. Loot Cart, Treasury transfer, and startup Daily Reward still need positive completion receipts.",
+                                    warning="Collectors are runtime-proven; every other selected Home task keeps its own fail-closed evidence gate. Treasury currently proves only not-full/unavailable."),
                             option("home.clan-request", "Home maintenance - Clan request only",
                                    "Request Clan Castle reinforcements once, without donating or matchmaking.",
                                    "Runs one bounded request-only pass on the exact active profile and emulator instance. "
@@ -1156,13 +1156,14 @@ def main() -> int:
                     {
                         "id": "events.collect_treasury",
                         "type": "boolean",
-                        "label": "Collect full Treasury",
-                        "summary": "Transfer a full Treasury through one exact, contextual confirmation.",
+                        "label": "Check Treasury (full-only)",
+                        "summary": "Open the exact Treasury and safely prove the current not-full state.",
                         "description": (
-                            "Only Home maintenance may use this. It requires an exact cached Clan Castle, refuses visibly "
-                            "full Home storages, verifies the selected building and Treasury window, requires the Treasury "
-                            "full indicator, and permits one Castle, entry, Collect, contextual Okay, and recognized close "
-                            "input. It never locates a building, retries, uses fallback coordinates, or uses gems."
+                            "Only Home maintenance may use this. It requires either an already-selected Clan Castle or an exact "
+                            "cached coordinate, verifies the action card and Treasury window, and permits at most one Castle, "
+                            "entry, and recognized close input. The template-free adapter proves not-full/unavailable and stops "
+                            "before Collect when a full/actionable state is seen. It never locates a building, retries, uses "
+                            "fallback coordinates, confirms a transfer, or uses gems."
                         ),
                         "default": False,
                         "required": False,

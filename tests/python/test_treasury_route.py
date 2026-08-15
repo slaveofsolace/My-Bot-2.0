@@ -22,6 +22,7 @@ class TreasuryRouteStaticTest(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.route = source("COCBot/functions/Run/TreasuryRoute.au3")
         cls.execution = source("COCBot/functions/Run/RunExecution.au3")
+        cls.open_treasury = source("COCBot/functions/Run/OpenHomeTreasury.au3")
 
     def test_adapter_is_bounded_and_does_not_use_the_legacy_treasury_actuator(self) -> None:
         adapter = autoit_function(self.route, "TreasuryRouteRunAdapter")
@@ -43,6 +44,24 @@ class TreasuryRouteStaticTest(unittest.TestCase):
         self.assertEqual(adapter.count('_TreasuryRouteIssue($oOutcome, "confirm"'), 1)
         self.assertIn("_TreasuryRouteFinishUnlessStopped", adapter)
         self.assertNotIn("Return _TreasuryRouteFinish(", adapter)
+        self.assertIn("$TREASURY_STATE_CASTLE_SELECTED", adapter)
+
+    def test_template_free_not_full_adapter_has_exact_context_and_no_transfer_input(self) -> None:
+        selected = autoit_function(self.open_treasury, "_OpenHomeTreasurySelectedFrameReady")
+        window = autoit_function(self.open_treasury, "_OpenHomeTreasuryWindowFrameReady")
+        bars = autoit_function(self.open_treasury, "_OpenHomeTreasuryAllBarEndsGray")
+        detect = autoit_function(self.open_treasury, "OpenHomeTreasuryDetectCollect")
+        cleanup = autoit_function(self.open_treasury, "OpenHomeTreasuryCleanup")
+        self.assertGreaterEqual(selected.count("_OpenHomePixelNear("), 7)
+        self.assertGreaterEqual(window.count("_OpenHomePixelNear("), 8)
+        self.assertGreaterEqual(bars.count("_OpenHomePixelNear("), 5)
+        self.assertIn("$TREASURY_STATE_NOT_FULL", detect)
+        self.assertIn("$TREASURY_STATE_COLLECT_MISSING", detect)
+        self.assertEqual(autoit_function(self.open_treasury, "OpenHomeTreasuryIssueCollect").count("Return False"), 1)
+        self.assertEqual(autoit_function(self.open_treasury, "OpenHomeTreasuryIssueConfirm").count("Return False"), 1)
+        self.assertIn("#OpenHomeTreasuryClose", cleanup)
+        for forbidden in ("findButton(", "findMultiple(", "DllCallMyBot(", "ClickOkay(", "LocateClanCastle(", "Gem("):
+            self.assertNotIn(forbidden, self.open_treasury)
 
     def test_live_recognition_is_exact_and_refuses_full_home_storage(self) -> None:
         castle = autoit_function(self.execution, "_TreasuryLiveDetectCastle")

@@ -86,9 +86,10 @@ class OpenHomeCollectorsTest(unittest.TestCase):
         self.assertIn("$iOpenCollectorsMode = 1", start)
         self.assertIn("$iOpenCollectorsMode = 2", start)
         self.assertIn("$iOpenCollectorsMode = 3", start)
+        self.assertIn("$iOpenCollectorsMode = 4", start)
         self.assertIn("$iOpenCollectorsMode = -1", start)
 
-    def test_mode_allows_exact_collectors_loot_cart_or_daily_reward_and_bluestacks_only(self):
+    def test_mode_allows_exact_collectors_loot_cart_treasury_or_daily_reward_and_bluestacks_only(self):
         route = source("COCBot/functions/Run/OpenHomeCollectors.au3")
         mode = autoit_function(route, "OpenHomeCollectorsPreparedMode")
         self.assertIn('events_collect_resources', mode)
@@ -100,10 +101,10 @@ class OpenHomeCollectorsTest(unittest.TestCase):
             self.assertIn(field, mode)
         self.assertIn('<> "bluestacks5"', mode)
         self.assertIn("$iSelected <> 1", mode)
-        self.assertIn("$bTreasury Or", mode)
         self.assertIn("$OPEN_HOME_MODE_REJECTED", mode)
         self.assertIn("$OPEN_HOME_MODE_LOOT_CART", mode)
         self.assertIn("$OPEN_HOME_MODE_DAILY_REWARD", mode)
+        self.assertIn("$OPEN_HOME_MODE_TREASURY", mode)
 
     def test_adapter_is_template_free_and_has_no_spending_actuator(self):
         route = source("COCBot/functions/Run/OpenHomeCollectors.au3")
@@ -316,6 +317,31 @@ class OpenHomeCollectorsTest(unittest.TestCase):
             "btnStop",
         ):
             self.assertNotIn(forbidden, loot_runner)
+
+        treasury_runner = autoit_function(action, "_BotStartOpenHomeTreasury")
+        for proof in (
+            "HomeMaintenanceRouteAccountMatches",
+            "_BotOpenHomeRequireExactBlueStacks($sAttachmentError)",
+            "$g_bAndroidAdbScreencap",
+            "$g_bAndroidAdbClick",
+            "AndroidControlAvailable()",
+            "GetBlueStacks5ModernAdbSurfacePosition()",
+            "OpenHomeCollectorsProveHome()",
+            "TreasuryRouteRunAdapter",
+            "OpenHomeTreasuryDetectCastle",
+            "OpenHomeTreasuryCleanup",
+        ):
+            self.assertIn(proof, treasury_runner)
+        for forbidden in (
+            "MBRFunc",
+            "ForumAuthentication",
+            "OpenAndroid",
+            "InitiateLayout",
+            "ZoomOut",
+            "BotDetectFirstTime",
+            "btnStop",
+        ):
+            self.assertNotIn(forbidden, treasury_runner)
 
         daily_runner = autoit_function(action, "_BotStartOpenDailyReward")
         for proof in (

@@ -1207,10 +1207,10 @@
               "value": "home.collectors",
               "label": "Home maintenance",
               "summary": "Run selected one-shot Home Village collection tasks without matchmaking.",
-              "description": "Runs a bounded Home pass for collectors, the Loot Cart, a full Treasury, and, when explicitly enabled, the startup Daily Reward. It re-proves Home and stops. It cannot search, attack, train, donate, upgrade, enter the Laboratory, run Clan Games, or rotate accounts.",
+              "description": "Runs a bounded Home pass for collectors, the Loot Cart, a Treasury not-full check, and, when explicitly enabled, the startup Daily Reward. It re-proves Home and stops. It cannot search, attack, train, donate, upgrade, enter the Laboratory, run Clan Games, or rotate accounts.",
               "availability": "gated",
               "runtime_verified": false,
-              "disabled_reason": "Collectors have exact-current packaged-binary proof. Loot Cart and startup Daily Reward still need positive completion receipts, and Treasury remains unavailable.",
+              "disabled_reason": "Collectors have exact-current packaged-binary proof. Loot Cart, Treasury transfer, and startup Daily Reward still need positive completion receipts.",
               "capability_ids": [
                 "village.collectors",
                 "village.loot-cart",
@@ -1222,7 +1222,7 @@
                 "A supervised diagnostic operator"
               ],
               "recommended": false,
-              "warning": "Collectors are runtime-proven; every other selected Home task keeps its own fail-closed evidence gate."
+              "warning": "Collectors are runtime-proven; every other selected Home task keeps its own fail-closed evidence gate. Treasury currently proves only not-full/unavailable."
             },
             {
               "value": "home.clan-request",
@@ -2728,9 +2728,9 @@
         {
           "id": "events.collect_treasury",
           "type": "boolean",
-          "label": "Collect full Treasury",
-          "summary": "Transfer a full Treasury through one exact, contextual confirmation.",
-          "description": "Only Home maintenance may use this. It requires an exact cached Clan Castle, refuses visibly full Home storages, verifies the selected building and Treasury window, requires the Treasury full indicator, and permits one Castle, entry, Collect, contextual Okay, and recognized close input. It never locates a building, retries, uses fallback coordinates, or uses gems.",
+          "label": "Check Treasury (full-only)",
+          "summary": "Open the exact Treasury and safely prove the current not-full state.",
+          "description": "Only Home maintenance may use this. It requires either an already-selected Clan Castle or an exact cached coordinate, verifies the action card and Treasury window, and permits at most one Castle, entry, and recognized close input. The template-free adapter proves not-full/unavailable and stops before Collect when a full/actionable state is seen. It never locates a building, retries, uses fallback coordinates, confirms a transfer, or uses gems.",
           "default": false,
           "required": false,
           "engine_binding": "RunPlan.events_collect_treasury",

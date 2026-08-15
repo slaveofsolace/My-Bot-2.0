@@ -104,7 +104,7 @@ class HomeMaintenanceRouteTest(unittest.TestCase):
         nothing_selected["events.collect_loot_cart"] = False
         nothing_selected["events.collect_treasury"] = False
         nothing_selected["events.collect_daily_reward"] = False
-        self.assertTrue(any("choose exactly one available template-free task" in problem for problem in planner_ui.engine_preflight(nothing_selected)))
+        self.assertTrue(any("choose exactly one template-free task" in problem for problem in planner_ui.engine_preflight(nothing_selected)))
 
     def test_daily_reward_only_plan_passes_server_preflight(self):
         plan = collectors_plan()
@@ -120,13 +120,13 @@ class HomeMaintenanceRouteTest(unittest.TestCase):
 
         mixed = collectors_plan()
         mixed["events.collect_loot_cart"] = True
-        self.assertTrue(any("choose exactly one available template-free task" in problem for problem in planner_ui.engine_preflight(mixed)))
+        self.assertTrue(any("choose exactly one template-free task" in problem for problem in planner_ui.engine_preflight(mixed)))
 
-    def test_treasury_only_plan_fails_closed_in_server_preflight(self):
+    def test_treasury_only_plan_passes_server_preflight(self):
         plan = collectors_plan()
         plan["events.collect_resources"] = False
         plan["events.collect_treasury"] = True
-        self.assertTrue(any("Treasury remains unavailable" in problem for problem in planner_ui.engine_preflight(plan)))
+        self.assertEqual(planner_ui.engine_preflight(plan), [])
 
     def test_native_route_is_terminal_and_has_no_matchmaking_or_battle_calls(self):
         execution = source("COCBot/functions/Run/RunExecution.au3")
