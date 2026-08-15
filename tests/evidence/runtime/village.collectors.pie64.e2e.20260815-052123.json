@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "evidence_id": "village.collectors.pie64.e2e.20260815-052123",
+  "capability_id": "village.collectors",
+  "test_type": "end-to-end",
+  "result": "passed",
+  "captured_at": "2026-08-15T10:21:23Z",
+  "commit_sha": "0265e1f2916cf3a8e62b0865f82736d52aebf790",
+  "redacted": true,
+  "environment": {
+    "os": "Windows 11 Home",
+    "os_version": "10.0.26200",
+    "autoit_version": "3.3.16.1",
+    "emulator": "BlueStacks5",
+    "emulator_version": "5.22.252.1008",
+    "instance_index": 0,
+    "instance_name": "Pie64",
+    "game_version": "18.400.9"
+  },
+  "binary": {
+    "path": "MyBot.run.exe",
+    "sha256": "b15c9af8d949c59e4cdca66ed87e66dcbe356a876bac672af8c7290edd4eaf65",
+    "bytes": 3339264
+  },
+  "checks": [
+    {
+      "id": "collectors.collected",
+      "result": "passed",
+      "details": "The collectors-only route emitted collector_clicks=3; gold increased by 200,214, elixir by 202,508, dark elixir by 2,274, and gems changed by zero."
+    },
+    {
+      "id": "home.restored",
+      "result": "passed",
+      "details": "The route re-proved Home after the final click and returned idle/completed with run_state=false, plan_active=false, and engine_probe_state=not-run."
+    }
+  ],
+  "reviewer": {
+    "name": "My Bot 2.0 runtime review",
+    "reviewed_at": "2026-08-15T10:23:42Z"
+  },
+  "artifact_refs": [
+    {
+      "kind": "repository",
+      "path": "tests/evidence/runtime/artifacts/home-collectors.pie64.20260815-052123.json",
+      "sha256": "0ee9750aef5e5e20a4d64da909461b99a8490fa33432e68532d4d5866b9f507b",
+      "bytes": 4222
+    }
+  ],
+  "notes": "One bounded exact-current Home collectors pass. No battle, search, training, donation, upgrade, account, gem, Daily Reward, Loot Cart, or Treasury action was executed or inferred."
+}

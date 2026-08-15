@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "artifact_id": "home-collectors.pie64.20260815-052123",
+  "captured_at": "2026-08-15T10:21:23Z",
+  "commit_sha": "0265e1f2916cf3a8e62b0865f82736d52aebf790",
+  "redacted": true,
+  "scope": "One exact collectors-only Home Village pass in the reviewed installed LocalRuntime. Battles, search, training, donations, upgrades, account switching, premium-currency actions, Daily Reward, Loot Cart, and Treasury were disabled.",
+  "environment": {
+    "os": "Windows 11 Home",
+    "os_version": "10.0.26200",
+    "autoit_version": "3.3.16.1",
+    "emulator": "BlueStacks5",
+    "emulator_version": "5.22.252.1008",
+    "instance_index": 0,
+    "instance_name": "Pie64",
+    "game_version": "18.400.9"
+  },
+  "reviewed_install": {
+    "version": "2.0.0",
+    "architecture": "x86",
+    "source_commit": "66f001678f9f9b61e5f75024b4f662445dd10fbb",
+    "binary_commit": "0265e1f2916cf3a8e62b0865f82736d52aebf790",
+    "release_manifest_sha256": "9f3de3ac7aa39e13866446c96de5992485ff50966eea1db865612d67b0a5baeb",
+    "package_sha256": "3496c974fb9ff90008bcb14c2d254088a6a0437648d13086592938d71168eead",
+    "package_bytes": 32272866,
+    "manifest_records": 2583
+  },
+  "binary": {
+    "path": "MyBot.run.exe",
+    "sha256": "b15c9af8d949c59e4cdca66ed87e66dcbe356a876bac672af8c7290edd4eaf65",
+    "bytes": 3339264
+  },
+  "plan": {
+    "strategy": "home.collectors",
+    "diagnostic_mode": true,
+    "exact_emulator_instance": true,
+    "collect_resources": true,
+    "daily_reward": false,
+    "loot_cart": false,
+    "treasury": false,
+    "max_battles": 0,
+    "training": false,
+    "donations": false,
+    "upgrades": false,
+    "account_queue": false,
+    "gem_actions_authorized": false
+  },
+  "recognition": {
+    "initial_screen": "home-village",
+    "home_signature_confirmed": true,
+    "strict_bubble_types_before": ["gold", "elixir", "dark-elixir"],
+    "accepted_clicks": 3,
+    "fresh_home_proof_before_every_click": true,
+    "home_reproved_after_final_click": true,
+    "raw_frames_retained": false,
+    "raw_frames_nonclaim": "Transient frames contained player and clan identifiers and were reviewed locally only. The committed home.maintenance.ready fixture remains the reusable redacted Home proof."
+  },
+  "resource_observation": {
+    "before": {"gold": 14726624, "elixir": 16633015, "dark_elixir": 194250, "gems": 3092},
+    "after": {"gold": 14926838, "elixir": 16835523, "dark_elixir": 196524, "gems": 3092},
+    "delta": {"gold": 200214, "elixir": 202508, "dark_elixir": 2274, "gems": 0},
+    "gems_unchanged": true
+  },
+  "completed_run": {
+    "start_accepted": true,
+    "duration_ms": 15309,
+    "final_state": "idle",
+    "run_state": false,
+    "plan_active": false,
+    "last_outcome": "completed",
+    "engine_probe_state": "not-run",
+    "collector_clicks": 3,
+    "event_types": [
+      "session.preparing",
+      "session.started",
+      "maintenance.collectors.started",
+      "maintenance.home-verified",
+      "maintenance.collectors.completed",
+      "session.stopping",
+      "session.completed"
+    ]
+  },
+  "preservation": {
+    "external_profile_sha256": "157fed76c5fedf2dd18f2e6cdb1bd562b0396faa300a6630a68da825319abc0e",
+    "installed_english_sha256": "360f8055f331e09803ddd278411db71a6e4a7f77d57ca7080b672cd07659a0ad",
+    "emulator_identity_preserved": true,
+    "adb_server_identity_preserved": true,
+    "backend_identity_preserved": true
+  },
+  "forbidden_activity": {
+    "battle_events": 0,
+    "search_events": 0,
+    "training_events": 0,
+    "donation_events": 0,
+    "upgrade_events": 0,
+    "account_events": 0,
+    "gem_or_purchase_events": 0,
+    "gem_balance_changed": false
+  },
+  "assertions": {
+    "collectors_recognized": true,
+    "storage_state_confirmed": true,
+    "collectors_collected": true,
+    "home_restored": true,
+    "no_gem_action": true,
+    "configuration_preserved": true
+  },
+  "privacy": "Only allowlisted operational state, resource totals, durations, and integrity digests are retained. Raw frames, player and clan names, account and profile identifiers, request identifiers, process identifiers, creation timestamps, filesystem paths, machine identifiers, chat, payment information, and launch tokens are omitted."
+}
