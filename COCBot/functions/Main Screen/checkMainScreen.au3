@@ -132,7 +132,11 @@ Func _checkMainScreen($bSetLog = Default, $bBuilderBase = Default) ;Checks if in
 EndFunc   ;==>_checkMainScreen
 
 Func _checkMainScreenImage(ByRef $bLocated, $aPixelToCheck, $bNeedCaptureRegion = $g_bNoCapturePixel)
-	$bLocated = _CheckPixel($aPixelToCheck, $bNeedCaptureRegion) And Not checkObstacles_Network(False, False) And checkChatTabPixel()
+	$bLocated = _CheckPixel($aPixelToCheck, $bNeedCaptureRegion) And Not checkObstacles_Network(False, False)
+	; Bounded planner routes use the main-screen pixel plus exact account/emulator binding. The
+	; legacy ChatTabPixel template invokes the protected ImgLoc DLL and can open its
+	; anti-copycat HTML warning, so it is deliberately outside these routes.
+	If $bLocated And Not RunExecutionSkipPendingNotifications() Then $bLocated = checkChatTabPixel()
 	Return $bLocated
 EndFunc   ;==>_checkMainScreenImage
 

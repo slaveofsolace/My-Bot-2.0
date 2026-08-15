@@ -35,16 +35,16 @@ Func Collect($bCheckTreasury = True, $bCollectorsOnly = False)
 	Local $aElixirFull = _FullResPixelSearch($aIsElixirFull[0], $aIsElixirFull[0] + 4, $aIsElixirFull[1], 1, Hex(0x0D0D0D, 6), $aIsElixirFull[2], $aIsElixirFull[3], $g_bNoCapturePixel)
 	Local $aDarkElixirFull = _FullResPixelSearch($aIsDarkElixirFull[0], $aIsDarkElixirFull[0] + 4, $aIsDarkElixirFull[1], 1, Hex(0x0D0D0D, 6), $aIsDarkElixirFull[2], $aIsDarkElixirFull[3], $g_bNoCapturePixel)
 
-	; Setup arrays, including default return values for $return
-	Local $sFileName = ""
-	Local $aCollectXY, $t
+	; The inherited ImgLoc recognizer opens its anti-copycat HTML warning in modified hosts. This
+	; bounded route uses an independent pixel classifier and never invokes that protected export.
+	Local $aResult = CollectorBubbleRecognize($g_hHBitmap2)
 
-	Local $aResult = returnMultipleMatchesOwnVillage($g_sImgCollectRessources, 0, "", 0, 1000, False)
-
-	If UBound($aResult) > 1 Then ; we have an array with data of images found
-		For $i = 1 To UBound($aResult) - 1 ; loop through array rows
-			$sFileName = $aResult[$i][1] ; Filename
-			$aCollectXY = $aResult[$i][5] ; Coords
+	If IsArray($aResult) Then
+		For $i = 0 To UBound($aResult) - 1
+			Local $sFileName = $aResult[$i][0]
+			Local $iCollectX = Int($aResult[$i][1])
+			Local $iCollectY = Int($aResult[$i][2])
+			If $iCollectX < 0 Or $iCollectY < 0 Then ContinueLoop
 			Switch StringLower($sFileName)
 				Case "collectmines"
 					If IsArray($aGoldFull) Then ContinueLoop
@@ -65,15 +65,12 @@ Func Collect($bCheckTreasury = True, $bCollectorsOnly = False)
 						ContinueLoop
 					EndIf
 			EndSwitch
-			If IsArray($aCollectXY) Then ; found array of locations
-				$t = Random(0, UBound($aCollectXY) - 1, 1) ; SC May 2017 update only need to pick one of each to collect all
-				If $g_bDebugSetLog Then SetDebugLog($sFileName & " found, random pick(" & $aCollectXY[$t][0] & "," & $aCollectXY[$t][1] & ")", $COLOR_GREEN)
-				If _Sleep(1) Then Return SetExtended($iCollectorClicks, False)
-				If Not $g_bRunState Then Return SetExtended($iCollectorClicks, False)
-				If Not IsMainPage() Then Return SetExtended($iCollectorClicks, False)
-				If Click($aCollectXY[$t][0], $aCollectXY[$t][1], 1, 120, "#0430") Then $iCollectorClicks += 1
-				If _Sleep($DELAYCOLLECT2) Then Return SetExtended($iCollectorClicks, False)
-			EndIf
+			If $g_bDebugSetLog Then SetDebugLog($sFileName & " bubble found at (" & $iCollectX & "," & $iCollectY & ")", $COLOR_GREEN)
+			If _Sleep(1) Then Return SetExtended($iCollectorClicks, False)
+			If Not $g_bRunState Then Return SetExtended($iCollectorClicks, False)
+			If Not IsMainPage() Then Return SetExtended($iCollectorClicks, False)
+			If Click($iCollectX, $iCollectY, 1, 120, "#0430") Then $iCollectorClicks += 1
+			If _Sleep($DELAYCOLLECT2) Then Return SetExtended($iCollectorClicks, False)
 		Next
 	EndIf
 

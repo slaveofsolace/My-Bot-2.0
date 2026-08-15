@@ -25,6 +25,15 @@ Func BotDetectFirstTime($bOwnVillageReadinessOnly = False)
 		; mode has no village zoom calibration, so retain the raw framebuffer point only for logging
 		; and never pass it through legacy village-coordinate conversion or to a building-click consumer.
 		If Not checkMainScreen() Then Return
+		If RunExecutionSkipVillageZoomCalibration() Then
+			If RunVillageReadinessMarkMainScreenProfileAttested($g_iTownHallLevel, $g_iMaxTHLevel) Then
+				SetLog("Bounded planned route verified the Home screen and active-profile TH" & $g_iTownHallLevel & _
+						" without protected template recognition", $COLOR_INFO)
+			Else
+				SetLog("Bounded planned route could not attest the active profile Town Hall", $COLOR_ERROR)
+			EndIf
+			Return
+		EndIf
 		Local $iDetectedTownHallLevel = 0
 		Local $aRawTownHallPoint[2] = [-1, -1]
 		; If the loaded profile has a supported Town Hall, search only that level. A lower-level

@@ -44,6 +44,7 @@ MAIN = ROOT / "MyBot.run.au3"
 LAUNCHER = ROOT / "My Bot 2.0.au3"
 ENGINE_PROBE = ROOT / "MyBot.run.EngineProbe.au3"
 ENGINE_PROBE_CONFIG = ROOT / "MyBot.run.EngineProbe.exe.config"
+COLLECTOR_RECOGNIZER = ROOT / "COCBot/functions/Run/CollectorBubbleRecognizer.au3"
 
 # The value shapes RunPlanFileParse produces. Anything else in a written plan would reach the AutoIt side
 # as a parse failure, which costs the whole file rather than one setting.
@@ -290,11 +291,13 @@ def main() -> int:
         skip_zoom_body = skip_zoom[1].split("EndFunc", 1)[0] if len(skip_zoom) > 1 else ""
         for required in (
             "If Not $g_bRunExecutionPrepared Or $g_bRunExecutionManageTraining Then Return False",
-            "HomeMaintenanceRouteSelected($g_oRunExecutionIntent) Then Return False",
             "Return True",
         ):
             if required not in skip_zoom_body:
-                errors.append(f"village zoom bypass lost its passive-combat boundary via {required}")
+                errors.append(f"village zoom bypass lost its bounded-route boundary via {required}")
+        for forbidden in ("HomeMaintenanceRouteSelected", "ClanRequestRouteSelected"):
+            if forbidden in skip_zoom_body:
+                errors.append(f"bounded Home route still falls through legacy village calibration via {forbidden}")
 
         skip_notifications = execution_source.split("Func RunExecutionSkipPendingNotifications()", 1)
         skip_notifications_body = skip_notifications[1].split("EndFunc", 1)[0] if len(skip_notifications) > 1 else ""
@@ -639,6 +642,7 @@ def main() -> int:
             errors.append(f"RunControlShutdown no longer performs required ownership cleanup: {required}")
 
     mbr_source = (ROOT / "COCBot" / "functions" / "Other" / "MBRFunc.au3").read_text(encoding="utf-8-sig")
+    collector_recognizer_source = COLLECTOR_RECOGNIZER.read_text(encoding="utf-8-sig")
     engine_probe_source = ENGINE_PROBE.read_text(encoding="utf-8-sig")
     engine_probe_config = ENGINE_PROBE_CONFIG.read_text(encoding="utf-8-sig")
     marker = mbr_source.split("Func MBRFuncValidateEngineMarker(", 1)
@@ -659,6 +663,14 @@ def main() -> int:
     mbr_open_body = mbr_open[1].split("EndFunc", 1)[0] if len(mbr_open) > 1 else ""
     if "DllOpen($g_sLibMyBotPath)" in mbr_open_body or "_MBRFuncOpenEngineLibrary()" in mbr_open_body:
         errors.append("MBRFunc can open the managed engine outside the supervised initialization boundary")
+
+    public_imgloc = mbr_source.split("Func DllCallMyBot(", 1)
+    public_imgloc_body = public_imgloc[1].split("EndFunc", 1)[0] if len(public_imgloc) > 1 else ""
+    if "_DllCallMyBot(" in public_imgloc_body or "SuspendAndroid" in public_imgloc_body:
+        errors.append("public inherited recognition can invoke the protected ImgLoc export")
+    for forbidden in ("DllCallMyBot", "FindTile", "SearchMultipleTiles", "ShellExecute", ".html"):
+        if forbidden in collector_recognizer_source:
+            errors.append(f"clean-room collector recognizer reached protected runtime behavior: {forbidden}")
 
     private_open = mbr_source.split("Func _MBRFuncOpenEngineLibrary()", 1)
     private_open_body = private_open[1].split("EndFunc", 1)[0] if len(private_open) > 1 else ""

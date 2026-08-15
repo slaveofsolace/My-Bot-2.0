@@ -39,7 +39,7 @@ class MaintenanceCancellationTests(unittest.TestCase):
 
     def test_collectors_poll_stop_after_recognition_and_before_click(self) -> None:
         body = function_body(source("COCBot/functions/Village/Collect.au3"), "Collect")
-        click = body.index('If Click($aCollectXY[$t][0], $aCollectXY[$t][1]')
+        click = body.index('If Click($iCollectX, $iCollectY')
         stop_poll = body.rfind("If _Sleep(1) Then Return", 0, click)
         state_gate = body.rfind("If Not $g_bRunState Then Return SetExtended($iCollectorClicks, False)", 0, click)
         page_gate = body.rfind("If Not IsMainPage() Then Return SetExtended($iCollectorClicks, False)", 0, click)

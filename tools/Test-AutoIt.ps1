@@ -82,6 +82,7 @@ $testScripts = @(
     "tests\autoit\RunVillageReadinessTest.au3",
     "tests\autoit\PassiveCurrentArmyReadinessTest.au3",
     "tests\autoit\HomeMaintenanceRouteTest.au3",
+    "tests\autoit\CollectorBubbleRecognizerTest.au3",
     "tests\autoit\OpenHomeCollectorPolicyTest.au3",
     "tests\autoit\LootCartRouteTest.au3",
     "tests\autoit\TreasuryRouteTest.au3",

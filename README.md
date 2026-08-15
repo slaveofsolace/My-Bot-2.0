@@ -503,6 +503,12 @@ and browser preflight now block Scripted, Standard, and Smart battle strategies 
 consent is enabled. Battle work can reopen only with written licensed permission or a clean-room
 recognizer; the project does not patch or bypass that guard.
 
+The bounded collector route no longer invokes that inherited recognizer. It uses an independent
+pixel classifier that found Gold, Elixir, and Dark Elixir bubbles in the authorized private
+before-frame and rejected the matching after-frame. Every remaining public ImgLoc call fails closed
+instead of opening the dependency's generated warning page. This source change still requires a new
+six-binary build, installation, and supervised collector pass before it becomes packaged evidence.
+
 </details>
 
 <details>

@@ -182,9 +182,11 @@ class HomeMaintenanceRouteTest(unittest.TestCase):
         self.assertIn("If Not IsMainPage() Then Return SetExtended($iCollectorClicks, False)", collect)
         self.assertIn("Local $bMainScreenReady = checkMainScreen(False)", collect)
         self.assertIn(
-            'If Click($aCollectXY[$t][0], $aCollectXY[$t][1], 1, 120, "#0430") Then $iCollectorClicks += 1',
+            'If Click($iCollectX, $iCollectY, 1, 120, "#0430") Then $iCollectorClicks += 1',
             collect,
         )
+        self.assertIn("CollectorBubbleRecognize($g_hHBitmap2)", collect)
+        self.assertNotIn("returnMultipleMatchesOwnVillage", collect)
         self.assertIn("Return SetExtended($iCollectorClicks, $bMainScreenReady And $g_bRunState)", collect)
         self.assertIn("If Not $bCollectorsOnly And $g_bChkCollectCartFirst", collect)
         self.assertIn("If Not $bCollectorsOnly And $g_bChkTreasuryCollect", collect)

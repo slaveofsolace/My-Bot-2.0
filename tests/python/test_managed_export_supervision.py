@@ -124,8 +124,9 @@ class ManagedExportSupervisionTests(unittest.TestCase):
     def test_public_image_call_wrapper_fails_closed_until_initialization_completed(self) -> None:
         public_wrapper = function_body(self.mbr_func, "DllCallMyBot")
         guard = public_wrapper.index("$g_bLibMyBotInitialized")
-        managed_call = public_wrapper.index("_DllCallMyBot(", guard)
-        self.assertLess(guard, managed_call)
+        blocked = public_wrapper.index("Inherited ImgLoc recognition is disabled", guard)
+        self.assertLess(guard, blocked)
+        self.assertNotIn("_DllCallMyBot(", public_wrapper)
 
 
 if __name__ == "__main__":

@@ -28,15 +28,13 @@ class CollectorCaptureLeaseTests(unittest.TestCase):
         self.assertEqual(body.count("ForceCaptureRegion()"), 2)
         self.assertEqual(body.count("_CaptureRegions()"), 2)
         self.assertEqual(body.count("$g_bNoCapturePixel)"), 6)
-        self.assertIn(
-            'returnMultipleMatchesOwnVillage($g_sImgCollectRessources, 0, "", 0, 1000, False)',
-            body,
-        )
+        self.assertIn("CollectorBubbleRecognize($g_hHBitmap2)", body)
+        self.assertNotIn("returnMultipleMatchesOwnVillage", body)
 
         first_capture = body.index("ForceCaptureRegion()")
         first_full = body.index("Local $aGoldFull = _FullResPixelSearch")
-        template_read = body.index("returnMultipleMatchesOwnVillage")
-        click = body.index("Click($aCollectXY")
+        template_read = body.index("CollectorBubbleRecognize")
+        click = body.index("Click($iCollectX, $iCollectY")
         second_capture = body.index("ForceCaptureRegion()", first_capture + 1)
         final_full = body.index("\t$aGoldFull = _FullResPixelSearch", second_capture)
         self.assertLess(first_capture, first_full)

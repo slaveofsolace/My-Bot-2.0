@@ -182,7 +182,9 @@ class RunVillageReadinessStaticTest(unittest.TestCase):
             source("COCBot/functions/Run/RunExecution.au3"), "RunExecutionSkipVillageZoomCalibration"
         )
         self.assertIn("If Not $g_bRunExecutionPrepared Or $g_bRunExecutionManageTraining Then Return False", execution)
-        self.assertIn("HomeMaintenanceRouteSelected($g_oRunExecutionIntent) Then Return False", execution)
+        self.assertIn("Return True", execution)
+        self.assertNotIn("HomeMaintenanceRouteSelected", execution)
+        self.assertNotIn("ClanRequestRouteSelected", execution)
 
         builder_count = autoit_function(
             source("COCBot/functions/Read Text/getBuilderCount.au3"), "getBuilderCount"

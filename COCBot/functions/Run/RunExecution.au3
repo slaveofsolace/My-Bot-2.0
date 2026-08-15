@@ -162,13 +162,12 @@ EndFunc   ;==>RunExecutionShouldManageTraining
 ; after the main-screen pixel and chat image have already proven readiness.
 Func RunExecutionSkipVillageZoomCalibration()
 	If Not $g_bRunExecutionPrepared Or $g_bRunExecutionManageTraining Then Return False
-	If IsObj($g_oRunExecutionIntent) And HomeMaintenanceRouteSelected($g_oRunExecutionIntent) Then Return False
-	If IsObj($g_oRunExecutionIntent) And ClanRequestRouteSelected($g_oRunExecutionIntent) Then Return False
 	Return True
 EndFunc   ;==>RunExecutionSkipVillageZoomCalibration
 
-; Passive combat and both single-purpose Home routes suppress profile-owned pending actions.
-; Unlike passive combat, collectors and Clan request still need Home Village calibration above.
+; Passive combat and both single-purpose Home routes suppress profile-owned pending actions and do
+; not consume own-building coordinates. Exact profile/emulator binding plus a pixel-proven Home
+; screen is their safe identity boundary; protected template recognition remains outside the fork.
 Func RunExecutionSkipPendingNotifications()
 	Return $g_bRunExecutionPrepared And Not $g_bRunExecutionManageTraining
 EndFunc   ;==>RunExecutionSkipPendingNotifications
