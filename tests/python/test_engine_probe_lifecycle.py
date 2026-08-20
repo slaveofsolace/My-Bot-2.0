@@ -155,9 +155,24 @@ class EngineProbeLifecycleTests(unittest.TestCase):
         self.assertIn('"^[A-Za-z0-9._-]{1,80}$"', request)
         self.assertIn('Return ""', request)
         initialize = function_body(self.parent, "MBRFuncInitialize")
-        required = initialize.index('If _MBRFuncCurrentStartRequestId() = "" Then')
+        required = initialize.index("Local $sStartRequestId = _MBRFuncCurrentStartRequestId()")
         prepared = initialize.index('_MBRFuncPublishEngineReceipt("prepared")')
         self.assertLess(required, prepared)
+
+    def test_receipt_generation_captures_request_id_once_and_resets_monotonic_state(self) -> None:
+        initialize = function_body(self.parent, "MBRFuncInitialize")
+        publish = function_body(self.parent, "_MBRFuncPublishEngineReceipt")
+        capture = initialize.index("Local $sStartRequestId = _MBRFuncCurrentStartRequestId()")
+        bind = initialize.index("$g_sMBRFuncEngineReceiptStartRequestId = $sStartRequestId")
+        reset_sequence = initialize.index("$g_iMBRFuncEngineReceiptSequence = 0")
+        reset_history = initialize.index('$g_sMBRFuncEngineReceiptHistory = ""')
+        prepared = initialize.index('_MBRFuncPublishEngineReceipt("prepared")')
+        self.assertLess(capture, bind)
+        self.assertLess(bind, reset_sequence)
+        self.assertLess(reset_sequence, reset_history)
+        self.assertLess(reset_history, prepared)
+        self.assertIn("$g_sMBRFuncEngineReceiptStartRequestId", publish)
+        self.assertNotIn("_MBRFuncCurrentStartRequestId()", publish)
 
     def test_optional_string_callbacks_use_call_instead_of_isfunc(self) -> None:
         unavailable = function_body(self.parent, "MBRFuncMarkUnavailable")

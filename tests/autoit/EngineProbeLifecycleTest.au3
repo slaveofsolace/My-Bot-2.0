@@ -70,6 +70,11 @@ AssertTrue(StringInStr($sParent, '"^[0-9a-f]{16}$"', 1) > 0, "creation-id gramma
 AssertTrue(StringInStr($sParent, '^mybot\.run(?:\.minigui)?\.(?:exe|au3)$', 1) > 0, "Mini and backend capture inherited context")
 AssertTrue(StringInStr($sParent, "If $g_bMBRFuncEngineContextHost Then", 1) > 0, "context hosts immediately clear inherited environment")
 AssertTrue(StringInStr($sReceipt, "$sLauncherCreated <> $g_sMBRFuncEngineLauncherCreated", 1) > 0, "receipt requires the live launcher creation identity")
+AssertTrue(StringInStr($sParent, "Global $g_sMBRFuncEngineReceiptStartRequestId", 1) > 0, "receipt keeps an immutable request id per generation")
+AssertTrue(StringInStr($sParent, "$g_sMBRFuncEngineReceiptStartRequestId = $sStartRequestId", 1) > 0, "initialization binds the active request id once")
+AssertTrue(StringInStr($sReceipt, "$g_sMBRFuncEngineReceiptStartRequestId", 1) > 0 And StringInStr($sReceipt, "_MBRFuncCurrentStartRequestId()", 1) = 0, "publisher retains the immutable request id after native terminalization")
+AssertTrue(StringInStr($sInit, "$g_iMBRFuncEngineReceiptSequence = 0", 1) > 0, "initialization resets receipt sequence for the next generation")
+AssertTrue(StringInStr($sInit, '$g_sMBRFuncEngineReceiptHistory = ""', 1) > 0, "initialization resets receipt history for the next generation")
 
 ; AutoIt string dispatch is Call(), not IsFunc(). This executable regression catches the exact
 ; field failure that previously made every supervised Start reject before publishing prepared.

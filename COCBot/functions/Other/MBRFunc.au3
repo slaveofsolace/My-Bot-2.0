@@ -66,6 +66,7 @@ Global $g_bMBRFuncEngineSupervisorValid = $g_bMBRFuncEngineContextHost And Strin
 	StringRegExp($g_sMBRFuncEngineLauncherCreated, "^[0-9a-f]{16}$")
 Global $g_iMBRFuncEngineReceiptSequence = 0
 Global $g_sMBRFuncEngineReceiptHistory = ""
+Global $g_sMBRFuncEngineReceiptStartRequestId = ""
 Global $g_bMBRFuncEngineInitializing = False
 
 Func MBRFunc($Start = True, $bInitialize = True)
@@ -110,10 +111,17 @@ Func MBRFuncInitialize($bDiscoverAndroid = True)
 		MBRFuncMarkUnavailable("Managed engine supervisor context is missing or invalid; launch My Bot 2.0 from its installed launcher")
 		Return False
 	EndIf
-	If _MBRFuncCurrentStartRequestId() = "" Then
+	Local $sStartRequestId = _MBRFuncCurrentStartRequestId()
+	If $sStartRequestId = "" Then
 		MBRFuncMarkUnavailable("Managed engine Start ownership is missing or invalid")
 		Return False
 	EndIf
+	; One immutable request id owns the entire generation. Stop may terminalize the native command
+	; while a managed export is returning; re-reading live command state at each phase would then
+	; corrupt the terminal receipt with an empty id before the launcher can finalize it.
+	$g_sMBRFuncEngineReceiptStartRequestId = $sStartRequestId
+	$g_iMBRFuncEngineReceiptSequence = 0
+	$g_sMBRFuncEngineReceiptHistory = ""
 
 	$g_sMBRFuncEngineProbeState = "running"
 	If Not _MBRFuncPublishEngineReceipt("prepared") Then Return _MBRFuncInitializationFailed("Managed engine supervisor receipt could not be prepared")
@@ -284,7 +292,7 @@ Func _MBRFuncPublishEngineReceipt($sPhase)
 		'","controller_pid":' & $iParentPid & ',"controller_created":"' & $sControllerCreated & _
 		'","backend_pid":' & @AutoItPID & ',"backend_created":"' & $sBackendCreated & _
 		'","parent_pid":' & $iParentPid & ',"phase":"' & $sPhase & '","start_request_id":"' & _
-		_MBRFuncCurrentStartRequestId() & '","sequence":' & $g_iMBRFuncEngineReceiptSequence & _
+		$g_sMBRFuncEngineReceiptStartRequestId & '","sequence":' & $g_iMBRFuncEngineReceiptSequence & _
 		',"phase_history":' & $sCandidateHistory & '}'
 	DirCreate($g_sMBRFuncRuntimeLocalAppData & "\My Bot 2.0")
 	If Not _MBRFuncEngineReceiptPathSafe(False) Then Return False

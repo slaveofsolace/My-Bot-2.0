@@ -483,7 +483,8 @@ class LauncherRecoveryContractTests(unittest.TestCase):
             self.assertIn(field, writer)
         self.assertIn("$g_iMBRFuncEngineReceiptSequence += 1", writer)
         self.assertLess(writer.index("FileFlush("), writer.index("FileMove("))
-        self.assertIn("_MBRFuncCurrentStartRequestId()", writer)
+        self.assertIn("$g_sMBRFuncEngineReceiptStartRequestId", writer)
+        self.assertNotIn("_MBRFuncCurrentStartRequestId()", writer)
 
     def test_engine_supervisor_rejects_forged_foreign_and_reused_processes(self):
         token = "cd" * 32
