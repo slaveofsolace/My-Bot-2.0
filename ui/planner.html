@@ -100,8 +100,20 @@
         </ol>
       </div>
       <svg class="route-map" viewBox="0 0 520 240" role="img" aria-label="A guarded route from an applied plan through the engine gate to the Home Village">
+        <defs>
+          <pattern id="routeGrid" width="26" height="26" patternUnits="userSpaceOnUse">
+            <path d="M26 0H0v26"/>
+          </pattern>
+        </defs>
+        <rect class="route-grid" width="520" height="240" fill="url(#routeGrid)"/>
+        <path class="route-contour" d="M307 22c53 7 80 31 100 62 20 32 50 47 102 44M282 39c47 9 70 31 88 59 19 31 48 48 108 51M30 85c49-20 92-20 126 0 26 15 55 18 86 7"/>
+        <g class="route-readout" aria-hidden="true">
+          <text x="25" y="25">ROUTE / HOME-01</text>
+          <text x="398" y="25">INPUT GATED</text>
+        </g>
         <path class="route-terrain" d="M19 205c61-35 93-14 139-39 39-21 57-65 107-58 53 8 76 78 127 68 35-7 51-42 105-45"/>
         <path class="route-path" d="M63 178c86 0 92-67 173-67 75 0 92 65 169 65"/>
+        <path class="route-signal" d="M63 178c86 0 92-67 173-67 75 0 92 65 169 65"/>
         <g class="route-node route-node-plan" transform="translate(39 142)">
           <path d="M0 12 26 0l26 12v42H0V12Z"/>
           <path d="M14 54V28h24v26M20 28v-9h12v9"/>
@@ -117,6 +129,11 @@
         </g>
         <circle class="route-marker" cx="151" cy="145" r="7"/>
         <circle class="route-marker" cx="352" cy="158" r="7"/>
+        <g class="route-labels" aria-hidden="true">
+          <text x="40" y="218">01 / PLAN</text>
+          <text x="221" y="218">02 / ENGINE</text>
+          <text x="403" y="218">03 / HOME</text>
+        </g>
       </svg>
     </section>
 
