@@ -37,7 +37,12 @@ from urllib.parse import urlsplit
 try:
     from evaluate_support_readiness import evaluate_readiness
 except ModuleNotFoundError:  # Imported through an explicit file spec in focused tests.
-    from tools.evaluate_support_readiness import evaluate_readiness
+    try:
+        from tools.evaluate_support_readiness import evaluate_readiness
+    except ModuleNotFoundError:
+        # LocalRuntime deliberately excludes repository-only evidence tooling and Git metadata.
+        # The installed Control Center must still start, but it may not infer any readiness credit.
+        evaluate_readiness = None
 
 ROOT = Path(__file__).resolve().parents[1]
 SERVICE_NAME = "my-bot-control-center"
@@ -228,14 +233,25 @@ def metadata_document() -> dict:
 
 
 def evidence_readiness_summary() -> dict:
-    """Return one process-cached snapshot from the same evaluator used by release gates."""
+    """Return a cached release-gate snapshot, failing closed outside a source checkout."""
 
     global _EVIDENCE_READINESS_CACHE
     with _EVIDENCE_READINESS_LOCK:
         if _EVIDENCE_READINESS_CACHE is not None:
             return _EVIDENCE_READINESS_CACHE
 
-        report = evaluate_readiness(root=ROOT)
+        if evaluate_readiness is None:
+            capability_document = read_json(CAPABILITIES, {})
+            capabilities = capability_document.get("capabilities", []) if isinstance(capability_document, dict) else []
+            report = {
+                "capabilities": len(capabilities) if isinstance(capabilities, list) else 0,
+                "ready": 0,
+                "current_binary_ready": 0,
+                "exact_current_binary_records": 0,
+                "errors": ["repository evidence evaluator is unavailable in LocalRuntime"],
+            }
+        else:
+            report = evaluate_readiness(root=ROOT)
         manifest = read_json(FIXTURE_MANIFEST, {})
         entries = manifest.get("required_fixtures", []) if isinstance(manifest, dict) else []
         inventory_valid = isinstance(entries, list) and all(isinstance(entry, dict) for entry in entries)

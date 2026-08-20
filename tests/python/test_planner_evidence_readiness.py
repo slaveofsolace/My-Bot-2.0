@@ -52,6 +52,16 @@ class PlannerEvidenceReadinessTests(unittest.TestCase):
         self.assertEqual(summary["exact_current_evidence_records"], 0)
         self.assertEqual(summary["error_count"], 1)
 
+    def test_packaged_runtime_without_repository_evaluator_starts_fail_closed(self) -> None:
+        with mock.patch.object(planner_ui, "evaluate_readiness", None):
+            summary = planner_ui.evidence_readiness_summary()
+        self.assertFalse(summary["valid"])
+        self.assertEqual(summary["capabilities"], 61)
+        self.assertEqual(summary["historical_ready_for_review"], 0)
+        self.assertEqual(summary["exact_current_ready_for_review"], 0)
+        self.assertEqual(summary["exact_current_evidence_records"], 0)
+        self.assertGreaterEqual(summary["error_count"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()
