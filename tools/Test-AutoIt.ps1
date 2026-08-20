@@ -44,6 +44,54 @@ $results = [System.Collections.Generic.List[object]]::new()
 $logsDirectory = Join-Path $repositoryRoot "artifacts\autoit-$Version"
 New-Item -ItemType Directory -Path $logsDirectory -Force | Out-Null
 
+function Invoke-NativeProcess {
+    param(
+        [Parameter(Mandatory = $true)][string]$FilePath,
+        [Parameter(Mandatory = $true)][string[]]$Arguments,
+        [Parameter(Mandatory = $true)][string]$LogPath
+    )
+
+    $quotedArguments = foreach ($argument in $Arguments) {
+        if ($argument.Contains('"')) {
+            throw "Native argument contains an unsupported quote: $argument"
+        }
+        if ($argument -match '\s') {
+            '"' + $argument + '"'
+        }
+        else {
+            $argument
+        }
+    }
+    $errorLogPath = "$LogPath.stderr"
+    try {
+        $process = Start-Process `
+            -FilePath $FilePath `
+            -ArgumentList ($quotedArguments -join " ") `
+            -NoNewWindow `
+            -Wait `
+            -PassThru `
+            -RedirectStandardOutput $LogPath `
+            -RedirectStandardError $errorLogPath
+
+        $output = @()
+        if (Test-Path -LiteralPath $LogPath) {
+            $output += @(Get-Content -LiteralPath $LogPath)
+        }
+        if (Test-Path -LiteralPath $errorLogPath) {
+            $output += @(Get-Content -LiteralPath $errorLogPath)
+        }
+        @($output) | Set-Content -LiteralPath $LogPath -Encoding UTF8
+
+        [pscustomobject]@{
+            exit_code = $process.ExitCode
+            output = $output
+        }
+    }
+    finally {
+        Remove-Item -LiteralPath $errorLogPath -Force -ErrorAction SilentlyContinue
+    }
+}
+
 function Invoke-Au3Check {
     param([Parameter(Mandatory = $true)][string]$RelativePath)
 
@@ -55,11 +103,11 @@ function Invoke-Au3Check {
         "-I", $includeDirectory,
         $scriptPath
     )
-    $output = & $au3CheckExe.FullName @arguments 2>&1
-    $exitCode = $LASTEXITCODE
     $safeName = ($RelativePath -replace '[^A-Za-z0-9_.-]', '_') + ".log"
     $logPath = Join-Path $logsDirectory $safeName
-    @($output) | Set-Content -Path $logPath -Encoding UTF8
+    $invocation = Invoke-NativeProcess -FilePath $au3CheckExe.FullName -Arguments $arguments -LogPath $logPath
+    $output = $invocation.output
+    $exitCode = $invocation.exit_code
 
     $results.Add([pscustomobject]@{
         kind = "au3check"
@@ -87,6 +135,9 @@ $testScripts = @(
     "tests\autoit\LootCartRouteTest.au3",
     "tests\autoit\TreasuryRouteTest.au3",
     "tests\autoit\ClanRequestRouteTest.au3",
+    "tests\autoit\ClanDonationOneRouteTest.au3",
+    "tests\autoit\HomeUpgradeOneRouteTest.au3",
+    "tests\autoit\ExactRecipeTrainingRouteTest.au3",
     "tests\autoit\ManualViewportMappingTest.au3",
     "tests\autoit\SmartAttackPolicyTest.au3",
     "tests\autoit\EngineProbeLifecycleTest.au3"
@@ -110,10 +161,13 @@ try {
     foreach ($relativeTest in $testScripts) {
         $testScript = (Resolve-Path (Join-Path $repositoryRoot $relativeTest)).Path
         $testName = [System.IO.Path]::GetFileNameWithoutExtension($relativeTest)
-        $runtimeOutput = & $autoItExe.FullName "/ErrorStdOut" $testScript 2>&1
-        $runtimeExitCode = $LASTEXITCODE
         $runtimeLog = Join-Path $logsDirectory "$testName.runtime.log"
-        @($runtimeOutput) | Set-Content -Path $runtimeLog -Encoding UTF8
+        $runtimeInvocation = Invoke-NativeProcess `
+            -FilePath $autoItExe.FullName `
+            -Arguments @("/ErrorStdOut", $testScript) `
+            -LogPath $runtimeLog
+        $runtimeOutput = $runtimeInvocation.output
+        $runtimeExitCode = $runtimeInvocation.exit_code
         $results.Add([pscustomobject]@{
             kind = "runtime"
             path = $relativeTest

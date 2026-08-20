@@ -15,7 +15,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPOSITORY_ROOT / "tools"))
 
 from evaluate_support_readiness import evaluate_readiness  # noqa: E402
-from validate_runtime_evidence import validate_engine_initialization_artifact, validate_registry  # noqa: E402
+from validate_runtime_evidence import validate_engine_initialization_artifact, validate_no_gem_proof, validate_registry  # noqa: E402
 
 
 NOW = datetime(2026, 8, 9, 23, 59, tzinfo=timezone.utc)
@@ -315,6 +315,137 @@ class RuntimeEvidenceTest(unittest.TestCase):
         self.assertEqual(0, report["ready"])
         self.assertIn("required fixture mapping missing", report["results"][0]["blockers"])
 
+    def test_all_current_gate_fails_closed_on_any_unproven_capability(self) -> None:
+        complete = evaluate_readiness(
+            root=self.root,
+            now=NOW,
+            require_all_current=True,
+        )
+        self.assertEqual([], complete["errors"])
+
+        self.record["checks"] = self.record["checks"][:1]
+        self.save_record()
+        incomplete = evaluate_readiness(
+            root=self.root,
+            now=NOW,
+            require_all_current=True,
+        )
+        self.assertTrue(
+            any(
+                error.startswith("capability lacks exact-current completion proof: orchestration.run-plan:")
+                for error in incomplete["errors"]
+            )
+        )
+
+
+class PlannerRuntimeTruthfulnessTest(unittest.TestCase):
+    def test_runtime_verified_flags_require_exact_current_binary_evidence(self) -> None:
+        report = evaluate_readiness(
+            root=REPOSITORY_ROOT,
+            now=datetime(2026, 8, 20, 23, 59, tzinfo=timezone.utc),
+        )
+        current_ready = {
+            result["capability_id"]
+            for result in report["results"]
+            if result["current_binary_ready"]
+        }
+        settings = json.loads(
+            (REPOSITORY_ROOT / "config/ui/run-planner.settings.json").read_text(encoding="utf-8-sig")
+        )
+        for section in settings["sections"]:
+            for setting in section["settings"]:
+                candidates = [setting, *setting.get("options", [])]
+                for candidate in candidates:
+                    if not candidate.get("runtime_verified", False):
+                        continue
+                    capability_ids = set(candidate.get("capability_ids", []))
+                    self.assertTrue(
+                        capability_ids,
+                        f"{setting['id']} marks runtime_verified without a capability binding",
+                    )
+                    self.assertTrue(
+                        capability_ids <= current_ready,
+                        f"{setting['id']} marks runtime_verified without exact-current evidence: "
+                        f"{sorted(capability_ids - current_ready)}",
+                    )
+
+
+class NoGemArtifactContractTest(unittest.TestCase):
+    def valid_proof(self) -> dict[str, object]:
+        return {
+            "schema_version": 2,
+            "balance_before": 3092,
+            "balance_after": 3092,
+            "balance_before_observed_at": "2026-08-20T12:00:00Z",
+            "balance_after_observed_at": "2026-08-20T12:01:00Z",
+            "balance_before_frame_sha256": "1" * 64,
+            "balance_after_frame_sha256": "2" * 64,
+            "gem_surface_observed": False,
+            "gem_surface_stop_armed": True,
+            "gem_inputs_issued": 0,
+            "gem_completion_inputs_issued": 0,
+            "purchase_inputs_issued": 0,
+            "shop_offer_inputs_issued": 0,
+            "route_inputs_issued": 1,
+            "issued_vs_confirmed_separated": True,
+            "exact_profile_bound": True,
+            "exact_emulator_instance_bound": True,
+            "exact_account_bound": True,
+            "route_return_proved": True,
+            "capture_method": "reviewed-redacted-frames",
+            "source_frames_redacted_or_unretained": True,
+        }
+
+    def test_exact_no_spend_proof_accepts_unchanged_or_increased_balance(self) -> None:
+        proof = self.valid_proof()
+        self.assertEqual([], validate_no_gem_proof(proof))
+        proof["balance_after"] = 3100
+        self.assertEqual([], validate_no_gem_proof(proof))
+
+    def test_decreased_balance_or_any_gem_surface_fails_closed(self) -> None:
+        proof = self.valid_proof()
+        proof["balance_after"] = 3091
+        proof["gem_surface_observed"] = True
+        proof["gem_inputs_issued"] = 1
+        proof["gem_completion_inputs_issued"] = 1
+        proof["purchase_inputs_issued"] = 1
+        proof["shop_offer_inputs_issued"] = 1
+        errors = validate_no_gem_proof(proof)
+        self.assertTrue(any("decreased" in error for error in errors))
+        self.assertTrue(any("no gem surface" in error for error in errors))
+        self.assertTrue(any("zero gem inputs" in error for error in errors))
+        self.assertTrue(any("zero gem-completion inputs" in error for error in errors))
+        self.assertTrue(any("zero purchase inputs" in error for error in errors))
+        self.assertTrue(any("zero shop-offer inputs" in error for error in errors))
+
+    def test_privacy_and_capture_method_are_mandatory(self) -> None:
+        proof = self.valid_proof()
+        proof["capture_method"] = "unreviewed-frame"
+        proof["source_frames_redacted_or_unretained"] = False
+        errors = validate_no_gem_proof(proof)
+        self.assertTrue(any("capture_method" in error for error in errors))
+        self.assertTrue(any("privacy boundary" in error for error in errors))
+
+    def test_identity_timing_receipts_and_return_are_mandatory(self) -> None:
+        proof = self.valid_proof()
+        proof["balance_after_observed_at"] = "2026-08-20T11:59:59Z"
+        proof["balance_before_frame_sha256"] = "not-a-digest"
+        proof["gem_surface_stop_armed"] = False
+        proof["issued_vs_confirmed_separated"] = False
+        proof["exact_profile_bound"] = False
+        proof["exact_emulator_instance_bound"] = False
+        proof["exact_account_bound"] = False
+        proof["route_return_proved"] = False
+        errors = validate_no_gem_proof(proof)
+        self.assertTrue(any("out of order" in error for error in errors))
+        self.assertTrue(any("SHA-256" in error for error in errors))
+        self.assertTrue(any("hard stop" in error for error in errors))
+        self.assertTrue(any("issued and confirmed" in error for error in errors))
+        self.assertTrue(any("exact profile" in error for error in errors))
+        self.assertTrue(any("exact emulator-instance" in error for error in errors))
+        self.assertTrue(any("exact account" in error for error in errors))
+        self.assertTrue(any("route return" in error for error in errors))
+
 
 class EngineInitializationArtifactContractTest(unittest.TestCase):
     @classmethod
@@ -388,6 +519,82 @@ class EngineInitializationArtifactContractTest(unittest.TestCase):
         errors = self.validate(artifact)
         self.assertIn("manifest hash mismatches", errors)
         self.assertIn("did not preserve installed english", errors)
+
+    def test_schema_two_preserves_an_existing_saved_plan_in_place(self) -> None:
+        artifact = deepcopy(self.artifact)
+        artifact["schema_version"] = 2
+        artifact["reviewed_install"]["manifest_size_mismatches_after_check"] = 0
+        artifact["initial_state"]["plan_exists"] = True
+        artifact["supervision"]["request_receipt_identity_matched"] = True
+        artifact["supervision"]["sampled_receipt_phases"] = [
+            {"sequence": sequence, "phase": phase}
+            for sequence, phase in (
+                (1, "prepared"), (2, "pool-entered"), (3, "pool-returned"),
+                (4, "max-entered"), (5, "max-returned"), (6, "android-entered"),
+                (7, "android-returned"), (8, "gui-entered"), (9, "initialized"),
+            )
+        ]
+        artifact["preservation"].pop("plan_absent_before_and_after")
+        artifact["preservation"]["release_manifest_before_sha256"] = "1" * 64
+        artifact["preservation"]["release_manifest_after_sha256"] = "1" * 64
+        artifact["preservation"]["emulator_process_identity_preserved"] = True
+        artifact["preservation"]["adb_daemon_identity_preserved"] = True
+        artifact["preservation"]["saved_plan_before_sha256"] = "2" * 64
+        artifact["preservation"]["saved_plan_after_sha256"] = "2" * 64
+        artifact["assertions"]["warning_html_absent"] = True
+        artifact["assertions"]["browser_child_absent"] = True
+        artifact["assertions"]["outbound_backend_connections"] = 0
+        self.assertEqual("", self.validate(artifact))
+
+    def test_schema_two_rejects_saved_plan_manifest_or_process_identity_drift(self) -> None:
+        artifact = deepcopy(self.artifact)
+        artifact["schema_version"] = 2
+        artifact["reviewed_install"]["manifest_size_mismatches_after_check"] = 0
+        artifact["initial_state"]["plan_exists"] = True
+        artifact["supervision"]["request_receipt_identity_matched"] = True
+        artifact["supervision"]["sampled_receipt_phases"] = [
+            {"sequence": sequence, "phase": phase}
+            for sequence, phase in (
+                (1, "prepared"), (2, "pool-entered"), (3, "pool-returned"),
+                (4, "max-entered"), (5, "max-returned"), (6, "android-entered"),
+                (7, "android-returned"), (8, "gui-entered"), (9, "initialized"),
+            )
+        ]
+        artifact["preservation"].pop("plan_absent_before_and_after")
+        artifact["preservation"]["release_manifest_before_sha256"] = "1" * 64
+        artifact["preservation"]["release_manifest_after_sha256"] = "3" * 64
+        artifact["preservation"]["emulator_process_identity_preserved"] = False
+        artifact["preservation"]["adb_daemon_identity_preserved"] = False
+        artifact["preservation"]["saved_plan_before_sha256"] = "2" * 64
+        artifact["preservation"]["saved_plan_after_sha256"] = "4" * 64
+        artifact["assertions"]["warning_html_absent"] = False
+        artifact["assertions"]["browser_child_absent"] = False
+        artifact["assertions"]["outbound_backend_connections"] = 1
+        errors = self.validate(artifact)
+        self.assertIn("did not preserve the release manifest", errors)
+        self.assertIn("did not preserve emulator process identity", errors)
+        self.assertIn("did not preserve ADB process identity", errors)
+        self.assertIn("did not preserve the saved plan", errors)
+        self.assertIn("assertions are incomplete", errors)
+
+    def test_engine_initialization_rejects_omitted_intermediate_phases(self) -> None:
+        artifact = deepcopy(self.artifact)
+        artifact["schema_version"] = 2
+        artifact["reviewed_install"]["manifest_size_mismatches_after_check"] = 0
+        artifact["supervision"]["request_receipt_identity_matched"] = True
+        artifact["preservation"]["release_manifest_before_sha256"] = "1" * 64
+        artifact["preservation"]["release_manifest_after_sha256"] = "1" * 64
+        artifact["preservation"]["emulator_process_identity_preserved"] = True
+        artifact["preservation"]["adb_daemon_identity_preserved"] = True
+        artifact["assertions"]["warning_html_absent"] = True
+        artifact["assertions"]["browser_child_absent"] = True
+        artifact["assertions"]["outbound_backend_connections"] = 0
+        artifact["supervision"]["sampled_receipt_phases"] = [
+            {"sequence": 1, "phase": "prepared"},
+            {"sequence": 9, "phase": "initialized"},
+        ]
+        errors = self.validate(artifact)
+        self.assertIn("must contain the complete phase sequence in exact order", errors)
 
 
 if __name__ == "__main__":

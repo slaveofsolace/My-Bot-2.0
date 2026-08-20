@@ -71,6 +71,38 @@ class PlannerWorkbenchContract(unittest.TestCase):
         self.assertIn("setting.id === 'events.collect_loot_cart') PLAN['events.collect_resources'] = false;", JS)
         self.assertEqual(len(set(re.findall(r'<g class="maintenance-node"[^>]+transform="([^"]+)"', HTML))), 4)
 
+    def test_run_view_has_a_distinct_no_gems_route_and_exact_recovery_language(self):
+        for token in (
+            '<span class="beacon-eyebrow">Run state</span>',
+            'class="safety-rail" aria-label="Run safety contract"',
+            "Hard stop on gem surfaces",
+            "Profile and emulator bound",
+            "Issued is not confirmed",
+            'class="route-pulse route-pulse-a"',
+            "Recovery stays exact.",
+            "Only receipt-bound launcher, controller, backend, and planner processes may be closed.",
+        ):
+            self.assertIn(token, HTML)
+        self.assertIn(".engine-summary:has(.status-lamp[data-state=\"error\"])", CSS)
+        self.assertIn(".safety-rail {", CSS)
+        self.assertIn(".route-pulse {", CSS)
+        self.assertIn(".recovery-note {", CSS)
+        reduced = CSS[CSS.index("@media (prefers-reduced-motion: reduce)"):]
+        self.assertIn(".route-pulse,", reduced)
+
+    def test_evidence_view_explains_issued_observed_and_proven_states_visually(self):
+        for token in (
+            'class="evidence-runway"',
+            "A click is not a result.",
+            "Input delivery was accepted once.",
+            "The expected screen transition appeared.",
+            "Identity, state, and Home return agree.",
+            'class="evidence-node evidence-node-proven"',
+        ):
+            self.assertIn(token, HTML)
+        self.assertIn(".evidence-runway {", CSS)
+        self.assertIn(".evidence-node-proven { color: var(--success); }", CSS)
+
     def test_apply_then_start_is_enforced_in_both_render_and_command_paths(self):
         render = JS.split("function renderControl()", 1)[1].split("function recoverControlPending", 1)[0]
         send = JS.split("async function sendControl(action)", 1)[1].split("function eventDate", 1)[0]

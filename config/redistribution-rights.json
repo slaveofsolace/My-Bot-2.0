@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "component_id": "inherited-imgloc",
+  "status": "pending",
+  "release_allowed": false,
+  "artifact": {
+    "path": "lib/MyBot.run.dll",
+    "sha256": "347b204a15fd56800130740aff639c7608621206482f07298c595a363e328699",
+    "bytes": 2761728
+  },
+  "authorization": null,
+  "review": {
+    "reviewed_at": "2026-08-20",
+    "reviewer_role": "release-rights-reviewer",
+    "conclusion": "No mechanically verified written public-redistribution grant is recorded. LocalRuntime packaging only."
+  }
+}

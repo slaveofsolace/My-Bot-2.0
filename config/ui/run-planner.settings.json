@@ -1210,7 +1210,7 @@
               "description": "Runs a bounded Home pass for collectors, the Loot Cart, a Treasury not-full check, and, when explicitly enabled, the startup Daily Reward. It re-proves Home and stops. It cannot search, attack, train, donate, upgrade, enter the Laboratory, run Clan Games, or rotate accounts.",
               "availability": "gated",
               "runtime_verified": false,
-              "disabled_reason": "Collectors have exact-current packaged-binary proof. Loot Cart, Treasury transfer, and startup Daily Reward still need positive completion receipts.",
+              "disabled_reason": "Collectors have historical packaged-binary proof, but this post-checkpoint source is unbuilt and has no exact-current collector receipt. Loot Cart, Treasury transfer, and startup Daily Reward still need positive completion receipts.",
               "capability_ids": [
                 "village.collectors",
                 "village.loot-cart",
@@ -1222,7 +1222,7 @@
                 "A supervised diagnostic operator"
               ],
               "recommended": false,
-              "warning": "Collectors are runtime-proven; every other selected Home task keeps its own fail-closed evidence gate. Treasury currently proves only not-full/unavailable."
+              "warning": "Historical collector evidence exists; exact-current collector proof is still required. Every selected Home task keeps its own fail-closed evidence gate. Treasury currently proves only not-full/unavailable."
             },
             {
               "value": "home.clan-request",
@@ -2470,39 +2470,38 @@
             },
             {
               "value": "matching",
-              "label": "Only matching requests",
-              "summary": "Donate when the request text matches.",
-              "description": "Reads the request and donates only what was asked for. Depends on reading clan chat, which moved when Global Chat was added.",
-              "availability": "gated",
+              "label": "One structured requested unit",
+              "summary": "Donate at most one unit whose structured request icon is freshly recognized.",
+              "description": "Uses no request text or OCR fallback. The future terminal route must prove a source reserve, one accepted input, an exact one-unit decrement, and Home return.",
+              "availability": "planned",
               "runtime_verified": false,
-              "disabled_reason": "Clan chat recognition has not been captured since Global Chat.",
+              "disabled_reason": "The one-unit adapter is not wired to current-client clan chat recognition.",
               "capability_ids": [
                 "village.donations",
                 "chat.global-chat"
               ],
               "prerequisites": [
-                "Clan chat recognition"
+                "Structured request fixture",
+                "One-unit source-reserve receipt"
               ],
               "recommended": false,
               "warning": ""
             },
             {
               "value": "anything",
-              "label": "Donate anything",
-              "summary": "Fill any request with whatever is available.",
-              "description": "Donates without matching the request. Fast, and reliably annoys clan mates who asked for something specific.",
-              "availability": "gated",
+              "label": "Unrestricted donation (blocked)",
+              "summary": "Never donate an arbitrary unit.",
+              "description": "This inherited mode cannot prove the requested unit, source reserve, or exact one-unit receipt and is deliberately unavailable.",
+              "availability": "unsupported",
               "runtime_verified": false,
-              "disabled_reason": "Clan chat recognition has not been captured since Global Chat.",
+              "disabled_reason": "Unrestricted donation is outside the closed-world no-gem contract.",
               "capability_ids": [
                 "village.donations",
                 "chat.global-chat"
               ],
-              "prerequisites": [
-                "Clan chat recognition"
-              ],
+              "prerequisites": [],
               "recommended": false,
-              "warning": "Expect complaints if your clan cares what it receives."
+              "warning": "This mode cannot be started."
             }
           ]
         },
@@ -2522,13 +2521,13 @@
           "id": "donate.max_per_run",
           "type": "integer",
           "label": "Donation limit",
-          "summary": "Stop donating after this many per run. Zero means no limit.",
-          "description": "Caps how much time and Elixir a single run puts into donating.",
+          "summary": "The disabled legacy counter; the future terminal route is hard-capped at one unit.",
+          "description": "No live donation route currently consumes this setting. The reviewed adapter itself permits only one input attempt.",
           "default": 0,
           "required": false,
           "engine_binding": "RunPlan.donate_max_per_run",
           "native_fixed_value": 0,
-          "native_fixed_reason": "Per-run donation accounting is not wired, so the limit must remain zero.",
+          "native_fixed_reason": "Donation execution is disabled; the future one-unit adapter enforces its cap independently.",
           "unit": "donations",
           "validation": {
             "minimum": 0,
@@ -2562,8 +2561,8 @@
       "id": "events",
       "tab_label": "Events",
       "order": 46,
-      "title": "Events and lab",
-      "description": "The recurring things worth doing between attacks: Clan Games challenges and keeping the laboratory busy.",
+      "title": "Events",
+      "description": "Recurring Home and Clan tasks that can run between attacks.",
       "settings": [
         {
           "id": "events.clan_games",
@@ -2604,65 +2603,6 @@
           }
         },
         {
-          "id": "events.laboratory",
-          "type": "select",
-          "label": "Laboratory",
-          "summary": "What to research when the lab is free.",
-          "description": "Keeping the laboratory busy is most of long-term progress. Choosing what it researches means reading upgrade costs and levels off the lab screen.",
-          "default": "off",
-          "required": true,
-          "engine_binding": "RunPlan.events_laboratory",
-          "options": [
-            {
-              "value": "off",
-              "label": "Leave it alone",
-              "summary": "Do not start research.",
-              "description": "The run ignores the laboratory. Right setting while lab recognition is unconfirmed.",
-              "availability": "available",
-              "runtime_verified": false,
-              "disabled_reason": "",
-              "capability_ids": [],
-              "prerequisites": [],
-              "recommended": true,
-              "warning": ""
-            },
-            {
-              "value": "cheapest",
-              "label": "Cheapest available",
-              "summary": "Always start the cheapest research.",
-              "description": "Keeps the lab permanently busy at the lowest cost. Needs the lab screen read accurately, including the Town Hall 18 additions.",
-              "availability": "planned",
-              "runtime_verified": false,
-              "disabled_reason": "The native execution contract currently accepts only Laboratory off.",
-              "capability_ids": [
-                "village.laboratory"
-              ],
-              "prerequisites": [
-                "Laboratory screen recognition"
-              ],
-              "recommended": false,
-              "warning": ""
-            },
-            {
-              "value": "priority-list",
-              "label": "Follow a priority list",
-              "summary": "Work down a configured order.",
-              "description": "Researches in the order you specify, skipping anything unaffordable. Needs both lab recognition and a stored priority list.",
-              "availability": "planned",
-              "runtime_verified": false,
-              "disabled_reason": "Priority lists are not implemented yet.",
-              "capability_ids": [
-                "village.laboratory"
-              ],
-              "prerequisites": [
-                "Laboratory screen recognition"
-              ],
-              "recommended": false,
-              "warning": ""
-            }
-          ]
-        },
-        {
           "id": "events.collect_resources",
           "type": "boolean",
           "label": "Collect collectors",
@@ -2672,15 +2612,15 @@
           "required": false,
           "engine_binding": "RunPlan.events_collect_resources",
           "availability": "gated",
-          "runtime_verified": true,
+          "runtime_verified": false,
           "capability_ids": [
             "village.collectors"
           ],
           "prerequisites": [
             "Current home-village collector recognition"
           ],
-          "disabled_reason": "Exact-current packaged-binary evidence records three accepted collector clicks, Gold/Elixir/Dark Elixir increases, Home re-proof, and zero gem change. It remains gated because this is a real account action bound to one profile and emulator instance.",
-          "warning": "Runtime verified. Select Home maintenance, the exact account/emulator binding, and supervised diagnostic consent."
+          "disabled_reason": "A historical packaged-binary receipt records three accepted collector clicks, Gold/Elixir/Dark Elixir increases, Home re-proof, and zero gem change. This post-checkpoint source is unbuilt and has no exact-current collector receipt, so the real account action remains gated.",
+          "warning": "Historical evidence only. Exact-current proof still requires Home maintenance, the exact account/emulator binding, supervised diagnostic consent, and an unchanged gem balance."
         },
         {
           "id": "events.collect_daily_reward",
@@ -2783,10 +2723,10 @@
               "value": "walls",
               "label": "Walls only",
               "summary": "Spend surplus on wall upgrades.",
-              "description": "Puts spare resources into walls, which is the least risky upgrade because it does not occupy a Builder.",
-              "availability": "gated",
+              "description": "The inherited wall path is not bounded by the reviewed one-upgrade cost, reserve, builder, confirmation, and post-state contract.",
+              "availability": "planned",
               "runtime_verified": false,
-              "disabled_reason": "Wall levels have not been re-confirmed for the current client.",
+              "disabled_reason": "The one-upgrade adapter is not wired to a reviewed current-client recognizer.",
               "capability_ids": [
                 "village.upgrades-home",
                 "village.town-hall-18"
@@ -2830,6 +2770,65 @@
               ],
               "prerequisites": [
                 "Current upgrade and Hero recognition"
+              ],
+              "recommended": false,
+              "warning": ""
+            }
+          ]
+        },
+        {
+          "id": "events.laboratory",
+          "type": "select",
+          "label": "Laboratory",
+          "summary": "What to research when the lab is free.",
+          "description": "Keeping the laboratory busy is most of long-term progress. Choosing what it researches means reading upgrade costs and levels off the lab screen.",
+          "default": "off",
+          "required": true,
+          "engine_binding": "RunPlan.events_laboratory",
+          "options": [
+            {
+              "value": "off",
+              "label": "Leave it alone",
+              "summary": "Do not start research.",
+              "description": "The run ignores the laboratory. Right setting while lab recognition is unconfirmed.",
+              "availability": "available",
+              "runtime_verified": false,
+              "disabled_reason": "",
+              "capability_ids": [],
+              "prerequisites": [],
+              "recommended": true,
+              "warning": ""
+            },
+            {
+              "value": "cheapest",
+              "label": "Cheapest available",
+              "summary": "Always start the cheapest research.",
+              "description": "Keeps the lab permanently busy at the lowest cost. Needs the lab screen read accurately, including the Town Hall 18 additions.",
+              "availability": "planned",
+              "runtime_verified": false,
+              "disabled_reason": "The native execution contract currently accepts only Laboratory off.",
+              "capability_ids": [
+                "village.laboratory"
+              ],
+              "prerequisites": [
+                "Laboratory screen recognition"
+              ],
+              "recommended": false,
+              "warning": ""
+            },
+            {
+              "value": "priority-list",
+              "label": "Follow a priority list",
+              "summary": "Work down a configured order.",
+              "description": "Researches in the order you specify, skipping anything unaffordable. Needs both lab recognition and a stored priority list.",
+              "availability": "planned",
+              "runtime_verified": false,
+              "disabled_reason": "Priority lists are not implemented yet.",
+              "capability_ids": [
+                "village.laboratory"
+              ],
+              "prerequisites": [
+                "Laboratory screen recognition"
               ],
               "recommended": false,
               "warning": ""

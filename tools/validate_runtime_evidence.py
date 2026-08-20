@@ -91,6 +91,30 @@ ENGINE_INITIALIZATION_PHASES = {
     8: "gui-entered",
     9: "initialized",
 }
+NO_GEM_TEST_TYPES = {"end-to-end", "route-execution"}
+NO_GEM_PROOF_FIELDS = {
+    "schema_version",
+    "balance_before",
+    "balance_after",
+    "balance_before_observed_at",
+    "balance_after_observed_at",
+    "balance_before_frame_sha256",
+    "balance_after_frame_sha256",
+    "gem_surface_observed",
+    "gem_surface_stop_armed",
+    "gem_inputs_issued",
+    "gem_completion_inputs_issued",
+    "purchase_inputs_issued",
+    "shop_offer_inputs_issued",
+    "route_inputs_issued",
+    "issued_vs_confirmed_separated",
+    "exact_profile_bound",
+    "exact_emulator_instance_bound",
+    "exact_account_bound",
+    "route_return_proved",
+    "capture_method",
+    "source_frames_redacted_or_unretained",
+}
 
 
 def load(path: Path) -> Any:
@@ -213,6 +237,51 @@ def _policy_errors(catalog: Any) -> tuple[list[str], dict[str, Any], dict[str, d
         if policy.get(flag) is not True:
             errors.append(f"runtime_evidence_policy.{flag} must be true")
 
+    no_gem = policy.get("no_gem_contract")
+    if no_gem is not None and (
+        not isinstance(no_gem, dict)
+        or set(no_gem) != {"effective_at", "required_check", "capabilities"}
+    ):
+        errors.append("runtime_evidence_policy.no_gem_contract fields do not match the contract")
+    elif isinstance(no_gem, dict):
+        if parse_utc(no_gem.get("effective_at")) is None:
+            errors.append("runtime_evidence_policy.no_gem_contract.effective_at must be UTC")
+        if no_gem.get("required_check") != "gems.not-spent":
+            errors.append("runtime_evidence_policy.no_gem_contract.required_check must be gems.not-spent")
+        no_gem_capabilities = no_gem.get("capabilities")
+        if (
+            not isinstance(no_gem_capabilities, list)
+            or not no_gem_capabilities
+            or len(no_gem_capabilities) != len(set(no_gem_capabilities))
+            or not set(no_gem_capabilities) <= capability_ids
+        ):
+            errors.append("runtime_evidence_policy.no_gem_contract.capabilities is invalid")
+        else:
+            no_gem_capability_set = set(no_gem_capabilities)
+            missing_guarded_capabilities: list[str] = []
+            policy_capability_map = policy.get("capabilities")
+            if not isinstance(policy_capability_map, dict):
+                policy_capability_map = {}
+            for capability_id, capability_policy in policy_capability_map.items():
+                if capability_id == "safety.no-gem-guard" or not isinstance(capability_policy, dict):
+                    continue
+                required_tests = capability_policy.get("required_tests")
+                if not isinstance(required_tests, list):
+                    continue
+                requires_untouched_balance = any(
+                    isinstance(test, dict)
+                    and isinstance(test.get("required_checks"), list)
+                    and "gems.untouched" in test["required_checks"]
+                    for test in required_tests
+                )
+                if requires_untouched_balance and capability_id not in no_gem_capability_set:
+                    missing_guarded_capabilities.append(capability_id)
+            if missing_guarded_capabilities:
+                errors.append(
+                    "runtime_evidence_policy.no_gem_contract is missing guarded capabilities: "
+                    + ", ".join(sorted(missing_guarded_capabilities))
+                )
+
     for field, pattern in (policy.get("environment_patterns") or {}).items():
         if field not in ENVIRONMENT_FIELDS or not isinstance(pattern, str):
             errors.append(f"runtime_evidence_policy.environment_patterns.{field} is invalid")
@@ -316,6 +385,90 @@ def _verify_repository_artifact(root: Path, value: Any, prefix: str) -> list[str
     return errors
 
 
+def validate_no_gem_proof(value: Any) -> list[str]:
+    """Validate a future mutating-route artifact's explicit no-spend proof."""
+
+    if not isinstance(value, dict) or set(value) != NO_GEM_PROOF_FIELDS:
+        return ["no_gem_proof fields do not match the closed contract"]
+    errors: list[str] = []
+    if value.get("schema_version") != 2:
+        errors.append("no_gem_proof.schema_version must be 2")
+    before = value.get("balance_before")
+    after = value.get("balance_after")
+    if isinstance(before, bool) or not isinstance(before, int) or before < 0:
+        errors.append("no_gem_proof.balance_before must be a non-negative integer")
+    if isinstance(after, bool) or not isinstance(after, int) or after < 0:
+        errors.append("no_gem_proof.balance_after must be a non-negative integer")
+    if isinstance(before, int) and not isinstance(before, bool) and isinstance(after, int) and not isinstance(after, bool) and after < before:
+        errors.append("no_gem_proof shows a decreased gem balance")
+    before_at = parse_utc(value.get("balance_before_observed_at"))
+    after_at = parse_utc(value.get("balance_after_observed_at"))
+    if before_at is None:
+        errors.append("no_gem_proof.balance_before_observed_at must be UTC")
+    if after_at is None:
+        errors.append("no_gem_proof.balance_after_observed_at must be UTC")
+    if before_at is not None and after_at is not None and after_at < before_at:
+        errors.append("no_gem_proof balance observations are out of order")
+    for field in ("balance_before_frame_sha256", "balance_after_frame_sha256"):
+        digest = value.get(field)
+        if not isinstance(digest, str) or not SHA256_PATTERN.fullmatch(digest):
+            errors.append(f"no_gem_proof.{field} must be a SHA-256 digest")
+    if value.get("gem_surface_observed") is not False:
+        errors.append("no_gem_proof must show no gem surface")
+    if value.get("gem_surface_stop_armed") is not True:
+        errors.append("no_gem_proof must show the gem-surface hard stop was armed")
+    if value.get("gem_inputs_issued") != 0:
+        errors.append("no_gem_proof must show zero gem inputs")
+    if value.get("gem_completion_inputs_issued") != 0:
+        errors.append("no_gem_proof must show zero gem-completion inputs")
+    if value.get("purchase_inputs_issued") != 0:
+        errors.append("no_gem_proof must show zero purchase inputs")
+    if value.get("shop_offer_inputs_issued") != 0:
+        errors.append("no_gem_proof must show zero shop-offer inputs")
+    route_inputs = value.get("route_inputs_issued")
+    if isinstance(route_inputs, bool) or not isinstance(route_inputs, int) or route_inputs < 0:
+        errors.append("no_gem_proof.route_inputs_issued must be a non-negative integer")
+    for field, description in (
+        ("issued_vs_confirmed_separated", "issued and confirmed receipts"),
+        ("exact_profile_bound", "exact profile binding"),
+        ("exact_emulator_instance_bound", "exact emulator-instance binding"),
+        ("exact_account_bound", "exact account binding"),
+        ("route_return_proved", "route return proof"),
+    ):
+        if value.get(field) is not True:
+            errors.append(f"no_gem_proof must show {description}")
+    if value.get("capture_method") not in {"clean-room-recognizer", "reviewed-redacted-frames"}:
+        errors.append("no_gem_proof.capture_method is unsupported")
+    if value.get("source_frames_redacted_or_unretained") is not True:
+        errors.append("no_gem_proof must preserve the privacy boundary")
+    return errors
+
+
+def _verify_no_gem_artifact(root: Path, artifact_refs: list[Any]) -> list[str]:
+    proofs: list[Any] = []
+    for item in artifact_refs:
+        if not isinstance(item, dict) or item.get("kind") != "repository":
+            continue
+        raw_path = item.get("path")
+        if not isinstance(raw_path, str) or not raw_path.lower().endswith(".json"):
+            continue
+        relative, _ = _safe_relative_path(root, raw_path)
+        if relative is None:
+            continue
+        committed = _git_blob(root, "HEAD", relative)
+        if committed is None:
+            continue
+        try:
+            artifact = json.loads(committed.decode("utf-8-sig"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            continue
+        if isinstance(artifact, dict) and "no_gem_proof" in artifact:
+            proofs.append(artifact["no_gem_proof"])
+    if len(proofs) != 1:
+        return ["post-contract mutating evidence must reference exactly one semantic no_gem_proof"]
+    return validate_no_gem_proof(proofs[0])
+
+
 def validate_engine_initialization_artifact(
     record: Any,
     artifact: Any,
@@ -333,8 +486,9 @@ def validate_engine_initialization_artifact(
     errors: list[str] = []
     if not isinstance(record, dict) or not isinstance(artifact, dict):
         return ["engine initialization artifact and record must be objects"]
-    if artifact.get("schema_version") != 1:
-        errors.append("engine initialization artifact schema_version must be 1")
+    artifact_schema = artifact.get("schema_version")
+    if artifact_schema not in {1, 2}:
+        errors.append("engine initialization artifact schema_version must be 1 or 2")
     artifact_id = artifact.get("artifact_id")
     if not isinstance(artifact_id, str) or not ENGINE_INITIALIZATION_ARTIFACT_PATTERN.fullmatch(artifact_id):
         errors.append("engine initialization artifact_id is not canonical")
@@ -359,6 +513,8 @@ def validate_engine_initialization_artifact(
             errors.append("reviewed install must retain a positive manifest record count")
         if install.get("manifest_missing_after_check") != 0:
             errors.append("reviewed install has missing manifest records after the check")
+        if artifact_schema == 2 and install.get("manifest_size_mismatches_after_check") != 0:
+            errors.append("reviewed install has manifest size mismatches after the check")
         if install.get("manifest_hash_mismatches_after_check") != 0:
             errors.append("reviewed install has manifest hash mismatches after the check")
         for field in ("release_manifest_sha256", "package_sha256"):
@@ -388,10 +544,13 @@ def validate_engine_initialization_artifact(
         "window_attached": False,
         "adb_ready": False,
         "game_ready": False,
-        "plan_exists": False,
     }
     if not isinstance(initial, dict) or any(initial.get(key) != value for key, value in required_initial.items()):
         errors.append("engine initialization baseline was not idle, detached, and plan-free")
+    elif artifact_schema == 1 and initial.get("plan_exists") is not False:
+        errors.append("schema-1 engine initialization baseline must temporarily omit the saved plan")
+    elif artifact_schema == 2 and not isinstance(initial.get("plan_exists"), bool):
+        errors.append("schema-2 engine initialization baseline must record whether a saved plan exists")
 
     supervision = artifact.get("supervision")
     if not isinstance(supervision, dict):
@@ -407,6 +566,8 @@ def validate_engine_initialization_artifact(
             "cancel_removed": True,
             "command_removed": True,
         }
+        if artifact_schema == 2:
+            required_supervision["request_receipt_identity_matched"] = True
         if any(supervision.get(key) != value for key, value in required_supervision.items()):
             errors.append("engine initialization supervisor did not finalize the exact backend at initialized sequence 9")
         samples = supervision.get("sampled_receipt_phases")
@@ -427,7 +588,11 @@ def validate_engine_initialization_artifact(
             sequences = [sequence for sequence, _ in observed]
             if sequences != sorted(set(sequences)):
                 errors.append("engine initialization receipt samples are not strictly monotonic")
-            if not observed or observed[0] != (1, "prepared") or observed[-1] != (9, "initialized"):
+            if artifact_schema == 2:
+                expected_observed = list(ENGINE_INITIALIZATION_PHASES.items())
+                if observed != expected_observed:
+                    errors.append("engine initialization receipt samples must contain the complete phase sequence in exact order")
+            elif not observed or observed[0] != (1, "prepared") or observed[-1] != (9, "initialized"):
                 errors.append("engine initialization receipt samples must span prepared through initialized")
 
     final = artifact.get("final_state")
@@ -469,8 +634,39 @@ def validate_engine_initialization_artifact(
             after = preservation.get(f"{prefix}_after_sha256")
             if not isinstance(before, str) or not SHA256_PATTERN.fullmatch(before) or before != after:
                 errors.append(f"engine initialization did not preserve {prefix.replace('_', ' ')}")
-        if preservation.get("plan_absent_before_and_after") is not True:
-            errors.append("engine initialization did not preserve the absent plan state")
+        if artifact_schema == 1:
+            if preservation.get("plan_absent_before_and_after") is not True:
+                errors.append("schema-1 engine initialization did not preserve the absent plan state")
+        elif artifact_schema == 2:
+            manifest_before = preservation.get("release_manifest_before_sha256")
+            manifest_after = preservation.get("release_manifest_after_sha256")
+            if (
+                not isinstance(manifest_before, str)
+                or not SHA256_PATTERN.fullmatch(manifest_before)
+                or manifest_before != manifest_after
+            ):
+                errors.append("schema-2 engine initialization did not preserve the release manifest")
+            if preservation.get("emulator_process_identity_preserved") is not True:
+                errors.append("schema-2 engine initialization did not preserve emulator process identity")
+            if preservation.get("adb_daemon_identity_preserved") is not True:
+                errors.append("schema-2 engine initialization did not preserve ADB process identity")
+            plan_exists = initial.get("plan_exists") if isinstance(initial, dict) else None
+            if plan_exists is True:
+                plan_before = preservation.get("saved_plan_before_sha256")
+                plan_after = preservation.get("saved_plan_after_sha256")
+                if (
+                    not isinstance(plan_before, str)
+                    or not SHA256_PATTERN.fullmatch(plan_before)
+                    or plan_before != plan_after
+                ):
+                    errors.append("schema-2 engine initialization did not preserve the saved plan")
+                if "plan_absent_before_and_after" in preservation:
+                    errors.append("schema-2 saved-plan evidence cannot also claim the plan was absent")
+            elif plan_exists is False:
+                if preservation.get("plan_absent_before_and_after") is not True:
+                    errors.append("schema-2 engine initialization did not preserve the absent plan state")
+                if "saved_plan_before_sha256" in preservation or "saved_plan_after_sha256" in preservation:
+                    errors.append("schema-2 absent-plan evidence cannot contain saved-plan digests")
 
     assertions = artifact.get("assertions")
     required_true = {
@@ -483,10 +679,14 @@ def validate_engine_initialization_artifact(
         "game_input_absent",
         "configuration_preserved",
     }
+    if artifact_schema == 2:
+        required_true.update({"warning_html_absent", "browser_child_absent"})
     if not isinstance(assertions, dict) or any(assertions.get(key) is not True for key in required_true):
         errors.append("engine initialization artifact assertions are incomplete")
     elif assertions.get("new_adb_processes") != 0:
         errors.append("engine initialization artifact observed a new ADB process")
+    elif artifact_schema == 2 and assertions.get("outbound_backend_connections") != 0:
+        errors.append("schema-2 engine initialization artifact observed an outbound backend connection")
     privacy = artifact.get("privacy")
     if not isinstance(privacy, str) or len(privacy.strip()) < 20:
         errors.append("engine initialization artifact privacy statement is missing")
@@ -767,6 +967,22 @@ def validate_registry(
                 record_errors.extend(_verify_repository_artifact(root, artifact, f"artifact_refs[{index}]"))
         if capability_id == ENGINE_INITIALIZATION_CAPABILITY:
             record_errors.extend(_verify_engine_initialization_artifact(root, record, artifact_refs))
+        no_gem_contract = policy.get("no_gem_contract", {}) if isinstance(policy, dict) else {}
+        no_gem_effective = parse_utc(no_gem_contract.get("effective_at")) if isinstance(no_gem_contract, dict) else None
+        no_gem_capabilities = set(no_gem_contract.get("capabilities", [])) if isinstance(no_gem_contract, dict) else set()
+        no_gem_required_check = no_gem_contract.get("required_check") if isinstance(no_gem_contract, dict) else None
+        requires_no_gem = (
+            result == "passed"
+            and test_type in NO_GEM_TEST_TYPES
+            and capability_id in no_gem_capabilities
+            and captured_at is not None
+            and no_gem_effective is not None
+            and captured_at >= no_gem_effective
+        )
+        if requires_no_gem:
+            if no_gem_required_check not in passed_checks:
+                record_errors.append(f"post-contract mutating evidence requires passed check {no_gem_required_check}")
+            record_errors.extend(_verify_no_gem_artifact(root, artifact_refs))
 
         if result == "passed":
             skew = timedelta(minutes=clock_skew_minutes)

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "as_of": "2026-08-15",
+  "as_of": "2026-08-20",
   "capture_contract": {
     "width": 860,
     "height": 732,
@@ -39,12 +39,9 @@
     {
       "id": "home.maintenance.ready",
       "status": "verified",
-      "purpose": "Main-village collector, donation-request, and upgrade-entry recognition",
+      "purpose": "Main-village collector readiness recognition",
       "capability_ids": [
-        "village.collectors",
-        "village.donations",
-        "village.clan-request",
-        "village.upgrades-home"
+        "village.collectors"
       ],
       "image_path": "tests/fixtures/current-client/images/home.maintenance.ready.png",
       "metadata_path": "tests/fixtures/current-client/metadata/home.maintenance.ready.json"
@@ -90,6 +87,16 @@
       "metadata_path": "tests/fixtures/current-client/metadata/home.daily-reward.claimed.json"
     },
     {
+      "id": "safety.gem-window",
+      "status": "missing",
+      "purpose": "Positive recognition control for the gem-confirmation surface; the guard must stop without issuing any input",
+      "capability_ids": [
+        "safety.no-gem-guard"
+      ],
+      "image_path": "tests/fixtures/current-client/images/safety.gem-window.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/safety.gem-window.json"
+    },
+    {
       "id": "home.current-client.default",
       "status": "missing",
       "purpose": "Current-client home-state classification and shared screen-state registry baseline",
@@ -121,6 +128,16 @@
       "metadata_path": "tests/fixtures/current-client/metadata/army.training.ready.json"
     },
     {
+      "id": "army.training.saved-recipe",
+      "status": "missing",
+      "purpose": "Exact saved-recipe identity/digest, empty queue, missing-unit count, one Train input, and exact post-queue digest without boosts or gems",
+      "capability_ids": [
+        "army.training"
+      ],
+      "image_path": "tests/fixtures/current-client/images/army.training.saved-recipe.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/army.training.saved-recipe.json"
+    },
+    {
       "id": "clan.request.available",
       "status": "verified",
       "purpose": "Clan Castle reinforcement request availability and exact bounded Send state",
@@ -129,6 +146,26 @@
       ],
       "image_path": "tests/fixtures/current-client/images/clan.request.available.png",
       "metadata_path": "tests/fixtures/current-client/metadata/clan.request.available.json"
+    },
+    {
+      "id": "clan.donation.structured-request",
+      "status": "missing",
+      "purpose": "Structured donation request icon, recipient capacity, source inventory, and exact one-unit post-state without chat text",
+      "capability_ids": [
+        "village.donations"
+      ],
+      "image_path": "tests/fixtures/current-client/images/clan.donation.structured-request.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/clan.donation.structured-request.json"
+    },
+    {
+      "id": "home.upgrade.confirmation",
+      "status": "missing",
+      "purpose": "Observed Home upgrade target, level, resource, cost, builder state, no-gem confirmation, and post-state",
+      "capability_ids": [
+        "village.upgrades-home"
+      ],
+      "image_path": "tests/fixtures/current-client/images/home.upgrade.confirmation.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/home.upgrade.confirmation.json"
     },
     {
       "id": "army.recipes.home",
@@ -350,6 +387,150 @@
       ],
       "image_path": "tests/fixtures/current-client/images/emulator.mumu.window.png",
       "metadata_path": "tests/fixtures/current-client/metadata/emulator.mumu.window.json"
+    },
+    {
+      "id": "home.pet-house.ready",
+      "status": "missing",
+      "purpose": "Pet House, selected Pet, upgrade cost, and builder state",
+      "capability_ids": ["village.pets"],
+      "image_path": "tests/fixtures/current-client/images/home.pet-house.ready.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/home.pet-house.ready.json"
+    },
+    {
+      "id": "home.blacksmith.ready",
+      "status": "missing",
+      "purpose": "Blacksmith equipment list, ore cost, and selected Hero state",
+      "capability_ids": ["village.hero-equipment"],
+      "image_path": "tests/fixtures/current-client/images/home.blacksmith.ready.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/home.blacksmith.ready.json"
+    },
+    {
+      "id": "home.achievements.ready",
+      "status": "missing",
+      "purpose": "Achievements list and one exact claimable reward state",
+      "capability_ids": ["rewards.achievements"],
+      "image_path": "tests/fixtures/current-client/images/home.achievements.ready.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/home.achievements.ready.json"
+    },
+    {
+      "id": "home.personal-challenges.ready",
+      "status": "missing",
+      "purpose": "Personal Challenges reward track and exact claim state",
+      "capability_ids": ["rewards.personal-challenges"],
+      "image_path": "tests/fixtures/current-client/images/home.personal-challenges.ready.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/home.personal-challenges.ready.json"
+    },
+    {
+      "id": "home.obstacle.ready",
+      "status": "missing",
+      "purpose": "One removable Home obstacle, observed resource cost, and no-gem confirmation context",
+      "capability_ids": ["village.obstacles"],
+      "image_path": "tests/fixtures/current-client/images/home.obstacle.ready.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/home.obstacle.ready.json"
+    },
+    {
+      "id": "clan-capital.forge.ready",
+      "status": "missing",
+      "purpose": "Forge slots, exact resource cost, and Capital Gold result state",
+      "capability_ids": ["clan-capital.forge"],
+      "image_path": "tests/fixtures/current-client/images/clan-capital.forge.ready.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/clan-capital.forge.ready.json"
+    },
+    {
+      "id": "home.helper-hut.ready",
+      "status": "missing",
+      "purpose": "Helper Hut, Apprentice Builder, and Laboratory Assistant states",
+      "capability_ids": ["village.helper-hut"],
+      "image_path": "tests/fixtures/current-client/images/home.helper-hut.ready.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/home.helper-hut.ready.json"
+    },
+    {
+      "id": "builder.star-laboratory.ready",
+      "status": "missing",
+      "purpose": "Builder Star Laboratory research list, cost, and busy state",
+      "capability_ids": ["builder-base.star-laboratory"],
+      "image_path": "tests/fixtures/current-client/images/builder.star-laboratory.ready.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/builder.star-laboratory.ready.json"
+    },
+    {
+      "id": "builder.resources.ready",
+      "status": "missing",
+      "purpose": "Builder collectors and Elixir Cart collection states",
+      "capability_ids": ["builder-base.resources"],
+      "image_path": "tests/fixtures/current-client/images/builder.resources.ready.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/builder.resources.ready.json"
+    },
+    {
+      "id": "home.trader.free-item",
+      "status": "missing",
+      "purpose": "Trader surface with one explicitly free Magic Item and no purchase surface",
+      "capability_ids": ["rewards.magic-items"],
+      "image_path": "tests/fixtures/current-client/images/home.trader.free-item.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/home.trader.free-item.json"
+    },
+    {
+      "id": "home.streak-star-bonus",
+      "status": "missing",
+      "purpose": "Streak Event and current Star Bonus claim states",
+      "capability_ids": ["rewards.streak-star-bonus"],
+      "image_path": "tests/fixtures/current-client/images/home.streak-star-bonus.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/home.streak-star-bonus.json"
+    },
+    {
+      "id": "home.boost.ready",
+      "status": "missing",
+      "purpose": "Structure, potion, and Super Troop boost surfaces with observed non-gem cost",
+      "capability_ids": ["village.boosts"],
+      "image_path": "tests/fixtures/current-client/images/home.boost.ready.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/home.boost.ready.json"
+    },
+    {
+      "id": "home.hero-upgrade.ready",
+      "status": "missing",
+      "purpose": "Home Hero selection, upgrade cost, builder state, and confirmation context",
+      "capability_ids": ["heroes.upgrades"],
+      "image_path": "tests/fixtures/current-client/images/home.hero-upgrade.ready.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/home.hero-upgrade.ready.json"
+    },
+    {
+      "id": "builder.hero-upgrade.ready",
+      "status": "missing",
+      "purpose": "Battle Machine and Battle Copter upgrade states and exact costs",
+      "capability_ids": ["builder-base.hero-upgrades"],
+      "image_path": "tests/fixtures/current-client/images/builder.hero-upgrade.ready.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/builder.hero-upgrade.ready.json"
+    },
+    {
+      "id": "battle.trophy-drop.ready",
+      "status": "missing",
+      "purpose": "Bounded trophy-drop route entry, attack state, and Home return",
+      "capability_ids": ["battle.trophy-drop"],
+      "image_path": "tests/fixtures/current-client/images/battle.trophy-drop.ready.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/battle.trophy-drop.ready.json"
+    },
+    {
+      "id": "battle.smart-zap.ready",
+      "status": "missing",
+      "purpose": "Smart Zap target, spell inventory, and battle-state confirmation",
+      "capability_ids": ["battle.smart-zap"],
+      "image_path": "tests/fixtures/current-client/images/battle.smart-zap.ready.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/battle.smart-zap.ready.json"
+    },
+    {
+      "id": "home.replay-share.ready",
+      "status": "missing",
+      "purpose": "Replay share surface, destination chat, and safe message field",
+      "capability_ids": ["village.replay-share"],
+      "image_path": "tests/fixtures/current-client/images/home.replay-share.ready.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/home.replay-share.ready.json"
+    },
+    {
+      "id": "home.profile-report.ready",
+      "status": "missing",
+      "purpose": "Profile identity, report fields, and reversible Home return",
+      "capability_ids": ["village.profile-report"],
+      "image_path": "tests/fixtures/current-client/images/home.profile-report.ready.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/home.profile-report.ready.json"
     }
   ]
 }

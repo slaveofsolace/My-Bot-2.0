@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mybot.local/schema/redistribution-rights.schema.json",
+  "title": "My Bot 2.0 redistribution rights record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "component_id", "status", "release_allowed", "artifact", "authorization", "review"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "component_id": { "const": "inherited-imgloc" },
+    "status": { "enum": ["pending", "granted"] },
+    "release_allowed": { "type": "boolean" },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "bytes"],
+      "properties": {
+        "path": { "const": "lib/MyBot.run.dll" },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "bytes": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "authorization": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["basis", "grantor_role", "authorized_at", "scope", "private_evidence"],
+          "properties": {
+            "basis": { "enum": ["written-permission", "licensed-replacement"] },
+            "grantor_role": { "type": "string", "minLength": 3, "maxLength": 120 },
+            "authorized_at": { "type": "string", "format": "date" },
+            "scope": {
+              "type": "array",
+              "contains": { "const": "public-binary-redistribution" },
+              "uniqueItems": true,
+              "items": { "type": "string", "pattern": "^[a-z0-9.-]+$" }
+            },
+            "private_evidence": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["sha256", "bytes", "custodian_reference"],
+              "properties": {
+                "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+                "bytes": { "type": "integer", "minimum": 1 },
+                "custodian_reference": { "type": "string", "pattern": "^[A-Za-z0-9._:-]{3,160}$" }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reviewed_at", "reviewer_role", "conclusion"],
+      "properties": {
+        "reviewed_at": { "type": "string", "format": "date" },
+        "reviewer_role": { "type": "string", "pattern": "^[a-z0-9.-]{3,80}$" },
+        "conclusion": { "type": "string", "minLength": 12, "maxLength": 500 }
+      }
+    }
+  }
+}

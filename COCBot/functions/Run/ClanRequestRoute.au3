@@ -200,7 +200,9 @@ Func ClanRequestRouteRunAdapter($sOpenOverviewCallback, $sDetectStateCallback, $
 	If $iOpenError Or Not $bOpened Then
 		If Call($sStopRequestedCallback) Then _
 			Return _ClanRequestRouteCancel($oOutcome, "Stop requested while opening Army Overview")
-		Return _ClanRequestRouteFinish($oOutcome, $CLAN_REQUEST_OUTCOME_UNCONFIRMED, "Army Overview did not open", $sCloseAndProveHomeCallback)
+		Local $sOpenDetail = $iOpenError = 6 ? _
+				"Passive no-gem guard recognized a gem surface; Army Overview was not opened" : "Army Overview did not open"
+		Return _ClanRequestRouteFinish($oOutcome, $CLAN_REQUEST_OUTCOME_UNCONFIRMED, $sOpenDetail, $sCloseAndProveHomeCallback)
 	EndIf
 
 	Local $oBefore = Call($sDetectStateCallback, "before")
@@ -226,7 +228,9 @@ Func ClanRequestRouteRunAdapter($sOpenOverviewCallback, $sDetectStateCallback, $
 	If $iDialogError Or Not ClanRequestObservationValid($oSend) Then
 		If Call($sStopRequestedCallback) Then _
 			Return _ClanRequestRouteCancel($oOutcome, "Stop requested while opening the request dialog")
-		Return _ClanRequestRouteFinish($oOutcome, $CLAN_REQUEST_OUTCOME_UNCONFIRMED, "Fresh Send button was not recognized", $sCloseAndProveHomeCallback)
+		Local $sDialogDetail = $iDialogError = 6 ? _
+				"Passive no-gem guard recognized a gem surface; the request dialog was not opened" : "Fresh Send button was not recognized"
+		Return _ClanRequestRouteFinish($oOutcome, $CLAN_REQUEST_OUTCOME_UNCONFIRMED, $sDialogDetail, $sCloseAndProveHomeCallback)
 	EndIf
 	If StringLower(String($oSend.Item("state"))) <> $CLAN_REQUEST_STATE_SEND_READY Then _
 		Return _ClanRequestRouteFinish($oOutcome, $CLAN_REQUEST_OUTCOME_UNCONFIRMED, "Fresh Send button was not recognized", $sCloseAndProveHomeCallback)
@@ -245,7 +249,10 @@ Func ClanRequestRouteRunAdapter($sOpenOverviewCallback, $sDetectStateCallback, $
 			$oOutcome.Item("detail") = "Stop requested during the Send attempt; no input-delivery receipt was returned"
 			Return $oOutcome
 		EndIf
-		Return _ClanRequestRouteFinish($oOutcome, $CLAN_REQUEST_OUTCOME_UNCONFIRMED, "The one Send attempt was not accepted by the input adapter", $sCloseAndProveHomeCallback)
+		Local $sSendDetail = $iSendError = 6 ? _
+				"Passive no-gem guard recognized a gem surface; no Send input was issued" : _
+				"The one Send attempt was not accepted by the input adapter"
+		Return _ClanRequestRouteFinish($oOutcome, $CLAN_REQUEST_OUTCOME_UNCONFIRMED, $sSendDetail, $sCloseAndProveHomeCallback)
 	EndIf
 	$oOutcome.Item("send_issued") = True
 	If Call($sStopRequestedCallback) Then

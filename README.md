@@ -147,33 +147,35 @@ army to match.
 |---|---|
 | Run engine — plan, intent, session, quota, loadout, events | Written, contract-tested |
 | Run Planner tab | Written, renders from generated metadata |
-| My Bot 2.0 launcher and local Control Center | The 2026-08-14 bea12973 LocalRuntime checkpoint installed, launched from its Windows shortcut, stayed connected and idle, and preserved all 2,578 manifest files |
-| Managed-engine initialization | Exact-current bea12973 passed the supervised no-input engine check after a fresh reboot, finalized its ownership receipt, and returned the same backend to idle without launching BlueStacks or ADB |
+| My Bot 2.0 launcher and local Control Center | The historical 2026-08-14 bea12973 LocalRuntime checkpoint installed, launched from its Windows shortcut, stayed connected and idle, and preserved all 2,578 manifest files. The local-only aa8ee424 package has not repeated those post-repair gates. |
+| Managed-engine initialization | The historical bea12973 backend passed the supervised no-input engine check after a fresh reboot, finalized its ownership receipt, and returned idle without launching BlueStacks or ADB. Its binary differs from current HEAD, so this is not exact-current proof. |
 | Home collection routes | Resource collectors, Loot Cart, a full Treasury transfer, and startup Daily Reward have separate bounded diagnostic routes with issued-input receipts and no-gems boundaries. Collectors, Loot Cart, and both Daily Reward states now have verified recognition fixtures; Treasury still lacks one, and every account-affecting completion still needs its own supervised receipt. |
 | Windows compile — Au3Check, both AutoIt versions | Green |
 | Game model through July 2026 | Catalogued from official sources |
 | LDPlayer 9 and MuMu Player 12 adapters | Written, **never run on real hardware** |
-| Screen recognition for the current client | Historical TH17 observations exist; all required current-client fixtures remain missing for the current source revision |
-| Managed Start and attack execution | Still unproved for bea12973 and the post-checkpoint, unbuilt current HEAD; the successful engine check intentionally returned before plan preparation, emulator attachment, or gameplay, while older binaries completed bounded Standard and Smart TH17 observations only |
+| Screen recognition for the current client | 5 reviewed fixtures replay through production recognizers and one additional training fixture is tracked as redacted; 49 required surfaces remain missing and no exact-current package proof exists |
+| Managed Start and attack execution | Still unproved for the local aa8ee424 package and the later unbuilt working tree; the historical successful engine check intentionally returned before plan preparation, emulator attachment, or gameplay, while older binaries completed bounded Standard and Smart TH17 observations only |
 
-**The honest summary:** the 2026-08-14 bea12973 LocalRuntime checkpoint contains six reviewed x86 AutoIt
+**The honest summary:** the historical 2026-08-14 bea12973 LocalRuntime checkpoint contains six reviewed x86 AutoIt
 targets and a 2,578-file integrity manifest. It installed successfully, launched from the searchable
 Windows shortcut, and stayed connected and idle without changing any manifest file. After a fresh
 reboot the same reviewed backend completed its supervised no-input managed-engine initialization,
 emitted the exact started/passed diagnostic events, finalized its launcher receipt, and returned to
 idle. BlueStacks was deliberately not launched. This proves the package, installer, launcher chain,
 idle host integrity, and managed-engine initialization—not farming, donation, request, upgrade,
-training, battle, emulator attachment, recognition, or other account behavior.
+training, battle, emulator attachment, recognition, or other account behavior. Its evidence is a
+regression reference rather than proof of the different current binary.
 
-Current HEAD now contains post-checkpoint evidence-validation and documentation changes and has not
-been repackaged. The bea12973 ZIP remains the authoritative runtime checkpoint and binary ancestor,
-but it does not contain those later repository-only changes. A final package is still required before
-shipping current HEAD.
+The local-only aa8ee424 package is 32,288,698 bytes with SHA-256
+`d5cc8d0557c8f39a81c120f4f878c52421c4fd1fd0aafbb24eb61229d824ec72`. It is the post-repair
+discriminator, not a release: it has not been installed or live-tested after repair and has zero
+exact-current runtime evidence records. The working tree contains later unbuilt evidence and fixture
+hardening, so a new reviewed six-binary package and fresh evidence are still required before shipping.
 
 Older reviewed binaries produced bounded TH17 observations for zoom,
 red-line geometry, troop and Hero deployment, battle accounting, Return Home, automatic stop, and
 part of the Smart spell policy. Those receipts are useful regression references, but they verify
-neither bea12973's managed Start/gameplay nor the post-checkpoint source revision,
+neither aa8ee424's managed Start/gameplay nor the later working-tree source revision,
 every required current-client fixture, or an improvement in strategy quality. Other Town Halls,
 armies, surfaces, and most gameplay scopes remain unverified; package integrity and CI do not
 substitute for those runs.
@@ -413,7 +415,7 @@ config/
 docs/                 audit, architecture, engineering notes, compatibility matrix, install guide
 tests/
 ├── autoit/           contract tests, run under AutoIt on Windows
-└── fixtures/         current-client capture manifest (captures not yet supplied)
+└── fixtures/         current-client manifest plus reviewed privacy-safe captures
 tools/                validators, linter, generators - plain Python, no dependencies
 imgxml/  images/      screen-recognition templates inherited from upstream
 ```
@@ -439,6 +441,7 @@ Everything in `tools/` is standard-library Python 3.11+, so it runs anywhere:
 | `python tools/validate_translation_keys.py` | Conflicting translation defaults and duplicate English catalog keys |
 | `python tools/repo_audit.py` | Required files, include resolution, secret patterns, upstream pins, binary provenance and hashes |
 | `python tools/validate_game_catalog.py` | Game catalogs against their schemas |
+| `python tools/validate_actuator_registry.py` | Every direct AutoIt game-input, process/window-control, and managed-engine owner has one capability, blocked, or infrastructure classification; source drift fails closed |
 | `python tools/validate_ui_metadata.py` | Planner metadata against the game catalogs |
 | `python tools/check_town_hall_presets.py` | TH2-TH18 coverage, source-backed script choices, complete Hero gates, selection-time loading, and explicit save separation |
 | `powershell -File tools/run_supervised_battle_acceptance.ps1 -AuthorizeOneBattle` | Historical battle-harness contract and evidence collector. The current fork rejects all battle strategies before Start because inherited ImgLoc rejected exact-current supervised readiness; do not use this command to bypass that gate. |
@@ -477,8 +480,8 @@ the actual game. Listing it honestly beats a progress bar.
 <br>
 
 [`tests/fixtures/current-client/manifest.json`](tests/fixtures/current-client/manifest.json) currently
-tracks **33 required captures**: 6 are complete and 27 remain missing. The remaining set includes
-battle surfaces, current-army and Builder Base states, rewards, chat/request states, and other
+tracks **55 required captures**: 6 are complete and 49 remain missing. The expanded set includes
+battle surfaces, current-army and Builder Base states, Pets, equipment, rewards, chat/request states, and other
 recognition boundaries that cannot be promoted from source presence alone.
 
 The manifest specifies the capture contract — 860 × 732, PNG, sRGB, with player names, clan names,

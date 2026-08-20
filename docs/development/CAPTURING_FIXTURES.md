@@ -1,6 +1,6 @@
 # Capturing current-client fixtures
 
-Recognition is tracked through 33 current-client fixtures. Until real captures, recognition assertions, and controlled runtime checks exist, the related capabilities remain unverified.
+The current manifest defines 55 current-client fixture surfaces. Until real captures, recognition assertions, and controlled runtime checks exist, the related capabilities remain unverified. The manifest is authoritative; its count grows whenever the actuator inventory exposes another recognition boundary.
 
 `tools/capture_fixture.py` validates dimensions, privacy-preserving pixel changes, paths, hashes, and metadata. It never edits an image and never copies the raw account capture into the repository.
 
@@ -44,7 +44,12 @@ The command fails unless:
 - every changed pixel is inside a declared rectangle;
 - each rectangle is a single, fully opaque color;
 - at least one pixel changes when masks are declared;
+- the derivative is neither flat-color nor predominantly black;
 - both inputs remain outside the repository.
+
+The importer and verifier also refuse to alter a verified fixture. Replacing an unverified `redacted`
+fixture requires the explicit `--replace-redacted` flag. The observed game version is required;
+`unknown` is not accepted. Image, metadata, and manifest JSON writes are individually atomic.
 
 For a genuinely anonymous capture, `--no-redaction-needed` is allowed only when the decoded pixels are identical. A privacy note is still required.
 
@@ -67,6 +72,8 @@ python tools/capture_fixture.py verify home.maintenance.ready --reviewer "review
 ```
 
 The tool refuses verification while any assertion starts with `TODO`.
+Immediately before approval it decodes the committed image again, rejects a blank/black frame,
+and requires its SHA-256 to match the metadata.
 
 ## Validate
 

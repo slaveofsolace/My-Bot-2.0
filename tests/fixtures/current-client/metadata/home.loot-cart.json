@@ -34,6 +34,11 @@
     }
   ],
   "redaction_pixel_changes": 59638,
+  "frame_content": {
+    "total_pixels": 629520,
+    "non_black_pixels": 567094,
+    "distinct_visible_colors": 2
+  },
   "privacy_review_method": "decoded-pixel-diff-v1",
   "redaction_notes": "Opaque masks cover the player label, resource and premium balances, and clan label; the exact Loot Cart Collect cue remains unmasked.",
   "assertions": [

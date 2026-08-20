@@ -27,6 +27,11 @@
     }
   ],
   "redaction_pixel_changes": 53882,
+  "frame_content": {
+    "total_pixels": 629520,
+    "non_black_pixels": 564668,
+    "distinct_visible_colors": 2
+  },
   "privacy_review_method": "decoded-pixel-diff-v1",
   "redaction_notes": "Opaque masks cover the player label and all resource and premium-currency balances. The Army Overview tabs, capacities, unit cards, request control, and battle control remain unmasked.",
   "assertions": [

@@ -39,12 +39,14 @@ REQUIRED_FILES = AUTOIT_CONTRACT_FILES + [
     "config/ui/run-planner.settings.json",
     "tests/autoit/RunContractsTest.au3",
     "tests/python/test_runtime_evidence.py",
+    "tests/python/test_capture_check_engine_evidence.py",
     "tests/fixtures/current-client/manifest.json",
     "tests/evidence/runtime/README.md",
     "tools/Test-AutoIt.ps1",
     "tools/validate_current_client_fixtures.py",
     "tools/validate_ui_metadata.py",
     "tools/validate_runtime_evidence.py",
+    "tools/capture_check_engine_evidence.py",
     "tools/evaluate_support_readiness.py",
     ".github/workflows/windows-autoit.yml",
 ]
@@ -190,7 +192,7 @@ def main() -> int:
         verify_autoit_balance(autoit_path, findings)
 
     capabilities = json.loads(text("config/current-client-capabilities.json"))
-    require(capabilities.get("as_of") == "2026-08-14", "capability catalog has a fixed audit date", findings)
+    require(capabilities.get("as_of") == "2026-08-20", "capability catalog has a fixed audit date", findings)
     capability_ids = {item["id"] for item in capabilities["capabilities"]}
     for capability_id in {
         "emulator.bluestacks5",
@@ -221,6 +223,24 @@ def main() -> int:
         "orchestration.multi-account",
         "runtime.recovery",
         "clan-capital.upgrades",
+        "village.pets",
+        "village.hero-equipment",
+        "rewards.achievements",
+        "rewards.personal-challenges",
+        "village.obstacles",
+        "clan-capital.forge",
+        "village.helper-hut",
+        "builder-base.star-laboratory",
+        "builder-base.resources",
+        "rewards.magic-items",
+        "rewards.streak-star-bonus",
+        "village.boosts",
+        "heroes.upgrades",
+        "builder-base.hero-upgrades",
+        "battle.trophy-drop",
+        "battle.smart-zap",
+        "village.replay-share",
+        "village.profile-report",
     }:
         require(capability_id in capability_ids, f"capability catalog contains {capability_id}", findings)
 

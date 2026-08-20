@@ -11,9 +11,9 @@ from pathlib import Path
 from typing import Any
 
 try:
-    from tools.fixture_png import decode_png, normalize_masks
+    from tools.fixture_png import decode_png, normalize_masks, verify_recognition_frame
 except ModuleNotFoundError:  # Direct execution from the tools directory.
-    from fixture_png import decode_png, normalize_masks
+    from fixture_png import decode_png, normalize_masks, verify_recognition_frame
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST_PATH = ROOT / "tests/fixtures/current-client/manifest.json"
@@ -139,13 +139,15 @@ def main() -> int:
 
         try:
             decoded = decode_png(image_path)
+            frame_metrics = verify_recognition_frame(decoded)
             width, height = decoded.width, decoded.height
         except ValueError as exc:
             errors.append(f"{fixture_id}: {exc}")
             continue
         if width != expected_width or height != expected_height:
             errors.append(f"{fixture_id}: expected {expected_width}x{expected_height}, found {width}x{height}")
-        result["checks"].append("png-decode")
+        result["checks"].extend(["png-decode", "non-black-frame"])
+        result["frame_content"] = frame_metrics
 
         try:
             metadata = load_json(metadata_path)
@@ -167,6 +169,7 @@ def main() -> int:
             "redacted",
             "redaction_masks",
             "redaction_pixel_changes",
+            "frame_content",
             "privacy_review_method",
             "redaction_notes",
             "assertions",
@@ -189,6 +192,12 @@ def main() -> int:
             errors.append(f"{fixture_id}: captured_at must be an ISO-8601 UTC timestamp ending in Z")
         if not isinstance(metadata.get("source_type"), str) or not metadata["source_type"].strip():
             errors.append(f"{fixture_id}: source_type must be a non-empty string")
+        elif metadata["source_type"] not in {"authorized-test-account", "emulator", "device"}:
+            errors.append(f"{fixture_id}: unsupported source_type {metadata['source_type']!r}")
+        frame_content = metadata.get("frame_content")
+        actual_frame_content = frame_metrics
+        if frame_content != actual_frame_content:
+            errors.append(f"{fixture_id}: frame_content does not match decoded pixels")
 
         actual_hash = sha256(image_path)
         declared_hash = metadata.get("sha256")

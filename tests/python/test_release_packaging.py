@@ -7,6 +7,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "tools" / "Build-Release.ps1"
+AUTOIT_RUNNER = ROOT / "tools" / "Test-AutoIt.ps1"
 
 
 class ReleasePackagingStaticTests(unittest.TestCase):
@@ -87,7 +88,7 @@ class ReleasePackagingStaticTests(unittest.TestCase):
             "__pycache__",
             ".pytest_cache",
             "Languages/English.ini",
-            "CLAUDE_HANDOFF_PROMPT.md",
+            "_HANDOFF_PROMPT\\.md",
             "lib/[^/]+\\.html",
             "tools/_[^/]*",
             "run-plan",
@@ -149,6 +150,25 @@ class ReleasePackagingStaticTests(unittest.TestCase):
         self.assertIn('$Mode -eq "PublicDistribution"', self.source)
         self.assertIn("PublicDistribution is blocked", self.source)
         self.assertIn("PublicDistribution cannot be created from a dirty source tree", self.source)
+        self.assertIn("tools\\validate_redistribution_rights.py", self.source)
+        self.assertIn("--require-public", self.source)
+        self.assertIn("PublicDistribution rights record failed validation", self.source)
+
+    def test_public_distribution_requires_full_completion_proof(self) -> None:
+        for validator in (
+            "validate_current_client_fixtures.py",
+            "evaluate_support_readiness.py",
+            "validate_actuator_registry.py",
+            "validate_neutral_branding.py",
+        ):
+            self.assertIn(validator, self.source)
+        self.assertIn('Arguments = @("--require-complete")', self.source)
+        self.assertIn('Arguments = @("--require-all-current")', self.source)
+        self.assertIn("PublicDistribution completion validator is missing", self.source)
+        self.assertIn("PublicDistribution $($completionCheck.Name) gate failed", self.source)
+        self.assertIn('$rightsRelativePath = "config/redistribution-rights.json"', self.source)
+        self.assertIn("redistribution_rights_record = $redistributionRightsRecord", self.source)
+        self.assertIn("sha256 = Get-Sha256Lower -Path $rightsPath", self.source)
 
     def test_zip_metadata_is_normalized_and_signing_is_not_claimed(self) -> None:
         self.assertIn("1980, 1, 1, 0, 0, 0", self.source)
@@ -183,6 +203,17 @@ class ReleasePackagingStaticTests(unittest.TestCase):
     def test_release_version_must_match_source_contract(self) -> None:
         self.assertIn('Global Const \\$g_sProductVersion', self.source)
         self.assertIn("does not match MyBot.run.version.au3", self.source)
+
+    def test_autoit_runner_waits_for_gui_process_exit_codes(self) -> None:
+        runner = AUTOIT_RUNNER.read_text(encoding="utf-8-sig")
+        self.assertIn("function Invoke-NativeProcess", runner)
+        self.assertIn("Start-Process", runner)
+        self.assertIn("-Wait", runner)
+        self.assertIn("-PassThru", runner)
+        self.assertIn("-RedirectStandardOutput", runner)
+        self.assertIn("-RedirectStandardError", runner)
+        self.assertIn("$process.ExitCode", runner)
+        self.assertNotIn("$LASTEXITCODE", runner)
 
 
 if __name__ == "__main__":

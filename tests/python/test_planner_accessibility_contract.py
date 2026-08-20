@@ -64,6 +64,59 @@ class PlannerAccessibilityContract(unittest.TestCase):
             self.assertIn(f".activity-severity.{severity}", CSS)
         self.assertIn("['rejected', 'failed'].includes(outcome) ? 'error' : 'info'", JS)
 
+    def test_capability_perimeter_is_truthful_data_driven_and_nonduplicative(self):
+        self.assertIn('class="capability-overview" aria-labelledby="capabilityOverviewTitle"', HTML)
+        self.assertIn('id="capabilityOverviewSummary"', HTML)
+        self.assertIn('class="capability-perimeter" aria-hidden="true"', HTML)
+        for state in ("Supported", "Implemented", "Inherited", "Gated"):
+            self.assertIn(f'id="capabilityCount{state}"', HTML)
+            self.assertIn(f'id="capabilityGraphic{state}"', HTML)
+            self.assertIn(f'id="capabilitySignal{state}"', HTML)
+        body = JS.split("function renderCapabilityOverview(capabilities)", 1)[1].split(
+            "function renderCapabilities()", 1
+        )[0]
+        self.assertIn("const surfaced = capabilities.filter", body)
+        self.assertIn("capabilityPublicState(capability.status)", body)
+        self.assertIn("$(`capabilitySignal${state}`)", body)
+        self.assertIn("the release evidence gate is reported separately below", body)
+        self.assertNotIn("Support remains at 0", body)
+        self.assertIn(".perimeter-core-pulse", CSS)
+        reduced = CSS.split("@media (prefers-reduced-motion: reduce)", 1)[1]
+        self.assertIn(".perimeter-core-pulse", reduced)
+
+    def test_release_evidence_snapshot_is_data_driven_and_fail_closed(self):
+        for element_id in (
+            "evidenceHistoricalReady", "evidenceExactCurrentReady",
+            "evidenceVerifiedFixtures", "evidenceReadinessNote",
+        ):
+            self.assertIn(f'id="{element_id}"', HTML)
+        body = JS.split("function renderEvidenceReadiness(summary)", 1)[1].split(
+            "function renderCapabilityOverview(capabilities)", 1
+        )[0]
+        self.assertIn("summary?.historical_ready_for_review", body)
+        self.assertIn("summary?.exact_current_ready_for_review", body)
+        self.assertIn("summary?.fixture_inventory", body)
+        self.assertIn("summary?.valid === true", body)
+        self.assertIn("failed closed", body)
+        self.assertNotRegex(body, r"\b9\s*/\s*61\b")
+        self.assertNotRegex(body, r"\b0\s*/\s*61\b")
+        self.assertIn("EVIDENCE_READINESS = metadataPayload.evidence_readiness || null;", JS)
+        self.assertIn(".evidence-readiness-values {", CSS)
+
+    def test_capability_ledger_cannot_silently_omit_new_catalog_entries(self):
+        grouping = JS.split("function capabilityGroupsForCatalog(capabilities)", 1)[1].split(
+            "function renderCapabilityOverview(capabilities)", 1
+        )[0]
+        self.assertIn("const catalogIds = capabilities.map", grouping)
+        self.assertIn("const assigned = new Set(CAPABILITY_GROUPS.flatMap", grouping)
+        self.assertIn("catalogIds.filter(id => !assigned.has(id))", grouping)
+        self.assertIn("Additional inventoried scope", grouping)
+        renderer = JS.split("function renderCapabilities()", 1)[1].split("function eventDate", 1)[0]
+        self.assertIn("const groups = capabilityGroupsForCatalog(capabilities);", renderer)
+        self.assertIn("renderCapabilityOverview(capabilities);", renderer)
+        self.assertIn("for (const group of groups)", renderer)
+        self.assertIn("row.dataset.capabilityId = id;", renderer)
+
     def test_theme_supports_system_light_and_dark_without_effect_layers(self):
         self.assertIn('<option value="system">System</option>', HTML)
         self.assertIn('<option value="light">Light</option>', HTML)

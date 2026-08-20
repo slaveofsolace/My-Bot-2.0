@@ -87,12 +87,15 @@ $runtimeFiles = @(
     "docs\INSTALL.md",
     "packaging\README.md",
     "tools\planner_ui.py",
+    "tools\capture_check_engine_evidence.py",
     "tools\Install-LocalRuntime.ps1",
     "tools\install_local_runtime.py",
     "config\account-queue.schema.json",
     "config\battle-route.schema.json",
     "config\binary-provenance.json",
     "config\current-client-capabilities.json",
+    "config\redistribution-rights.json",
+    "config\redistribution-rights.schema.json",
     "config\run-event.schema.json",
     "config\run-plan.schema.json",
     "config\run-session.schema.json",
@@ -127,7 +130,7 @@ function Test-IsExcludedReleasePath {
 
     $normalized = $RelativePath.Replace('\', '/')
     if ($normalized -ieq "Languages/English.ini") { return $true }
-    if ($normalized -ieq "CLAUDE_HANDOFF_PROMPT.md") { return $true }
+    if ($normalized -match '(?i)(^|/)[^/]+_HANDOFF_PROMPT\.md$') { return $true }
     if ($normalized -match '(?i)^lib/[^/]+\.html$') { return $true }
     if ($normalized -match '(?i)^tools/_[^/]*\.exe$') { return $true }
     if ($normalized -match '(^|/)(Profiles|logs|artifacts|__pycache__|\.pytest_cache|node_modules|temp|tmp|cache)(/|$)') { return $true }
@@ -578,6 +581,17 @@ function New-DeterministicZip {
 if ($Mode -eq "PublicDistribution" -and $ImgLocRedistributionAcknowledgement -cne $publicAcknowledgement) {
     throw "PublicDistribution is blocked until written ImgLoc permission is confirmed or a licensed replacement is validated. Pass the exact documented acknowledgement only after that evidence exists."
 }
+if ($Mode -eq "PublicDistribution") {
+    $rightsValidator = Join-Path $repositoryRoot "tools\validate_redistribution_rights.py"
+    $pythonCommand = Get-Command python.exe -ErrorAction SilentlyContinue
+    if (-not $pythonCommand) {
+        throw "PublicDistribution rights validation requires Python."
+    }
+    $rightsOutput = @(& $pythonCommand.Source $rightsValidator --root $repositoryRoot --require-public 2>&1)
+    if ($LASTEXITCODE -ne 0) {
+        throw "PublicDistribution rights record failed validation: $($rightsOutput -join ' ')"
+    }
+}
 
 $gitStatus = @(& git -C $repositoryRoot status --porcelain=v1 --untracked-files=all 2>&1)
 if ($LASTEXITCODE -ne 0) { throw "Git status could not be read for the release source tree." }
@@ -589,6 +603,40 @@ if ($AllowDirtySource -and $Action -ne "CompileForReview") {
 }
 if ($Mode -eq "PublicDistribution" -and $gitStatus.Count -gt 0) {
     throw "PublicDistribution cannot be created from a dirty source tree."
+}
+if ($Mode -eq "PublicDistribution") {
+    $completionChecks = @(
+        @{
+            Name = "complete current-client fixtures"
+            Path = (Join-Path $repositoryRoot "tools\validate_current_client_fixtures.py")
+            Arguments = @("--require-complete")
+        },
+        @{
+            Name = "exact-current capability readiness"
+            Path = (Join-Path $repositoryRoot "tools\evaluate_support_readiness.py")
+            Arguments = @("--require-all-current")
+        },
+        @{
+            Name = "actuator ownership"
+            Path = (Join-Path $repositoryRoot "tools\validate_actuator_registry.py")
+            Arguments = @()
+        },
+        @{
+            Name = "neutral release wording"
+            Path = (Join-Path $repositoryRoot "tools\validate_neutral_branding.py")
+            Arguments = @()
+        }
+    )
+    foreach ($completionCheck in $completionChecks) {
+        if (-not (Test-Path -LiteralPath $completionCheck.Path -PathType Leaf)) {
+            throw "PublicDistribution completion validator is missing: $($completionCheck.Path)"
+        }
+        $completionArguments = @($completionCheck.Arguments)
+        $completionOutput = @(& $pythonCommand.Source $completionCheck.Path @completionArguments 2>&1)
+        if ($LASTEXITCODE -ne 0) {
+            throw "PublicDistribution $($completionCheck.Name) gate failed: $($completionOutput -join ' ')"
+        }
+    }
 }
 $sourceCommit = (& git -C $repositoryRoot rev-parse HEAD).Trim()
 if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($sourceCommit)) {
@@ -742,6 +790,17 @@ try {
             flags = @("/x86", $target.Subsystem, "/nopack", "/comp", "2")
         }
     }
+    $rightsRelativePath = "config/redistribution-rights.json"
+    $rightsPath = Join-Path $payloadRoot "config\redistribution-rights.json"
+    if (-not (Test-Path -LiteralPath $rightsPath -PathType Leaf)) {
+        throw "The packaged redistribution-rights record is missing."
+    }
+    $rightsFile = Get-Item -LiteralPath $rightsPath
+    $redistributionRightsRecord = [ordered]@{
+        path = $rightsRelativePath
+        bytes = $rightsFile.Length
+        sha256 = Get-Sha256Lower -Path $rightsPath
+    }
     $releaseManifest = [ordered]@{
         schema_version = 1
         product = "My Bot 2.0"
@@ -760,6 +819,7 @@ try {
         code_signing_performed = $false
         signing_claim = "none"
         imgloc_redistribution_permission_acknowledged = ($Mode -eq "PublicDistribution")
+        redistribution_rights_record = $redistributionRightsRecord
         files = $fileRecords
     }
     Write-DeterministicJson -Value $releaseManifest -Path (Join-Path $payloadRoot "release-manifest.json")

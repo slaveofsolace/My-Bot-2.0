@@ -1,0 +1,546 @@
+{
+  "schema_version": 1,
+  "as_of": "2026-08-20",
+  "scope": "Every intended tracked or untracked non-test AutoIt function that directly owns a game-input, process-control, window-control, managed-engine, or dynamic-dispatch call.",
+  "policy_definitions": {
+    "capability": "A closed-world implementation owns the actuator and is named by capability id; runtime evidence is still required.",
+    "blocked": "Inherited or manual behavior exists but planned execution must not reach it until a closed-world route is implemented and proved.",
+    "infrastructure": "The actuator is an operating-system, emulator, input-transport, recognition, or UI primitive rather than a gameplay capability.",
+    "test-only": "The actuator can execute only from a tracked test entry point."
+  },
+  "sink_groups": {
+    "game_input": [
+      "Click", "ClickP", "BuildingClick", "BuildingClickP", "ClickAway", "ClickAway2",
+      "PureClick", "PureClickP", "PureClickTrain", "GemClick", "GemClickP", "AttackClick", "AttackClickCSV",
+      "ClickZone", "ClickR", "PureClickR", "GemClickR", "ClickDrag", "_PostMessage_ClickDrag",
+      "ClickOkay", "ClickRemove", "ClickB", "ClickButton", "TrainClick", "TrainClickP",
+      "_ControlClick", "ControlClick", "AndroidClick", "AndroidFastClick", "AndroidMinitouchClick",
+      "AndroidSlowClick", "AndroidClickDrag", "AndroidMinitouchClickDrag", "AndroidInputSwipe", "AndroidSendText", "SendText",
+      "AndroidAdbSendShellCommand", "_AndroidAdbSendShellCommand", "AndroidAdbSendMinitouchShellCommand",
+      "AndroidAdbSendShellCommandScript", "AndroidAdbScript",
+      "ControlSend", "Send", "MouseClick", "MouseDown", "MouseUp", "MouseWheel", "MouseMove"
+    ],
+    "process_and_window_control": [
+      "PostMessage", "_WinAPI_PostMessage", "_WinAPI_SendMessage", "ProcessClose", "WinClose", "WinKill",
+      "WinMove", "WinActivate", "WinSetState", "WinSetOnTop", "WinSetTrans", "WinSetTitle",
+      "ControlCommand", "ControlFocus", "ControlMove", "ControlHide", "ControlShow",
+      "Run", "RunWait", "ShellExecute", "ShellExecuteWait", "Shutdown"
+    ],
+    "managed_engine": ["DllCallMyBot"],
+    "dynamic_dispatch": ["DynamicCall"]
+  },
+  "owner_fingerprint": {
+    "count": 460,
+    "sha256": "e783a21f2f958a9e2f83e99807c296a4cf08beb180fd08c4a73ce1d118471d2d"
+  },
+  "mappings": [
+    {
+      "id": "infra.launcher",
+      "policy": "infrastructure",
+      "path_globs": ["My Bot 2.0.au3"],
+      "capability_ids": ["runtime.recovery", "orchestration.engine-initialization"],
+      "reason": "The launcher owns exact-process recovery, docking, bounded health reads, and Control Center launch."
+    },
+    {
+      "id": "infra.backend-entry",
+      "policy": "infrastructure",
+      "path_globs": ["MyBot.run.au3", "MyBot.run.MiniGui.au3"],
+      "capability_ids": ["runtime.recovery", "orchestration.engine-initialization"],
+      "reason": "Compiled host entry points own only controller/backend lifecycle and user-invoked links."
+    },
+    {
+      "id": "infra.android-transport",
+      "policy": "infrastructure",
+      "path_globs": ["COCBot/functions/Android/*.au3"],
+      "capability_ids": ["emulator.bluestacks5", "emulator.memu", "emulator.ldplayer9", "emulator.mumu", "runtime.recovery"],
+      "reason": "Emulator discovery, capture, ADB transport, zoom, and exact-window lifecycle primitives are shared infrastructure."
+    },
+    {
+      "id": "blocked.home-battle",
+      "policy": "blocked",
+      "path_globs": [
+        "COCBot/functions/Attack/GetAttackBar.au3",
+        "COCBot/functions/Attack/Attack Algorithms/*.au3",
+        "COCBot/functions/Attack/AttackCSV/*.au3",
+        "COCBot/functions/Attack/PrepareAttack.au3",
+        "COCBot/functions/Attack/RedArea/*.au3",
+        "COCBot/functions/Attack/Troops/*.au3",
+        "COCBot/functions/Attack/unbreakable.au3",
+        "COCBot/functions/Village/BreakPersonalShield.au3"
+      ],
+      "capability_ids": ["orchestration.battle-route", "battle.regular-ranked-split", "battle.legend-tiers"],
+      "reason": "Inherited battle deployment and search inputs remain unreachable until the exact-current battle gate is opened."
+    },
+    {
+      "id": "blocked.builder-battle",
+      "policy": "blocked",
+      "path_globs": ["COCBot/functions/Attack/BuilderBase/*.au3"],
+      "capability_ids": ["builder-base.battles"],
+      "reason": "Builder battle entry, deployment, and return-home inputs are inherited and not exact-current proved."
+    },
+    {
+      "id": "blocked.battle-return-rewards",
+      "policy": "blocked",
+      "path_globs": ["COCBot/functions/Attack/ReturnHome.au3"],
+      "capability_ids": ["orchestration.battle-route", "rewards.streak-star-bonus"],
+      "reason": "Inherited return-home reward clicks are not owned by a closed-world plan route."
+    },
+    {
+      "id": "blocked.smart-zap",
+      "policy": "blocked",
+      "path_globs": ["COCBot/functions/Attack/SmartZap/*.au3"],
+      "capability_ids": ["battle.smart-zap"],
+      "reason": "Smart Zap is a resource-spending battle actuator without current recognizer or runtime proof."
+    },
+    {
+      "id": "infra.engine-config",
+      "policy": "infrastructure",
+      "path_globs": ["COCBot/functions/Config/applyConfig.au3"],
+      "capability_ids": ["orchestration.engine-initialization"],
+      "reason": "Managed-engine configuration is guarded by the supervised initialization contract."
+    },
+    {
+      "id": "blocked.army-management",
+      "policy": "blocked",
+      "path_globs": ["COCBot/functions/CreateArmy/*.au3", "COCBot/functions/CreateArmy/*/*.au3"],
+      "capability_ids": ["army.training", "army.recipes", "army.cookbook"],
+      "reason": "Inherited training and queue editing are not plan-owned closed-world routes."
+    },
+    {
+      "id": "blocked.obstacles",
+      "policy": "blocked",
+      "path_globs": ["COCBot/functions/Image Search/CheckTombs.au3"],
+      "capability_ids": ["village.obstacles"],
+      "reason": "Obstacle removal spends resources and is not exact-current recognized or bounded."
+    },
+    {
+      "id": "blocked.wall-recognition-gem-path",
+      "policy": "blocked",
+      "path_globs": ["COCBot/functions/Image Search/imglocCheckWall.au3"],
+      "capability_ids": ["village.upgrades-home"],
+      "reason": "The inherited wall recognizer reaches GemClick and is absolutely forbidden for planned execution."
+    },
+    {
+      "id": "infra.recognition",
+      "policy": "infrastructure",
+      "path_globs": [
+        "COCBot/functions/Image Search/imglocAuxiliary.au3",
+        "COCBot/functions/Image Search/QuickMIS.au3",
+        "COCBot/functions/Pixels/GetListPixel.au3",
+        "COCBot/functions/Read Text/getOcr.au3",
+        "COCBot/functions/Run/CollectorBubbleRecognizer.au3",
+        "COCBot/functions/Search/multiSearch.au3",
+        "COCBot/functions/Search/WeakBase.au3",
+        "COCBot/functions/Village/GetVillageSize.au3"
+      ],
+      "capability_ids": ["model.current-game", "model.screen-state-registry"],
+      "reason": "Managed recognition exports read images and return observations; they do not own route authorization."
+    },
+    {
+      "id": "blocked.legacy-recovery-obstacles",
+      "policy": "blocked",
+      "path_globs": ["COCBot/functions/Main Screen/checkMainScreen.au3", "COCBot/functions/Main Screen/checkObstacles.au3"],
+      "capability_ids": ["runtime.recovery", "events.daily-reward"],
+      "reason": "The generic obstacle loop can click unrelated legacy dialogs and remains outside terminal plan routes."
+    },
+    {
+      "id": "blocked.legacy-page-navigation",
+      "policy": "blocked",
+      "path_globs": [
+        "COCBot/functions/Image Search/IsWindowOpen.au3",
+        "COCBot/functions/Other/IsPage.au3",
+        "COCBot/functions/Village/CheckBaseQuick.au3",
+        "COCBot/functions/Village/CheckImageType.au3"
+      ],
+      "capability_ids": ["runtime.recovery", "model.screen-state-registry"],
+      "reason": "Generic page clearing and tab-opening helpers can click unrelated live surfaces and remain outside terminal planned routes."
+    },
+    {
+      "id": "infra.input-primitives",
+      "policy": "infrastructure",
+      "path_globs": [
+        "COCBot/functions/Other/Click.au3",
+        "COCBot/functions/Other/ClickDrag.au3",
+        "COCBot/functions/Other/ClickOkay.au3",
+        "COCBot/functions/Other/ClickRemove.au3",
+        "COCBot/functions/Other/ClickZoneR.au3",
+        "COCBot/functions/Other/MoveMouseOutBS.au3"
+      ],
+      "reason": "Low-level receipt-aware input transports are classified at their calling owner; GemClick is never route-authorized."
+    },
+    {
+      "id": "infra.control-polling",
+      "policy": "infrastructure",
+      "path_globs": ["COCBot/functions/Other/_Sleep.au3"],
+      "capability_ids": ["runtime.recovery"],
+      "reason": "The control-polled sleep primitive dispatches only the optional native Stop/status poll callback."
+    },
+    {
+      "id": "infra.process-lifecycle",
+      "policy": "infrastructure",
+      "path_globs": [
+        "COCBot/functions/Other/ApiClient.au3",
+        "COCBot/functions/Other/ApiHost.au3",
+        "COCBot/functions/Other/CheckPrerequisites.au3",
+        "COCBot/functions/Other/CloseRunningBot.au3",
+        "COCBot/functions/Other/KillProcess.au3",
+        "COCBot/functions/Other/LaunchConsole.au3",
+        "COCBot/functions/Other/RestartBot.au3",
+        "COCBot/functions/Other/WerFaultClose.au3",
+        "COCBot/functions/Other/WindowsArrange.au3",
+        "COCBot/functions/Main Screen/GetDPI_Ratio.au3"
+      ],
+      "capability_ids": ["runtime.recovery"],
+      "reason": "Exact-process, error-dialog, and native-window management is recovery infrastructure."
+    },
+    {
+      "id": "infra.managed-engine-debug",
+      "policy": "infrastructure",
+      "path_globs": ["COCBot/functions/Other/MBRFunc.au3"],
+      "capability_ids": ["orchestration.engine-initialization"],
+      "reason": "The managed DLL wrapper is bound to the supervised engine-initialization lifecycle."
+    },
+    {
+      "id": "blocked.language-diagnostic",
+      "policy": "blocked",
+      "path_globs": ["COCBot/functions/Other/TestLanguage.au3"],
+      "reason": "The manual language diagnostic can click the game and is not reachable from a reviewed plan."
+    },
+    {
+      "id": "test-only.reference-actuators",
+      "policy": "test-only",
+      "path_globs": ["COCBot/MBR References.au3"],
+      "reason": "The compile-time reference function keeps otherwise optional symbols linked and is never a production route."
+    },
+    {
+      "id": "capability.clan-request",
+      "policy": "capability",
+      "path_globs": ["COCBot/functions/Run/ClanRequestRoute.au3", "COCBot/functions/Run/OpenClanRequest.au3"],
+      "capability_ids": ["village.clan-request"],
+      "reason": "The terminal clan-request adapter owns bounded Army Overview, Send, and Home-return inputs."
+    },
+    {
+      "id": "capability.home-collection",
+      "policy": "capability",
+      "path_globs": ["COCBot/functions/Run/LootCartRoute.au3", "COCBot/functions/Run/OpenHomeCollectors.au3"],
+      "capability_ids": ["village.collectors", "village.loot-cart", "events.daily-reward"],
+      "reason": "The terminal Home adapter owns collector, Loot Cart, and Daily Reward action sinks."
+    },
+    {
+      "id": "capability.treasury",
+      "policy": "capability",
+      "path_globs": ["COCBot/functions/Run/OpenHomeTreasury.au3", "COCBot/functions/Run/TreasuryRoute.au3"],
+      "capability_ids": ["village.treasury"],
+      "reason": "The terminal Treasury adapter owns bounded entry and cleanup inputs."
+    },
+    {
+      "id": "capability.execution-adapters",
+      "policy": "capability",
+      "path_globs": ["COCBot/functions/Run/RunExecution.au3"],
+      "capability_ids": ["village.loot-cart", "village.treasury", "village.clan-request"],
+      "reason": "RunExecution binds terminal routes to the reviewed live callbacks and exact plan identity."
+    },
+    {
+      "id": "blocked.one-unit-donation-adapter",
+      "policy": "blocked",
+      "path_globs": ["COCBot/functions/Run/ClanDonationOneRoute.au3"],
+      "capability_ids": ["village.donations"],
+      "reason": "The closed-world one-unit policy evaluator remains unreachable until a dedicated structured recognizer, fixture, and live adapter are proved."
+    },
+    {
+      "id": "blocked.exact-recipe-training-adapter",
+      "policy": "blocked",
+      "path_globs": ["COCBot/functions/Run/ExactRecipeTrainingRoute.au3"],
+      "capability_ids": ["army.training", "army.recipes"],
+      "reason": "The exact-recipe evaluator remains unreachable until recipe recognition and a no-boost live adapter are proved."
+    },
+    {
+      "id": "blocked.one-upgrade-adapter",
+      "policy": "blocked",
+      "path_globs": ["COCBot/functions/Run/HomeUpgradeOneRoute.au3"],
+      "capability_ids": ["village.upgrades-home"],
+      "reason": "The one-upgrade evaluator remains unreachable until observed cost, reserve, builder, gem-surface, and post-state recognizers are proved."
+    },
+    {
+      "id": "blocked.search-route",
+      "policy": "blocked",
+      "path_globs": ["COCBot/functions/Search/PrepareSearch.au3", "COCBot/functions/Search/VillageSearch.au3", "COCBot/functions/Search/WaitForClouds.au3"],
+      "capability_ids": ["orchestration.battle-route", "battle.regular-ranked-split"],
+      "reason": "Inherited search inputs remain unreachable while every battle surface is gated."
+    },
+    {
+      "id": "blocked.home-upgrades",
+      "policy": "blocked",
+      "path_globs": [
+        "COCBot/functions/Main Screen/isNoUpgradeLoot.au3",
+        "COCBot/functions/Village/Auto Upgrade.au3",
+        "COCBot/functions/Village/LocateUpgrade.au3",
+        "COCBot/functions/Village/UpgradeBuilding.au3",
+        "COCBot/functions/Village/UpgradeWall.au3"
+      ],
+      "capability_ids": ["village.upgrades-home"],
+      "reason": "Inherited building and wall spend paths are not single-action, cost-bound, or exact-current proved."
+    },
+    {
+      "id": "blocked.hero-equipment",
+      "policy": "blocked",
+      "path_globs": ["COCBot/functions/Village/Blacksmith.au3"],
+      "capability_ids": ["village.hero-equipment"],
+      "reason": "Blacksmith equipment actions are inherited and not observed-cost bounded."
+    },
+    {
+      "id": "blocked.boosts",
+      "policy": "blocked",
+      "path_globs": [
+        "COCBot/functions/Village/BoostBarracks.au3",
+        "COCBot/functions/Village/BoostStructure.au3",
+        "COCBot/functions/Village/BoostSuperTroop.au3",
+        "COCBot/functions/Village/BuilderBase/StartClockTowerBoost.au3"
+      ],
+      "capability_ids": ["village.boosts"],
+      "reason": "Boost and Super Troop paths can spend resources or reach gem surfaces and are not plan-owned."
+    },
+    {
+      "id": "blocked.builder-upgrades",
+      "policy": "blocked",
+      "path_globs": [
+        "COCBot/functions/Village/BuilderBase/BOBBuildingUpgrades.au3",
+        "COCBot/functions/Village/BuilderBase/LocateBuilderHall.au3",
+        "COCBot/functions/Village/BuilderBase/SuggestedUpgrades.au3"
+      ],
+      "capability_ids": ["builder-base.upgrades", "builder-base.additional-builder"],
+      "reason": "Builder upgrade actuators are inherited and not single-action or observed-cost bounded."
+    },
+    {
+      "id": "blocked.builder-obstacles",
+      "policy": "blocked",
+      "path_globs": ["COCBot/functions/Village/BuilderBase/CleanBBYard.au3"],
+      "capability_ids": ["village.obstacles"],
+      "reason": "Builder obstacle removal is not current-client recognized or no-gem proved."
+    },
+    {
+      "id": "blocked.builder-resources",
+      "policy": "blocked",
+      "path_globs": ["COCBot/functions/Village/BuilderBase/Collect.au3"],
+      "capability_ids": ["builder-base.resources"],
+      "reason": "Builder collector and Elixir Cart inputs are inherited and not terminal-route proved."
+    },
+    {
+      "id": "blocked.builder-star-lab",
+      "policy": "blocked",
+      "path_globs": ["COCBot/functions/Village/BuilderBase/StarLaboratory.au3"],
+      "capability_ids": ["builder-base.star-laboratory"],
+      "reason": "Star Laboratory spending is inherited and lacks observed-cost and post-state receipts."
+    },
+    {
+      "id": "blocked.builder-hero-upgrades",
+      "policy": "blocked",
+      "path_globs": ["COCBot/functions/Village/BuilderBase/UpgradeBattleCopter.au3", "COCBot/functions/Village/BuilderBase/UpgradeBattleMachine.au3"],
+      "capability_ids": ["builder-base.hero-upgrades"],
+      "reason": "Builder Hero upgrades are inherited, resource-spending, and not single-action proved."
+    },
+    {
+      "id": "blocked.clan-games",
+      "policy": "blocked",
+      "path_globs": ["COCBot/functions/Village/Clan Games/ClanGames.au3"],
+      "capability_ids": ["events.clan-games"],
+      "reason": "Clan Games selection and reward paths remain profile-driven legacy behavior."
+    },
+    {
+      "id": "blocked.clan-capital",
+      "policy": "blocked",
+      "path_globs": ["COCBot/functions/Village/ClanCapital.au3"],
+      "capability_ids": ["clan-capital.upgrades", "clan-capital.forge"],
+      "reason": "Capital navigation, upgrades, Forge, and collection are mixed inherited actuators."
+    },
+    {
+      "id": "blocked.legacy-collectors",
+      "policy": "blocked",
+      "path_globs": ["COCBot/functions/Village/Collect.au3"],
+      "capability_ids": ["village.collectors", "village.loot-cart"],
+      "reason": "The inherited generic collector path is superseded by terminal plan-owned adapters."
+    },
+    {
+      "id": "blocked.legacy-treasury",
+      "policy": "blocked",
+      "path_globs": ["COCBot/functions/Village/TreasuryCollect.au3"],
+      "capability_ids": ["village.treasury"],
+      "reason": "The inherited Treasury helper uses generic building and confirmation clicks and is superseded by the terminal bounded route."
+    },
+    {
+      "id": "blocked.achievements",
+      "policy": "blocked",
+      "path_globs": ["COCBot/functions/Village/CollectAchievements.au3"],
+      "capability_ids": ["rewards.achievements"],
+      "reason": "Achievement claims are not current-client recognized or single-claim bounded."
+    },
+    {
+      "id": "blocked.donations",
+      "policy": "blocked",
+      "path_globs": ["COCBot/functions/Village/DonateCC.au3"],
+      "capability_ids": ["village.donations"],
+      "reason": "Inherited donations can consume uncontrolled army inventory and lack one-unit receipts."
+    },
+    {
+      "id": "blocked.trophy-drop",
+      "policy": "blocked",
+      "path_globs": ["COCBot/functions/Village/DropTrophy.au3"],
+      "capability_ids": ["battle.trophy-drop"],
+      "reason": "Trophy dropping is an inherited battle action without exact-current route proof."
+    },
+    {
+      "id": "blocked.magic-items",
+      "policy": "blocked",
+      "path_globs": ["COCBot/functions/Village/FreeMagicItems.au3"],
+      "capability_ids": ["rewards.magic-items"],
+      "reason": "Trader claims are not yet isolated from purchase and gem surfaces."
+    },
+    {
+      "id": "blocked.helper-hut",
+      "policy": "blocked",
+      "path_globs": ["COCBot/functions/Village/HelperHut.au3"],
+      "capability_ids": ["village.helper-hut"],
+      "reason": "Helper Hut actions are profile-driven and lack exact duration/resource receipts."
+    },
+    {
+      "id": "blocked.laboratory",
+      "policy": "blocked",
+      "path_globs": ["COCBot/functions/Village/Laboratory.au3"],
+      "capability_ids": ["village.laboratory"],
+      "reason": "Laboratory spending is inherited and not observed-cost or single-research bounded."
+    },
+    {
+      "id": "blocked.telegram-remote",
+      "policy": "blocked",
+      "path_globs": ["COCBot/functions/Village/BotCommand.au3", "COCBot/functions/Village/Notify.au3"],
+      "reason": "Legacy remote-notification process and game-click actions are not plan-owned and are disabled by safety reset."
+    },
+    {
+      "id": "blocked.personal-challenges",
+      "policy": "blocked",
+      "path_globs": ["COCBot/functions/Village/Personal Challenges/DailyChallenges.au3"],
+      "capability_ids": ["rewards.personal-challenges"],
+      "reason": "Personal Challenge rewards are not current-client recognized or single-claim bounded."
+    },
+    {
+      "id": "blocked.pets",
+      "policy": "blocked",
+      "path_globs": ["COCBot/functions/Village/PetHouse.au3"],
+      "capability_ids": ["village.pets"],
+      "reason": "Pet House spending is inherited and not observed-cost or single-upgrade bounded."
+    },
+    {
+      "id": "blocked.profile-report",
+      "policy": "blocked",
+      "path_globs": ["COCBot/functions/Village/ProfileReport.au3"],
+      "capability_ids": ["village.profile-report", "rewards.achievements"],
+      "reason": "Profile reporting also contains optional achievement claims and is not a passive closed-world route."
+    },
+    {
+      "id": "blocked.replay-share",
+      "policy": "blocked",
+      "path_globs": ["COCBot/functions/Village/ReplayShare.au3"],
+      "capability_ids": ["village.replay-share", "chat.global-chat"],
+      "reason": "Replay sharing types and sends chat text and lacks an exact destination receipt."
+    },
+    {
+      "id": "blocked.legacy-clan-request",
+      "policy": "blocked",
+      "path_globs": ["COCBot/functions/Village/RequestCC.au3"],
+      "capability_ids": ["village.clan-request"],
+      "reason": "The inherited request path types free text and is superseded by the terminal request adapter."
+    },
+    {
+      "id": "blocked.multi-account",
+      "policy": "blocked",
+      "path_globs": ["COCBot/functions/Village/SwitchAccount.au3"],
+      "capability_ids": ["orchestration.multi-account", "orchestration.account-queue"],
+      "reason": "Account switching is identity-sensitive legacy behavior without exact-current account receipts."
+    },
+    {
+      "id": "blocked.builder-navigation",
+      "policy": "blocked",
+      "path_globs": ["COCBot/functions/Village/SwitchBetweenBases.au3"],
+      "capability_ids": ["builder-base.upgrades", "builder-base.battles", "builder-base.resources"],
+      "reason": "Generic base switching is not owned by a single terminal route."
+    },
+    {
+      "id": "blocked.hero-upgrades",
+      "policy": "blocked",
+      "path_globs": ["COCBot/functions/Village/UpgradeHeroes.au3"],
+      "capability_ids": ["heroes.upgrades"],
+      "reason": "Hero upgrades are inherited resource-spending paths without a single-action receipt."
+    },
+    {
+      "id": "blocked.hero-location",
+      "policy": "blocked",
+      "path_globs": ["COCBot/functions/Village/LocateHeroHall.au3"],
+      "capability_ids": ["heroes.six-slot-layout"],
+      "reason": "Manual Hero Hall location clicks are not part of a closed-world runtime plan."
+    },
+    {
+      "id": "blocked.town-hall-location",
+      "policy": "blocked",
+      "path_globs": ["COCBot/functions/Village/GetTownHallLevel.au3"],
+      "capability_ids": ["village.town-hall-18", "model.current-game"],
+      "reason": "The legacy Town Hall level helper can select a building and is not the passive current-client model gate."
+    },
+    {
+      "id": "blocked.star-bonus",
+      "policy": "blocked",
+      "path_globs": ["COCBot/functions/Village/StarBonus.au3"],
+      "capability_ids": ["rewards.streak-star-bonus"],
+      "reason": "Star Bonus collection is inherited, input-bearing reward handling without a single-claim receipt."
+    },
+    {
+      "id": "blocked.training-page-navigation",
+      "policy": "blocked",
+      "path_globs": ["COCBot/functions/Village/CheckNeedOpenTrain.au3"],
+      "capability_ids": ["army.training", "army.recipes"],
+      "reason": "Generic training-page opening and cleanup are outside the exact-recipe terminal adapter."
+    },
+    {
+      "id": "blocked.native-diagnostic-ui",
+      "policy": "blocked",
+      "path_globs": [
+        "COCBot/GUI/MBR GUI Control Android.au3",
+        "COCBot/GUI/MBR GUI Control Attack Scripted.au3",
+        "COCBot/GUI/MBR GUI Control BOT Options.au3",
+        "COCBot/GUI/MBR GUI Control Child Upgrade.au3",
+        "COCBot/GUI/MBR GUI Control Donate.au3",
+        "COCBot/GUI/MBR GUI Control Preset.au3"
+      ],
+      "reason": "Manual diagnostics and legacy configuration buttons are not callable from reviewed plans."
+    },
+    {
+      "id": "infra.native-planner",
+      "policy": "infrastructure",
+      "path_globs": ["COCBot/GUI/MBR GUI Control Run Planner.au3"],
+      "capability_ids": ["orchestration.run-plan", "runtime.recovery"],
+      "reason": "The native planner controller owns the exact loopback service lifecycle and browser launch."
+    },
+    {
+      "id": "infra.native-gui",
+      "policy": "infrastructure",
+      "path_globs": [
+        "COCBot/GUI/MBR GUI Control Tab General.au3",
+        "COCBot/GUI/MBR GUI Control Splash.au3",
+        "COCBot/GUI/MBR GUI Design Bot.au3",
+        "COCBot/GUI/MBR GUI Design Log.au3",
+        "COCBot/functions/Other/ExtMsgBox.au3",
+        "COCBot/functions/Other/ScriptingDictionaryTools.au3",
+        "COCBot/MBR GUI Control.au3",
+        "COCBot/MBR GUI Design Mini.au3",
+        "COCBot/MBR GUI Design.au3"
+      ],
+      "reason": "Native GUI window placement and user-invoked links are application infrastructure."
+    },
+    {
+      "id": "infra.bot-start",
+      "policy": "infrastructure",
+      "path_globs": ["COCBot/GUI/MBR GUI Control Bottom.au3", "COCBot/MBR GUI Action.au3"],
+      "capability_ids": ["orchestration.engine-initialization", "orchestration.run-plan"],
+      "reason": "BotStart owns the supervised managed-engine call and hands off only after plan validation."
+    }
+  ]
+}

@@ -48,6 +48,11 @@
     }
   ],
   "redaction_pixel_changes": 26955,
+  "frame_content": {
+    "total_pixels": 629520,
+    "non_black_pixels": 593092,
+    "distinct_visible_colors": 2
+  },
   "privacy_review_method": "decoded-pixel-diff-v1",
   "redaction_notes": "Player name and four resource total regions replaced with opaque black rectangles; post-claim Daily Reward controls remain unchanged.",
   "assertions": [
@@ -70,7 +75,7 @@
       }
     ]
   },
-  "reviewed_by": "Codex supervised live audit",
+  "reviewed_by": "supervised runtime evidence audit",
   "reviewed_at": "2026-08-15T10:00:01Z",
   "notes": "Positive post-claim frame from the authorized MyVillage BlueStacks5 Pie64 account after one supervised no-gem Claim input."
 }

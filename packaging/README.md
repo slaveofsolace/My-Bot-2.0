@@ -51,7 +51,7 @@ working-tree files. ZIP paths are sorted below one package root, timestamps are 
 1980-01-01, and final publication is atomic and refuses to overwrite another release.
 
 The package uses an explicit allowlist. It excludes profiles, plans and control state, logs,
-artifacts, caches, temporary helpers, `CLAUDE_HANDOFF_PROMPT.md`, and the working-tree
+artifacts, caches, temporary helpers, `*_HANDOFF_PROMPT.md`, and the working-tree
 `Languages/English.ini`. The package exports the canonical `Languages/English.ini` blob from the
 recorded source commit, so a live translation-cache rewrite cannot enter the archive and English is
 never omitted. `MyBot.run.txt` must exist and remain exactly zero bytes. Every packaged
@@ -71,6 +71,19 @@ ImgLoc component. The Python boundary has no PublicDistribution mode and fails o
 Public release remains blocked until actual written ImgLoc permission exists or a clearly licensed
 replacement has been validated. The legacy PowerShell acknowledgement switch records an operator
 assertion; it does not create rights.
+`config/redistribution-rights.json` is the mechanical release record. It binds the exact inherited
+component bytes to a neutral review role and a private-evidence hash. PublicDistribution requires both
+the explicit operator acknowledgement and a granted, release-allowed record; the checked-in pending
+record therefore keeps public packaging blocked without exposing private legal correspondence.
+Every release manifest also records the path, byte count, and SHA-256 of the packaged rights record.
+That binds the artifact to the exact review it relied on while leaving the private evidence outside
+the repository and package.
+
+PublicDistribution is also a final-completion boundary. It refuses a release unless every required
+current-client fixture is complete, every catalogued capability has exact-current evidence for the
+committed binary, the actuator registry has no unowned caller, and the publishable tree passes the
+neutral-wording audit. LocalRuntime packages remain available for bounded evidence gathering while
+those deliberately stricter public gates are incomplete.
 
 The workflow performs no code signing and makes no signing claim.
 

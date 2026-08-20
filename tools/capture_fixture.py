@@ -24,13 +24,14 @@ import hashlib
 import json
 import shutil
 import struct
+import tempfile
 import time
 from pathlib import Path
 
 try:
-    from tools.fixture_png import decode_png, parse_mask, verify_redaction
+    from tools.fixture_png import decode_png, parse_mask, verify_recognition_frame, verify_redaction
 except ModuleNotFoundError:  # Direct execution from the tools directory.
-    from fixture_png import decode_png, parse_mask, verify_redaction
+    from fixture_png import decode_png, parse_mask, verify_recognition_frame, verify_redaction
 
 ROOT = Path(__file__).resolve().parents[1]
 BASE = ROOT / "tests/fixtures/current-client"
@@ -44,8 +45,31 @@ def load_manifest() -> dict:
     return json.loads(MANIFEST.read_text(encoding="utf-8-sig"))
 
 
+def write_json_atomic(path: Path, data: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    rendered = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
+    temporary_name = ""
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            newline="",
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+            dir=path.parent,
+            delete=False,
+        ) as stream:
+            temporary_name = stream.name
+            stream.write(rendered)
+            stream.flush()
+        Path(temporary_name).replace(path)
+    finally:
+        if temporary_name:
+            Path(temporary_name).unlink(missing_ok=True)
+
+
 def save_manifest(manifest: dict) -> None:
-    MANIFEST.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    write_json_atomic(MANIFEST, manifest)
 
 
 def find_entry(manifest: dict, fixture_id: str) -> dict | None:
@@ -80,8 +104,7 @@ def image_path(fixture_id: str) -> Path:
 
 
 def write_metadata(fixture_id: str, data: dict) -> None:
-    METADATA.mkdir(parents=True, exist_ok=True)
-    metadata_path(fixture_id).write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    write_json_atomic(metadata_path(fixture_id), data)
 
 
 def read_metadata(fixture_id: str) -> dict:
@@ -115,8 +138,30 @@ def cmd_add(args) -> int:
     if entry is None:
         print(f"'{args.fixture_id}' is not a required fixture. Run: python tools/capture_fixture.py list")
         return 2
+    status = entry.get("status")
+    replace_redacted = bool(getattr(args, "replace_redacted", False))
+    if status == "verified":
+        print(f"'{args.fixture_id}' is already verified and cannot be overwritten by the importer")
+        return 2
+    if status == "redacted" and not replace_redacted:
+        print(f"'{args.fixture_id}' is already redacted; pass --replace-redacted for an explicit replacement")
+        return 2
+    if status not in {"missing", "redacted"}:
+        print(f"'{args.fixture_id}' has unsupported manifest status {status!r}")
+        return 2
+    destination = image_path(args.fixture_id)
+    metadata_destination = metadata_path(args.fixture_id)
+    if status == "missing" and (destination.exists() or metadata_destination.exists()):
+        print("refusing import because fixture files already exist while manifest status is missing")
+        return 2
     if not args.privacy_notes.strip():
         print("--privacy-notes must describe the masks or explain why no redaction was needed")
+        return 2
+    if args.source_type not in {"authorized-test-account", "emulator", "device"}:
+        print("--source-type must be authorized-test-account, emulator, or device")
+        return 2
+    if not args.game_version.strip() or args.game_version.strip().lower() == "unknown":
+        print("--game-version must name the observed current client version")
         return 2
 
     raw_source = Path(args.raw_png).resolve()
@@ -139,6 +184,7 @@ def cmd_add(args) -> int:
             masks,
             no_redaction_needed=args.no_redaction_needed,
         )
+        frame_metrics = verify_recognition_frame(redacted_image)
     except (OSError, ValueError) as exc:
         print(f"redaction verification failed: {exc}")
         return 2
@@ -153,10 +199,15 @@ def cmd_add(args) -> int:
         return 2
 
     IMAGES.mkdir(parents=True, exist_ok=True)
-    destination = image_path(args.fixture_id)
-    temporary = destination.with_suffix(".png.tmp")
-    shutil.copyfile(redacted_source, temporary)
-    temporary.replace(destination)
+    with tempfile.NamedTemporaryFile(
+        prefix=f".{destination.name}.", suffix=".tmp", dir=IMAGES, delete=False
+    ) as stream:
+        temporary = Path(stream.name)
+    try:
+        shutil.copyfile(redacted_source, temporary)
+        temporary.replace(destination)
+    finally:
+        temporary.unlink(missing_ok=True)
     digest = sha256(destination)
 
     raw_digest = sha256(raw_source)
@@ -174,6 +225,7 @@ def cmd_add(args) -> int:
         "redacted": True,
         "redaction_masks": redaction["masks"],
         "redaction_pixel_changes": redaction["changed_pixels"],
+        "frame_content": frame_metrics,
         "privacy_review_method": "decoded-pixel-diff-v1",
         "redaction_notes": args.privacy_notes,
         "assertions": [
@@ -201,11 +253,21 @@ def cmd_add(args) -> int:
 def cmd_verify(args) -> int:
     manifest = load_manifest()
     entry = find_entry(manifest, args.fixture_id)
-    if entry is None or entry.get("status") not in ("redacted", "verified"):
+    if entry is None or entry.get("status") != "redacted":
         print(f"'{args.fixture_id}' must be redacted before it can be verified.")
         return 2
 
     data = read_metadata(args.fixture_id)
+    committed_image = image_path(args.fixture_id)
+    try:
+        decoded = decode_png(committed_image)
+        verify_recognition_frame(decoded)
+    except (OSError, ValueError) as exc:
+        print(f"the committed fixture image is not reviewable: {exc}")
+        return 2
+    if data.get("fixture_id") != args.fixture_id or data.get("sha256") != sha256(committed_image):
+        print("the committed fixture image no longer matches its metadata; re-import it before verification")
+        return 2
     todo = [a for a in data.get("assertions", []) if a.strip().lower().startswith("todo")]
     if todo:
         print(f"the assertions still contain a TODO; fill them in before verifying:")
@@ -299,10 +361,11 @@ def main() -> int:
     add.add_argument("redacted_png", help="solid-mask derivative outside the repository")
     add.add_argument("--mask", action="append", default=[], metavar="X,Y,W,H", help="solid redaction rectangle; repeat as needed")
     add.add_argument("--no-redaction-needed", action="store_true", help="attest that decoded pixels are identical and contain no private data")
-    add.add_argument("--game-version", default="unknown", help="e.g. 18.x.y")
+    add.add_argument("--game-version", required=True, help="observed current client version, e.g. 18.x.y")
     add.add_argument("--source-type", default="authorized-test-account", help="authorized-test-account, emulator, or device")
     add.add_argument("--privacy-notes", required=True, help="what was masked or why no redaction was needed")
     add.add_argument("--notes", default="")
+    add.add_argument("--replace-redacted", action="store_true", help="explicitly replace an unverified redacted fixture; verified fixtures remain immutable")
     add.set_defaults(func=cmd_add)
 
     verify = sub.add_parser("verify", help="confirm the recognition assertions (redacted -> verified)")

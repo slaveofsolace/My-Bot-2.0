@@ -188,10 +188,13 @@ class OpenHomeCollectorsTest(unittest.TestCase):
             self.assertEqual(function.count("Click("), 1)
         self.assertIn("_CheckPixel($aIsMain, False)", issue_open)
         self.assertIn("OpenHomeLootCartCollectPanelReady()", issue_collect)
+        self.assertIn("OpenHomeNoGemInputReady()", issue_open)
+        self.assertIn("OpenHomeNoGemInputReady()", issue_collect)
         loot_scope = issue_open + issue_collect + autoit_function(route, "OpenHomeLootCartProveHome")
         self.assertNotIn("Okay", loot_scope)
         self.assertNotIn("Confirm", loot_scope)
-        self.assertNotIn("Gem", loot_scope)
+        self.assertNotIn("isGemOpen(", loot_scope)
+        self.assertNotIn("CloseWindow", loot_scope)
 
     def test_daily_reward_recognizer_matches_the_verified_positive_fixture(self):
         width, height, pixel = png_rgb(ROOT / "tests/fixtures/current-client/images/home.daily-reward.png")

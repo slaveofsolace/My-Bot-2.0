@@ -107,6 +107,7 @@ class EngineProbeLifecycleTests(unittest.TestCase):
             "phase",
             "start_request_id",
             "sequence",
+            "phase_history",
         ):
             self.assertIn(f'\\"{field}\\"', publish.replace('"', '\\"'))
         offsets = [publish.index(item) for item in ("FileOpen(", "FileWrite(", "FileFlush(", "FileClose(", "FileMove(", "FileRead(")]
@@ -115,6 +116,11 @@ class EngineProbeLifecycleTests(unittest.TestCase):
         self.assertIn("_MBRFuncEngineReceiptPathSafe(False)", publish)
         self.assertIn("_MBRFuncEngineReceiptPathSafe(True)", publish)
         self.assertIn("$sLauncherCreated <> $g_sMBRFuncEngineLauncherCreated", publish)
+        self.assertIn("$g_sMBRFuncEngineReceiptHistory = $sCandidateHistory", publish)
+        self.assertLess(
+            publish.index("FileRead($g_sMBRFuncEngineReceiptPath)"),
+            publish.index("$g_sMBRFuncEngineReceiptHistory = $sCandidateHistory"),
+        )
         safe = function_body(self.parent, "_MBRFuncEngineReceiptPathSafe")
         self.assertIn("BitAND($aParent[0], 0x400) <> 0", safe)
         self.assertIn("BitAND($aReceipt[0], 0x400) = 0", safe)

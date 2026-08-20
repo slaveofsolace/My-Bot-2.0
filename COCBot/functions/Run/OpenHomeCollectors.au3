@@ -112,6 +112,16 @@ Func OpenHomeCollectorsProveHome()
 	Return $bHomeProven
 EndFunc   ;==>OpenHomeCollectorsProveHome
 
+; Passive no-gem input gate. This mirrors the legacy gem-window pixel recognizer but deliberately
+; never calls isGemOpen(), CloseWindow(), or any other input helper. Every bounded Home route must
+; use a freshly captured frame and pass this predicate immediately before an allowed click.
+Func OpenHomeNoGemInputReady()
+	If $g_hBitmap = 0 Then Return False
+	Local $bGemSurface = _CheckPixel($aIsGemWindow1, False) Or _
+			(_CheckPixel($aIsGemWindow2, False) And _CheckPixel($aIsGemWindow3, False) And _CheckPixel($aIsGemWindow4, False))
+	Return Not $bGemSurface
+EndFunc   ;==>OpenHomeNoGemInputReady
+
 ; Issue at most one accepted click per resource type. Every decision uses a fresh frame; Home and Stop
 ; are rechecked before every click and Home is re-proved after the last input. @extended is accepted clicks.
 Func OpenHomeCollectorsCollectOnePass()
@@ -137,6 +147,7 @@ Func OpenHomeCollectorsCollectOnePass()
 		If $iType = $OPEN_HOME_COLLECTOR_NONE Then ExitLoop
 		If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, $iClicks, False)
 		If Not _CheckPixel($aIsMain, False) Then Return SetError(3, $iClicks, False)
+		If Not OpenHomeNoGemInputReady() Then Return SetError(6, $iClicks, False)
 		If Not Click($aFound[$iType][1], $aFound[$iType][2], 1, 120, "#OpenHomeCollector", True) Then
 			If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, $iClicks, False)
 			Return SetError(4, $iClicks, False)
@@ -222,6 +233,7 @@ Func OpenHomeDailyRewardIssueClaim($iExpectedX, $iExpectedY)
 	Local $iClaims = OpenHomeDailyRewardCaptureClaim($aFreshClaim)
 	If $iClaims <> 1 Or $aFreshClaim[0] <> $iExpectedX Or $aFreshClaim[1] <> $iExpectedY Then _
 		Return SetError(1, $iClaims, False)
+	If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, False)
 	If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
 	Return Click($iExpectedX, $iExpectedY, 1, 120, "#OpenHomeDailyRewardClaim", True)
 EndFunc   ;==>OpenHomeDailyRewardIssueClaim
@@ -236,6 +248,7 @@ Func OpenHomeDailyRewardCloseAndProveHome(ByRef $bCloseIssued)
 		If OpenHomeCollectorsProveHome() Then Return True
 		If $iAttempt = 1 And (OpenHomeDailyRewardOverlayReady() Or OpenHomeDailyRewardClaimedOverlayReady()) Then
 			If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
+			If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, False)
 			If Not Click(759, 173, 1, 120, "#OpenHomeDailyRewardClose", True) Then Return SetError(3, 0, False)
 			$bCloseIssued = True
 		EndIf
@@ -305,7 +318,9 @@ Func OpenHomeLootCartDetectCollect()
 EndFunc   ;==>OpenHomeLootCartDetectCollect
 
 Func OpenHomeLootCartIssueOpen($iX, $iY)
-	If RunControlStopRequested() Or Not $g_bRunState Or Not _CheckPixel($aIsMain, False) Then Return False
+	If RunControlStopRequested() Or Not $g_bRunState Or Not OpenHomeCollectorsProveHome() Then Return False
+	If Not _CheckPixel($aIsMain, False) Then Return False
+	If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, False)
 	Local $bIssued = Click(Int($iX), Int($iY), 1, 120, "#OpenHomeLootCart", True)
 	If $bIssued Then RunEventLogMaintenanceLootCartOpenIssued(1)
 	Return $bIssued
@@ -313,6 +328,7 @@ EndFunc   ;==>OpenHomeLootCartIssueOpen
 
 Func OpenHomeLootCartIssueCollect($iX, $iY)
 	If RunControlStopRequested() Or Not $g_bRunState Or Not OpenHomeLootCartCollectPanelReady() Then Return False
+	If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, False)
 	Local $bIssued = Click(Int($iX), Int($iY), 1, 120, "#OpenHomeLootCartCollect", True)
 	If $bIssued Then RunEventLogMaintenanceLootCartCollectIssued(1)
 	Return $bIssued

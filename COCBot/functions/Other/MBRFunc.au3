@@ -39,6 +39,7 @@ Global $g_bMBRFuncEngineSupervisorValid = $g_bMBRFuncEngineContextHost And Strin
 	StringRegExp($g_sMBRFuncEngineLauncherPidText, "^[1-9][0-9]{0,9}$") And _
 	StringRegExp($g_sMBRFuncEngineLauncherCreated, "^[0-9a-f]{16}$")
 Global $g_iMBRFuncEngineReceiptSequence = 0
+Global $g_sMBRFuncEngineReceiptHistory = ""
 Global $g_bMBRFuncEngineInitializing = False
 
 Func MBRFunc($Start = True, $bInitialize = True)
@@ -243,12 +244,22 @@ Func _MBRFuncPublishEngineReceipt($sPhase)
 	If $iLauncherPid <= 0 Or Not ProcessExists($iLauncherPid) Or $iParentPid <= 0 Or _
 		$sLauncherCreated <> $g_sMBRFuncEngineLauncherCreated Or $sBackendCreated = "" Or $sControllerCreated = "" Then Return False
 	$g_iMBRFuncEngineReceiptSequence += 1
+	; Retain the complete monotonic phase chain in every receipt. A live evidence
+	; observer may miss a short-lived intermediate replacement, but it must never
+	; infer skipped phases from only the terminal number.
+	Local $sCandidateHistory = $g_sMBRFuncEngineReceiptHistory
+	If $sCandidateHistory = "" Then
+		$sCandidateHistory = '["' & $sPhase & '"]'
+	Else
+		$sCandidateHistory = StringTrimRight($sCandidateHistory, 1) & ',"' & $sPhase & '"]'
+	EndIf
 	Local $sReceipt = '{"schema":"' & $g_sMBRFuncEngineSupervisorSchema & '","token":"' & $g_sMBRFuncEngineSupervisorToken & _
 		'","launcher_pid":' & $iLauncherPid & ',"launcher_created":"' & $g_sMBRFuncEngineLauncherCreated & _
 		'","controller_pid":' & $iParentPid & ',"controller_created":"' & $sControllerCreated & _
 		'","backend_pid":' & @AutoItPID & ',"backend_created":"' & $sBackendCreated & _
 		'","parent_pid":' & $iParentPid & ',"phase":"' & $sPhase & '","start_request_id":"' & _
-		_MBRFuncCurrentStartRequestId() & '","sequence":' & $g_iMBRFuncEngineReceiptSequence & '}'
+		_MBRFuncCurrentStartRequestId() & '","sequence":' & $g_iMBRFuncEngineReceiptSequence & _
+		',"phase_history":' & $sCandidateHistory & '}'
 	DirCreate(@LocalAppDataDir & "\My Bot 2.0")
 	If Not _MBRFuncEngineReceiptPathSafe(False) Then Return False
 	Local $sTemporary = $g_sMBRFuncEngineReceiptPath & ".tmp." & @AutoItPID
@@ -264,7 +275,9 @@ Func _MBRFuncPublishEngineReceipt($sPhase)
 		Return False
 	EndIf
 	If Not _MBRFuncEngineReceiptPathSafe(True) Then Return False
-	Return FileRead($g_sMBRFuncEngineReceiptPath) = $sReceipt
+	If FileRead($g_sMBRFuncEngineReceiptPath) <> $sReceipt Then Return False
+	$g_sMBRFuncEngineReceiptHistory = $sCandidateHistory
+	Return True
 EndFunc   ;==>_MBRFuncPublishEngineReceipt
 
 Func _MBRFuncInitializationFailed($sReason)

@@ -51,7 +51,7 @@ class SmartAttackStrategyTests(unittest.TestCase):
         self.assertNotIn("Return 3", selector)
         self.assertIn("Return 0", selector)
         self.assertIn("SmartAttackPolicyChooseSide", combat)
-        for forbidden in ("http://", "https://", "WinHttp", "InetRead", "OpenAI"):
+        for forbidden in ("http://", "https://", "WinHttp", "InetRead", "Authorization"):
             self.assertNotIn(forbidden, execution)
 
     def test_planner_exposes_the_strategy_honestly(self):

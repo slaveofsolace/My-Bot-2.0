@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "as_of": "2026-08-14",
+  "as_of": "2026-08-20",
   "product_version": "v2.0.0",
   "core_baseline": {
     "engine_version": "v8.2.0",
@@ -25,6 +25,48 @@
     "require_commit_ancestor": true,
     "require_binary_provenance": true,
     "require_tracked_artifacts": true,
+    "no_gem_contract": {
+      "effective_at": "2026-08-20T00:00:00Z",
+      "required_check": "gems.not-spent",
+      "capabilities": [
+        "army.training",
+        "battle.fast-forward",
+        "battle.legend-tiers",
+        "battle.regular-ranked-split",
+        "battle.revenge",
+        "battle.smart-zap",
+        "battle.trophy-drop",
+        "builder-base.battles",
+        "builder-base.hero-upgrades",
+        "builder-base.resources",
+        "builder-base.star-laboratory",
+        "builder-base.upgrades",
+        "clan-capital.forge",
+        "clan-capital.upgrades",
+        "events.clan-games",
+        "events.daily-reward",
+        "heroes.upgrades",
+        "orchestration.battle-route",
+        "rewards.achievements",
+        "rewards.magic-items",
+        "rewards.personal-challenges",
+        "rewards.streak-star-bonus",
+        "shop.chain-offers",
+        "village.boosts",
+        "village.clan-request",
+        "village.collectors",
+        "village.donations",
+        "village.hero-equipment",
+        "village.helper-hut",
+        "village.laboratory",
+        "village.loot-cart",
+        "village.obstacles",
+        "village.pets",
+        "village.replay-share",
+        "village.treasury",
+        "village.upgrades-home"
+      ]
+    },
     "capabilities": {
       "emulator.bluestacks5": {
         "environment_patterns": {"emulator": "(?i)^bluestacks\\s*5$"},
@@ -78,6 +120,12 @@
       "orchestration.engine-initialization": {
         "required_tests": [
           {"test_type": "end-to-end", "required_checks": ["check-engine.accepted", "backend.identity-preserved", "engine.initialized", "idle.restored", "supervisor.finalized", "diagnostic-events.exact", "game-input.absent", "configuration.preserved"]}
+        ]
+      },
+      "safety.no-gem-guard": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["gem-surface.recognized", "non-gem-surfaces.rejected", "black-frame.rejected"]},
+          {"test_type": "end-to-end", "required_checks": ["gem-surface.blocked", "gem-input.absent", "route.stopped", "gems.untouched"]}
         ]
       },
       "model.current-game": {
@@ -206,8 +254,8 @@
       },
       "village.donations": {
         "required_tests": [
-          {"test_type": "game-surface-recognition", "required_checks": ["donation-screen.recognized", "request-text.confirmed"]},
-          {"test_type": "end-to-end", "required_checks": ["donation.matched", "donation.completed", "home.restored"]}
+          {"test_type": "game-surface-recognition", "required_checks": ["donation-screen.recognized", "request-icon.confirmed", "free-text.unused", "black-frame.rejected"]},
+          {"test_type": "end-to-end", "required_checks": ["donation.one-attempt", "donation.one-unit-confirmed", "source-reserve.proved", "home.restored", "gems.untouched"]}
         ]
       },
       "village.clan-request": {
@@ -218,14 +266,14 @@
       },
       "army.training": {
         "required_tests": [
-          {"test_type": "game-surface-recognition", "required_checks": ["army-screen.recognized", "housing.confirmed"]},
-          {"test_type": "end-to-end", "required_checks": ["composition.prepared", "composition.verified", "home.restored"]}
+          {"test_type": "game-surface-recognition", "required_checks": ["army-screen.recognized", "saved-recipe.digest-confirmed", "empty-queue.confirmed", "boost.absent", "gem-surface.absent", "black-frame.rejected"]},
+          {"test_type": "end-to-end", "required_checks": ["training.one-queue-attempt", "queue-digest.exact", "queue-delta.exact", "boost.unused", "deletion.unused", "gem-completion.unused", "home.restored", "gems.untouched"]}
         ]
       },
       "village.upgrades-home": {
         "required_tests": [
-          {"test_type": "game-surface-recognition", "required_checks": ["upgrade-screen.recognized", "cost.confirmed"]},
-          {"test_type": "end-to-end", "required_checks": ["upgrade.selected", "upgrade.completed", "home.restored"]}
+          {"test_type": "game-surface-recognition", "required_checks": ["upgrade-entry.recognized", "upgrade-cost.confirmed", "resource-state.confirmed", "builder-state.confirmed", "gem-surface.absent", "black-frame.rejected"]},
+          {"test_type": "end-to-end", "required_checks": ["upgrade.one-selection", "upgrade.one-confirmation", "resource-decrement.exact", "builder-occupied.confirmed", "post-state.proved", "home.restored", "gems.untouched"]}
         ]
       },
       "builder-base.upgrades": {
@@ -268,6 +316,114 @@
           {"test_type": "game-surface-recognition", "required_checks": ["capital.recognized", "upgrade-state.confirmed"]},
           {"test_type": "end-to-end", "required_checks": ["capital-upgrade.selected", "capital-home.restored"]}
         ]
+      },
+      "village.pets": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["pet-house.recognized", "pet-state.confirmed"]},
+          {"test_type": "end-to-end", "required_checks": ["pet-upgrade.selected", "home.restored", "gems.untouched"]}
+        ]
+      },
+      "village.hero-equipment": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["blacksmith.recognized", "equipment-state.confirmed"]},
+          {"test_type": "end-to-end", "required_checks": ["equipment-upgrade.selected", "home.restored", "gems.untouched"]}
+        ]
+      },
+      "rewards.achievements": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["achievements.recognized", "claim-state.confirmed"]},
+          {"test_type": "end-to-end", "required_checks": ["achievement.claimed", "home.restored", "gems.untouched"]}
+        ]
+      },
+      "rewards.personal-challenges": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["personal-challenges.recognized", "reward-state.confirmed"]},
+          {"test_type": "end-to-end", "required_checks": ["challenge-reward.claimed", "home.restored", "gems.untouched"]}
+        ]
+      },
+      "village.obstacles": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["obstacle.recognized", "removal-cost.confirmed", "gem-surface.absent"]},
+          {"test_type": "end-to-end", "required_checks": ["obstacle.removed", "home.restored", "gems.untouched"]}
+        ]
+      },
+      "clan-capital.forge": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["forge.recognized", "forge-cost.confirmed"]},
+          {"test_type": "end-to-end", "required_checks": ["forge-action.completed", "home.restored", "gems.untouched"]}
+        ]
+      },
+      "village.helper-hut": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["helper-hut.recognized", "helper-state.confirmed"]},
+          {"test_type": "end-to-end", "required_checks": ["helper-action.completed", "home.restored", "gems.untouched"]}
+        ]
+      },
+      "builder-base.star-laboratory": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["star-laboratory.recognized", "research-state.confirmed"]},
+          {"test_type": "end-to-end", "required_checks": ["builder-research.started", "builder-home.restored", "gems.untouched"]}
+        ]
+      },
+      "builder-base.resources": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["builder-collectors.recognized", "elixir-cart.recognized"]},
+          {"test_type": "end-to-end", "required_checks": ["builder-resources.collected", "builder-home.restored", "gems.untouched"]}
+        ]
+      },
+      "rewards.magic-items": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["trader.recognized", "free-item.confirmed"]},
+          {"test_type": "end-to-end", "required_checks": ["free-item.collected", "home.restored", "gems.untouched"]}
+        ]
+      },
+      "rewards.streak-star-bonus": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["streak-event.recognized", "star-bonus.recognized"]},
+          {"test_type": "end-to-end", "required_checks": ["reward-state.handled", "home.restored", "gems.untouched"]}
+        ]
+      },
+      "village.boosts": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["boost-surface.recognized", "boost-cost.confirmed", "gem-surface.absent"]},
+          {"test_type": "end-to-end", "required_checks": ["boost.activated", "home.restored", "gems.untouched"]}
+        ]
+      },
+      "heroes.upgrades": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["hero-upgrade.recognized", "hero-cost.confirmed"]},
+          {"test_type": "end-to-end", "required_checks": ["hero-upgrade.started", "home.restored", "gems.untouched"]}
+        ]
+      },
+      "builder-base.hero-upgrades": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["builder-hero.recognized", "builder-hero-cost.confirmed"]},
+          {"test_type": "end-to-end", "required_checks": ["builder-hero-upgrade.started", "builder-home.restored", "gems.untouched"]}
+        ]
+      },
+      "battle.trophy-drop": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["trophy-drop-route.recognized", "attack-state.confirmed"]},
+          {"test_type": "route-execution", "required_checks": ["trophy-drop.executed", "home.restored", "gems.untouched"]}
+        ]
+      },
+      "battle.smart-zap": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["zap-target.recognized", "spell-count.confirmed"]},
+          {"test_type": "route-execution", "required_checks": ["smart-zap.executed", "battle.completed"]}
+        ]
+      },
+      "village.replay-share": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["replay-share.recognized", "chat-destination.confirmed"]},
+          {"test_type": "end-to-end", "required_checks": ["replay.shared", "home.restored"]}
+        ]
+      },
+      "village.profile-report": {
+        "required_tests": [
+          {"test_type": "game-surface-recognition", "required_checks": ["profile.recognized", "profile-identity.confirmed"]},
+          {"test_type": "end-to-end", "required_checks": ["profile.reported", "home.restored"]}
+        ]
       }
     }
   },
@@ -282,16 +438,17 @@
     {"id":"orchestration.run-session","introduced":"2026-08-06","status":"engine-added","implementation":"COCBot/functions/Run/RunSession.au3","schema":"config/run-session.schema.json","tests":"tests/autoit/RunContractsTest.au3","runtime_evidence":"required"},
     {"id":"orchestration.run-event","introduced":"2026-08-06","status":"engine-added","implementation":"COCBot/functions/Run/RunEvent.au3","schema":"config/run-event.schema.json","tests":"tests/autoit/RunContractsTest.au3","runtime_evidence":"required"},
     {"id":"orchestration.engine-initialization","introduced":"2026-08-14","status":"engine-added","implementation":"COCBot/MBR GUI Action.au3","runtime_evidence":"required"},
+    {"id":"safety.no-gem-guard","introduced":"2026-08-20","status":"engine-added","implementation":"COCBot/functions/Run/OpenHomeCollectors.au3","fixture_status":"required","runtime_evidence":"required"},
     {"id":"model.current-game","introduced":"2026-08-06","status":"engine-added","implementation":"COCBot/functions/Game/GameCatalog.au3","schema":"config/game/current-client.schema.json","fixture_status":"required","runtime_evidence":"required"},
     {"id":"model.screen-state-registry","introduced":"2026-08-06","status":"engine-added","implementation":"COCBot/functions/Game/ScreenStateRegistry.au3","schema":"config/game/screen-states.schema.json","fixture_status":"required","runtime_evidence":"required"},
     {"id":"village.collectors","introduced":"2026-08-12","status":"engine-added","implementation":"COCBot/functions/Run/OpenHomeCollectors.au3","fixture_status":"required","runtime_evidence":"required"},
     {"id":"village.loot-cart","introduced":"2026-08-14","status":"engine-added","implementation":"COCBot/functions/Run/LootCartRoute.au3","fixture_status":"required","runtime_evidence":"required"},
     {"id":"village.treasury","introduced":"2026-08-14","status":"engine-added","implementation":"COCBot/functions/Run/TreasuryRoute.au3","fixture_status":"required","runtime_evidence":"required"},
     {"id":"events.daily-reward","introduced":"2026-08-14","status":"engine-added","implementation":"COCBot/functions/Run/OpenHomeCollectors.au3","fixture_status":"required","runtime_evidence":"required"},
-    {"id":"village.donations","introduced":"2026-08-12","status":"legacy-implemented","implementation":"COCBot/functions/Village/DonateCC.au3","fixture_status":"required","runtime_evidence":"required"},
+    {"id":"village.donations","introduced":"2026-08-12","status":"adapter-added","implementation":"COCBot/functions/Run/ClanDonationOneRoute.au3","fixture_status":"required","runtime_evidence":"required"},
     {"id":"village.clan-request","introduced":"2026-08-12","status":"engine-added","implementation":"COCBot/functions/Run/ClanRequestRoute.au3","fixture_status":"required","runtime_evidence":"required"},
-    {"id":"army.training","introduced":"2026-08-12","status":"legacy-implemented","implementation":"COCBot/functions/CreateArmy/TrainSystem.au3","fixture_status":"required","runtime_evidence":"required"},
-    {"id":"village.upgrades-home","introduced":"2026-08-12","status":"legacy-implemented","implementation":"COCBot/functions/Village/Auto Upgrade.au3","fixture_status":"required","runtime_evidence":"required"},
+    {"id":"army.training","introduced":"2026-08-12","status":"adapter-added","implementation":"COCBot/functions/Run/ExactRecipeTrainingRoute.au3","fixture_status":"required","runtime_evidence":"required"},
+    {"id":"village.upgrades-home","introduced":"2026-08-12","status":"adapter-added","implementation":"COCBot/functions/Run/HomeUpgradeOneRoute.au3","fixture_status":"required","runtime_evidence":"required"},
     {"id":"builder-base.upgrades","introduced":"2026-08-12","status":"legacy-implemented","implementation":"COCBot/functions/Village/BuilderBase/SuggestedUpgrades.au3","fixture_status":"required","runtime_evidence":"required"},
     {"id":"builder-base.battles","introduced":"2026-08-12","status":"legacy-implemented","implementation":"COCBot/functions/Attack/BuilderBase/AttackBB.au3","fixture_status":"required","runtime_evidence":"required"},
     {"id":"village.laboratory","introduced":"2026-08-12","status":"legacy-implemented","implementation":"COCBot/functions/Village/Laboratory.au3","fixture_status":"required","runtime_evidence":"required"},
@@ -313,6 +470,24 @@
     {"id":"heroes.hero-journey","official_change_date":"2026-06-15","status":"catalogued","affected_areas":["interruptions","hero-navigation","rewards","safe-click-regions"],"fixture_status":"required","runtime_evidence":"required"},
     {"id":"chat.global-chat","official_change_date":"2026-06-15","status":"catalogued","affected_areas":["chat-state","donation-navigation","safe-click-regions","interruptions"],"fixture_status":"required","runtime_evidence":"required"},
     {"id":"battle.fast-forward","official_change_date":"2026-06-15","status":"catalogued","affected_areas":["battle-state","end-battle","timing","statistics"],"fixture_status":"required","runtime_evidence":"required"},
-    {"id":"shop.chain-offers","official_change_date":"2026-06-15","status":"catalogued","affected_areas":["shop-navigation","interruptions","safe-click-regions"],"fixture_status":"required","runtime_evidence":"required"}
+    {"id":"shop.chain-offers","official_change_date":"2026-06-15","status":"catalogued","affected_areas":["shop-navigation","interruptions","safe-click-regions"],"fixture_status":"required","runtime_evidence":"required"},
+    {"id":"village.pets","introduced":"2026-08-20","status":"legacy-implemented","implementation":"COCBot/functions/Village/PetHouse.au3","fixture_status":"required","runtime_evidence":"required"},
+    {"id":"village.hero-equipment","introduced":"2026-08-20","status":"legacy-implemented","implementation":"COCBot/functions/Village/Blacksmith.au3","fixture_status":"required","runtime_evidence":"required"},
+    {"id":"rewards.achievements","introduced":"2026-08-20","status":"legacy-implemented","implementation":"COCBot/functions/Village/CollectAchievements.au3","fixture_status":"required","runtime_evidence":"required"},
+    {"id":"rewards.personal-challenges","introduced":"2026-08-20","status":"legacy-implemented","implementation":"COCBot/functions/Village/Personal Challenges/DailyChallenges.au3","fixture_status":"required","runtime_evidence":"required"},
+    {"id":"village.obstacles","introduced":"2026-08-20","status":"legacy-implemented","implementation":"COCBot/functions/Image Search/CheckTombs.au3","fixture_status":"required","runtime_evidence":"required"},
+    {"id":"clan-capital.forge","introduced":"2026-08-20","status":"legacy-implemented","implementation":"COCBot/functions/Village/ClanCapital.au3","fixture_status":"required","runtime_evidence":"required"},
+    {"id":"village.helper-hut","introduced":"2026-08-20","status":"legacy-implemented","implementation":"COCBot/functions/Village/HelperHut.au3","fixture_status":"required","runtime_evidence":"required"},
+    {"id":"builder-base.star-laboratory","introduced":"2026-08-20","status":"legacy-implemented","implementation":"COCBot/functions/Village/BuilderBase/StarLaboratory.au3","fixture_status":"required","runtime_evidence":"required"},
+    {"id":"builder-base.resources","introduced":"2026-08-20","status":"legacy-implemented","implementation":"COCBot/functions/Village/BuilderBase/Collect.au3","fixture_status":"required","runtime_evidence":"required"},
+    {"id":"rewards.magic-items","introduced":"2026-08-20","status":"legacy-implemented","implementation":"COCBot/functions/Village/FreeMagicItems.au3","fixture_status":"required","runtime_evidence":"required"},
+    {"id":"rewards.streak-star-bonus","introduced":"2026-08-20","status":"legacy-implemented","implementation":"COCBot/functions/Attack/ReturnHome.au3","fixture_status":"required","runtime_evidence":"required"},
+    {"id":"village.boosts","introduced":"2026-08-20","status":"legacy-implemented","implementation":"COCBot/functions/Village/BoostStructure.au3","fixture_status":"required","runtime_evidence":"required"},
+    {"id":"heroes.upgrades","introduced":"2026-08-20","status":"legacy-implemented","implementation":"COCBot/functions/Village/UpgradeHeroes.au3","fixture_status":"required","runtime_evidence":"required"},
+    {"id":"builder-base.hero-upgrades","introduced":"2026-08-20","status":"legacy-implemented","implementation":"COCBot/functions/Village/BuilderBase/UpgradeBattleMachine.au3","fixture_status":"required","runtime_evidence":"required"},
+    {"id":"battle.trophy-drop","introduced":"2026-08-20","status":"legacy-implemented","implementation":"COCBot/functions/Village/DropTrophy.au3","fixture_status":"required","runtime_evidence":"required"},
+    {"id":"battle.smart-zap","introduced":"2026-08-20","status":"legacy-implemented","implementation":"COCBot/functions/Attack/SmartZap/smartZap.au3","fixture_status":"required","runtime_evidence":"required"},
+    {"id":"village.replay-share","introduced":"2026-08-20","status":"legacy-implemented","implementation":"COCBot/functions/Village/ReplayShare.au3","fixture_status":"required","runtime_evidence":"required"},
+    {"id":"village.profile-report","introduced":"2026-08-20","status":"legacy-implemented","implementation":"COCBot/functions/Village/ProfileReport.au3","fixture_status":"required","runtime_evidence":"required"}
   ]
 }

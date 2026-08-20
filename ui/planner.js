@@ -10,6 +10,7 @@ let ACTIVE_GROUP = 'match';
 let SELECTED_PRESET = 'custom';
 let LOADED_SAFETY_PATCH = null;
 let CAPABILITY_CATALOG = { capabilities: [], status_definitions: {} };
+let EVIDENCE_READINESS = null;
 
 // Route selectors may load a complete, visible safety contract, but never save or start it. Keeping
 // these patches keyed by strategy makes later single-purpose Home routes explicit rather than a
@@ -1607,7 +1608,13 @@ function capabilityLabel(id) {
     'runtime.recovery': 'Interruption and restart recovery',
     'chat.global-chat': 'Global Chat handling',
   };
-  return labels[id] || id;
+  if (labels[id]) return labels[id];
+  return String(id || 'unknown capability')
+    .split('.')
+    .flatMap(part => part.split('-'))
+    .filter(Boolean)
+    .map(word => word[0].toLocaleUpperCase() + word.slice(1))
+    .join(' ');
 }
 
 function capabilityPublicState(status) {
@@ -1618,11 +1625,79 @@ function capabilityPublicState(status) {
   return 'Unavailable';
 }
 
+function capabilityGroupsForCatalog(capabilities) {
+  const catalogIds = capabilities.map(capability => capability.id).filter(Boolean);
+  const assigned = new Set(CAPABILITY_GROUPS.flatMap(group => group.ids));
+  const additional = catalogIds.filter(id => !assigned.has(id)).sort((left, right) => left.localeCompare(right));
+  return additional.length
+    ? [...CAPABILITY_GROUPS, { label: 'Additional inventoried scope', ids: additional }]
+    : CAPABILITY_GROUPS;
+}
+
+function renderEvidenceReadiness(summary) {
+  const total = Number(summary?.capabilities);
+  const historical = Number(summary?.historical_ready_for_review);
+  const exactCurrent = Number(summary?.exact_current_ready_for_review);
+  const exactRecords = Number(summary?.exact_current_evidence_records);
+  const fixtures = summary?.fixture_inventory || {};
+  const fixtureTotal = Number(fixtures.total);
+  const fixtureVerified = Number(fixtures.verified);
+  const fixtureComplete = Number(fixtures.complete);
+  const fixtureMissing = Number(fixtures.missing);
+  const countsValid = summary?.valid === true
+    && [total, historical, exactCurrent, exactRecords, fixtureTotal, fixtureVerified, fixtureComplete, fixtureMissing]
+      .every(value => Number.isInteger(value) && value >= 0);
+  if (!countsValid) {
+    $('evidenceHistoricalReady').textContent = 'Unavailable';
+    $('evidenceExactCurrentReady').textContent = 'Unavailable';
+    $('evidenceVerifiedFixtures').textContent = 'Unavailable';
+    $('evidenceReadinessNote').textContent = 'The local evidence evaluator failed closed. No readiness is inferred.';
+    return;
+  }
+  $('evidenceHistoricalReady').textContent = `${historical} / ${total}`;
+  $('evidenceExactCurrentReady').textContent = `${exactCurrent} / ${total}`;
+  $('evidenceVerifiedFixtures').textContent = `${fixtureVerified} / ${fixtureTotal}`;
+  $('evidenceHistoricalReady').setAttribute('aria-label', `${historical} of ${total} capabilities have historical review readiness`);
+  $('evidenceExactCurrentReady').setAttribute('aria-label', `${exactCurrent} of ${total} capabilities have exact-current binary proof`);
+  $('evidenceVerifiedFixtures').setAttribute('aria-label', `${fixtureVerified} of ${fixtureTotal} fixture records are verified`);
+  $('evidenceReadinessNote').textContent = `${exactRecords} exact-current evidence records. ${fixtureComplete} captures complete; ${fixtureMissing} still missing. Historical proof never promotes current support by itself.`;
+}
+
+function renderCapabilityOverview(capabilities) {
+  const surfaced = capabilities.filter(capability => capability?.id);
+  const counts = { Supported: 0, Implemented: 0, Inherited: 0, Gated: 0 };
+  for (const capability of surfaced) {
+    const state = capabilityPublicState(capability.status);
+    if (Object.prototype.hasOwnProperty.call(counts, state)) counts[state] += 1;
+    else counts.Gated += 1;
+  }
+  const total = surfaced.length;
+  $('capabilityCountSupported').textContent = counts.Supported;
+  $('capabilityCountImplemented').textContent = counts.Implemented;
+  $('capabilityCountInherited').textContent = counts.Inherited;
+  $('capabilityCountGated').textContent = counts.Gated;
+  $('capabilityGraphicTotal').textContent = total;
+  $('capabilityGraphicSupported').textContent = `${counts.Supported} SUPPORTED`;
+  $('capabilityGraphicImplemented').textContent = `${counts.Implemented} IMPLEMENTED`;
+  $('capabilityGraphicInherited').textContent = `${counts.Inherited} INHERITED`;
+  $('capabilityGraphicGated').textContent = `${counts.Gated} GATED`;
+  $('capabilityOverviewSummary').textContent = total
+    ? `${total} capabilities are surfaced here. ${counts.Supported} are declared supported; the release evidence gate is reported separately below.`
+    : 'No surfaced capability states were returned. Nothing is treated as supported.';
+  for (const [state, count] of Object.entries(counts)) {
+    $(`capabilitySignal${state}`).dataset.active = String(count > 0);
+  }
+  renderEvidenceReadiness(EVIDENCE_READINESS);
+}
+
 function renderCapabilities() {
   const root = $('capabilityList');
   root.replaceChildren();
-  const byId = new Map((CAPABILITY_CATALOG.capabilities || []).map(item => [item.id, item]));
-  for (const group of CAPABILITY_GROUPS) {
+  const capabilities = CAPABILITY_CATALOG.capabilities || [];
+  const byId = new Map(capabilities.map(item => [item.id, item]));
+  const groups = capabilityGroupsForCatalog(capabilities);
+  renderCapabilityOverview(capabilities);
+  for (const group of groups) {
     const section = document.createElement('section');
     section.className = 'capability-group';
     const heading = document.createElement('h4');
@@ -1633,6 +1708,7 @@ function renderCapabilities() {
       if (!capability) continue;
       const row = document.createElement('div');
       row.className = 'capability-row';
+      row.dataset.capabilityId = id;
       const name = document.createElement('strong');
       name.textContent = capabilityLabel(id);
       const state = document.createElement('span');
@@ -1958,6 +2034,7 @@ async function boot() {
     }
     META = metadataPayload.metadata;
     CAPABILITY_CATALOG = metadataPayload.capabilities || CAPABILITY_CATALOG;
+    EVIDENCE_READINESS = metadataPayload.evidence_readiness || null;
     PLAN = plan;
     SAVED = clone(plan);
     enforceNativeFixedValues(PLAN);

@@ -28,6 +28,43 @@ class DecodedPng:
     pixels: bytes
 
 
+def recognition_frame_metrics(image: DecodedPng) -> dict[str, int]:
+    """Return deterministic visible-content metrics for a recognition fixture.
+
+    Alpha is intentionally excluded: a fully opaque black capture and a transparent
+    black capture are equally useless as recognizer evidence.  Distinct colors are
+    capped at two because the gate only needs to distinguish a flat frame from real
+    visible content without retaining a large per-image set.
+    """
+    visible_channels = 1 if image.color_type in {0, 4} else 3
+    non_black_pixels = 0
+    distinct: set[bytes] = set()
+    for offset in range(0, len(image.pixels), image.channels):
+        visible = image.pixels[offset:offset + visible_channels]
+        if any(channel > 8 for channel in visible):
+            non_black_pixels += 1
+        if len(distinct) < 2:
+            distinct.add(visible)
+    return {
+        "total_pixels": image.width * image.height,
+        "non_black_pixels": non_black_pixels,
+        "distinct_visible_colors": len(distinct),
+    }
+
+
+def verify_recognition_frame(image: DecodedPng) -> dict[str, int]:
+    """Reject blank or predominantly black images before they can become evidence."""
+    metrics = recognition_frame_metrics(image)
+    minimum_visible = max(1, metrics["total_pixels"] // 1000)
+    if metrics["non_black_pixels"] < minimum_visible:
+        raise ValueError(
+            "fixture is blank or predominantly black; capture the fully rendered game surface"
+        )
+    if metrics["distinct_visible_colors"] < 2:
+        raise ValueError("fixture is a flat-color frame with no recognition content")
+    return metrics
+
+
 def _paeth(left: int, above: int, upper_left: int) -> int:
     estimate = left + above - upper_left
     distance_left = abs(estimate - left)

@@ -309,7 +309,8 @@ Continue-button path; that separate recovery does not count as attack evidence.
 
 `Smart Attack (research-guided)` is a deterministic local option. Its dated source catalog lives in
 `config/game/smart-attack-strategies.json`; the runtime never browses, downloads coordinates, or
-calls an LLM. The current adapter scores the four current-frame red-line sides itself. A live base
+delegates side scoring to an external service. The current adapter scores the four current-frame
+red-line sides itself. A live base
 with one detected Town Hall chooses the nearest valid side; dead or uncertain bases choose the
 longest valid side with a fixed tie order. The protected legacy selector-5 branch is not used.
 The tactical Hero policy now requires both the role's elapsed and destruction milestones for its
@@ -320,9 +321,26 @@ later Freeze could not be confirmed. That narrows the remaining uncertainty to o
 armies, layouts, strategy quality, and human visual acceptance.
 
 The browser header includes a bounded, sanitized **Native log** modal with refresh and tail download.
-The pinned upstream Mini GUI cannot be rebuilt without tripping the inherited ImgLoc identity guard,
-so the modern launcher owns a small companion AutoIt control strip directly beneath it with an
-**OPEN BROWSER CONTROL CENTER** button.
+MiniGui is one of the six reviewed AutoIt build targets. The modern launcher also owns a small
+companion AutoIt control strip directly beneath it with an **OPEN BROWSER CONTROL CENTER** button.
+
+### Source visual audit — 2026-08-20
+
+The source Control Center was inspected at 1920×1080, 1440×900, and 390×844. The Village page now
+opens with a responsive, data-driven current-client perimeter graphic before the capability ledger.
+The counts come from the capability catalog rather than duplicated markup. Every catalog entry is
+rendered: deliberately organized entries keep their named group, and newly inventoried entries fall
+into an explicit additional-scope group instead of disappearing from the interface.
+
+The same perimeter presents a process-cached snapshot from the readiness evaluator used by release
+validation. Historical review readiness, exact-current binary proof, and fixture inventory remain
+separate values. An evaluator error fails closed, and historical proof is never presented as current
+support.
+
+The three viewports had no horizontal overflow or browser console warnings. Reduced-motion and
+keyboard/accessibility contracts remain enforced by the source tests. This is source-preview proof
+only: it does not claim that a rebuilt, installed, exact-current package has passed the same visual
+audit. That package-level audit remains required after the final six-binary build and installation.
 
 ---
 

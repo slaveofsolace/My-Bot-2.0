@@ -34,6 +34,11 @@ from pathlib import Path
 from unittest import mock
 from urllib.parse import urlsplit
 
+try:
+    from evaluate_support_readiness import evaluate_readiness
+except ModuleNotFoundError:  # Imported through an explicit file spec in focused tests.
+    from tools.evaluate_support_readiness import evaluate_readiness
+
 ROOT = Path(__file__).resolve().parents[1]
 SERVICE_NAME = "my-bot-control-center"
 BRIDGE_PROTOCOL = "autoit-control-file-v1"
@@ -45,6 +50,7 @@ SERVICE_BUILD_SHA256 = hashlib.sha256(Path(__file__).resolve().read_bytes()).hex
 SERVICE_OWNER_TOKEN = ""
 METADATA = ROOT / "config/ui/run-planner.settings.json"
 CAPABILITIES = ROOT / "config/current-client-capabilities.json"
+FIXTURE_MANIFEST = ROOT / "tests/fixtures/current-client/manifest.json"
 UI_HTML = ROOT / "ui/planner.html"
 UI_CSS = ROOT / "ui/planner.css"
 UI_JS = ROOT / "ui/planner.js"
@@ -68,6 +74,9 @@ ENGINE_INIT_ACTIVE_PHASES = {
     "android-returned": 7,
     "gui-entered": 8,
 }
+
+_EVIDENCE_READINESS_CACHE: dict | None = None
+_EVIDENCE_READINESS_LOCK = threading.Lock()
 
 MAX_REQUEST_BYTES = 256 * 1024
 MAX_TAIL_BYTES = 512 * 1024
@@ -216,6 +225,44 @@ def wait_for_engine_init_cancel_context(expected_start_request_id: str) -> dict 
 
 def metadata_document() -> dict:
     return read_json(METADATA, {"sections": []})
+
+
+def evidence_readiness_summary() -> dict:
+    """Return one process-cached snapshot from the same evaluator used by release gates."""
+
+    global _EVIDENCE_READINESS_CACHE
+    with _EVIDENCE_READINESS_LOCK:
+        if _EVIDENCE_READINESS_CACHE is not None:
+            return _EVIDENCE_READINESS_CACHE
+
+        report = evaluate_readiness(root=ROOT)
+        manifest = read_json(FIXTURE_MANIFEST, {})
+        entries = manifest.get("required_fixtures", []) if isinstance(manifest, dict) else []
+        inventory_valid = isinstance(entries, list) and all(isinstance(entry, dict) for entry in entries)
+        if not inventory_valid:
+            entries = []
+        statuses = {
+            status: sum(entry.get("status") == status for entry in entries)
+            for status in ("verified", "redacted", "missing")
+        }
+        valid = not report.get("errors") and inventory_valid
+        _EVIDENCE_READINESS_CACHE = {
+            "schema_version": 1,
+            "valid": valid,
+            "capabilities": report.get("capabilities", 0),
+            "historical_ready_for_review": report.get("ready", 0) if valid else 0,
+            "exact_current_ready_for_review": report.get("current_binary_ready", 0) if valid else 0,
+            "exact_current_evidence_records": report.get("exact_current_binary_records", 0) if valid else 0,
+            "fixture_inventory": {
+                "total": len(entries),
+                "verified": statuses["verified"],
+                "redacted": statuses["redacted"],
+                "missing": statuses["missing"],
+                "complete": statuses["verified"] + statuses["redacted"],
+            },
+            "error_count": len(report.get("errors", [])) + (0 if inventory_valid else 1),
+        }
+        return _EVIDENCE_READINESS_CACHE
 
 
 def settings_index() -> dict[str, dict]:
@@ -1008,7 +1055,11 @@ class Handler(BaseHTTPRequestHandler):
         elif self.path == "/api/health":
             self._json(health_payload())
         elif self.path == "/api/metadata":
-            self._json({"metadata": metadata_document(), "capabilities": read_json(CAPABILITIES, {})})
+            self._json({
+                "metadata": metadata_document(),
+                "capabilities": read_json(CAPABILITIES, {}),
+                "evidence_readiness": evidence_readiness_summary(),
+            })
         elif self.path == "/api/plan":
             self._json(read_plan())
         elif self.path == "/api/events":

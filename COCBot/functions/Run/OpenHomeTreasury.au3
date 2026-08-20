@@ -78,6 +78,7 @@ EndFunc   ;==>OpenHomeTreasuryDetectCastle
 
 Func OpenHomeTreasuryIssueCastle($iX, $iY)
 	If _OpenHomeTreasuryStopRequested() Or Not OpenHomeCollectorsProveHome() Then Return False
+	If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, False)
 	If _OpenHomeTreasuryStopRequested() Then Return False
 	Local $bIssued = Click(Int($iX), Int($iY), 1, 120, "#OpenHomeTreasuryCastle", True)
 	If $bIssued Then RunEventLogMaintenanceTreasuryCastleIssued()
@@ -98,6 +99,7 @@ Func OpenHomeTreasuryIssueEntry($iX, $iY)
 	If _OpenHomeTreasuryStopRequested() Then Return False
 	If Int($iX) <> $OPEN_HOME_TREASURY_ENTRY_X Or Int($iY) <> $OPEN_HOME_TREASURY_ENTRY_Y Then Return False
 	If Not OpenHomeTreasurySelectedReady() Or _OpenHomeTreasuryStopRequested() Then Return False
+	If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, False)
 	Local $bIssued = Click(Int($iX), Int($iY), 1, 120, "#OpenHomeTreasuryEntry", True)
 	If $bIssued Then RunEventLogMaintenanceTreasuryEntryIssued()
 	Return $bIssued
@@ -135,6 +137,7 @@ Func OpenHomeTreasuryCleanup()
 	If OpenHomeCollectorsProveHome() Then Return TreasuryCleanupCreate(0, False, True)
 	If Not OpenHomeTreasuryWindowReady() Then Return TreasuryCleanupCreate(0, False, False)
 	If _OpenHomeTreasuryStopRequested() Then Return TreasuryCleanupCreate(0, False, False)
+	If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, TreasuryCleanupCreate(0, False, False))
 	If Not Click($OPEN_HOME_TREASURY_CLOSE_X, $OPEN_HOME_TREASURY_CLOSE_Y, 1, 120, "#OpenHomeTreasuryClose", True) Then _
 		Return TreasuryCleanupCreate(1, False, False)
 	If _Sleep(350, True, True, False) Then Return TreasuryCleanupCreate(1, True, False)

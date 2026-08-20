@@ -118,12 +118,15 @@ DEFAULT_CONTRACT = ReleaseContract(
         "docs/INSTALL.md",
         "packaging/README.md",
         "tools/planner_ui.py",
+        "tools/capture_check_engine_evidence.py",
         "tools/Install-LocalRuntime.ps1",
         "tools/install_local_runtime.py",
         "config/account-queue.schema.json",
         "config/battle-route.schema.json",
         "config/binary-provenance.json",
         "config/current-client-capabilities.json",
+        "config/redistribution-rights.json",
+        "config/redistribution-rights.schema.json",
         "config/run-event.schema.json",
         "config/run-plan.schema.json",
         "config/run-session.schema.json",
@@ -237,7 +240,9 @@ def normalize_relative_path(value: str) -> str:
 def is_excluded_release_path(value: str) -> bool:
     normalized = value.replace("\\", "/")
     lower = normalized.casefold()
-    if lower in {"languages/english.ini", "claude_handoff_prompt.md"}:
+    if lower == "languages/english.ini":
+        return True
+    if re.search(r"(?i)(^|/)[^/]+_HANDOFF_PROMPT\.md$", normalized):
         return True
     if re.match(r"(?i)^lib/[^/]+\.html$", normalized):
         return True
@@ -1115,6 +1120,15 @@ def package_reviewed(
             }
             for path in _safe_payload_files(payload)
         ]
+        rights_relative = "config/redistribution-rights.json"
+        rights_path = payload / rights_relative
+        if not rights_path.is_file():
+            raise ReleaseError("The packaged redistribution-rights record is missing.")
+        redistribution_rights_record = {
+            "path": rights_relative,
+            "bytes": rights_path.stat().st_size,
+            "sha256": sha256_file(rights_path),
+        }
         release_manifest = {
             "schema_version": 1,
             "product": PRODUCT,
@@ -1142,6 +1156,7 @@ def package_reviewed(
             "code_signing_performed": False,
             "signing_claim": "none",
             "imgloc_redistribution_permission_acknowledged": False,
+            "redistribution_rights_record": redistribution_rights_record,
             "files": file_records,
         }
         write_new(payload / "release-manifest.json", deterministic_json(release_manifest))

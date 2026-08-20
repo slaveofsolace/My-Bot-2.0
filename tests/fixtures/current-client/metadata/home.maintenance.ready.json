@@ -34,6 +34,11 @@
     }
   ],
   "redaction_pixel_changes": 59659,
+  "frame_content": {
+    "total_pixels": 629520,
+    "non_black_pixels": 566200,
+    "distinct_visible_colors": 2
+  },
   "privacy_review_method": "decoded-pixel-diff-v1",
   "redaction_notes": "Opaque masks cover the player label, resource and premium balances, and clan label. Home proof, all three tested collector bubbles, chat and Clan Castle Request entries, and Upgrade affordances remain unmasked.",
   "assertions": [

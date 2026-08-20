@@ -27,6 +27,11 @@
     }
   ],
   "redaction_pixel_changes": 53961,
+  "frame_content": {
+    "total_pixels": 629520,
+    "non_black_pixels": 561795,
+    "distinct_visible_colors": 2
+  },
   "privacy_review_method": "decoded-pixel-diff-v1",
   "redaction_notes": "Opaque masks cover the player label and all resource and premium-currency balances. Request title, capacities, selected reinforcement cards, message, Cancel, and Send remain unmasked.",
   "assertions": [

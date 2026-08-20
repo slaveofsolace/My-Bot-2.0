@@ -59,6 +59,9 @@ jobs:
       - name: Validate sourced game catalogs
         run: python tools/validate_game_catalog.py --json game-catalog-validation.json
 
+      - name: Validate actuator ownership registry
+        run: python tools/validate_actuator_registry.py --json > actuator-validation.json
+
       - name: Check generated game catalog for drift
         run: python tools/generate_game_catalog_autoit.py --check
 
@@ -99,6 +102,9 @@ jobs:
       - name: Validate runtime evidence registry
         run: python tools/validate_runtime_evidence.py --json runtime-evidence-validation.json
 
+      - name: Validate redistribution rights record
+        run: python tools/validate_redistribution_rights.py --json redistribution-rights-validation.json
+
       - name: Evaluate support readiness
         run: python tools/evaluate_support_readiness.py --json support-readiness.json
 
@@ -118,8 +124,10 @@ jobs:
             current-client-verification.json
             ui-metadata-validation.json
             plan-bridge-check.json
+            actuator-validation.json
             fixture-validation.json
             runtime-evidence-validation.json
+            redistribution-rights-validation.json
             support-readiness.json
             repository-audit.json
           if-no-files-found: warn

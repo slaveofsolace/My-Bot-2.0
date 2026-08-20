@@ -13,16 +13,23 @@ from types import SimpleNamespace
 
 from tools import capture_fixture
 from tools import validate_current_client_fixtures
-from tools.fixture_png import decode_png, verify_redaction
+from tools.fixture_png import decode_png, verify_recognition_frame, verify_redaction
 
 
-def write_rgb_png(path: Path, width: int, height: int, overrides: dict[tuple[int, int], bytes] | None = None) -> None:
+def write_rgb_png(
+    path: Path,
+    width: int,
+    height: int,
+    overrides: dict[tuple[int, int], bytes] | None = None,
+    *,
+    base: bytes = b"\x20\x30\x40",
+) -> None:
     overrides = overrides or {}
     rows = []
     for y in range(height):
         row = bytearray()
         for x in range(width):
-            row.extend(overrides.get((x, y), b"\x20\x30\x40"))
+            row.extend(overrides.get((x, y), base))
         rows.append(b"\x00" + bytes(row))
 
     def chunk(kind: bytes, payload: bytes) -> bytes:
@@ -39,6 +46,13 @@ def write_rgb_png(path: Path, width: int, height: int, overrides: dict[tuple[int
 
 
 class FixturePrivacyTests(unittest.TestCase):
+    def test_blank_or_predominantly_black_frame_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            black = Path(temporary) / "black.png"
+            write_rgb_png(black, 860, 732, base=b"\x00\x00\x00")
+            with self.assertRaisesRegex(ValueError, "predominantly black"):
+                verify_recognition_frame(decode_png(black))
+
     def test_solid_mask_preserves_every_pixel_outside_rectangle(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -163,8 +177,73 @@ class FixturePrivacyTests(unittest.TestCase):
                 self.assertEqual(metadata_object["schema_version"], 2)
                 self.assertEqual(metadata_object["privacy_review_method"], "decoded-pixel-diff-v1")
                 self.assertEqual(metadata_object["redaction_pixel_changes"], 1)
+                self.assertEqual(metadata_object["frame_content"]["total_pixels"], 48)
                 manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
                 self.assertEqual(manifest["required_fixtures"][0]["status"], "redacted")
+        finally:
+            for name, value in original_constants.items():
+                setattr(capture_fixture, name, value)
+
+    def test_import_never_overwrites_a_verified_fixture(self) -> None:
+        original_constants = {
+            name: getattr(capture_fixture, name)
+            for name in ("ROOT", "BASE", "MANIFEST", "IMAGES", "METADATA")
+        }
+        try:
+            with tempfile.TemporaryDirectory() as temporary:
+                temp = Path(temporary)
+                repo = temp / "repo"
+                private = temp / "private"
+                private.mkdir()
+                base = repo / "tests/fixtures/current-client"
+                images = base / "images"
+                metadata = base / "metadata"
+                images.mkdir(parents=True)
+                metadata.mkdir()
+                fixture_id = "home.maintenance.ready"
+                manifest_path = base / "manifest.json"
+                manifest_path.write_text(json.dumps({
+                    "schema_version": 1,
+                    "capture_contract": {"width": 8, "height": 6},
+                    "required_fixtures": [{
+                        "id": fixture_id,
+                        "status": "verified",
+                        "purpose": "Maintenance controls",
+                    }],
+                }), encoding="utf-8")
+                for name, value in {
+                    "ROOT": repo,
+                    "BASE": base,
+                    "MANIFEST": manifest_path,
+                    "IMAGES": images,
+                    "METADATA": metadata,
+                }.items():
+                    setattr(capture_fixture, name, value)
+
+                committed = images / f"{fixture_id}.png"
+                write_rgb_png(committed, 8, 6, {(1, 1): b"\x10\x20\x30"})
+                original_bytes = committed.read_bytes()
+                raw = private / "raw.png"
+                redacted = private / "redacted.png"
+                write_rgb_png(raw, 8, 6)
+                write_rgb_png(redacted, 8, 6, {(1, 1): b"\x00\x00\x00"})
+                arguments = SimpleNamespace(
+                    fixture_id=fixture_id,
+                    raw_png=str(raw),
+                    redacted_png=str(redacted),
+                    mask=["1,1,1,1"],
+                    no_redaction_needed=False,
+                    game_version="18.400.9",
+                    source_type="authorized-test-account",
+                    privacy_notes="Opaque player-label mask.",
+                    notes="",
+                    replace_redacted=True,
+                )
+                output = io.StringIO()
+                with redirect_stdout(output):
+                    self.assertEqual(capture_fixture.cmd_add(arguments), 2)
+                self.assertIn("already verified", output.getvalue())
+                self.assertEqual(committed.read_bytes(), original_bytes)
         finally:
             for name, value in original_constants.items():
                 setattr(capture_fixture, name, value)

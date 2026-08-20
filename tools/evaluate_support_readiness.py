@@ -10,7 +10,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterable
 
-from validate_runtime_evidence import _git_blob, _matches_head, parse_utc, validate_registry
+try:
+    from validate_runtime_evidence import _git_blob, _matches_head, parse_utc, validate_registry
+except ModuleNotFoundError:  # Imported as tools.evaluate_support_readiness.
+    from tools.validate_runtime_evidence import _git_blob, _matches_head, parse_utc, validate_registry
 
 ROOT = Path(__file__).resolve().parents[1]
 CAPABILITIES_PATH = ROOT / "config/current-client-capabilities.json"
@@ -108,6 +111,7 @@ def evaluate_readiness(
     root: Path = ROOT,
     now: datetime | None = None,
     require_ready: Iterable[str] = (),
+    require_all_current: bool = False,
 ) -> dict[str, Any]:
     """Evaluate readiness using only records trusted by the shared validator."""
 
@@ -273,6 +277,15 @@ def evaluate_readiness(
                 + "; ".join(by_id[capability_id]["blockers"])
             )
 
+    if require_all_current:
+        for row in rows:
+            if row["current_binary_ready"]:
+                continue
+            errors.append(
+                f"capability lacks exact-current completion proof: {row['id']}: "
+                + "; ".join(row["current_binary_blockers"])
+            )
+
     return {
         "schema_version": 3,
         "capabilities": len(rows),
@@ -307,6 +320,11 @@ def main() -> int:
     parser.add_argument("--json", dest="json_path", type=Path)
     parser.add_argument("--require-ready", action="append", default=[])
     parser.add_argument(
+        "--require-all-current",
+        action="store_true",
+        help="fail unless every catalogued capability is ready on the exact committed binary",
+    )
+    parser.add_argument(
         "--as-of",
         help="validation clock as an ISO-8601 UTC timestamp ending in Z (for deterministic audits)",
     )
@@ -317,7 +335,11 @@ def main() -> int:
         if now is None:
             parser.error("--as-of must be an ISO-8601 UTC timestamp ending in Z")
 
-    report = evaluate_readiness(now=now, require_ready=args.require_ready)
+    report = evaluate_readiness(
+        now=now,
+        require_ready=args.require_ready,
+        require_all_current=args.require_all_current,
+    )
     rendered = json.dumps(report, indent=2, sort_keys=True) + "\n"
     print(rendered, end="")
     if args.json_path:

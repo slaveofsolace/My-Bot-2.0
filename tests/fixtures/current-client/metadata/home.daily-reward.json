@@ -48,6 +48,11 @@
     }
   ],
   "redaction_pixel_changes": 26953,
+  "frame_content": {
+    "total_pixels": 629520,
+    "non_black_pixels": 593580,
+    "distinct_visible_colors": 2
+  },
   "privacy_review_method": "decoded-pixel-diff-v1",
   "redaction_notes": "Player name and four resource total regions replaced with opaque black rectangles; Daily Reward title, close control, seven reward slots, and Claim button are unchanged.",
   "assertions": [
@@ -70,7 +75,7 @@
       }
     ]
   },
-  "reviewed_by": "Codex supervised live audit",
+  "reviewed_by": "supervised runtime evidence audit",
   "reviewed_at": "2026-08-15T09:29:22Z",
   "notes": "Positive startup Daily Reward frame captured from the authorized MyVillage BlueStacks5 Pie64 account before any claim input."
 }

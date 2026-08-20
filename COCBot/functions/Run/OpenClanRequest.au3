@@ -69,6 +69,7 @@ EndFunc   ;==>OpenClanRequestProveNeutralHome
 Func OpenClanRequestOpenArmyOverview()
 	If RunControlStopRequested() Or Not $g_bRunState Then Return False
 	If Not OpenClanRequestProveNeutralHome() Then Return False
+	If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, False)
 	If RunControlStopRequested() Or Not $g_bRunState Then Return False
 	If Not Click($OPEN_CLAN_REQUEST_ARMY_X, $OPEN_CLAN_REQUEST_ARMY_Y, 1, 120, "#OpenClanRequestArmy", True) Then Return False
 	If _Sleep(400, True, True, False) Then Return False
@@ -99,6 +100,7 @@ Func OpenClanRequestOpenDialog($iRequestX, $iRequestY)
 	If RunControlStopRequested() Or Not $g_bRunState Then Return 0
 	If Int($iRequestX) < 734 Or Int($iRequestX) > 773 Or Int($iRequestY) < 455 Or Int($iRequestY) > 520 Then Return 0
 	If Not OpenClanRequestArmyOverviewReady(True) Then Return 0
+	If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, 0)
 	If RunControlStopRequested() Or Not $g_bRunState Then Return 0
 	If Not Click(Int($iRequestX), Int($iRequestY), 1, 120, "#OpenClanRequestDialog", True) Then Return 0
 	If _Sleep(300, True, True, False) Then Return 0
@@ -115,6 +117,7 @@ Func OpenClanRequestIssueSend($iSendX, $iSendY)
 	If RunControlStopRequested() Or Not $g_bRunState Then Return False
 	If Int($iSendX) < 455 Or Int($iSendX) > 635 Or Int($iSendY) < 438 Or Int($iSendY) > 520 Then Return False
 	If Not OpenClanRequestDialogReady() Then Return False
+	If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, False)
 	If RunControlStopRequested() Or Not $g_bRunState Then Return False
 	Return Click(Int($iSendX), Int($iSendY), 1, 120, "#OpenClanRequestSend", True)
 EndFunc   ;==>OpenClanRequestIssueSend
@@ -125,12 +128,14 @@ Func OpenClanRequestCloseAndProveHome()
 		If RunControlStopRequested() Or Not $g_bRunState Then Return False
 		If OpenClanRequestDialogReady() Then
 			If RunControlStopRequested() Or Not $g_bRunState Then Return False
+			If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, False)
 			If Not Click($OPEN_CLAN_REQUEST_CANCEL_X, $OPEN_CLAN_REQUEST_CANCEL_Y, 1, 120, "#OpenClanRequestCancel", True) Then Return False
 			If _Sleep(300, True, True, False) Then Return False
 			ContinueLoop
 		EndIf
 		If OpenClanRequestArmyOverviewReady(False) Then
 			If RunControlStopRequested() Or Not $g_bRunState Then Return False
+			If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, False)
 			If Not Click($OPEN_CLAN_REQUEST_CLOSE_X, $OPEN_CLAN_REQUEST_CLOSE_Y, 1, 120, "#OpenClanRequestClose", True) Then Return False
 			If _Sleep(300, True, True, False) Then Return False
 			ContinueLoop

@@ -88,6 +88,8 @@ Func _BotStartOpenHomeCollectors(ByRef $sStartError)
 				$sStartError &= ": the selected collector click was not accepted"
 			Case 5
 				$sStartError &= ": Home Village was not re-proven after " & $iCollectorClicks & " accepted clicks; inputs will not be retried"
+			Case 6
+				$sStartError &= ": passive no-gem guard recognized a gem surface; no further input was issued"
 			Case Else
 				$sStartError &= ": the bounded adapter returned an unknown outcome"
 		EndSwitch
@@ -331,7 +333,9 @@ Func _BotStartOpenDailyReward(ByRef $sStartError)
 			RunControlReportOneShotOutcome("stopped", "Template-free Daily Reward stopped before Claim")
 			Return False
 		EndIf
-		$sStartError = "The one Daily Reward Claim attempt was rejected after fresh recognition"
+		$sStartError = $iClaimError = 6 ? _
+				"Passive no-gem guard recognized a gem surface; no Daily Reward Claim input was issued" : _
+				"The one Daily Reward Claim attempt was rejected after fresh recognition"
 		RunExecutionRecordDailyReward("click-rejected", 1, False, $sStartError)
 		RunEventLogMaintenanceDailyRewardUnconfirmed(False, $sStartError)
 		RunEventLogRunFailed("regular", $RUN_VERIFICATION_DIAGNOSTIC, $sStartError)

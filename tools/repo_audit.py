@@ -75,6 +75,11 @@ REQUIRED_PATHS = (
     "docs/INSTALL.md",
     BINARY_PROVENANCE_PATH,
     "config/ui/run-planner.presets.json",
+    "config/actuator-registry.json",
+    "config/redistribution-rights.json",
+    "config/redistribution-rights.schema.json",
+    "tools/validate_actuator_registry.py",
+    "tools/validate_redistribution_rights.py",
     "tools/check_town_hall_presets.py",
     "tools/build_release.py",
     "tools/install_local_runtime.py",
@@ -242,6 +247,43 @@ def check_required_paths(root: Path, findings: list[Finding]) -> None:
                     "required-empty-path-modified",
                     f"Compatibility marker must remain empty: {required}",
                     required,
+                )
+            )
+
+
+def check_generated_warning_html(
+    root: Path, files: list[Path], findings: list[Finding]
+) -> None:
+    """Reject inherited local warning pages before they can be published.
+
+    The legacy managed recognizer can generate ``lib/<message-id>.html`` and
+    open it in a browser.  Production recognition is clean-room and must never
+    rely on those exports, so retaining one of these generated pages is both a
+    release-integrity failure and a regression signal.
+    """
+
+    candidates = set(files)
+    try:
+        lib_directories = [
+            path for path in root.iterdir() if path.is_dir() and path.name.casefold() == "lib"
+        ]
+    except OSError:
+        lib_directories = []
+    for directory in lib_directories:
+        try:
+            candidates.update(path for path in directory.iterdir() if path.is_file())
+        except OSError:
+            continue
+
+    for path in candidates:
+        relative = relative_path(root, path).replace("\\", "/")
+        if re.fullmatch(r"lib/[^/]+\.html", relative, flags=re.IGNORECASE):
+            findings.append(
+                Finding(
+                    "error",
+                    "generated-warning-html-forbidden",
+                    "Inherited warning HTML must not exist in the repository or release input.",
+                    relative,
                 )
             )
 
@@ -888,6 +930,7 @@ def build_report(root: Path) -> dict[str, object]:
     path_index = casefold_index(root, files)
 
     check_required_paths(root, findings)
+    check_generated_warning_html(root, files, findings)
     check_upstream_lock(root, findings, metrics)
     check_autoit_includes(root, files, path_index, findings, metrics)
     check_secrets(root, files, findings)

@@ -60,6 +60,7 @@ class ReleaseFixture:
         runtime_files = (
             "MyBot.run.version.au3",
             "config/binary-provenance.json",
+            "config/redistribution-rights.json",
             "tools/install_local_runtime.py",
             *(target.source for target in self.targets),
         )
@@ -80,6 +81,23 @@ class ReleaseFixture:
             write(self.repo, target.source, f"; {target.source}\n")
             write(self.repo, target.output, f"OLD:{target.output}".encode())
         write(self.repo, "config/binary-provenance.json", self._provenance({}, "0" * 40))
+        self.rights_record = json.dumps(
+            {
+                "schema_version": 1,
+                "component_id": "inherited-imgloc",
+                "status": "pending",
+                "release_allowed": False,
+                "artifact": {"path": "lib/MyBot.run.dll", "sha256": "0" * 64, "bytes": 1},
+                "authorization": None,
+                "review": {
+                    "reviewed_at": "2026-08-20",
+                    "reviewer_role": "release-rights-reviewer",
+                    "conclusion": "Fixture keeps public redistribution blocked.",
+                },
+            },
+            indent=2,
+        ) + "\n"
+        write(self.repo, "config/redistribution-rights.json", self.rights_record)
         run_git(self.repo, "add", "--all")
         run_git(self.repo, "commit", "-m", "source")
         self.source_commit = run_git(self.repo, "rev-parse", "HEAD")
@@ -207,7 +225,7 @@ class PythonReleaseContractTests(unittest.TestCase):
             "tools/__pycache__/release.pyc",
             "lib/debug.html",
             "tools/_temp.exe",
-            "CLAUDE_HANDOFF_PROMPT.md",
+            "PRIVATE_HANDOFF_PROMPT.md",
             "Languages/English.ini",
         ):
             self.assertTrue(release.is_excluded_release_path(path), path)
@@ -400,7 +418,7 @@ class PythonReleaseContractTests(unittest.TestCase):
                 self.assertEqual(names, sorted(names, key=lambda item: (item.casefold(), item)))
                 self.assertTrue(all(name.startswith("MyBot-2.0.0-win-x86/") for name in names))
                 self.assertTrue(all(info.date_time == release.ZIP_TIMESTAMP for info in archive.infolist()))
-                self.assertNotIn("MyBot-2.0.0-win-x86/CLAUDE_HANDOFF_PROMPT.md", names)
+                self.assertNotIn("MyBot-2.0.0-win-x86/PRIVATE_HANDOFF_PROMPT.md", names)
                 self.assertNotIn("MyBot-2.0.0-win-x86/Profiles/profile.ini", names)
                 self.assertEqual(
                     archive.read("MyBot-2.0.0-win-x86/Languages/English.ini"),
@@ -430,7 +448,34 @@ class PythonReleaseContractTests(unittest.TestCase):
             self.assertIs(manifest["code_signing_performed"], False)
             self.assertEqual(manifest["signing_claim"], "none")
             self.assertIs(manifest["imgloc_redistribution_permission_acknowledged"], False)
+            self.assertEqual(
+                manifest["redistribution_rights_record"],
+                {
+                    "path": "config/redistribution-rights.json",
+                    "bytes": len(fixture.rights_record.encode("utf-8")),
+                    "sha256": digest(fixture.rights_record.encode("utf-8")),
+                },
+            )
             self.assertNotIn("release-manifest.json", {record["path"] for record in manifest["files"]})
+
+    def test_package_refuses_to_emit_a_manifest_without_the_reviewed_rights_record(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            fixture = ReleaseFixture(Path(temp))
+            contract = replace(
+                fixture.contract,
+                runtime_files=tuple(
+                    path for path in fixture.contract.runtime_files
+                    if path != "config/redistribution-rights.json"
+                ),
+            )
+            with self.assertRaisesRegex(release.ReleaseError, "rights record is missing"):
+                release.package_reviewed(
+                    fixture.repo,
+                    fixture.candidate,
+                    "2.0.0",
+                    Path(temp) / "missing-rights",
+                    contract,
+                )
 
     def test_package_rejects_dirty_source_unreviewed_change_and_candidate_or_provenance_drift(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

@@ -109,8 +109,10 @@ Func LootCartRouteRunAdapter($sDetectCartCallback, $sIssueCartCallback, $sDetect
 	If $iCartIssueError Or Not $bCartIssued Then
 		If Call($sStopRequestedCallback) Then _
 			Return _LootCartRouteCancel($oOutcome, "Stop requested during the Loot Cart open attempt")
-		Return _LootCartRouteFinish($oOutcome, $LOOT_CART_OUTCOME_UNCONFIRMED, _
-				"The one Loot Cart open attempt was not accepted by the input adapter", $sProveHomeCallback)
+		Local $sCartIssueDetail = $iCartIssueError = 6 ? _
+				"Passive no-gem guard recognized a gem surface; no Loot Cart open input was issued" : _
+				"The one Loot Cart open attempt was not accepted by the input adapter"
+		Return _LootCartRouteFinish($oOutcome, $LOOT_CART_OUTCOME_UNCONFIRMED, $sCartIssueDetail, $sProveHomeCallback)
 	EndIf
 	$oOutcome.Item("cart_issued") = True
 	If Call($sStopRequestedCallback) Then _
@@ -145,8 +147,10 @@ Func LootCartRouteRunAdapter($sDetectCartCallback, $sIssueCartCallback, $sDetect
 		If Call($sStopRequestedCallback) Then _
 			Return _LootCartRouteCancel($oOutcome, _
 					"Stop requested during the Collect attempt; no input-delivery receipt was returned", True)
-		Return _LootCartRouteFinish($oOutcome, $LOOT_CART_OUTCOME_UNCONFIRMED, _
-				"The one Loot Cart Collect attempt was not accepted by the input adapter", $sProveHomeCallback)
+		Local $sCollectIssueDetail = $iCollectIssueError = 6 ? _
+				"Passive no-gem guard recognized a gem surface; no Loot Cart Collect input was issued" : _
+				"The one Loot Cart Collect attempt was not accepted by the input adapter"
+		Return _LootCartRouteFinish($oOutcome, $LOOT_CART_OUTCOME_UNCONFIRMED, $sCollectIssueDetail, $sProveHomeCallback)
 	EndIf
 	$oOutcome.Item("collect_issued") = True
 	If Call($sStopRequestedCallback) Then _
