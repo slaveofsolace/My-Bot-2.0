@@ -1,5 +1,4 @@
 #NoTrayIcon
-#RequireAdmin
 #AutoIt3Wrapper_UseX64=n
 #pragma compile(Icon, "Images\MyBot.ico")
 #pragma compile(ProductName, My Bot 2.0)

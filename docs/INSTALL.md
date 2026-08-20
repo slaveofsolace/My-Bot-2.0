@@ -8,7 +8,7 @@ This guide sets up the current source baseline for development and controlled co
 | --- | --- |
 | Operating system | Windows 10/11 desktop is the development target. Windows Server editions, including Server 2019 and 2022, and older Windows versions in the inherited README are outside the support plan. |
 | Source language | AutoIt 3.3.16.1 and 3.3.18.0 are checked by the Windows CI matrix. |
-| Elevation | The main script contains `#RequireAdmin` and will request elevation. |
+| Elevation | The installed runtime runs per-user without elevation. Exact-owner recovery and process inspection remain fail-closed; an elevated emulator is not attached or controlled. |
 | BlueStacks 5 | Present in the v8.2.0 source. Current-version smoke test still required. |
 | MEmu | Exact-instance adapter is present and statically checked. Current MEmu 9.5.3 instance/ADB/background/click/zoom/recovery smoke evidence is still required. |
 | Nox | Present in the v8.2.0 source. Current-version smoke test still required. |

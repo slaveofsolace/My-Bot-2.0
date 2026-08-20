@@ -11,7 +11,6 @@
 ; ===============================================================================================================================
 
 #NoTrayIcon
-#RequireAdmin
 #AutoIt3Wrapper_UseX64=7n
 #AutoIt3Wrapper_Run_Au3Stripper=y
 #Au3Stripper_Parameters=/rsln
