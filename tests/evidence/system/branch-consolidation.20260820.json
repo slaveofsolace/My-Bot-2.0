@@ -5,7 +5,7 @@
   "protected_paths": [
     "COCBot/MBR Functions.au3",
     "Languages/English.ini",
-    "CLAUDE_HANDOFF_PROMPT.md"
+    "untracked operator handoff (excluded)"
   ],
   "pull_requests": [
     {

@@ -1,0 +1,5980 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-08-20T20:40:00Z",
+  "scope_rule": "Capabilities are canonical; every other collection is a non-additive system facet.",
+  "validated_source": {
+    "integration_commit": "df2c2533542ed6c06bc654b9c144fba03e9780c2",
+    "engine_source_commit": "1a4fbf1896ac353e45537d2299314f9c5e9822fc",
+    "protected_checkout_untouched": true
+  },
+  "package": {
+    "path": "E:/MyBot2-Recovery/2026-08-20/release/df2c2533/MyBot-2.0.0-win-x86.zip",
+    "bytes": 32323261,
+    "sha256": "538579ed42a0b915e79852c57a4cc87170036062c260914a504bd464864ca090",
+    "entries": 2592,
+    "manifest_records": 2591,
+    "manifest_mismatches": 0,
+    "installer_validate_only": "PASS",
+    "public_distribution": "BLOCKED",
+    "public_distribution_reason": "Inherited ImgLoc authorization evidence remains pending."
+  },
+  "source_matrix": {
+    "python": {
+      "passed": 461,
+      "skipped_optional": 5,
+      "verdict": "PASS"
+    },
+    "autoit": {
+      "checks": 40,
+      "verdict": "PASS"
+    },
+    "release": {
+      "passed": 28,
+      "skipped_optional": 1,
+      "verdict": "PASS"
+    },
+    "generated_and_policy_validators": {
+      "verdict": "PASS",
+      "notes": [
+        "Full inventory generator completed with zero errors or warnings; it does not expose a --check option.",
+        "Redistribution-rights validator passed its schema and truth checks while reporting the expected public-distribution warning."
+      ]
+    }
+  },
+  "runtime": {
+    "isolation_root": "E:/M2E/6d1fd970",
+    "install_update": "PASS",
+    "saved_plan_preserved": "PASS",
+    "settings_round_trip": {
+      "count": 48,
+      "verdict": "PASS"
+    },
+    "cold_launches": 3,
+    "process_lineage": {
+      "launcher": "PASS",
+      "controller": "PASS",
+      "backend": "PASS",
+      "planner": "PASS"
+    },
+    "engine_check": {
+      "verdict": "PASS",
+      "backend_identity_preserved": true,
+      "phase_history": [
+        "prepared",
+        "pool-entered",
+        "pool-returned",
+        "max-entered",
+        "max-returned",
+        "android-entered",
+        "android-returned",
+        "gui-entered",
+        "initialized"
+      ],
+      "terminal_state": "idle",
+      "run_state": false,
+      "plan_active": false,
+      "emulator_attached": false,
+      "window_attached": false,
+      "adb_ready": false,
+      "game_ready": false
+    },
+    "engine_cancel": {
+      "verdict": "PASS",
+      "receipt_phase_at_stop": "prepared",
+      "terminal_outcome": "stopped",
+      "exact_backend_close": true,
+      "planner_close": true,
+      "receipt_removed": true,
+      "cancel_removed": true
+    },
+    "recovery": {
+      "verdict": "PASS",
+      "runs": 3,
+      "owned_processes_remaining": 0,
+      "port_8765_bound": false,
+      "receipts_remaining": 0
+    },
+    "immutable_install": {
+      "verdict": "PASS",
+      "manifest_records": 2591,
+      "mismatches": 0,
+      "allowlisted_runtime_files": [
+        "config/control-status.local.json",
+        "config/run-plan.local.json",
+        "logs/run-events.jsonl",
+        "Profiles junction"
+      ]
+    },
+    "unauthorized_warning_surface": {
+      "verdict": "PASS",
+      "trigger_hits": 0,
+      "browser_warning_tabs": 0
+    },
+    "visual_review": {
+      "verdict": "PASS",
+      "resolutions": [
+        "1440x900",
+        "1920x1080 at 150% scale"
+      ],
+      "surfaces": [
+        "Run",
+        "Strategy",
+        "Village",
+        "Evidence",
+        "System"
+      ],
+      "artifacts": [
+        {
+          "path": "E:/M2E/6d1fd970/ui-evidence-final-df2c2533/run-1440x900.png",
+          "sha256": "7b40a65a5117800e18007586c7f20954fec39f89585187a7cb877ef2db2fc4bb",
+          "bytes": 164670
+        },
+        {
+          "path": "E:/M2E/6d1fd970/ui-evidence-final-df2c2533/plan-1440x900.png",
+          "sha256": "00770909f2e7c08775554e4d8e6201f9bab231358a94d2bbe9b5e507f9a055c5",
+          "bytes": 145278
+        },
+        {
+          "path": "E:/M2E/6d1fd970/ui-evidence-final-df2c2533/village-1440x900.png",
+          "sha256": "dc0f28ef21d3cbeef38505dd4021df12b105a1f092be6990bf189516e3372690",
+          "bytes": 141830
+        },
+        {
+          "path": "E:/M2E/6d1fd970/ui-evidence-final-df2c2533/activity-1440x900.png",
+          "sha256": "956bf9464c10703342987faf3a0161e3b702a9334f21053a7a9d4f42c7a13338",
+          "bytes": 115234
+        },
+        {
+          "path": "E:/M2E/6d1fd970/ui-evidence-final-df2c2533/diagnostics-1440x900.png",
+          "sha256": "93911dc4934250dd49120d11c46a818931be3570670b8b880994022b2b913355",
+          "bytes": 104066
+        },
+        {
+          "path": "E:/M2E/6d1fd970/ui-evidence-final-df2c2533/run-1920x1080-dpr1.5.png",
+          "sha256": "6cc8036e7597b8451d3316292187ef04f5bf141a7818fa3373ffe4afaa48d9eb",
+          "bytes": 217514
+        }
+      ],
+      "note": "Distinct tactical operations hierarchy is readable across all major surfaces; the compact high-DPI masthead truncates emulator and engine labels but preserves meaning in the primary run-state region."
+    }
+  },
+  "account_and_emulator_actions": {
+    "BlueStacks_player_launched": false,
+    "game_opened": false,
+    "account_action_performed": false,
+    "battle_started": false,
+    "resource_spent": false,
+    "donation_sent": false,
+    "upgrade_started": false,
+    "gems_used": false,
+    "money_spent": false,
+    "preexisting_HD_Adb": {
+      "pid": 59016,
+      "created_by_test": false,
+      "identity_unchanged": true
+    },
+    "verdict": "DEFERRED"
+  },
+  "nonclaims": [
+    "No BlueStacks player or game client was launched.",
+    "No live recognition, OCR, collection, training, donation, upgrade, battle, account, or emulator-matrix action was performed.",
+    "Missing fixtures and exact-current capability evidence remain deferred and visibly fail closed.",
+    "The local package is not authorized for public binary distribution.",
+    "Watchdog and WMI helper executables were built and provenanced but not exercised live."
+  ],
+  "facets": {
+    "capabilities": [
+      {
+        "id": "emulator.bluestacks5",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "missing exact-current-binary test types: emulator-smoke"
+      },
+      {
+        "id": "emulator.memu",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "missing exact-current-binary test types: emulator-smoke"
+      },
+      {
+        "id": "emulator.ldplayer9",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: emulator.ldplayer9.window; missing exact-current-binary test types: emulator-smoke"
+      },
+      {
+        "id": "emulator.mumu",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: emulator.mumu.window; missing exact-current-binary test types: emulator-smoke"
+      },
+      {
+        "id": "orchestration.run-plan",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "missing exact-current-binary test types: end-to-end"
+      },
+      {
+        "id": "orchestration.account-queue",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "missing exact-current-binary test types: end-to-end"
+      },
+      {
+        "id": "orchestration.battle-route",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "missing exact-current-binary test types: route-execution"
+      },
+      {
+        "id": "orchestration.run-session",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "missing exact-current-binary test types: end-to-end"
+      },
+      {
+        "id": "orchestration.run-event",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "missing exact-current-binary test types: end-to-end"
+      },
+      {
+        "id": "orchestration.engine-initialization",
+        "catalog_status": "DEFERRED",
+        "verdict": "PASS",
+        "reason": "Exact corrected backend completed phases 1 through 9 and returned idle without emulator or game input."
+      },
+      {
+        "id": "safety.no-gem-guard",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: safety.gem-window; missing exact-current-binary test types: end-to-end, game-surface-recognition"
+      },
+      {
+        "id": "model.current-game",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: home.current-client.default; missing exact-current-binary test types: game-surface-recognition"
+      },
+      {
+        "id": "model.screen-state-registry",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: home.current-client.default; missing exact-current-binary test types: game-surface-recognition"
+      },
+      {
+        "id": "village.collectors",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "missing exact-current-binary test types: end-to-end, game-surface-recognition"
+      },
+      {
+        "id": "village.loot-cart",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "missing exact-current-binary test types: end-to-end, game-surface-recognition"
+      },
+      {
+        "id": "village.treasury",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: home.treasury.full; missing exact-current-binary test types: end-to-end, game-surface-recognition"
+      },
+      {
+        "id": "events.daily-reward",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "missing exact-current-binary test types: end-to-end, game-surface-recognition"
+      },
+      {
+        "id": "village.donations",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: clan.donation.structured-request; missing exact-current-binary test types: end-to-end, game-surface-recognition"
+      },
+      {
+        "id": "village.clan-request",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "missing exact-current-binary test types: end-to-end, game-surface-recognition"
+      },
+      {
+        "id": "army.training",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: army.training.ready, army.training.saved-recipe; missing exact-current-binary test types: end-to-end, game-surface-recognition"
+      },
+      {
+        "id": "village.upgrades-home",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: home.upgrade.confirmation; missing exact-current-binary test types: end-to-end, game-surface-recognition"
+      },
+      {
+        "id": "builder-base.upgrades",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: builder.upgrades.list; missing exact-current-binary test types: end-to-end, game-surface-recognition"
+      },
+      {
+        "id": "builder-base.battles",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: builder.battle.entry; missing exact-current-binary test types: game-surface-recognition, route-execution"
+      },
+      {
+        "id": "village.laboratory",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: home.laboratory.ready; missing exact-current-binary test types: end-to-end, game-surface-recognition"
+      },
+      {
+        "id": "events.clan-games",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: home.clan-games.board; missing exact-current-binary test types: end-to-end, game-surface-recognition"
+      },
+      {
+        "id": "orchestration.multi-account",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: account.switcher.ready; missing exact-current-binary test types: end-to-end, game-surface-recognition"
+      },
+      {
+        "id": "runtime.recovery",
+        "catalog_status": "DEFERRED",
+        "verdict": "PASS",
+        "reason": "Exact isolated ownership-bound recovery completed three times."
+      },
+      {
+        "id": "clan-capital.upgrades",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: clan-capital.upgrades.ready; missing exact-current-binary test types: end-to-end, game-surface-recognition"
+      },
+      {
+        "id": "army.recipes",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: army.recipes.home; missing exact-current-binary test types: end-to-end, game-surface-recognition"
+      },
+      {
+        "id": "army.cookbook",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: army.cookbook.tab; missing exact-current-binary test types: end-to-end, game-surface-recognition"
+      },
+      {
+        "id": "defense.crafted",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: defense.crafted.management; missing exact-current-binary test types: end-to-end, game-surface-recognition"
+      },
+      {
+        "id": "battle.regular-ranked-split",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: battle.regular.entry, battle.ranked.entry; missing exact-current-binary test types: game-surface-recognition, route-execution"
+      },
+      {
+        "id": "battle.revenge",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: battle.revenge.entry; missing exact-current-binary test types: game-surface-recognition, route-execution"
+      },
+      {
+        "id": "village.town-hall-18",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: home.th18.default; missing exact-current-binary test types: end-to-end, game-surface-recognition"
+      },
+      {
+        "id": "village.guardians",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: home.th18.guardian; missing exact-current-binary test types: end-to-end, game-surface-recognition"
+      },
+      {
+        "id": "heroes.dragon-duke",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: heroes.dragon-duke; missing exact-current-binary test types: end-to-end, game-surface-recognition"
+      },
+      {
+        "id": "heroes.six-slot-layout",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: heroes.hall.six; missing exact-current-binary test types: end-to-end, game-surface-recognition"
+      },
+      {
+        "id": "battle.legend-tiers",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: battle.legend.tier; missing exact-current-binary test types: game-surface-recognition, route-execution"
+      },
+      {
+        "id": "builder-base.additional-builder",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: builder.home.extra-builder, builder.upgrades.list; missing exact-current-binary test types: end-to-end, game-surface-recognition"
+      },
+      {
+        "id": "heroes.hero-journey",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: heroes.journey.interruption; missing exact-current-binary test types: end-to-end, game-surface-recognition"
+      },
+      {
+        "id": "chat.global-chat",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: chat.global.closed, chat.global.open; missing exact-current-binary test types: end-to-end, game-surface-recognition"
+      },
+      {
+        "id": "battle.fast-forward",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: battle.fast-forward; missing exact-current-binary test types: game-surface-recognition, route-execution"
+      },
+      {
+        "id": "shop.chain-offers",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: shop.chain-offers; missing exact-current-binary test types: end-to-end, game-surface-recognition"
+      },
+      {
+        "id": "village.pets",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: home.pet-house.ready; missing exact-current-binary test types: end-to-end, game-surface-recognition"
+      },
+      {
+        "id": "village.hero-equipment",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: home.blacksmith.ready; missing exact-current-binary test types: end-to-end, game-surface-recognition"
+      },
+      {
+        "id": "rewards.achievements",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: home.achievements.ready; missing exact-current-binary test types: end-to-end, game-surface-recognition"
+      },
+      {
+        "id": "rewards.personal-challenges",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: home.personal-challenges.ready; missing exact-current-binary test types: end-to-end, game-surface-recognition"
+      },
+      {
+        "id": "village.obstacles",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: home.obstacle.ready; missing exact-current-binary test types: end-to-end, game-surface-recognition"
+      },
+      {
+        "id": "clan-capital.forge",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: clan-capital.forge.ready; missing exact-current-binary test types: end-to-end, game-surface-recognition"
+      },
+      {
+        "id": "village.helper-hut",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: home.helper-hut.ready; missing exact-current-binary test types: end-to-end, game-surface-recognition"
+      },
+      {
+        "id": "builder-base.star-laboratory",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: builder.star-laboratory.ready; missing exact-current-binary test types: end-to-end, game-surface-recognition"
+      },
+      {
+        "id": "builder-base.resources",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: builder.resources.ready; missing exact-current-binary test types: end-to-end, game-surface-recognition"
+      },
+      {
+        "id": "rewards.magic-items",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: home.trader.free-item; missing exact-current-binary test types: end-to-end, game-surface-recognition"
+      },
+      {
+        "id": "rewards.streak-star-bonus",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: home.streak-star-bonus; missing exact-current-binary test types: end-to-end, game-surface-recognition"
+      },
+      {
+        "id": "village.boosts",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: home.boost.ready; missing exact-current-binary test types: end-to-end, game-surface-recognition"
+      },
+      {
+        "id": "heroes.upgrades",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: home.hero-upgrade.ready; missing exact-current-binary test types: end-to-end, game-surface-recognition"
+      },
+      {
+        "id": "builder-base.hero-upgrades",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: builder.hero-upgrade.ready; missing exact-current-binary test types: end-to-end, game-surface-recognition"
+      },
+      {
+        "id": "battle.trophy-drop",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: battle.trophy-drop.ready; missing exact-current-binary test types: game-surface-recognition, route-execution"
+      },
+      {
+        "id": "battle.smart-zap",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: battle.smart-zap.ready; missing exact-current-binary test types: game-surface-recognition, route-execution"
+      },
+      {
+        "id": "village.replay-share",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: home.replay-share.ready; missing exact-current-binary test types: end-to-end, game-surface-recognition"
+      },
+      {
+        "id": "village.profile-report",
+        "catalog_status": "DEFERRED",
+        "verdict": "DEFERRED",
+        "reason": "unverified fixtures: home.profile-report.ready; missing exact-current-binary test types: end-to-end, game-surface-recognition"
+      }
+    ],
+    "planner_settings": [
+      {
+        "id": "run.surface",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "run.strategy",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "run.attack_script",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "run.town_hall",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "run.heroes",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "runtime.emulator",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "runtime.instance",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "army.source",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "army.recipe_name",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "army.manage_training",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "army.wait_for_full",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "army.train_spells",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "army.train_sieges",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "search.min_gold",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "search.min_elixir",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "search.min_dark",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "search.max_seconds",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "search.town_hall_filter",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "pacing.action_delay_ms",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "pacing.settle_ms",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "pacing.retry_attempts",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "pacing.break_every_minutes",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "pacing.break_minutes",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "run.duration_minutes",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "run.max_battles",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "run.stop_on_star_bonus",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "run.max_failures",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "target.gold",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "target.elixir",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "target.dark_elixir",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "donate.mode",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "donate.keep_army",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "donate.max_per_run",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "donate.request_when_short",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "events.clan_games",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "events.clan_games_point_cap",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "events.collect_resources",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "events.collect_daily_reward",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "events.collect_loot_cart",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "events.collect_treasury",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "upgrade.policy",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "events.laboratory",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "account.queue",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "notify.on_stop",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "notify.on_error",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "notify.channel",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "run.diagnostic_mode",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "run.diagnostic_note",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      }
+    ],
+    "fixtures": [
+      {
+        "id": "home.th18.default",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "village.town-hall-18"
+        ]
+      },
+      {
+        "id": "home.th18.guardian",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "village.guardians"
+        ]
+      },
+      {
+        "id": "home.maintenance.ready",
+        "verdict": "PASS",
+        "status": "verified",
+        "capability_ids": [
+          "village.collectors"
+        ]
+      },
+      {
+        "id": "home.loot-cart",
+        "verdict": "PASS",
+        "status": "verified",
+        "capability_ids": [
+          "village.loot-cart"
+        ]
+      },
+      {
+        "id": "home.treasury.full",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "village.treasury"
+        ]
+      },
+      {
+        "id": "home.daily-reward",
+        "verdict": "PASS",
+        "status": "verified",
+        "capability_ids": [
+          "events.daily-reward"
+        ]
+      },
+      {
+        "id": "home.daily-reward.claimed",
+        "verdict": "PASS",
+        "status": "verified",
+        "capability_ids": [
+          "events.daily-reward"
+        ]
+      },
+      {
+        "id": "safety.gem-window",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "safety.no-gem-guard"
+        ]
+      },
+      {
+        "id": "home.current-client.default",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "model.current-game",
+          "model.screen-state-registry"
+        ]
+      },
+      {
+        "id": "home.laboratory.ready",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "village.laboratory"
+        ]
+      },
+      {
+        "id": "army.training.ready",
+        "verdict": "DEFERRED",
+        "status": "redacted",
+        "capability_ids": [
+          "army.training"
+        ]
+      },
+      {
+        "id": "army.training.saved-recipe",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "army.training"
+        ]
+      },
+      {
+        "id": "clan.request.available",
+        "verdict": "PASS",
+        "status": "verified",
+        "capability_ids": [
+          "village.clan-request"
+        ]
+      },
+      {
+        "id": "clan.donation.structured-request",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "village.donations"
+        ]
+      },
+      {
+        "id": "home.upgrade.confirmation",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "village.upgrades-home"
+        ]
+      },
+      {
+        "id": "army.recipes.home",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "army.recipes"
+        ]
+      },
+      {
+        "id": "army.cookbook.tab",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "army.cookbook"
+        ]
+      },
+      {
+        "id": "defense.crafted.management",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "defense.crafted"
+        ]
+      },
+      {
+        "id": "battle.regular.entry",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "battle.regular-ranked-split"
+        ]
+      },
+      {
+        "id": "battle.ranked.entry",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "battle.regular-ranked-split"
+        ]
+      },
+      {
+        "id": "battle.revenge.entry",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "battle.revenge"
+        ]
+      },
+      {
+        "id": "battle.legend.tier",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "battle.legend-tiers"
+        ]
+      },
+      {
+        "id": "heroes.hall.six",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "heroes.six-slot-layout"
+        ]
+      },
+      {
+        "id": "heroes.dragon-duke",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "heroes.dragon-duke"
+        ]
+      },
+      {
+        "id": "heroes.journey.interruption",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "heroes.hero-journey"
+        ]
+      },
+      {
+        "id": "chat.global.closed",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "chat.global-chat"
+        ]
+      },
+      {
+        "id": "chat.global.open",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "chat.global-chat"
+        ]
+      },
+      {
+        "id": "battle.fast-forward",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "battle.fast-forward"
+        ]
+      },
+      {
+        "id": "builder.home.extra-builder",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "builder-base.additional-builder"
+        ]
+      },
+      {
+        "id": "builder.upgrades.list",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "builder-base.additional-builder",
+          "builder-base.upgrades"
+        ]
+      },
+      {
+        "id": "builder.battle.entry",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "builder-base.battles"
+        ]
+      },
+      {
+        "id": "home.clan-games.board",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "events.clan-games"
+        ]
+      },
+      {
+        "id": "account.switcher.ready",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "orchestration.multi-account"
+        ]
+      },
+      {
+        "id": "clan-capital.upgrades.ready",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "clan-capital.upgrades"
+        ]
+      },
+      {
+        "id": "shop.chain-offers",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "shop.chain-offers"
+        ]
+      },
+      {
+        "id": "emulator.ldplayer9.window",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "emulator.ldplayer9"
+        ]
+      },
+      {
+        "id": "emulator.mumu.window",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "emulator.mumu"
+        ]
+      },
+      {
+        "id": "home.pet-house.ready",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "village.pets"
+        ]
+      },
+      {
+        "id": "home.blacksmith.ready",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "village.hero-equipment"
+        ]
+      },
+      {
+        "id": "home.achievements.ready",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "rewards.achievements"
+        ]
+      },
+      {
+        "id": "home.personal-challenges.ready",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "rewards.personal-challenges"
+        ]
+      },
+      {
+        "id": "home.obstacle.ready",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "village.obstacles"
+        ]
+      },
+      {
+        "id": "clan-capital.forge.ready",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "clan-capital.forge"
+        ]
+      },
+      {
+        "id": "home.helper-hut.ready",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "village.helper-hut"
+        ]
+      },
+      {
+        "id": "builder.star-laboratory.ready",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "builder-base.star-laboratory"
+        ]
+      },
+      {
+        "id": "builder.resources.ready",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "builder-base.resources"
+        ]
+      },
+      {
+        "id": "home.trader.free-item",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "rewards.magic-items"
+        ]
+      },
+      {
+        "id": "home.streak-star-bonus",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "rewards.streak-star-bonus"
+        ]
+      },
+      {
+        "id": "home.boost.ready",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "village.boosts"
+        ]
+      },
+      {
+        "id": "home.hero-upgrade.ready",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "heroes.upgrades"
+        ]
+      },
+      {
+        "id": "builder.hero-upgrade.ready",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "builder-base.hero-upgrades"
+        ]
+      },
+      {
+        "id": "battle.trophy-drop.ready",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "battle.trophy-drop"
+        ]
+      },
+      {
+        "id": "battle.smart-zap.ready",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "battle.smart-zap"
+        ]
+      },
+      {
+        "id": "home.replay-share.ready",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "village.replay-share"
+        ]
+      },
+      {
+        "id": "home.profile-report.ready",
+        "verdict": "DEFERRED",
+        "status": "missing",
+        "capability_ids": [
+          "village.profile-report"
+        ]
+      }
+    ],
+    "compile_targets": [
+      {
+        "id": "My Bot 2.0.exe",
+        "source": "My Bot 2.0.au3",
+        "build_and_provenance_verdict": "PASS",
+        "live_process_verdict": "PASS"
+      },
+      {
+        "id": "MyBot.run.EngineProbe.exe",
+        "source": "MyBot.run.EngineProbe.au3",
+        "build_and_provenance_verdict": "PASS",
+        "live_process_verdict": "DEFERRED"
+      },
+      {
+        "id": "MyBot.run.exe",
+        "source": "MyBot.run.au3",
+        "build_and_provenance_verdict": "PASS",
+        "live_process_verdict": "PASS"
+      },
+      {
+        "id": "MyBot.run.MiniGui.exe",
+        "source": "MyBot.run.MiniGui.au3",
+        "build_and_provenance_verdict": "PASS",
+        "live_process_verdict": "PASS"
+      },
+      {
+        "id": "MyBot.run.Watchdog.exe",
+        "source": "MyBot.run.Watchdog.au3",
+        "build_and_provenance_verdict": "PASS",
+        "live_process_verdict": "DEFERRED"
+      },
+      {
+        "id": "MyBot.run.Wmi.exe",
+        "source": "MyBot.run.Wmi.au3",
+        "build_and_provenance_verdict": "PASS",
+        "live_process_verdict": "DEFERRED"
+      }
+    ],
+    "control_actions": [
+      {
+        "id": "check-engine",
+        "source_contract": "PASS",
+        "verdict": "PASS",
+        "reason": "Exact no-game initialization passed."
+      },
+      {
+        "id": "pause",
+        "source_contract": "PASS",
+        "verdict": "DEFERRED",
+        "reason": "Requires an active account-bound run and was not exercised."
+      },
+      {
+        "id": "resume",
+        "source_contract": "PASS",
+        "verdict": "DEFERRED",
+        "reason": "Requires an active account-bound run and was not exercised."
+      },
+      {
+        "id": "start",
+        "source_contract": "PASS",
+        "verdict": "DEFERRED",
+        "reason": "Requires an active account-bound run and was not exercised."
+      },
+      {
+        "id": "stop",
+        "source_contract": "PASS",
+        "verdict": "PASS",
+        "reason": "Exact supervised initialization cancellation passed."
+      }
+    ],
+    "infrastructure_routes": [
+      {
+        "id": "package.localruntime",
+        "source_contract": "PASS",
+        "verdict": "PASS",
+        "reason": "Exact isolated package/runtime evidence captured."
+      },
+      {
+        "id": "installer.localruntime",
+        "source_contract": "PASS",
+        "verdict": "PASS",
+        "reason": "Exact isolated package/runtime evidence captured."
+      },
+      {
+        "id": "launcher.controller",
+        "source_contract": "PASS",
+        "verdict": "PASS",
+        "reason": "Exact isolated package/runtime evidence captured."
+      },
+      {
+        "id": "launcher.watchdog",
+        "source_contract": "PASS",
+        "verdict": "DEFERRED",
+        "reason": "Built and statically validated; live restart loop was not exercised."
+      },
+      {
+        "id": "control-center.web",
+        "source_contract": "PASS",
+        "verdict": "PASS",
+        "reason": "Exact isolated package/runtime evidence captured."
+      },
+      {
+        "id": "control-center.native",
+        "source_contract": "PASS",
+        "verdict": "PASS",
+        "reason": "Exact isolated package/runtime evidence captured."
+      },
+      {
+        "id": "engine.adapter",
+        "source_contract": "PASS",
+        "verdict": "PASS",
+        "reason": "Exact isolated package/runtime evidence captured."
+      },
+      {
+        "id": "diagnostics.events",
+        "source_contract": "PASS",
+        "verdict": "PASS",
+        "reason": "Exact isolated package/runtime evidence captured."
+      }
+    ],
+    "actuator_owners": [
+      {
+        "id": "COCBot/GUI/MBR GUI Control Android.au3::DisableShowTouchs",
+        "policy": "blocked",
+        "mapping": "blocked.native-diagnostic-ui",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/GUI/MBR GUI Control Android.au3::EnableShowTouchs",
+        "policy": "blocked",
+        "mapping": "blocked.native-diagnostic-ui",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/GUI/MBR GUI Control Attack Scripted.au3::EditScriptAB",
+        "policy": "blocked",
+        "mapping": "blocked.native-diagnostic-ui",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/GUI/MBR GUI Control Attack Scripted.au3::EditScriptDB",
+        "policy": "blocked",
+        "mapping": "blocked.native-diagnostic-ui",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/GUI/MBR GUI Control BOT Options.au3::SaveVillageDebugImage",
+        "policy": "blocked",
+        "mapping": "blocked.native-diagnostic-ui",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/GUI/MBR GUI Control BOT Options.au3::btnTestClickAway",
+        "policy": "blocked",
+        "mapping": "blocked.native-diagnostic-ui",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/GUI/MBR GUI Control BOT Options.au3::btnTestClickDrag",
+        "policy": "blocked",
+        "mapping": "blocked.native-diagnostic-ui",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/GUI/MBR GUI Control BOT Options.au3::btnTestGetLocationBuildingImage",
+        "policy": "blocked",
+        "mapping": "blocked.native-diagnostic-ui",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/GUI/MBR GUI Control BOT Options.au3::btnTestOcrMemory",
+        "policy": "blocked",
+        "mapping": "blocked.native-diagnostic-ui",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/GUI/MBR GUI Control BOT Options.au3::btnTestSendText",
+        "policy": "blocked",
+        "mapping": "blocked.native-diagnostic-ui",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/GUI/MBR GUI Control Bottom.au3::GetCoCAppVersion",
+        "policy": "infrastructure",
+        "mapping": "infra.bot-start",
+        "capability_ids": [
+          "orchestration.engine-initialization",
+          "orchestration.run-plan"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/GUI/MBR GUI Control Child Upgrade.au3::picUpgradeTypeLocation",
+        "policy": "blocked",
+        "mapping": "blocked.native-diagnostic-ui",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/GUI/MBR GUI Control Donate.au3::btnFilterDonationsCC",
+        "policy": "blocked",
+        "mapping": "blocked.native-diagnostic-ui",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/GUI/MBR GUI Control Preset.au3::btnStrategyFolder",
+        "policy": "blocked",
+        "mapping": "blocked.native-diagnostic-ui",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/GUI/MBR GUI Control Run Planner.au3::RunPlannerStopOwnedService",
+        "policy": "infrastructure",
+        "mapping": "infra.native-planner",
+        "capability_ids": [
+          "orchestration.run-plan",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/GUI/MBR GUI Control Run Planner.au3::_RunPlannerStartService",
+        "policy": "infrastructure",
+        "mapping": "infra.native-planner",
+        "capability_ids": [
+          "orchestration.run-plan",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/GUI/MBR GUI Control Run Planner.au3::btnRunPlannerOpen",
+        "policy": "infrastructure",
+        "mapping": "infra.native-planner",
+        "capability_ids": [
+          "orchestration.run-plan",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/GUI/MBR GUI Control Splash.au3::MoveSplashScreen",
+        "policy": "infrastructure",
+        "mapping": "infra.native-gui",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/GUI/MBR GUI Control Splash.au3::SplashStep",
+        "policy": "infrastructure",
+        "mapping": "infra.native-gui",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/GUI/MBR GUI Control Tab General.au3::MoveDivider",
+        "policy": "infrastructure",
+        "mapping": "infra.native-gui",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/GUI/MBR GUI Control Tab General.au3::cmbLog",
+        "policy": "infrastructure",
+        "mapping": "infra.native-gui",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/GUI/MBR GUI Design Bot.au3::CreateBotSwitchAccLog",
+        "policy": "infrastructure",
+        "mapping": "infra.native-gui",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/GUI/MBR GUI Design Log.au3::CreateLogTab",
+        "policy": "infrastructure",
+        "mapping": "infra.native-gui",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/MBR GUI Action.au3::BotSearchMode",
+        "policy": "infrastructure",
+        "mapping": "infra.bot-start",
+        "capability_ids": [
+          "orchestration.engine-initialization",
+          "orchestration.run-plan"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/MBR GUI Action.au3::BotStart",
+        "policy": "infrastructure",
+        "mapping": "infra.bot-start",
+        "capability_ids": [
+          "orchestration.engine-initialization",
+          "orchestration.run-plan"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/MBR GUI Control.au3::BotClose",
+        "policy": "infrastructure",
+        "mapping": "infra.native-gui",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/MBR GUI Control.au3::BotGuiModeToggle",
+        "policy": "infrastructure",
+        "mapping": "infra.native-gui",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/MBR GUI Control.au3::BotMinimizeRestore",
+        "policy": "infrastructure",
+        "mapping": "infra.native-gui",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/MBR GUI Control.au3::BotShrinkExpandToggleExecute",
+        "policy": "infrastructure",
+        "mapping": "infra.native-gui",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/MBR GUI Control.au3::CheckBotRequests",
+        "policy": "infrastructure",
+        "mapping": "infra.native-gui",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/MBR GUI Control.au3::CheckBotShrinkExpandButton",
+        "policy": "infrastructure",
+        "mapping": "infra.native-gui",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/MBR GUI Control.au3::EnableControls",
+        "policy": "infrastructure",
+        "mapping": "infra.native-gui",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/MBR GUI Control.au3::GUIControl_AndroidEmbedded",
+        "policy": "infrastructure",
+        "mapping": "infra.native-gui",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/MBR GUI Control.au3::GUIControl_WM_COMMAND",
+        "policy": "infrastructure",
+        "mapping": "infra.native-gui",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/MBR GUI Control.au3::OpenURL_Label",
+        "policy": "infrastructure",
+        "mapping": "infra.native-gui",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/MBR GUI Control.au3::tabBot",
+        "policy": "infrastructure",
+        "mapping": "infra.native-gui",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/MBR GUI Control.au3::tiDonate",
+        "policy": "infrastructure",
+        "mapping": "infra.native-gui",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/MBR GUI Design Mini.au3::CreateMainGUIControls",
+        "policy": "infrastructure",
+        "mapping": "infra.native-gui",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/MBR GUI Design.au3::CreateMainGUIControls",
+        "policy": "infrastructure",
+        "mapping": "infra.native-gui",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/MBR References.au3::ReferenceFunctions",
+        "policy": "test-only",
+        "mapping": "test-only.reference-actuators",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/Android.au3::AndroidAdbScript",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/Android.au3::AndroidAdbSendShellCommand",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/Android.au3::AndroidAdbSendShellCommandScript",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/Android.au3::AndroidAdbTerminateShellInstance",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/Android.au3::AndroidClick",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/Android.au3::AndroidClickDrag",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/Android.au3::AndroidCloseSystemBar",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/Android.au3::AndroidInitPrompt",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/Android.au3::AndroidInputSwipe",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/Android.au3::AndroidMinitouchClick",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/Android.au3::AndroidMinitouchClickDrag",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/Android.au3::AndroidMoveMouseAnywhere",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/Android.au3::AndroidOpenSystemBar",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/Android.au3::AndroidSendText",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/Android.au3::AndroidSetFontSizeNormal",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/Android.au3::AndroidSlowClick",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/Android.au3::AndroidZoomOut",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/Android.au3::CheckScreenAndroid",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/Android.au3::GetAndroidProcessPID",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/Android.au3::GetAndroidProcessPID1",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/Android.au3::HideAndroidWindow",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/Android.au3::LaunchAndroid",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/Android.au3::Minitouch",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/Android.au3::OpenPlayStore",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/Android.au3::PullSharedPrefs",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/Android.au3::PushSharedPrefs",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/Android.au3::ReleaseClicks",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/Android.au3::ResumeAndroid",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/Android.au3::SuspendAndroid",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/Android.au3::WinGetAndroidHandle",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/Android.au3::_AndroidAdbLaunchShellInstance",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/Android.au3::_AndroidFastClick",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/Android.au3::_AndroidScreencap",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/Android.au3::_OpenAdbShell",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/Android.au3::_RestartAndroidCoC",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/AndroidBluestacks5.au3::CloseBlueStacks5",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/AndroidBluestacks5.au3::ConfigBlueStacks5WindowManager",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/AndroidBluestacks5.au3::RestartBlueStacks5CoC",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/AndroidEmbed.au3::_AndroidEmbed",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/AndroidEmbed.au3::_AndroidShield",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/AndroidLDPlayer9.au3::CloseLDPlayer9",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/AndroidLDPlayer9.au3::ConfigLDPlayer9WindowManager",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/AndroidMEmu.au3::UpdateMEmuWindowState",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/AndroidMenuShortcuts.au3::AndroidBackButton",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/AndroidMenuShortcuts.au3::AndroidHomeButton",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/AndroidMumu.au3::CloseMumu",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/AndroidMumu.au3::ConfigMumuWindowManager",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/AndroidNox.au3::RedrawNoxWindow",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/Close_OpenCoC.au3::CloseCoC",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/Close_OpenCoC.au3::PoliteCloseCoC",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/Distributors.au3::GetCOCDistributors",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/ZoomOut.au3::DefaultZoomOut",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/ZoomOut.au3::SearchZoomOut",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/ZoomOut.au3::ZoomOutCtrlClick",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/ZoomOut.au3::ZoomOutCtrlWheelScroll",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/checkAndroidTimeLag.au3::CheckAndroidTimeLag",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/getBSPos.au3::getAndroidPos",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Attack/Attack Algorithms/SmartAttackCombat.au3::_SmartAttackCombatExactClick",
+        "policy": "blocked",
+        "mapping": "blocked.home-battle",
+        "capability_ids": [
+          "orchestration.battle-route",
+          "battle.regular-ranked-split",
+          "battle.legend-tiers"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Attack/Attack Algorithms/algorithm_AllTroops.au3::CloseBattle",
+        "policy": "blocked",
+        "mapping": "blocked.home-battle",
+        "capability_ids": [
+          "orchestration.battle-route",
+          "battle.regular-ranked-split",
+          "battle.legend-tiers"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Attack/Attack Algorithms/algorithm_AllTroops.au3::_AttackDeployLiveActorAtPoint",
+        "policy": "blocked",
+        "mapping": "blocked.home-battle",
+        "capability_ids": [
+          "orchestration.battle-route",
+          "battle.regular-ranked-split",
+          "battle.legend-tiers"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Attack/AttackCSV/AttackCSVDebugImage.au3::AttackCSVDEBUGIMAGE",
+        "policy": "blocked",
+        "mapping": "blocked.home-battle",
+        "capability_ids": [
+          "orchestration.battle-route",
+          "battle.regular-ranked-split",
+          "battle.legend-tiers"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Attack/AttackCSV/DropTroopFromINI.au3::DropTroopFromINI",
+        "policy": "blocked",
+        "mapping": "blocked.home-battle",
+        "capability_ids": [
+          "orchestration.battle-route",
+          "battle.regular-ranked-split",
+          "battle.legend-tiers"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Attack/BuilderBase/AttackBB.au3::CheckBMLoop",
+        "policy": "blocked",
+        "mapping": "blocked.builder-battle",
+        "capability_ids": [
+          "builder-base.battles"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Attack/BuilderBase/AttackBB.au3::CheckBomberLoop",
+        "policy": "blocked",
+        "mapping": "blocked.builder-battle",
+        "capability_ids": [
+          "builder-base.battles"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Attack/BuilderBase/AttackBB.au3::CheckCGCompleted",
+        "policy": "blocked",
+        "mapping": "blocked.builder-battle",
+        "capability_ids": [
+          "builder-base.battles"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Attack/BuilderBase/AttackBB.au3::ClickFindNowButton",
+        "policy": "blocked",
+        "mapping": "blocked.builder-battle",
+        "capability_ids": [
+          "builder-base.battles"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Attack/BuilderBase/AttackBB.au3::DeployBBTroop",
+        "policy": "blocked",
+        "mapping": "blocked.builder-battle",
+        "capability_ids": [
+          "builder-base.battles"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Attack/BuilderBase/AttackBB.au3::EndBattleBB",
+        "policy": "blocked",
+        "mapping": "blocked.builder-battle",
+        "capability_ids": [
+          "builder-base.battles"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Attack/BuilderBase/AttackBB.au3::Obstructed",
+        "policy": "blocked",
+        "mapping": "blocked.builder-battle",
+        "capability_ids": [
+          "builder-base.battles"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Attack/BuilderBase/AttackBB.au3::WaitCloudsBB",
+        "policy": "blocked",
+        "mapping": "blocked.builder-battle",
+        "capability_ids": [
+          "builder-base.battles"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Attack/BuilderBase/PrepareAttackBB.au3::CheckArmyReady",
+        "policy": "blocked",
+        "mapping": "blocked.builder-battle",
+        "capability_ids": [
+          "builder-base.battles"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Attack/BuilderBase/PrepareAttackBB.au3::CheckForSlots",
+        "policy": "blocked",
+        "mapping": "blocked.builder-battle",
+        "capability_ids": [
+          "builder-base.battles"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Attack/BuilderBase/PrepareAttackBB.au3::ClickAttack",
+        "policy": "blocked",
+        "mapping": "blocked.builder-battle",
+        "capability_ids": [
+          "builder-base.battles"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Attack/BuilderBase/PrepareAttackBB.au3::PrepareAttackBB",
+        "policy": "blocked",
+        "mapping": "blocked.builder-battle",
+        "capability_ids": [
+          "builder-base.battles"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Attack/BuilderBase/PrepareAttackBB.au3::ReturnHomeDropTrophyBB",
+        "policy": "blocked",
+        "mapping": "blocked.builder-battle",
+        "capability_ids": [
+          "builder-base.battles"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Attack/GetAttackBar.au3::DragAttackBar",
+        "policy": "blocked",
+        "mapping": "blocked.home-battle",
+        "capability_ids": [
+          "orchestration.battle-route",
+          "battle.regular-ranked-split",
+          "battle.legend-tiers"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Attack/PrepareAttack.au3::SelectCastleOrSiege",
+        "policy": "blocked",
+        "mapping": "blocked.home-battle",
+        "capability_ids": [
+          "orchestration.battle-route",
+          "battle.regular-ranked-split",
+          "battle.legend-tiers"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Attack/PrepareAttack.au3::SelectWardenMode",
+        "policy": "blocked",
+        "mapping": "blocked.home-battle",
+        "capability_ids": [
+          "orchestration.battle-route",
+          "battle.regular-ranked-split",
+          "battle.legend-tiers"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Attack/RedArea/DropOnPixel.au3::DropOnPixel",
+        "policy": "blocked",
+        "mapping": "blocked.home-battle",
+        "capability_ids": [
+          "orchestration.battle-route",
+          "battle.regular-ranked-split",
+          "battle.legend-tiers"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Attack/RedArea/GetLocation.au3::GetLocationBuilding",
+        "policy": "blocked",
+        "mapping": "blocked.home-battle",
+        "capability_ids": [
+          "orchestration.battle-route",
+          "battle.regular-ranked-split",
+          "battle.legend-tiers"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Attack/RedArea/GetLocation.au3::GetLocationDarkElixirStorage",
+        "policy": "blocked",
+        "mapping": "blocked.home-battle",
+        "capability_ids": [
+          "orchestration.battle-route",
+          "battle.regular-ranked-split",
+          "battle.legend-tiers"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Attack/RedArea/GetLocation.au3::GetLocationDarkElixirStorageWithLevel",
+        "policy": "blocked",
+        "mapping": "blocked.home-battle",
+        "capability_ids": [
+          "orchestration.battle-route",
+          "battle.regular-ranked-split",
+          "battle.legend-tiers"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Attack/RedArea/GetLocation.au3::GetLocationElixirWithLevel",
+        "policy": "blocked",
+        "mapping": "blocked.home-battle",
+        "capability_ids": [
+          "orchestration.battle-route",
+          "battle.regular-ranked-split",
+          "battle.legend-tiers"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Attack/RedArea/GetLocation.au3::GetLocationMineWithLevel",
+        "policy": "blocked",
+        "mapping": "blocked.home-battle",
+        "capability_ids": [
+          "orchestration.battle-route",
+          "battle.regular-ranked-split",
+          "battle.legend-tiers"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Attack/RedArea/GetLocation.au3::GetLocationTownHall",
+        "policy": "blocked",
+        "mapping": "blocked.home-battle",
+        "capability_ids": [
+          "orchestration.battle-route",
+          "battle.regular-ranked-split",
+          "battle.legend-tiers"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Attack/RedArea/_GetRedArea.au3::_GetRedArea",
+        "policy": "blocked",
+        "mapping": "blocked.home-battle",
+        "capability_ids": [
+          "orchestration.battle-route",
+          "battle.regular-ranked-split",
+          "battle.legend-tiers"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Attack/ReturnHome.au3::CheckStreakEvent",
+        "policy": "blocked",
+        "mapping": "blocked.battle-return-rewards",
+        "capability_ids": [
+          "orchestration.battle-route",
+          "rewards.streak-star-bonus"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Attack/ReturnHome.au3::CurrentStarBonusReceived",
+        "policy": "blocked",
+        "mapping": "blocked.battle-return-rewards",
+        "capability_ids": [
+          "orchestration.battle-route",
+          "rewards.streak-star-bonus"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Attack/ReturnHome.au3::ReturnHome",
+        "policy": "blocked",
+        "mapping": "blocked.battle-return-rewards",
+        "capability_ids": [
+          "orchestration.battle-route",
+          "rewards.streak-star-bonus"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Attack/ReturnHome.au3::ReturnfromDropTrophies",
+        "policy": "blocked",
+        "mapping": "blocked.battle-return-rewards",
+        "capability_ids": [
+          "orchestration.battle-route",
+          "rewards.streak-star-bonus"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Attack/ReturnHome.au3::TreasureHunt",
+        "policy": "blocked",
+        "mapping": "blocked.battle-return-rewards",
+        "capability_ids": [
+          "orchestration.battle-route",
+          "rewards.streak-star-bonus"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Attack/SmartZap/smartZap.au3::zapBuilding",
+        "policy": "blocked",
+        "mapping": "blocked.smart-zap",
+        "capability_ids": [
+          "battle.smart-zap"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Attack/Troops/CheckHeroesHealth.au3::CheckHeroesHealth",
+        "policy": "blocked",
+        "mapping": "blocked.home-battle",
+        "capability_ids": [
+          "orchestration.battle-route",
+          "battle.regular-ranked-split",
+          "battle.legend-tiers"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Attack/Troops/DropOnEdge.au3::DropOnEdge",
+        "policy": "blocked",
+        "mapping": "blocked.home-battle",
+        "capability_ids": [
+          "orchestration.battle-route",
+          "battle.regular-ranked-split",
+          "battle.legend-tiers"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Attack/Troops/OldDropTroop.au3::OldDropTroop",
+        "policy": "blocked",
+        "mapping": "blocked.home-battle",
+        "capability_ids": [
+          "orchestration.battle-route",
+          "battle.regular-ranked-split",
+          "battle.legend-tiers"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Attack/Troops/SelectDropTroop.au3::SelectDropTroop",
+        "policy": "blocked",
+        "mapping": "blocked.home-battle",
+        "capability_ids": [
+          "orchestration.battle-route",
+          "battle.regular-ranked-split",
+          "battle.legend-tiers"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Attack/Troops/dropCC.au3::dropCC",
+        "policy": "blocked",
+        "mapping": "blocked.home-battle",
+        "capability_ids": [
+          "orchestration.battle-route",
+          "battle.regular-ranked-split",
+          "battle.legend-tiers"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Attack/Troops/dropHeroes.au3::ChampionDrop",
+        "policy": "blocked",
+        "mapping": "blocked.home-battle",
+        "capability_ids": [
+          "orchestration.battle-route",
+          "battle.regular-ranked-split",
+          "battle.legend-tiers"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Attack/Troops/dropHeroes.au3::KingDrop",
+        "policy": "blocked",
+        "mapping": "blocked.home-battle",
+        "capability_ids": [
+          "orchestration.battle-route",
+          "battle.regular-ranked-split",
+          "battle.legend-tiers"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Attack/Troops/dropHeroes.au3::PrinceDrop",
+        "policy": "blocked",
+        "mapping": "blocked.home-battle",
+        "capability_ids": [
+          "orchestration.battle-route",
+          "battle.regular-ranked-split",
+          "battle.legend-tiers"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Attack/Troops/dropHeroes.au3::QueenDrop",
+        "policy": "blocked",
+        "mapping": "blocked.home-battle",
+        "capability_ids": [
+          "orchestration.battle-route",
+          "battle.regular-ranked-split",
+          "battle.legend-tiers"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Attack/Troops/dropHeroes.au3::WardenDrop",
+        "policy": "blocked",
+        "mapping": "blocked.home-battle",
+        "capability_ids": [
+          "orchestration.battle-route",
+          "battle.regular-ranked-split",
+          "battle.legend-tiers"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Attack/unbreakable.au3::Unbreakable",
+        "policy": "blocked",
+        "mapping": "blocked.home-battle",
+        "capability_ids": [
+          "orchestration.battle-route",
+          "battle.regular-ranked-split",
+          "battle.legend-tiers"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Config/applyConfig.au3::applyConfig",
+        "policy": "infrastructure",
+        "mapping": "infra.engine-config",
+        "capability_ids": [
+          "orchestration.engine-initialization"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/CreateArmy/CheckFullArmy.au3::CheckOverviewFullArmy",
+        "policy": "blocked",
+        "mapping": "blocked.army-management",
+        "capability_ids": [
+          "army.training",
+          "army.recipes",
+          "army.cookbook"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/CreateArmy/QuickTrain.au3::CheckQuickTrainTroop",
+        "policy": "blocked",
+        "mapping": "blocked.army-management",
+        "capability_ids": [
+          "army.training",
+          "army.recipes",
+          "army.cookbook"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/CreateArmy/QuickTrain.au3::CreateQuickTrainPreset",
+        "policy": "blocked",
+        "mapping": "blocked.army-management",
+        "capability_ids": [
+          "army.training",
+          "army.recipes",
+          "army.cookbook"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/CreateArmy/TrainClick.au3::TrainClick",
+        "policy": "blocked",
+        "mapping": "blocked.army-management",
+        "capability_ids": [
+          "army.training",
+          "army.recipes",
+          "army.cookbook"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/CreateArmy/TrainClick.au3::TrainClickP",
+        "policy": "blocked",
+        "mapping": "blocked.army-management",
+        "capability_ids": [
+          "army.training",
+          "army.recipes",
+          "army.cookbook"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/CreateArmy/TrainIt.au3::GetVariable",
+        "policy": "blocked",
+        "mapping": "blocked.army-management",
+        "capability_ids": [
+          "army.training",
+          "army.recipes",
+          "army.cookbook"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/CreateArmy/TrainIt.au3::TrainIt",
+        "policy": "blocked",
+        "mapping": "blocked.army-management",
+        "capability_ids": [
+          "army.training",
+          "army.recipes",
+          "army.cookbook"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/CreateArmy/TrainSiege.au3::DragSiegeIfNeeded",
+        "policy": "blocked",
+        "mapping": "blocked.army-management",
+        "capability_ids": [
+          "army.training",
+          "army.recipes",
+          "army.cookbook"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/CreateArmy/TrainSiege.au3::RemoveExtraSieges",
+        "policy": "blocked",
+        "mapping": "blocked.army-management",
+        "capability_ids": [
+          "army.training",
+          "army.recipes",
+          "army.cookbook"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/CreateArmy/TrainSiege.au3::TrainSiegeUsingWhatToTrain",
+        "policy": "blocked",
+        "mapping": "blocked.army-management",
+        "capability_ids": [
+          "army.training",
+          "army.recipes",
+          "army.cookbook"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/CreateArmy/TrainSystem.au3::BrewUsingWhatToTrain",
+        "policy": "blocked",
+        "mapping": "blocked.army-management",
+        "capability_ids": [
+          "army.training",
+          "army.recipes",
+          "army.cookbook"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/CreateArmy/TrainSystem.au3::ClickRemoveTroop",
+        "policy": "blocked",
+        "mapping": "blocked.army-management",
+        "capability_ids": [
+          "army.training",
+          "army.recipes",
+          "army.cookbook"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/CreateArmy/TrainSystem.au3::DeleteQueued",
+        "policy": "blocked",
+        "mapping": "blocked.army-management",
+        "capability_ids": [
+          "army.training",
+          "army.recipes",
+          "army.cookbook"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/CreateArmy/TrainSystem.au3::DragTrainBar",
+        "policy": "blocked",
+        "mapping": "blocked.army-management",
+        "capability_ids": [
+          "army.training",
+          "army.recipes",
+          "army.cookbook"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/CreateArmy/TrainSystem.au3::RemoveExtraTroops",
+        "policy": "blocked",
+        "mapping": "blocked.army-management",
+        "capability_ids": [
+          "army.training",
+          "army.recipes",
+          "army.cookbook"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/CreateArmy/TrainSystem.au3::RemoveExtraTroopsQueue",
+        "policy": "blocked",
+        "mapping": "blocked.army-management",
+        "capability_ids": [
+          "army.training",
+          "army.recipes",
+          "army.cookbook"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/CreateArmy/TrainSystem.au3::SearchArmy",
+        "policy": "blocked",
+        "mapping": "blocked.army-management",
+        "capability_ids": [
+          "army.training",
+          "army.recipes",
+          "army.cookbook"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/CreateArmy/TrainSystem.au3::TrainArmyNumber",
+        "policy": "blocked",
+        "mapping": "blocked.army-management",
+        "capability_ids": [
+          "army.training",
+          "army.recipes",
+          "army.cookbook"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/CreateArmy/TrainSystem.au3::TrainUsingWhatToTrain",
+        "policy": "blocked",
+        "mapping": "blocked.army-management",
+        "capability_ids": [
+          "army.training",
+          "army.recipes",
+          "army.cookbook"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/CreateArmy/getArmyCCSiegeMachines/getArmyCCSiegeMachines.au3::CCSiegeMachinesArray",
+        "policy": "blocked",
+        "mapping": "blocked.army-management",
+        "capability_ids": [
+          "army.training",
+          "army.recipes",
+          "army.cookbook"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/CreateArmy/getArmyCCSpells/getArmyCCSpell.au3::CCSpellsArray",
+        "policy": "blocked",
+        "mapping": "blocked.army-management",
+        "capability_ids": [
+          "army.training",
+          "army.recipes",
+          "army.cookbook"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/CreateArmy/getArmyHeroes/getArmyHeroCount.au3::CheckHeroOrder",
+        "policy": "blocked",
+        "mapping": "blocked.army-management",
+        "capability_ids": [
+          "army.training",
+          "army.recipes",
+          "army.cookbook"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/CreateArmy/getArmyHeroes/getArmyHeroCount.au3::HiddenSlotstatus",
+        "policy": "blocked",
+        "mapping": "blocked.army-management",
+        "capability_ids": [
+          "army.training",
+          "army.recipes",
+          "army.cookbook"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/CreateArmy/getArmyHeroes/getArmyHeroCount.au3::LabGuiDisplay",
+        "policy": "blocked",
+        "mapping": "blocked.army-management",
+        "capability_ids": [
+          "army.training",
+          "army.recipes",
+          "army.cookbook"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/CreateArmy/getArmySiegeMachines/getArmySiegeMachines.au3::getArmySiegeMachines",
+        "policy": "blocked",
+        "mapping": "blocked.army-management",
+        "capability_ids": [
+          "army.training",
+          "army.recipes",
+          "army.cookbook"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/CreateArmy/openArmyOverview.au3::OpenArmyOverview",
+        "policy": "blocked",
+        "mapping": "blocked.army-management",
+        "capability_ids": [
+          "army.training",
+          "army.recipes",
+          "army.cookbook"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/CreateArmy/openArmyOverview.au3::OpenSiegeMachinesTab",
+        "policy": "blocked",
+        "mapping": "blocked.army-management",
+        "capability_ids": [
+          "army.training",
+          "army.recipes",
+          "army.cookbook"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/CreateArmy/openArmyOverview.au3::OpenSpellsTab",
+        "policy": "blocked",
+        "mapping": "blocked.army-management",
+        "capability_ids": [
+          "army.training",
+          "army.recipes",
+          "army.cookbook"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/CreateArmy/openArmyOverview.au3::OpenTrainTab",
+        "policy": "blocked",
+        "mapping": "blocked.army-management",
+        "capability_ids": [
+          "army.training",
+          "army.recipes",
+          "army.cookbook"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/CreateArmy/openArmyOverview.au3::OpenTroopsTab",
+        "policy": "blocked",
+        "mapping": "blocked.army-management",
+        "capability_ids": [
+          "army.training",
+          "army.recipes",
+          "army.cookbook"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Image Search/CheckTombs.au3::CheckTombs",
+        "policy": "blocked",
+        "mapping": "blocked.obstacles",
+        "capability_ids": [
+          "village.obstacles"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Image Search/CheckTombs.au3::CleanYard",
+        "policy": "blocked",
+        "mapping": "blocked.obstacles",
+        "capability_ids": [
+          "village.obstacles"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Image Search/CheckTombs.au3::ClickRemoveObstacle",
+        "policy": "blocked",
+        "mapping": "blocked.obstacles",
+        "capability_ids": [
+          "village.obstacles"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Image Search/IsWindowOpen.au3::ClearScreen",
+        "policy": "blocked",
+        "mapping": "blocked.legacy-page-navigation",
+        "capability_ids": [
+          "runtime.recovery",
+          "model.screen-state-registry"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Image Search/IsWindowOpen.au3::CloseWindow",
+        "policy": "blocked",
+        "mapping": "blocked.legacy-page-navigation",
+        "capability_ids": [
+          "runtime.recovery",
+          "model.screen-state-registry"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Image Search/IsWindowOpen.au3::CloseWindow2",
+        "policy": "blocked",
+        "mapping": "blocked.legacy-page-navigation",
+        "capability_ids": [
+          "runtime.recovery",
+          "model.screen-state-registry"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Image Search/QuickMIS.au3::QuickMIS",
+        "policy": "infrastructure",
+        "mapping": "infra.recognition",
+        "capability_ids": [
+          "model.current-game",
+          "model.screen-state-registry"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Image Search/imglocAuxiliary.au3::ClickB",
+        "policy": "infrastructure",
+        "mapping": "infra.recognition",
+        "capability_ids": [
+          "model.current-game",
+          "model.screen-state-registry"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Image Search/imglocAuxiliary.au3::ClickButton",
+        "policy": "infrastructure",
+        "mapping": "infra.recognition",
+        "capability_ids": [
+          "model.current-game",
+          "model.screen-state-registry"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Image Search/imglocAuxiliary.au3::GetDeployableNextTo",
+        "policy": "infrastructure",
+        "mapping": "infra.recognition",
+        "capability_ids": [
+          "model.current-game",
+          "model.screen-state-registry"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Image Search/imglocAuxiliary.au3::GetOffsetRedline",
+        "policy": "infrastructure",
+        "mapping": "infra.recognition",
+        "capability_ids": [
+          "model.current-game",
+          "model.screen-state-registry"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Image Search/imglocAuxiliary.au3::RetrieveImglocProperty",
+        "policy": "infrastructure",
+        "mapping": "infra.recognition",
+        "capability_ids": [
+          "model.current-game",
+          "model.screen-state-registry"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Image Search/imglocAuxiliary.au3::SearchRedLines",
+        "policy": "infrastructure",
+        "mapping": "infra.recognition",
+        "capability_ids": [
+          "model.current-game",
+          "model.screen-state-registry"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Image Search/imglocAuxiliary.au3::findButton",
+        "policy": "infrastructure",
+        "mapping": "infra.recognition",
+        "capability_ids": [
+          "model.current-game",
+          "model.screen-state-registry"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Image Search/imglocAuxiliary.au3::findImage",
+        "policy": "infrastructure",
+        "mapping": "infra.recognition",
+        "capability_ids": [
+          "model.current-game",
+          "model.screen-state-registry"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Image Search/imglocAuxiliary.au3::findMultiple",
+        "policy": "infrastructure",
+        "mapping": "infra.recognition",
+        "capability_ids": [
+          "model.current-game",
+          "model.screen-state-registry"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Image Search/imglocCheckWall.au3::imglocCheckWall",
+        "policy": "blocked",
+        "mapping": "blocked.wall-recognition-gem-path",
+        "capability_ids": [
+          "village.upgrades-home"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Image Search/imglocCheckWall.au3::imglocFindWalls",
+        "policy": "blocked",
+        "mapping": "blocked.wall-recognition-gem-path",
+        "capability_ids": [
+          "village.upgrades-home"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Main Screen/GetDPI_Ratio.au3::SetDPI",
+        "policy": "infrastructure",
+        "mapping": "infra.process-lifecycle",
+        "capability_ids": [
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Main Screen/checkMainScreen.au3::_checkMainScreen",
+        "policy": "blocked",
+        "mapping": "blocked.legacy-recovery-obstacles",
+        "capability_ids": [
+          "runtime.recovery",
+          "events.daily-reward"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Main Screen/checkObstacles.au3::CheckAllObstacles",
+        "policy": "blocked",
+        "mapping": "blocked.legacy-recovery-obstacles",
+        "capability_ids": [
+          "runtime.recovery",
+          "events.daily-reward"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Main Screen/checkObstacles.au3::CheckDailyRewardWindow",
+        "policy": "blocked",
+        "mapping": "blocked.legacy-recovery-obstacles",
+        "capability_ids": [
+          "runtime.recovery",
+          "events.daily-reward"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Main Screen/checkObstacles.au3::ClashOfMagicAdvert",
+        "policy": "blocked",
+        "mapping": "blocked.legacy-recovery-obstacles",
+        "capability_ids": [
+          "runtime.recovery",
+          "events.daily-reward"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Main Screen/checkObstacles.au3::EndStartSeason",
+        "policy": "blocked",
+        "mapping": "blocked.legacy-recovery-obstacles",
+        "capability_ids": [
+          "runtime.recovery",
+          "events.daily-reward"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Main Screen/checkObstacles.au3::Freebie",
+        "policy": "blocked",
+        "mapping": "blocked.legacy-recovery-obstacles",
+        "capability_ids": [
+          "runtime.recovery",
+          "events.daily-reward"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Main Screen/checkObstacles.au3::_checkObstacles",
+        "policy": "blocked",
+        "mapping": "blocked.legacy-recovery-obstacles",
+        "capability_ids": [
+          "runtime.recovery",
+          "events.daily-reward"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Main Screen/checkObstacles.au3::checkObstacles",
+        "policy": "blocked",
+        "mapping": "blocked.legacy-recovery-obstacles",
+        "capability_ids": [
+          "runtime.recovery",
+          "events.daily-reward"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Main Screen/isNoUpgradeLoot.au3::isNoUpgradeLoot",
+        "policy": "blocked",
+        "mapping": "blocked.home-upgrades",
+        "capability_ids": [
+          "village.upgrades-home"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/ApiClient.au3::LaunchWatchdog",
+        "policy": "infrastructure",
+        "mapping": "infra.process-lifecycle",
+        "capability_ids": [
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/ApiClient.au3::ManagedMyBotHostsPostMessage",
+        "policy": "infrastructure",
+        "mapping": "infra.process-lifecycle",
+        "capability_ids": [
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/ApiClient.au3::WM_MYBOTRUN_API_CLIENT",
+        "policy": "infrastructure",
+        "mapping": "infra.process-lifecycle",
+        "capability_ids": [
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/ApiHost.au3::CheckManagedMyBot",
+        "policy": "infrastructure",
+        "mapping": "infra.process-lifecycle",
+        "capability_ids": [
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/ApiHost.au3::WM_MYBOTRUN_API_HOST",
+        "policy": "infrastructure",
+        "mapping": "infra.process-lifecycle",
+        "capability_ids": [
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/CheckPrerequisites.au3::CheckAutoitVersion",
+        "policy": "infrastructure",
+        "mapping": "infra.process-lifecycle",
+        "capability_ids": [
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/Click.au3::AttackClick",
+        "policy": "infrastructure",
+        "mapping": "infra.input-primitives",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/Click.au3::AttackClickCSV",
+        "policy": "infrastructure",
+        "mapping": "infra.input-primitives",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/Click.au3::BuildingClick",
+        "policy": "infrastructure",
+        "mapping": "infra.input-primitives",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/Click.au3::BuildingClickP",
+        "policy": "infrastructure",
+        "mapping": "infra.input-primitives",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/Click.au3::Click",
+        "policy": "infrastructure",
+        "mapping": "infra.input-primitives",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/Click.au3::ClickAway",
+        "policy": "infrastructure",
+        "mapping": "infra.input-primitives",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/Click.au3::ClickAway2",
+        "policy": "infrastructure",
+        "mapping": "infra.input-primitives",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/Click.au3::ClickP",
+        "policy": "infrastructure",
+        "mapping": "infra.input-primitives",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/Click.au3::GemClick",
+        "policy": "infrastructure",
+        "mapping": "infra.input-primitives",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/Click.au3::GemClickP",
+        "policy": "infrastructure",
+        "mapping": "infra.input-primitives",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/Click.au3::PureClick",
+        "policy": "infrastructure",
+        "mapping": "infra.input-primitives",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/Click.au3::PureClickP",
+        "policy": "infrastructure",
+        "mapping": "infra.input-primitives",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/Click.au3::PureClickTrain",
+        "policy": "infrastructure",
+        "mapping": "infra.input-primitives",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/Click.au3::SendText",
+        "policy": "infrastructure",
+        "mapping": "infra.input-primitives",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/Click.au3::_ControlClick",
+        "policy": "infrastructure",
+        "mapping": "infra.input-primitives",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/ClickDrag.au3::ClickDrag",
+        "policy": "infrastructure",
+        "mapping": "infra.input-primitives",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/ClickOkay.au3::ClickOkay",
+        "policy": "infrastructure",
+        "mapping": "infra.input-primitives",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/ClickRemove.au3::ClickRemove",
+        "policy": "infrastructure",
+        "mapping": "infra.input-primitives",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/ClickZoneR.au3::ClickR",
+        "policy": "infrastructure",
+        "mapping": "infra.input-primitives",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/ClickZoneR.au3::ClickZone",
+        "policy": "infrastructure",
+        "mapping": "infra.input-primitives",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/ClickZoneR.au3::GemClickR",
+        "policy": "infrastructure",
+        "mapping": "infra.input-primitives",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/ClickZoneR.au3::PureClickR",
+        "policy": "infrastructure",
+        "mapping": "infra.input-primitives",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/CloseRunningBot.au3::CloseRunningBot",
+        "policy": "infrastructure",
+        "mapping": "infra.process-lifecycle",
+        "capability_ids": [
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/ExtMsgBox.au3::_ExtMsgBox",
+        "policy": "infrastructure",
+        "mapping": "infra.native-gui",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/IsPage.au3::IsMultiplayerTabOpen",
+        "policy": "blocked",
+        "mapping": "blocked.legacy-page-navigation",
+        "capability_ids": [
+          "runtime.recovery",
+          "model.screen-state-registry"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/KillProcess.au3::KillProcess",
+        "policy": "infrastructure",
+        "mapping": "infra.process-lifecycle",
+        "capability_ids": [
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/LaunchConsole.au3::ClosePipe",
+        "policy": "infrastructure",
+        "mapping": "infra.process-lifecycle",
+        "capability_ids": [
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/MBRFunc.au3::MBRFuncMarkUnavailable",
+        "policy": "infrastructure",
+        "mapping": "infra.managed-engine-debug",
+        "capability_ids": [
+          "orchestration.engine-initialization"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/MBRFunc.au3::_MBRFuncCurrentStartRequestId",
+        "policy": "infrastructure",
+        "mapping": "infra.managed-engine-debug",
+        "capability_ids": [
+          "orchestration.engine-initialization"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/MBRFunc.au3::debugMBRFunctions",
+        "policy": "infrastructure",
+        "mapping": "infra.managed-engine-debug",
+        "capability_ids": [
+          "orchestration.engine-initialization"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/MoveMouseOutBS.au3::MoveMouseOutBS",
+        "policy": "infrastructure",
+        "mapping": "infra.input-primitives",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/RestartBot.au3::RestartBot",
+        "policy": "infrastructure",
+        "mapping": "infra.process-lifecycle",
+        "capability_ids": [
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/ScriptingDictionaryTools.au3::_ObjList",
+        "policy": "infrastructure",
+        "mapping": "infra.native-gui",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/TestLanguage.au3::ChangeLanguage",
+        "policy": "blocked",
+        "mapping": "blocked.language-diagnostic",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/WerFaultClose.au3::WerFaultClose",
+        "policy": "infrastructure",
+        "mapping": "infra.process-lifecycle",
+        "capability_ids": [
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/WindowsArrange.au3::ControlGetPos2",
+        "policy": "infrastructure",
+        "mapping": "infra.process-lifecycle",
+        "capability_ids": [
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/WindowsArrange.au3::DisposeWindows",
+        "policy": "infrastructure",
+        "mapping": "infra.process-lifecycle",
+        "capability_ids": [
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/WindowsArrange.au3::WinGetPos2",
+        "policy": "infrastructure",
+        "mapping": "infra.process-lifecycle",
+        "capability_ids": [
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/WindowsArrange.au3::WinMove2",
+        "policy": "infrastructure",
+        "mapping": "infra.process-lifecycle",
+        "capability_ids": [
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/WindowsArrange.au3::WindowsArrange",
+        "policy": "infrastructure",
+        "mapping": "infra.process-lifecycle",
+        "capability_ids": [
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/_Sleep.au3::_Sleep",
+        "policy": "infrastructure",
+        "mapping": "infra.control-polling",
+        "capability_ids": [
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Pixels/GetListPixel.au3::GetLocationItem",
+        "policy": "infrastructure",
+        "mapping": "infra.recognition",
+        "capability_ids": [
+          "model.current-game",
+          "model.screen-state-registry"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Read Text/getOcr.au3::getOcr",
+        "policy": "infrastructure",
+        "mapping": "infra.recognition",
+        "capability_ids": [
+          "model.current-game",
+          "model.screen-state-registry"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Read Text/getOcr.au3::getOcrImgLoc",
+        "policy": "infrastructure",
+        "mapping": "infra.recognition",
+        "capability_ids": [
+          "model.current-game",
+          "model.screen-state-registry"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Run/ClanDonationOneRoute.au3::ClanDonationOneRouteRunAdapter",
+        "policy": "blocked",
+        "mapping": "blocked.one-unit-donation-adapter",
+        "capability_ids": [
+          "village.donations"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Run/ClanDonationOneRoute.au3::_ClanDonationFinish",
+        "policy": "blocked",
+        "mapping": "blocked.one-unit-donation-adapter",
+        "capability_ids": [
+          "village.donations"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Run/ClanRequestRoute.au3::ClanRequestRouteRunAdapter",
+        "policy": "capability",
+        "mapping": "capability.clan-request",
+        "capability_ids": [
+          "village.clan-request"
+        ],
+        "verdict": "DEFERRED"
+      },
+      {
+        "id": "COCBot/functions/Run/ClanRequestRoute.au3::_ClanRequestRouteFinish",
+        "policy": "capability",
+        "mapping": "capability.clan-request",
+        "capability_ids": [
+          "village.clan-request"
+        ],
+        "verdict": "DEFERRED"
+      },
+      {
+        "id": "COCBot/functions/Run/CollectorBubbleRecognizer.au3::CollectorBubbleRecognize",
+        "policy": "infrastructure",
+        "mapping": "infra.recognition",
+        "capability_ids": [
+          "model.current-game",
+          "model.screen-state-registry"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Run/ExactRecipeTrainingRoute.au3::ExactRecipeTrainingRouteRunAdapter",
+        "policy": "blocked",
+        "mapping": "blocked.exact-recipe-training-adapter",
+        "capability_ids": [
+          "army.training",
+          "army.recipes"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Run/ExactRecipeTrainingRoute.au3::_ExactRecipeTrainingFinish",
+        "policy": "blocked",
+        "mapping": "blocked.exact-recipe-training-adapter",
+        "capability_ids": [
+          "army.training",
+          "army.recipes"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Run/HomeUpgradeOneRoute.au3::HomeUpgradeOneRouteRunAdapter",
+        "policy": "blocked",
+        "mapping": "blocked.one-upgrade-adapter",
+        "capability_ids": [
+          "village.upgrades-home"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Run/HomeUpgradeOneRoute.au3::_HomeUpgradeFinish",
+        "policy": "blocked",
+        "mapping": "blocked.one-upgrade-adapter",
+        "capability_ids": [
+          "village.upgrades-home"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Run/LootCartRoute.au3::LootCartRouteRunAdapter",
+        "policy": "capability",
+        "mapping": "capability.home-collection",
+        "capability_ids": [
+          "village.collectors",
+          "village.loot-cart",
+          "events.daily-reward"
+        ],
+        "verdict": "DEFERRED"
+      },
+      {
+        "id": "COCBot/functions/Run/LootCartRoute.au3::_LootCartRouteFinish",
+        "policy": "capability",
+        "mapping": "capability.home-collection",
+        "capability_ids": [
+          "village.collectors",
+          "village.loot-cart",
+          "events.daily-reward"
+        ],
+        "verdict": "DEFERRED"
+      },
+      {
+        "id": "COCBot/functions/Run/OpenClanRequest.au3::OpenClanRequestCloseAndProveHome",
+        "policy": "capability",
+        "mapping": "capability.clan-request",
+        "capability_ids": [
+          "village.clan-request"
+        ],
+        "verdict": "DEFERRED"
+      },
+      {
+        "id": "COCBot/functions/Run/OpenClanRequest.au3::OpenClanRequestIssueSend",
+        "policy": "capability",
+        "mapping": "capability.clan-request",
+        "capability_ids": [
+          "village.clan-request"
+        ],
+        "verdict": "DEFERRED"
+      },
+      {
+        "id": "COCBot/functions/Run/OpenClanRequest.au3::OpenClanRequestOpenArmyOverview",
+        "policy": "capability",
+        "mapping": "capability.clan-request",
+        "capability_ids": [
+          "village.clan-request"
+        ],
+        "verdict": "DEFERRED"
+      },
+      {
+        "id": "COCBot/functions/Run/OpenClanRequest.au3::OpenClanRequestOpenDialog",
+        "policy": "capability",
+        "mapping": "capability.clan-request",
+        "capability_ids": [
+          "village.clan-request"
+        ],
+        "verdict": "DEFERRED"
+      },
+      {
+        "id": "COCBot/functions/Run/OpenHomeCollectors.au3::OpenHomeCollectorsCollectOnePass",
+        "policy": "capability",
+        "mapping": "capability.home-collection",
+        "capability_ids": [
+          "village.collectors",
+          "village.loot-cart",
+          "events.daily-reward"
+        ],
+        "verdict": "DEFERRED"
+      },
+      {
+        "id": "COCBot/functions/Run/OpenHomeCollectors.au3::OpenHomeDailyRewardCloseAndProveHome",
+        "policy": "capability",
+        "mapping": "capability.home-collection",
+        "capability_ids": [
+          "village.collectors",
+          "village.loot-cart",
+          "events.daily-reward"
+        ],
+        "verdict": "DEFERRED"
+      },
+      {
+        "id": "COCBot/functions/Run/OpenHomeCollectors.au3::OpenHomeDailyRewardIssueClaim",
+        "policy": "capability",
+        "mapping": "capability.home-collection",
+        "capability_ids": [
+          "village.collectors",
+          "village.loot-cart",
+          "events.daily-reward"
+        ],
+        "verdict": "DEFERRED"
+      },
+      {
+        "id": "COCBot/functions/Run/OpenHomeCollectors.au3::OpenHomeLootCartIssueCollect",
+        "policy": "capability",
+        "mapping": "capability.home-collection",
+        "capability_ids": [
+          "village.collectors",
+          "village.loot-cart",
+          "events.daily-reward"
+        ],
+        "verdict": "DEFERRED"
+      },
+      {
+        "id": "COCBot/functions/Run/OpenHomeCollectors.au3::OpenHomeLootCartIssueOpen",
+        "policy": "capability",
+        "mapping": "capability.home-collection",
+        "capability_ids": [
+          "village.collectors",
+          "village.loot-cart",
+          "events.daily-reward"
+        ],
+        "verdict": "DEFERRED"
+      },
+      {
+        "id": "COCBot/functions/Run/OpenHomeTreasury.au3::OpenHomeTreasuryCleanup",
+        "policy": "capability",
+        "mapping": "capability.treasury",
+        "capability_ids": [
+          "village.treasury"
+        ],
+        "verdict": "DEFERRED"
+      },
+      {
+        "id": "COCBot/functions/Run/OpenHomeTreasury.au3::OpenHomeTreasuryIssueCastle",
+        "policy": "capability",
+        "mapping": "capability.treasury",
+        "capability_ids": [
+          "village.treasury"
+        ],
+        "verdict": "DEFERRED"
+      },
+      {
+        "id": "COCBot/functions/Run/OpenHomeTreasury.au3::OpenHomeTreasuryIssueEntry",
+        "policy": "capability",
+        "mapping": "capability.treasury",
+        "capability_ids": [
+          "village.treasury"
+        ],
+        "verdict": "DEFERRED"
+      },
+      {
+        "id": "COCBot/functions/Run/RunExecution.au3::_ClanRequestLiveIssueSend",
+        "policy": "capability",
+        "mapping": "capability.execution-adapters",
+        "capability_ids": [
+          "village.loot-cart",
+          "village.treasury",
+          "village.clan-request"
+        ],
+        "verdict": "DEFERRED"
+      },
+      {
+        "id": "COCBot/functions/Run/RunExecution.au3::_ClanRequestLiveOpenDialog",
+        "policy": "capability",
+        "mapping": "capability.execution-adapters",
+        "capability_ids": [
+          "village.loot-cart",
+          "village.treasury",
+          "village.clan-request"
+        ],
+        "verdict": "DEFERRED"
+      },
+      {
+        "id": "COCBot/functions/Run/RunExecution.au3::_LootCartLiveIssueCart",
+        "policy": "capability",
+        "mapping": "capability.execution-adapters",
+        "capability_ids": [
+          "village.loot-cart",
+          "village.treasury",
+          "village.clan-request"
+        ],
+        "verdict": "DEFERRED"
+      },
+      {
+        "id": "COCBot/functions/Run/RunExecution.au3::_LootCartLiveIssueCollect",
+        "policy": "capability",
+        "mapping": "capability.execution-adapters",
+        "capability_ids": [
+          "village.loot-cart",
+          "village.treasury",
+          "village.clan-request"
+        ],
+        "verdict": "DEFERRED"
+      },
+      {
+        "id": "COCBot/functions/Run/RunExecution.au3::_TreasuryLiveIssueCastle",
+        "policy": "capability",
+        "mapping": "capability.execution-adapters",
+        "capability_ids": [
+          "village.loot-cart",
+          "village.treasury",
+          "village.clan-request"
+        ],
+        "verdict": "DEFERRED"
+      },
+      {
+        "id": "COCBot/functions/Run/RunExecution.au3::_TreasuryLiveIssueCollect",
+        "policy": "capability",
+        "mapping": "capability.execution-adapters",
+        "capability_ids": [
+          "village.loot-cart",
+          "village.treasury",
+          "village.clan-request"
+        ],
+        "verdict": "DEFERRED"
+      },
+      {
+        "id": "COCBot/functions/Run/RunExecution.au3::_TreasuryLiveIssueConfirm",
+        "policy": "capability",
+        "mapping": "capability.execution-adapters",
+        "capability_ids": [
+          "village.loot-cart",
+          "village.treasury",
+          "village.clan-request"
+        ],
+        "verdict": "DEFERRED"
+      },
+      {
+        "id": "COCBot/functions/Run/RunExecution.au3::_TreasuryLiveIssueEntry",
+        "policy": "capability",
+        "mapping": "capability.execution-adapters",
+        "capability_ids": [
+          "village.loot-cart",
+          "village.treasury",
+          "village.clan-request"
+        ],
+        "verdict": "DEFERRED"
+      },
+      {
+        "id": "COCBot/functions/Run/TreasuryRoute.au3::TreasuryRouteRunAdapter",
+        "policy": "capability",
+        "mapping": "capability.treasury",
+        "capability_ids": [
+          "village.treasury"
+        ],
+        "verdict": "DEFERRED"
+      },
+      {
+        "id": "COCBot/functions/Run/TreasuryRoute.au3::_TreasuryRouteFinish",
+        "policy": "capability",
+        "mapping": "capability.treasury",
+        "capability_ids": [
+          "village.treasury"
+        ],
+        "verdict": "DEFERRED"
+      },
+      {
+        "id": "COCBot/functions/Run/TreasuryRoute.au3::_TreasuryRouteFinishUnlessStopped",
+        "policy": "capability",
+        "mapping": "capability.treasury",
+        "capability_ids": [
+          "village.treasury"
+        ],
+        "verdict": "DEFERRED"
+      },
+      {
+        "id": "COCBot/functions/Run/TreasuryRoute.au3::_TreasuryRouteIssue",
+        "policy": "capability",
+        "mapping": "capability.treasury",
+        "capability_ids": [
+          "village.treasury"
+        ],
+        "verdict": "DEFERRED"
+      },
+      {
+        "id": "COCBot/functions/Run/TreasuryRoute.au3::_TreasuryRouteReadObservation",
+        "policy": "capability",
+        "mapping": "capability.treasury",
+        "capability_ids": [
+          "village.treasury"
+        ],
+        "verdict": "DEFERRED"
+      },
+      {
+        "id": "COCBot/functions/Search/PrepareSearch.au3::OkayLegend",
+        "policy": "blocked",
+        "mapping": "blocked.search-route",
+        "capability_ids": [
+          "orchestration.battle-route",
+          "battle.regular-ranked-split"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Search/PrepareSearch.au3::PrepareSearch",
+        "policy": "blocked",
+        "mapping": "blocked.search-route",
+        "capability_ids": [
+          "orchestration.battle-route",
+          "battle.regular-ranked-split"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Search/PrepareSearch.au3::_ClickCurrentArmyConfirmationIfPresent",
+        "policy": "blocked",
+        "mapping": "blocked.search-route",
+        "capability_ids": [
+          "orchestration.battle-route",
+          "battle.regular-ranked-split"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Search/VillageSearch.au3::_VillageSearch",
+        "policy": "blocked",
+        "mapping": "blocked.search-route",
+        "capability_ids": [
+          "orchestration.battle-route",
+          "battle.regular-ranked-split"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Search/WaitForClouds.au3::EnableLongSearch",
+        "policy": "blocked",
+        "mapping": "blocked.search-route",
+        "capability_ids": [
+          "orchestration.battle-route",
+          "battle.regular-ranked-split"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Search/WaitForClouds.au3::btnSearchFailRetry",
+        "policy": "blocked",
+        "mapping": "blocked.search-route",
+        "capability_ids": [
+          "orchestration.battle-route",
+          "battle.regular-ranked-split"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Search/WeakBase.au3::DefenseSearchMultiMatch",
+        "policy": "infrastructure",
+        "mapping": "infra.recognition",
+        "capability_ids": [
+          "model.current-game",
+          "model.screen-state-registry"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Search/multiSearch.au3::multiMatches",
+        "policy": "infrastructure",
+        "mapping": "infra.recognition",
+        "capability_ids": [
+          "model.current-game",
+          "model.screen-state-registry"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/Auto Upgrade.au3::ClickMainBuilder",
+        "policy": "blocked",
+        "mapping": "blocked.home-upgrades",
+        "capability_ids": [
+          "village.upgrades-home"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/Auto Upgrade.au3::_AutoUpgrade",
+        "policy": "blocked",
+        "mapping": "blocked.home-upgrades",
+        "capability_ids": [
+          "village.upgrades-home"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/Blacksmith.au3::Blacksmith",
+        "policy": "blocked",
+        "mapping": "blocked.hero-equipment",
+        "capability_ids": [
+          "village.hero-equipment"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/Blacksmith.au3::BlacksmithUpTime",
+        "policy": "blocked",
+        "mapping": "blocked.hero-equipment",
+        "capability_ids": [
+          "village.hero-equipment"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/Blacksmith.au3::FindBSButton",
+        "policy": "blocked",
+        "mapping": "blocked.hero-equipment",
+        "capability_ids": [
+          "village.hero-equipment"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/BoostBarracks.au3::BoostTrainBuilding",
+        "policy": "blocked",
+        "mapping": "blocked.boosts",
+        "capability_ids": [
+          "village.boosts"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/BoostStructure.au3::BoostPotion",
+        "policy": "blocked",
+        "mapping": "blocked.boosts",
+        "capability_ids": [
+          "village.boosts"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/BoostStructure.au3::BoostStructure",
+        "policy": "blocked",
+        "mapping": "blocked.boosts",
+        "capability_ids": [
+          "village.boosts"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/BoostSuperTroop.au3::BoostSuperTroop",
+        "policy": "blocked",
+        "mapping": "blocked.boosts",
+        "capability_ids": [
+          "village.boosts"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/BoostSuperTroop.au3::FindEventTroop",
+        "policy": "blocked",
+        "mapping": "blocked.boosts",
+        "capability_ids": [
+          "village.boosts"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/BoostSuperTroop.au3::OpenBarrel",
+        "policy": "blocked",
+        "mapping": "blocked.boosts",
+        "capability_ids": [
+          "village.boosts"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/BoostSuperTroop.au3::StroopNextPage",
+        "policy": "blocked",
+        "mapping": "blocked.boosts",
+        "capability_ids": [
+          "village.boosts"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/BotCommand.au3::BotCommand",
+        "policy": "blocked",
+        "mapping": "blocked.telegram-remote",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/BreakPersonalShield.au3::BreakPersonalShield",
+        "policy": "blocked",
+        "mapping": "blocked.home-battle",
+        "capability_ids": [
+          "orchestration.battle-route",
+          "battle.regular-ranked-split",
+          "battle.legend-tiers"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/BuilderBase/BOBBuildingUpgrades.au3::AnyDefUpgrade",
+        "policy": "blocked",
+        "mapping": "blocked.builder-upgrades",
+        "capability_ids": [
+          "builder-base.upgrades",
+          "builder-base.additional-builder"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/BuilderBase/BOBBuildingUpgrades.au3::ArcherTowerUpgrade",
+        "policy": "blocked",
+        "mapping": "blocked.builder-upgrades",
+        "capability_ids": [
+          "builder-base.upgrades",
+          "builder-base.additional-builder"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/BuilderBase/BOBBuildingUpgrades.au3::DoubleCannonUpgrade",
+        "policy": "blocked",
+        "mapping": "blocked.builder-upgrades",
+        "capability_ids": [
+          "builder-base.upgrades",
+          "builder-base.additional-builder"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/BuilderBase/BOBBuildingUpgrades.au3::MultiMortarUpgrade",
+        "policy": "blocked",
+        "mapping": "blocked.builder-upgrades",
+        "capability_ids": [
+          "builder-base.upgrades",
+          "builder-base.additional-builder"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/BuilderBase/CleanBBYard.au3::CleanBBYard",
+        "policy": "blocked",
+        "mapping": "blocked.builder-obstacles",
+        "capability_ids": [
+          "village.obstacles"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/BuilderBase/CleanBBYard.au3::ClickRemoveObstacleBB",
+        "policy": "blocked",
+        "mapping": "blocked.builder-obstacles",
+        "capability_ids": [
+          "village.obstacles"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/BuilderBase/Collect.au3::CollectBuilderBase",
+        "policy": "blocked",
+        "mapping": "blocked.builder-resources",
+        "capability_ids": [
+          "builder-base.resources"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/BuilderBase/Collect.au3::CollectElixirCart",
+        "policy": "blocked",
+        "mapping": "blocked.builder-resources",
+        "capability_ids": [
+          "builder-base.resources"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/BuilderBase/LocateBuilderHall.au3::LocateBuilderHall",
+        "policy": "blocked",
+        "mapping": "blocked.builder-upgrades",
+        "capability_ids": [
+          "builder-base.upgrades",
+          "builder-base.additional-builder"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/BuilderBase/LocateBuilderHall.au3::_LocateAnyDef",
+        "policy": "blocked",
+        "mapping": "blocked.builder-upgrades",
+        "capability_ids": [
+          "builder-base.upgrades",
+          "builder-base.additional-builder"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/BuilderBase/LocateBuilderHall.au3::_LocateArcherTower",
+        "policy": "blocked",
+        "mapping": "blocked.builder-upgrades",
+        "capability_ids": [
+          "builder-base.upgrades",
+          "builder-base.additional-builder"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/BuilderBase/LocateBuilderHall.au3::_LocateDoubleCannon",
+        "policy": "blocked",
+        "mapping": "blocked.builder-upgrades",
+        "capability_ids": [
+          "builder-base.upgrades",
+          "builder-base.additional-builder"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/BuilderBase/LocateBuilderHall.au3::_LocateMultiMortar",
+        "policy": "blocked",
+        "mapping": "blocked.builder-upgrades",
+        "capability_ids": [
+          "builder-base.upgrades",
+          "builder-base.additional-builder"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/BuilderBase/StarLaboratory.au3::LocateStarLab",
+        "policy": "blocked",
+        "mapping": "blocked.builder-star-lab",
+        "capability_ids": [
+          "builder-base.star-laboratory"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/BuilderBase/StarLaboratory.au3::StarLabGuiDisplay",
+        "policy": "blocked",
+        "mapping": "blocked.builder-star-lab",
+        "capability_ids": [
+          "builder-base.star-laboratory"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/BuilderBase/StarLaboratory.au3::StarLabUpgrade",
+        "policy": "blocked",
+        "mapping": "blocked.builder-star-lab",
+        "capability_ids": [
+          "builder-base.star-laboratory"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/BuilderBase/StarLaboratory.au3::StarLaboratory",
+        "policy": "blocked",
+        "mapping": "blocked.builder-star-lab",
+        "capability_ids": [
+          "builder-base.star-laboratory"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/BuilderBase/StartClockTowerBoost.au3::StartClockTowerBoost",
+        "policy": "blocked",
+        "mapping": "blocked.boosts",
+        "capability_ids": [
+          "village.boosts"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/BuilderBase/SuggestedUpgrades.au3::ClickOnBuilder",
+        "policy": "blocked",
+        "mapping": "blocked.builder-upgrades",
+        "capability_ids": [
+          "builder-base.upgrades",
+          "builder-base.additional-builder"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/BuilderBase/SuggestedUpgrades.au3::GetUpgradeButton",
+        "policy": "blocked",
+        "mapping": "blocked.builder-upgrades",
+        "capability_ids": [
+          "builder-base.upgrades",
+          "builder-base.additional-builder"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/BuilderBase/SuggestedUpgrades.au3::MainSuggestedUpgradeCode",
+        "policy": "blocked",
+        "mapping": "blocked.builder-upgrades",
+        "capability_ids": [
+          "builder-base.upgrades",
+          "builder-base.additional-builder"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/BuilderBase/SuggestedUpgrades.au3::NewBuildings",
+        "policy": "blocked",
+        "mapping": "blocked.builder-upgrades",
+        "capability_ids": [
+          "builder-base.upgrades",
+          "builder-base.additional-builder"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/BuilderBase/UpgradeBattleCopter.au3::BattleCopterUpgrade",
+        "policy": "blocked",
+        "mapping": "blocked.builder-hero-upgrades",
+        "capability_ids": [
+          "builder-base.hero-upgrades"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/BuilderBase/UpgradeBattleCopter.au3::LocateBattleCopter",
+        "policy": "blocked",
+        "mapping": "blocked.builder-hero-upgrades",
+        "capability_ids": [
+          "builder-base.hero-upgrades"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/BuilderBase/UpgradeBattleCopter.au3::SwitchToOttoVillage",
+        "policy": "blocked",
+        "mapping": "blocked.builder-hero-upgrades",
+        "capability_ids": [
+          "builder-base.hero-upgrades"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/BuilderBase/UpgradeBattleMachine.au3::BattleMachineUpgrade",
+        "policy": "blocked",
+        "mapping": "blocked.builder-hero-upgrades",
+        "capability_ids": [
+          "builder-base.hero-upgrades"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/BuilderBase/UpgradeBattleMachine.au3::LocateBattleMachine",
+        "policy": "blocked",
+        "mapping": "blocked.builder-hero-upgrades",
+        "capability_ids": [
+          "builder-base.hero-upgrades"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/CheckBaseQuick.au3::CheckBaseQuick",
+        "policy": "blocked",
+        "mapping": "blocked.legacy-page-navigation",
+        "capability_ids": [
+          "runtime.recovery",
+          "model.screen-state-registry"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/CheckImageType.au3::CheckImageType",
+        "policy": "blocked",
+        "mapping": "blocked.legacy-page-navigation",
+        "capability_ids": [
+          "runtime.recovery",
+          "model.screen-state-registry"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/CheckNeedOpenTrain.au3::CheckNeedOpenTrain",
+        "policy": "blocked",
+        "mapping": "blocked.training-page-navigation",
+        "capability_ids": [
+          "army.training",
+          "army.recipes"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/Clan Games/ClanGames.au3::ChallengeNextPage",
+        "policy": "blocked",
+        "mapping": "blocked.clan-games",
+        "capability_ids": [
+          "events.clan-games"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/Clan Games/ClanGames.au3::CollectClanGamesRewards",
+        "policy": "blocked",
+        "mapping": "blocked.clan-games",
+        "capability_ids": [
+          "events.clan-games"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/Clan Games/ClanGames.au3::DragRewardColumnIfNeeded",
+        "policy": "blocked",
+        "mapping": "blocked.clan-games",
+        "capability_ids": [
+          "events.clan-games"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/Clan Games/ClanGames.au3::IsClanGamesWindow",
+        "policy": "blocked",
+        "mapping": "blocked.clan-games",
+        "capability_ids": [
+          "events.clan-games"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/Clan Games/ClanGames.au3::IsEventRunning",
+        "policy": "blocked",
+        "mapping": "blocked.clan-games",
+        "capability_ids": [
+          "events.clan-games"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/Clan Games/ClanGames.au3::PurgeEvent",
+        "policy": "blocked",
+        "mapping": "blocked.clan-games",
+        "capability_ids": [
+          "events.clan-games"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/Clan Games/ClanGames.au3::PurgeUncheckedEvent",
+        "policy": "blocked",
+        "mapping": "blocked.clan-games",
+        "capability_ids": [
+          "events.clan-games"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/Clan Games/ClanGames.au3::SelectReward",
+        "policy": "blocked",
+        "mapping": "blocked.clan-games",
+        "capability_ids": [
+          "events.clan-games"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/Clan Games/ClanGames.au3::StartAndPurgeEvent",
+        "policy": "blocked",
+        "mapping": "blocked.clan-games",
+        "capability_ids": [
+          "events.clan-games"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/Clan Games/ClanGames.au3::StartsEvent",
+        "policy": "blocked",
+        "mapping": "blocked.clan-games",
+        "capability_ids": [
+          "events.clan-games"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/Clan Games/ClanGames.au3::TrashFailedEvent",
+        "policy": "blocked",
+        "mapping": "blocked.clan-games",
+        "capability_ids": [
+          "events.clan-games"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/Clan Games/ClanGames.au3::_ClanGames",
+        "policy": "blocked",
+        "mapping": "blocked.clan-games",
+        "capability_ids": [
+          "events.clan-games"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/ClanCapital.au3::AutoForgeSlot",
+        "policy": "blocked",
+        "mapping": "blocked.clan-capital",
+        "capability_ids": [
+          "clan-capital.upgrades",
+          "clan-capital.forge"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/ClanCapital.au3::AutoUpgradeCC",
+        "policy": "blocked",
+        "mapping": "blocked.clan-capital",
+        "capability_ids": [
+          "clan-capital.upgrades",
+          "clan-capital.forge"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/ClanCapital.au3::CapitalMainUpgradeLoop",
+        "policy": "blocked",
+        "mapping": "blocked.clan-capital",
+        "capability_ids": [
+          "clan-capital.upgrades",
+          "clan-capital.forge"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/ClanCapital.au3::ClanCapitalReport",
+        "policy": "blocked",
+        "mapping": "blocked.clan-capital",
+        "capability_ids": [
+          "clan-capital.upgrades",
+          "clan-capital.forge"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/ClanCapital.au3::ClickCCBuilder",
+        "policy": "blocked",
+        "mapping": "blocked.clan-capital",
+        "capability_ids": [
+          "clan-capital.upgrades",
+          "clan-capital.forge"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/ClanCapital.au3::CollectCCGold",
+        "policy": "blocked",
+        "mapping": "blocked.clan-capital",
+        "capability_ids": [
+          "clan-capital.upgrades",
+          "clan-capital.forge"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/ClanCapital.au3::DistrictUpgrade",
+        "policy": "blocked",
+        "mapping": "blocked.clan-capital",
+        "capability_ids": [
+          "clan-capital.upgrades",
+          "clan-capital.forge"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/ClanCapital.au3::ForgeClanCapitalGold",
+        "policy": "blocked",
+        "mapping": "blocked.clan-capital",
+        "capability_ids": [
+          "clan-capital.upgrades",
+          "clan-capital.forge"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/ClanCapital.au3::OpenForgeWindow",
+        "policy": "blocked",
+        "mapping": "blocked.clan-capital",
+        "capability_ids": [
+          "clan-capital.upgrades",
+          "clan-capital.forge"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/ClanCapital.au3::SwitchToCapitalMain",
+        "policy": "blocked",
+        "mapping": "blocked.clan-capital",
+        "capability_ids": [
+          "clan-capital.upgrades",
+          "clan-capital.forge"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/ClanCapital.au3::SwitchToClanCapital",
+        "policy": "blocked",
+        "mapping": "blocked.clan-capital",
+        "capability_ids": [
+          "clan-capital.upgrades",
+          "clan-capital.forge"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/ClanCapital.au3::SwitchToMainVillage",
+        "policy": "blocked",
+        "mapping": "blocked.clan-capital",
+        "capability_ids": [
+          "clan-capital.upgrades",
+          "clan-capital.forge"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/Collect.au3::Collect",
+        "policy": "blocked",
+        "mapping": "blocked.legacy-collectors",
+        "capability_ids": [
+          "village.collectors",
+          "village.loot-cart"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/Collect.au3::CollectLootCart",
+        "policy": "blocked",
+        "mapping": "blocked.legacy-collectors",
+        "capability_ids": [
+          "village.collectors",
+          "village.loot-cart"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/CollectAchievements.au3::CollectAchievements",
+        "policy": "blocked",
+        "mapping": "blocked.achievements",
+        "capability_ids": [
+          "rewards.achievements"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/CollectAchievements.au3::CollectAchievementsClaimReward",
+        "policy": "blocked",
+        "mapping": "blocked.achievements",
+        "capability_ids": [
+          "rewards.achievements"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/DonateCC.au3::DetectSlotSiege",
+        "policy": "blocked",
+        "mapping": "blocked.donations",
+        "capability_ids": [
+          "village.donations"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/DonateCC.au3::DetectSlotTroop",
+        "policy": "blocked",
+        "mapping": "blocked.donations",
+        "capability_ids": [
+          "village.donations"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/DonateCC.au3::DonateCC",
+        "policy": "blocked",
+        "mapping": "blocked.donations",
+        "capability_ids": [
+          "village.donations"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/DonateCC.au3::DonateSiegeType",
+        "policy": "blocked",
+        "mapping": "blocked.donations",
+        "capability_ids": [
+          "village.donations"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/DonateCC.au3::DonateSpellType",
+        "policy": "blocked",
+        "mapping": "blocked.donations",
+        "capability_ids": [
+          "village.donations"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/DonateCC.au3::DonateTroopType",
+        "policy": "blocked",
+        "mapping": "blocked.donations",
+        "capability_ids": [
+          "village.donations"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/DonateCC.au3::DonateWindow",
+        "policy": "blocked",
+        "mapping": "blocked.donations",
+        "capability_ids": [
+          "village.donations"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/DonateCC.au3::DragCCSpellsBar",
+        "policy": "blocked",
+        "mapping": "blocked.donations",
+        "capability_ids": [
+          "village.donations"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/DonateCC.au3::SearchImgloc",
+        "policy": "blocked",
+        "mapping": "blocked.donations",
+        "capability_ids": [
+          "village.donations"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/DropTrophy.au3::DropTrophy",
+        "policy": "blocked",
+        "mapping": "blocked.trophy-drop",
+        "capability_ids": [
+          "battle.trophy-drop"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/FreeMagicItems.au3::CollectFreeMagicItems",
+        "policy": "blocked",
+        "mapping": "blocked.magic-items",
+        "capability_ids": [
+          "rewards.magic-items"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/FreeMagicItems.au3::OpenTraderWindow",
+        "policy": "blocked",
+        "mapping": "blocked.magic-items",
+        "capability_ids": [
+          "rewards.magic-items"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/GetTownHallLevel.au3::GetTownHallLevel",
+        "policy": "blocked",
+        "mapping": "blocked.town-hall-location",
+        "capability_ids": [
+          "village.town-hall-18",
+          "model.current-game"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/GetVillageSize.au3::CenterVillage",
+        "policy": "infrastructure",
+        "mapping": "infra.recognition",
+        "capability_ids": [
+          "model.current-game",
+          "model.screen-state-registry"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/HelperHut.au3::AppBuilder",
+        "policy": "blocked",
+        "mapping": "blocked.helper-hut",
+        "capability_ids": [
+          "village.helper-hut"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/HelperHut.au3::HelperHutApp",
+        "policy": "blocked",
+        "mapping": "blocked.helper-hut",
+        "capability_ids": [
+          "village.helper-hut"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/HelperHut.au3::HelperHutLab",
+        "policy": "blocked",
+        "mapping": "blocked.helper-hut",
+        "capability_ids": [
+          "village.helper-hut"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/HelperHut.au3::LabAssistant",
+        "policy": "blocked",
+        "mapping": "blocked.helper-hut",
+        "capability_ids": [
+          "village.helper-hut"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/HelperHut.au3::MoveToBottom",
+        "policy": "blocked",
+        "mapping": "blocked.helper-hut",
+        "capability_ids": [
+          "village.helper-hut"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/Laboratory.au3::FindResearchButton",
+        "policy": "blocked",
+        "mapping": "blocked.laboratory",
+        "capability_ids": [
+          "village.laboratory"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/Laboratory.au3::LabNextPage",
+        "policy": "blocked",
+        "mapping": "blocked.laboratory",
+        "capability_ids": [
+          "village.laboratory"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/Laboratory.au3::Laboratory",
+        "policy": "blocked",
+        "mapping": "blocked.laboratory",
+        "capability_ids": [
+          "village.laboratory"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/Laboratory.au3::LaboratoryUpgrade",
+        "policy": "blocked",
+        "mapping": "blocked.laboratory",
+        "capability_ids": [
+          "village.laboratory"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/LocateHeroHall.au3::ImgLocateHeroHall",
+        "policy": "blocked",
+        "mapping": "blocked.hero-location",
+        "capability_ids": [
+          "heroes.six-slot-layout"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/LocateUpgrade.au3::CloseSuperchargeWindow",
+        "policy": "blocked",
+        "mapping": "blocked.home-upgrades",
+        "capability_ids": [
+          "village.upgrades-home"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/LocateUpgrade.au3::UpgradeValue",
+        "policy": "blocked",
+        "mapping": "blocked.home-upgrades",
+        "capability_ids": [
+          "village.upgrades-home"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/Notify.au3::NotifyPushFileToTelegram",
+        "policy": "blocked",
+        "mapping": "blocked.telegram-remote",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/Notify.au3::NotifyPushMessageToBoth",
+        "policy": "blocked",
+        "mapping": "blocked.telegram-remote",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/Notify.au3::NotifyRemoteControlProc",
+        "policy": "blocked",
+        "mapping": "blocked.telegram-remote",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/Personal Challenges/DailyChallenges.au3::CheckDiscountPerks",
+        "policy": "blocked",
+        "mapping": "blocked.personal-challenges",
+        "capability_ids": [
+          "rewards.personal-challenges"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/Personal Challenges/DailyChallenges.au3::CollectDailyRewards",
+        "policy": "blocked",
+        "mapping": "blocked.personal-challenges",
+        "capability_ids": [
+          "rewards.personal-challenges"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/Personal Challenges/DailyChallenges.au3::OpenPersonalChallenges",
+        "policy": "blocked",
+        "mapping": "blocked.personal-challenges",
+        "capability_ids": [
+          "rewards.personal-challenges"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/PetHouse.au3::DragPetHouse",
+        "policy": "blocked",
+        "mapping": "blocked.pets",
+        "capability_ids": [
+          "village.pets"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/PetHouse.au3::FindPetsButton",
+        "policy": "blocked",
+        "mapping": "blocked.pets",
+        "capability_ids": [
+          "village.pets"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/PetHouse.au3::PetGuiDisplay",
+        "policy": "blocked",
+        "mapping": "blocked.pets",
+        "capability_ids": [
+          "village.pets"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/PetHouse.au3::PetHouse",
+        "policy": "blocked",
+        "mapping": "blocked.pets",
+        "capability_ids": [
+          "village.pets"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/ProfileReport.au3::ProfileReport",
+        "policy": "blocked",
+        "mapping": "blocked.profile-report",
+        "capability_ids": [
+          "village.profile-report",
+          "rewards.achievements"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/ReplayShare.au3::ReplayShare",
+        "policy": "blocked",
+        "mapping": "blocked.replay-share",
+        "capability_ids": [
+          "village.replay-share",
+          "chat.global-chat"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/RequestCC.au3::RemoveCastleArmy",
+        "policy": "blocked",
+        "mapping": "blocked.legacy-clan-request",
+        "capability_ids": [
+          "village.clan-request"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/RequestCC.au3::_makerequest",
+        "policy": "blocked",
+        "mapping": "blocked.legacy-clan-request",
+        "capability_ids": [
+          "village.clan-request"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/StarBonus.au3::StarBonus",
+        "policy": "blocked",
+        "mapping": "blocked.star-bonus",
+        "capability_ids": [
+          "rewards.streak-star-bonus"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/SwitchAccount.au3::CheckLoginWithSupercellIDScreen",
+        "policy": "blocked",
+        "mapping": "blocked.multi-account",
+        "capability_ids": [
+          "orchestration.multi-account",
+          "orchestration.account-queue"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/SwitchAccount.au3::SCIDragIfNeeded",
+        "policy": "blocked",
+        "mapping": "blocked.multi-account",
+        "capability_ids": [
+          "orchestration.multi-account",
+          "orchestration.account-queue"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/SwitchAccount.au3::SwitchCOCAcc",
+        "policy": "blocked",
+        "mapping": "blocked.multi-account",
+        "capability_ids": [
+          "orchestration.multi-account",
+          "orchestration.account-queue"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/SwitchAccount.au3::SwitchCOCAcc_ClickAccount",
+        "policy": "blocked",
+        "mapping": "blocked.multi-account",
+        "capability_ids": [
+          "orchestration.multi-account",
+          "orchestration.account-queue"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/SwitchAccount.au3::SwitchCOCAcc_ClickAccountSCID",
+        "policy": "blocked",
+        "mapping": "blocked.multi-account",
+        "capability_ids": [
+          "orchestration.multi-account",
+          "orchestration.account-queue"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/SwitchAccount.au3::SwitchCOCAcc_ConnectedSCID",
+        "policy": "blocked",
+        "mapping": "blocked.multi-account",
+        "capability_ids": [
+          "orchestration.multi-account",
+          "orchestration.account-queue"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/SwitchBetweenBases.au3::SwitchBetweenBases",
+        "policy": "blocked",
+        "mapping": "blocked.builder-navigation",
+        "capability_ids": [
+          "builder-base.upgrades",
+          "builder-base.battles",
+          "builder-base.resources"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/SwitchBetweenBases.au3::SwitchToBuilderBase",
+        "policy": "blocked",
+        "mapping": "blocked.builder-navigation",
+        "capability_ids": [
+          "builder-base.upgrades",
+          "builder-base.battles",
+          "builder-base.resources"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/TreasuryCollect.au3::TreasuryCollect",
+        "policy": "blocked",
+        "mapping": "blocked.legacy-treasury",
+        "capability_ids": [
+          "village.treasury"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/UpgradeBuilding.au3::UpgradeNormal",
+        "policy": "blocked",
+        "mapping": "blocked.home-upgrades",
+        "capability_ids": [
+          "village.upgrades-home"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/UpgradeHeroes.au3::ChampionUpgrade",
+        "policy": "blocked",
+        "mapping": "blocked.hero-upgrades",
+        "capability_ids": [
+          "heroes.upgrades"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/UpgradeHeroes.au3::FinishTimeCalculation",
+        "policy": "blocked",
+        "mapping": "blocked.hero-upgrades",
+        "capability_ids": [
+          "heroes.upgrades"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/UpgradeHeroes.au3::KingUpgrade",
+        "policy": "blocked",
+        "mapping": "blocked.hero-upgrades",
+        "capability_ids": [
+          "heroes.upgrades"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/UpgradeHeroes.au3::NeededResources",
+        "policy": "blocked",
+        "mapping": "blocked.hero-upgrades",
+        "capability_ids": [
+          "heroes.upgrades"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/UpgradeHeroes.au3::PrinceUpgrade",
+        "policy": "blocked",
+        "mapping": "blocked.hero-upgrades",
+        "capability_ids": [
+          "heroes.upgrades"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/UpgradeHeroes.au3::QueenUpgrade",
+        "policy": "blocked",
+        "mapping": "blocked.hero-upgrades",
+        "capability_ids": [
+          "heroes.upgrades"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/UpgradeHeroes.au3::UpgradeHeroes",
+        "policy": "blocked",
+        "mapping": "blocked.hero-upgrades",
+        "capability_ids": [
+          "heroes.upgrades"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/UpgradeHeroes.au3::WardenUpgrade",
+        "policy": "blocked",
+        "mapping": "blocked.hero-upgrades",
+        "capability_ids": [
+          "heroes.upgrades"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/UpgradeWall.au3::UpgradeWall",
+        "policy": "blocked",
+        "mapping": "blocked.home-upgrades",
+        "capability_ids": [
+          "village.upgrades-home"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/UpgradeWall.au3::UpgradeWallElixir",
+        "policy": "blocked",
+        "mapping": "blocked.home-upgrades",
+        "capability_ids": [
+          "village.upgrades-home"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Village/UpgradeWall.au3::UpgradeWallGold",
+        "policy": "blocked",
+        "mapping": "blocked.home-upgrades",
+        "capability_ids": [
+          "village.upgrades-home"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "My Bot 2.0.au3::<top-level>",
+        "policy": "infrastructure",
+        "mapping": "infra.launcher",
+        "capability_ids": [
+          "runtime.recovery",
+          "orchestration.engine-initialization"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "My Bot 2.0.au3::_CloseExactPathProcesses",
+        "policy": "infrastructure",
+        "mapping": "infra.launcher",
+        "capability_ids": [
+          "runtime.recovery",
+          "orchestration.engine-initialization"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "My Bot 2.0.au3::_CloseOwnedAutoItErrorDialogs",
+        "policy": "infrastructure",
+        "mapping": "infra.launcher",
+        "capability_ids": [
+          "runtime.recovery",
+          "orchestration.engine-initialization"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "My Bot 2.0.au3::_CloseOwnedPlannerService",
+        "policy": "infrastructure",
+        "mapping": "infra.launcher",
+        "capability_ids": [
+          "runtime.recovery",
+          "orchestration.engine-initialization"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "My Bot 2.0.au3::_CloseVerifiedAdbChildren",
+        "policy": "infrastructure",
+        "mapping": "infra.launcher",
+        "capability_ids": [
+          "runtime.recovery",
+          "orchestration.engine-initialization"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "My Bot 2.0.au3::_CloseWindowsForPid",
+        "policy": "infrastructure",
+        "mapping": "infra.launcher",
+        "capability_ids": [
+          "runtime.recovery",
+          "orchestration.engine-initialization"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "My Bot 2.0.au3::_DockControlStrip",
+        "policy": "infrastructure",
+        "mapping": "infra.launcher",
+        "capability_ids": [
+          "runtime.recovery",
+          "orchestration.engine-initialization"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "My Bot 2.0.au3::_DockController",
+        "policy": "infrastructure",
+        "mapping": "infra.launcher",
+        "capability_ids": [
+          "runtime.recovery",
+          "orchestration.engine-initialization"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "My Bot 2.0.au3::_EngineSupervisorAbort",
+        "policy": "infrastructure",
+        "mapping": "infra.launcher",
+        "capability_ids": [
+          "runtime.recovery",
+          "orchestration.engine-initialization"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "My Bot 2.0.au3::_OpenControlCenter",
+        "policy": "infrastructure",
+        "mapping": "infra.launcher",
+        "capability_ids": [
+          "runtime.recovery",
+          "orchestration.engine-initialization"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "My Bot 2.0.au3::_ReadPlannerHealthBounded",
+        "policy": "infrastructure",
+        "mapping": "infra.launcher",
+        "capability_ids": [
+          "runtime.recovery",
+          "orchestration.engine-initialization"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "My Bot 2.0.au3::_SetDockPairMinimized",
+        "policy": "infrastructure",
+        "mapping": "infra.launcher",
+        "capability_ids": [
+          "runtime.recovery",
+          "orchestration.engine-initialization"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "My Bot 2.0.au3::_SetDockPairRestored",
+        "policy": "infrastructure",
+        "mapping": "infra.launcher",
+        "capability_ids": [
+          "runtime.recovery",
+          "orchestration.engine-initialization"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "My Bot 2.0.au3::_SynchronizeDockPairVisibility",
+        "policy": "infrastructure",
+        "mapping": "infra.launcher",
+        "capability_ids": [
+          "runtime.recovery",
+          "orchestration.engine-initialization"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "MyBot.run.MiniGui.au3::<top-level>",
+        "policy": "infrastructure",
+        "mapping": "infra.backend-entry",
+        "capability_ids": [
+          "runtime.recovery",
+          "orchestration.engine-initialization"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "MyBot.run.MiniGui.au3::BotClose",
+        "policy": "infrastructure",
+        "mapping": "infra.backend-entry",
+        "capability_ids": [
+          "runtime.recovery",
+          "orchestration.engine-initialization"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "MyBot.run.MiniGui.au3::BotMinimizeRestore",
+        "policy": "infrastructure",
+        "mapping": "infra.backend-entry",
+        "capability_ids": [
+          "runtime.recovery",
+          "orchestration.engine-initialization"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "MyBot.run.MiniGui.au3::BotStart",
+        "policy": "infrastructure",
+        "mapping": "infra.backend-entry",
+        "capability_ids": [
+          "runtime.recovery",
+          "orchestration.engine-initialization"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "MyBot.run.MiniGui.au3::BotStop",
+        "policy": "infrastructure",
+        "mapping": "infra.backend-entry",
+        "capability_ids": [
+          "runtime.recovery",
+          "orchestration.engine-initialization"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "MyBot.run.MiniGui.au3::CheckBotRequests",
+        "policy": "infrastructure",
+        "mapping": "infra.backend-entry",
+        "capability_ids": [
+          "runtime.recovery",
+          "orchestration.engine-initialization"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "MyBot.run.MiniGui.au3::GUIControl_WM_COMMAND",
+        "policy": "infrastructure",
+        "mapping": "infra.backend-entry",
+        "capability_ids": [
+          "runtime.recovery",
+          "orchestration.engine-initialization"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "MyBot.run.MiniGui.au3::LaunchBotBackend",
+        "policy": "infrastructure",
+        "mapping": "infra.backend-entry",
+        "capability_ids": [
+          "runtime.recovery",
+          "orchestration.engine-initialization"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "MyBot.run.MiniGui.au3::OpenURL_Label",
+        "policy": "infrastructure",
+        "mapping": "infra.backend-entry",
+        "capability_ids": [
+          "runtime.recovery",
+          "orchestration.engine-initialization"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "MyBot.run.MiniGui.au3::TogglePauseImpl",
+        "policy": "infrastructure",
+        "mapping": "infra.backend-entry",
+        "capability_ids": [
+          "runtime.recovery",
+          "orchestration.engine-initialization"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "MyBot.run.MiniGui.au3::UpdateBotTitle",
+        "policy": "infrastructure",
+        "mapping": "infra.backend-entry",
+        "capability_ids": [
+          "runtime.recovery",
+          "orchestration.engine-initialization"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "MyBot.run.MiniGui.au3::btnMakeScreenshot",
+        "policy": "infrastructure",
+        "mapping": "infra.backend-entry",
+        "capability_ids": [
+          "runtime.recovery",
+          "orchestration.engine-initialization"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "MyBot.run.MiniGui.au3::tiDonate",
+        "policy": "infrastructure",
+        "mapping": "infra.backend-entry",
+        "capability_ids": [
+          "runtime.recovery",
+          "orchestration.engine-initialization"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "MyBot.run.au3::FinalInitialization",
+        "policy": "infrastructure",
+        "mapping": "infra.backend-entry",
+        "capability_ids": [
+          "runtime.recovery",
+          "orchestration.engine-initialization"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "MyBot.run.au3::FirstCheck",
+        "policy": "infrastructure",
+        "mapping": "infra.backend-entry",
+        "capability_ids": [
+          "runtime.recovery",
+          "orchestration.engine-initialization"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "MyBot.run.au3::UpdateBotTitle",
+        "policy": "infrastructure",
+        "mapping": "infra.backend-entry",
+        "capability_ids": [
+          "runtime.recovery",
+          "orchestration.engine-initialization"
+        ],
+        "verdict": "PASS"
+      }
+    ]
+  },
+  "counts": {
+    "capabilities": 61,
+    "planner_settings": 48,
+    "fixtures": 55,
+    "compile_targets": 6,
+    "control_actions": 5,
+    "infrastructure_routes": 8,
+    "actuator_owners": 460,
+    "actuator_sites": 1181,
+    "pass_capabilities": 2,
+    "deferred_capabilities": 59,
+    "pass_actuator_owners": 431,
+    "deferred_actuator_owners": 29
+  }
+}
