@@ -167,6 +167,18 @@ class PythonLocalRuntimeInstall(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "unsafe path"):
                 installer.validate_package(package)
 
+    def test_deep_install_root_fails_before_staging_copy(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mybot-path-budget-") as folder:
+            root = Path(folder)
+            package = root / "Package"
+            relative = Path("images") / ("nested-" * 18) / "surface.xml"
+            (package / relative).parent.mkdir(parents=True)
+            (package / relative).write_text("fixture", encoding="utf-8")
+            install_root = root / ("isolated-" * 18) / "Programs" / "My Bot 2.0"
+            with self.assertRaisesRegex(ValueError, "too deep.*during staging") as raised:
+                installer.assert_install_path_budget(package, install_root)
+            self.assertIn(relative.as_posix(), str(raised.exception))
+
     @unittest.skipUnless(os.name == "nt", "Windows shortcuts and HKCU are Windows-only")
     def test_native_shortcut_round_trip(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mybot-shortcut-") as folder:

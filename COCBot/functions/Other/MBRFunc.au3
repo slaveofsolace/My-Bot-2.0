@@ -19,10 +19,36 @@ Global $g_sMBRFuncEngineProbeState = "not-run"
 Global $g_sMBRFuncEngineError = ""
 Global Const $g_sMBRFuncEngineMarkerName = "MyBot.run.txt"
 Global Const $g_sMBRFuncEngineSupervisorSchema = "engine-init-supervisor-v1"
-Global Const $g_sMBRFuncEngineReceiptPath = @LocalAppDataDir & "\My Bot 2.0\engine-init-owner-v1.json"
+Global Const $g_sMBRFuncRuntimeLocalAppData = _MBRFuncRuntimeLocalAppDataDir()
+Global Const $g_sMBRFuncEngineReceiptPath = $g_sMBRFuncRuntimeLocalAppData & "\My Bot 2.0\engine-init-owner-v1.json"
 Global Const $g_sMBRFuncEngineTokenEnv = "MYBOT_ENGINE_INIT_TOKEN"
 Global Const $g_sMBRFuncEngineLauncherPidEnv = "MYBOT_ENGINE_INIT_LAUNCHER_PID"
 Global Const $g_sMBRFuncEngineLauncherCreatedEnv = "MYBOT_ENGINE_INIT_LAUNCHER_CREATED"
+
+Func _MBRFuncCanonicalDirectory($sPath)
+	If $sPath = "" Or Not FileExists($sPath) Or StringInStr(FileGetAttrib($sPath), "D") = 0 Then Return SetError(1, 0, "")
+	Local $aAttributes = DllCall("kernel32.dll", "dword", "GetFileAttributesW", "wstr", $sPath)
+	If @error Or Not IsArray($aAttributes) Or $aAttributes[0] = 0xFFFFFFFF Or BitAND($aAttributes[0], 0x400) <> 0 Then Return SetError(2, 0, "")
+	Local $tFull = DllStructCreate("wchar[32768]")
+	Local $aFull = DllCall("kernel32.dll", "dword", "GetFullPathNameW", "wstr", $sPath, "dword", 32768, "struct*", $tFull, "ptr", 0)
+	If @error Or Not IsArray($aFull) Or $aFull[0] = 0 Or $aFull[0] >= 32768 Then Return SetError(3, 0, "")
+	Local $sFull = DllStructGetData($tFull, 1)
+	While StringLen($sFull) > 3 And StringRight($sFull, 1) = "\"
+		$sFull = StringTrimRight($sFull, 1)
+	WEnd
+	Return SetError(0, 0, $sFull)
+EndFunc   ;==>_MBRFuncCanonicalDirectory
+
+Func _MBRFuncRuntimeLocalAppDataDir()
+	If EnvGet("MYBOT_RUN_PYTHON_INTEGRATION") <> "1" Then Return @LocalAppDataDir
+	Local $sTestRoot = _MBRFuncCanonicalDirectory(EnvGet("MYBOT_INSTALL_TEST_ROOT"))
+	Local $iTestError = @error
+	Local $sLocalRoot = _MBRFuncCanonicalDirectory(EnvGet("LOCALAPPDATA"))
+	If $iTestError Or @error Or $sTestRoot = "" Or $sLocalRoot = "" Then Return @ScriptDir & "\.invalid-test-localappdata"
+	Local $sPrefix = StringLower($sTestRoot & "\")
+	If StringLeft(StringLower($sLocalRoot), StringLen($sPrefix)) <> $sPrefix Then Return @ScriptDir & "\.invalid-test-localappdata"
+	Return $sLocalRoot
+EndFunc   ;==>_MBRFuncRuntimeLocalAppDataDir
 ; Both the pinned Mini and backend capture the inherited launcher context into process-local globals,
 ; then immediately clear their environment. Mini restores only around its exact backend Run call.
 Global $g_bMBRFuncEngineContextHost = StringRegExp(StringLower(@ScriptName), "^mybot\.run(?:\.minigui)?\.(?:exe|au3)$")
@@ -212,7 +238,7 @@ Func _MBRFuncParentPid($iPid)
 EndFunc   ;==>_MBRFuncParentPid
 
 Func _MBRFuncEngineReceiptPathSafe($bRequireReceipt = False)
-	Local $sParent = @LocalAppDataDir & "\My Bot 2.0"
+	Local $sParent = $g_sMBRFuncRuntimeLocalAppData & "\My Bot 2.0"
 	Local $aParent = DllCall("kernel32.dll", "dword", "GetFileAttributesW", "wstr", $sParent)
 	If @error Or Not IsArray($aParent) Or $aParent[0] = 0xFFFFFFFF Then Return False
 	If BitAND($aParent[0], 0x10) = 0 Or BitAND($aParent[0], 0x400) <> 0 Then Return False
@@ -260,7 +286,7 @@ Func _MBRFuncPublishEngineReceipt($sPhase)
 		'","parent_pid":' & $iParentPid & ',"phase":"' & $sPhase & '","start_request_id":"' & _
 		_MBRFuncCurrentStartRequestId() & '","sequence":' & $g_iMBRFuncEngineReceiptSequence & _
 		',"phase_history":' & $sCandidateHistory & '}'
-	DirCreate(@LocalAppDataDir & "\My Bot 2.0")
+	DirCreate($g_sMBRFuncRuntimeLocalAppData & "\My Bot 2.0")
 	If Not _MBRFuncEngineReceiptPathSafe(False) Then Return False
 	Local $sTemporary = $g_sMBRFuncEngineReceiptPath & ".tmp." & @AutoItPID
 	If FileExists($sTemporary) Then FileDelete($sTemporary)

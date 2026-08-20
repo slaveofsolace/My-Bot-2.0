@@ -77,7 +77,10 @@ class MiniSupervisorCancelTests(unittest.TestCase):
         validate = function(self.mini, "_MiniEngineReceiptMatches")
         write = function(self.mini, "_MiniTryWriteEngineInitCancel")
 
-        self.assertIn('@LocalAppDataDir & "\\My Bot 2.0\\engine-init-owner-v1.json"', self.mbr_func)
+        self.assertIn(
+            '$g_sMBRFuncRuntimeLocalAppData & "\\My Bot 2.0\\engine-init-owner-v1.json"',
+            self.mbr_func,
+        )
         self.assertIn("$g_sMBRFuncEngineReceiptPath", write)
         self.assertIn("_MBRFuncEngineReceiptPathSafe(True)", write)
         self.assertIn("$g_iMiniEngineInitReceiptMaxBytes", write)

@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-08-20T00:00:00Z",
+  "authoritative_head": "47d013886c5f623552b451ab2a15abed7368531d",
+  "protected_paths": [
+    "COCBot/MBR Functions.au3",
+    "Languages/English.ini",
+    "CLAUDE_HANDOFF_PROMPT.md"
+  ],
+  "pull_requests": [
+    {
+      "number": 7,
+      "head": "a26dc01d99d5b49caf6c89fcb4916d46974cb3ce",
+      "merge_base": "11c27c36e8bcc6c1e2fe81385679b62655df4da7",
+      "branch_only_commits": 1,
+      "unique_commit": "a26dc01d99d5b49caf6c89fcb4916d46974cb3ce",
+      "patch_id": "4446bdbb4c65b68aff7339bfe61406ac16513d9d",
+      "files": ["HANDOFF.md"],
+      "classification": "superseded",
+      "reason": "All product commits through the merge base are ancestors of the authoritative head. The only branch-only change is a stale August 7 handoff that describes superseded branch, fixture, and capability state.",
+      "cleanup_gate": "Close only after PR 8 is merged. No product change is imported."
+    },
+    {
+      "number": 8,
+      "head": "47d013886c5f623552b451ab2a15abed7368531d",
+      "classification": "authoritative-integration",
+      "cleanup_gate": "Merge only after the full source and eligible runtime validation gates are green."
+    }
+  ],
+  "branches": [
+    {
+      "name": "sol/windows-planner-guardians",
+      "head": "141bd9631bd7542e05ac9880126458bb14807b04",
+      "merge_base": "f1a0e2c30d44ebbc877bf581c045ece36577bced",
+      "branch_only_commits": 1,
+      "unique_commit": "141bd9631bd7542e05ac9880126458bb14807b04",
+      "patch_id": "5e53e588652377c4e9b9670d2546913f6e0bf78d",
+      "reconciled_counterpart": "9ff2af11",
+      "counterpart_is_ancestor_of_authoritative_head": true,
+      "classification_counts": {
+        "identical": 8,
+        "superseded-by-current": 20,
+        "protected-excluded": 1
+      },
+      "classification": "superseded",
+      "reason": "The current line contains the reconciled Guardians implementation plus later planner, UI, test, safety, and generated-metadata work. Cherry-picking the raw preservation commit would regress newer files and import a protected language change.",
+      "cleanup_gate": "Delete only after merged master contains the authoritative head, no PR depends on the branch, and no active worktree owns it.",
+      "files": [
+        {"path": "COCBot/GUI/MBR GUI Control Android.au3", "classification": "identical", "branch_blob": "2c896def14065511b1b9d3d2ce74fcbb5ac109cd", "current_blob": "2c896def14065511b1b9d3d2ce74fcbb5ac109cd"},
+        {"path": "COCBot/GUI/MBR GUI Control Run Planner.au3", "classification": "superseded-by-current", "branch_blob": "82b4100f2f8107c55e0fa41e2a3ec054c0c58ac4", "current_blob": "b8f2a93272d7d851bbd0812dd099bc3474e51126"},
+        {"path": "COCBot/GUI/MBR GUI Design Child Bot - Android.au3", "classification": "superseded-by-current", "branch_blob": "dbcb0e1f67edf389a60a7d914c3d75b07edd12ab", "current_blob": "801e36e7c24c48a8f26171fddfcf6e1fcde10ea7"},
+        {"path": "COCBot/GUI/MBR GUI Design Run Planner.au3", "classification": "superseded-by-current", "branch_blob": "6ffa21df647ae2ab5aa1d8c1b8df5caeaca3903d", "current_blob": "d49fec9493814bc8ef2ff4d5aff88a53138b0a96"},
+        {"path": "COCBot/functions/Game/GameCatalog.au3", "classification": "identical", "branch_blob": "a65f6174af7efdcb1c319edf8e14c8bc9dc08f83", "current_blob": "a65f6174af7efdcb1c319edf8e14c8bc9dc08f83"},
+        {"path": "COCBot/functions/Game/GameCatalog.generated.au3", "classification": "superseded-by-current", "branch_blob": "08e83b269af2d74e1dd92a6016cedada6dbf6354", "current_blob": "0a2d4c1725347aa39f728e3bba2d6668dcca4b51"},
+        {"path": "COCBot/functions/Other/CheckPrerequisites.au3", "classification": "superseded-by-current", "branch_blob": "1f08f4d22665ddbf2ab794d978862418bc7ec847", "current_blob": "56d786bdfa4ff07a42079417b3d51e3fd693283d"},
+        {"path": "COCBot/functions/Run/RunPlan.au3", "classification": "superseded-by-current", "branch_blob": "b6aa821dcc98fbc17a6ca4af334b7571d284a5ad", "current_blob": "3b37cd72542b8a28aca2ff30bb4906d683aa37c5"},
+        {"path": "COCBot/functions/Run/RunPlanFile.au3", "classification": "superseded-by-current", "branch_blob": "d8bf1a881bb9c00b56e98411b57fbb27c098897e", "current_blob": "3dd6655d3bc02be4e07ac1379e6f71efe6c3377b"},
+        {"path": "Languages/English.ini", "classification": "protected-excluded", "branch_blob": "4efd16ae0a6dbaf538a61510e263d120fb6c5fee", "current_blob": "44f6ac3a961e752321b7d730ba45370fdc5fe8f1"},
+        {"path": "MyBot.run.au3", "classification": "superseded-by-current", "branch_blob": "a6aaf5e4929b8ad6ded907f30c59bd1423321368", "current_blob": "32ebc036abfc34e71291cc8fc3175716fbd2237a"},
+        {"path": "README.md", "classification": "superseded-by-current", "branch_blob": "0a416dce4f8f03967704fa76dfc9ed273efa5740", "current_blob": "0225060598c485dd6544bef85e96249a08669490"},
+        {"path": "config/game/current-client.json", "classification": "identical", "branch_blob": "2771d536180e1bffb9369bbea0333610c4d93940", "current_blob": "2771d536180e1bffb9369bbea0333610c4d93940"},
+        {"path": "config/game/current-client.schema.json", "classification": "identical", "branch_blob": "0eacf32c175e072c40094682c9e496e329686e4b", "current_blob": "0eacf32c175e072c40094682c9e496e329686e4b"},
+        {"path": "config/game/guardians.json", "classification": "identical", "branch_blob": "5a96816d95d9b0d6ea343ec87a5f105b7c0d74da", "current_blob": "5a96816d95d9b0d6ea343ec87a5f105b7c0d74da"},
+        {"path": "config/game/guardians.schema.json", "classification": "identical", "branch_blob": "8499ebd761484a5b242e6c156c81b30d29129669", "current_blob": "8499ebd761484a5b242e6c156c81b30d29129669"},
+        {"path": "config/ui/run-planner.settings.json", "classification": "superseded-by-current", "branch_blob": "8a20ffacc0887533b7aad46b77d54450d946b449", "current_blob": "1ff00955e195412ee66d5e68b674867d23dfc012"},
+        {"path": "docs/development/PLANNER_UI.md", "classification": "superseded-by-current", "branch_blob": "cd920951e1062c94c17b4040b7dcc2c0ddc18dd5", "current_blob": "b0d02f4dab9cdccce4f919b0ad23cedbc39e1a88"},
+        {"path": "tests/autoit/GameCatalogTest.au3", "classification": "superseded-by-current", "branch_blob": "08c53e4e2b74d5082da27872814fa35c97a0e4a4", "current_blob": "b7fa98f3844a8e962e0f6b7e59b370a569b235e4"},
+        {"path": "tests/autoit/RunEngineTest.au3", "classification": "superseded-by-current", "branch_blob": "a49f929c47e6b75c0689ce8cf4443639034f3069", "current_blob": "3b8a1e1e868cf68a40d5152d4d8e017547f07abb"},
+        {"path": "tools/generate_game_catalog_autoit.py", "classification": "identical", "branch_blob": "d30b76f477b2fffaf75cbfeb4f354f20e6f5fc0b", "current_blob": "d30b76f477b2fffaf75cbfeb4f354f20e6f5fc0b"},
+        {"path": "tools/planner_ui.py", "classification": "superseded-by-current", "branch_blob": "c21ce30ebe749b176baba53fae0f0cb848d18ed2", "current_blob": "4585cd7fafea2f368d2f3a7196adcda5d414ebe1"},
+        {"path": "tools/preview_run_planner.py", "classification": "superseded-by-current", "branch_blob": "688b59448c48940cd2d22147d4dbdb4a13264b6a", "current_blob": "8004b32c9e01b4b6b3ebd487ac531ca0e3a9281c"},
+        {"path": "tools/validate_game_catalog.py", "classification": "superseded-by-current", "branch_blob": "48ddf45ddea236adb142a1df90ca68e0d1d90b8f", "current_blob": "15ce722b98674f658e72103e42feab029b1f31ab"},
+        {"path": "tools/validate_ui_metadata.py", "classification": "superseded-by-current", "branch_blob": "fa09287494d7a61fac4c07c3a008f62ec429e976", "current_blob": "0c87a47341aa163595a4d42aff509fd672de204d"},
+        {"path": "tools/verify_current_game_model.py", "classification": "identical", "branch_blob": "32d1a9c73bf3998f4f6947ee55c16feb7e8f24be", "current_blob": "32d1a9c73bf3998f4f6947ee55c16feb7e8f24be"},
+        {"path": "ui/planner.css", "classification": "superseded-by-current", "branch_blob": "08f32841799abf1c8d4613bbf1d3ed62a503319d", "current_blob": "17998003fb9fcac47479d18c47c5db68d1403310"},
+        {"path": "ui/planner.html", "classification": "superseded-by-current", "branch_blob": "80c54c41a4973a860d68a600fd19883a6011424f", "current_blob": "3a22639846ffb602c8ecb7c8a51e329769d834d1"},
+        {"path": "ui/planner.js", "classification": "superseded-by-current", "branch_blob": "e6d8d8d9529a38fc513a8f84a50b5498dfefe24e", "current_blob": "2693dd70c1a82167e0f4fb0edc6b2e1a06bf0d70"}
+      ]
+    }
+  ]
+}

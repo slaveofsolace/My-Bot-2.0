@@ -111,6 +111,9 @@ jobs:
       - name: Evaluate support readiness
         run: python tools/evaluate_support_readiness.py --json support-readiness.json
 
+      - name: Generate complete system inventory
+        run: python tools/generate_full_system_inventory.py --json full-system-inventory.json
+
       - name: Validate neutral wording
         run: python tools/validate_neutral_branding.py --json neutral-branding-validation.json
 
@@ -135,6 +138,7 @@ jobs:
             runtime-evidence-validation.json
             redistribution-rights-validation.json
             support-readiness.json
+            full-system-inventory.json
             neutral-branding-validation.json
             repository-audit.json
           if-no-files-found: warn

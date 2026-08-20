@@ -43,6 +43,7 @@ FILE_ATTRIBUTE_REPARSE_POINT = 0x400
 CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 RUN_PLAN_RELATIVE = Path("config/run-plan.local.json")
 MAX_SAVED_RUN_PLAN_BYTES = 1024 * 1024
+MAX_WINDOWS_LEGACY_PATH = 259
 
 
 def sha256(path: Path) -> str:
@@ -804,6 +805,25 @@ def copy_payload(package_root: Path, stage: Path) -> None:
     shutil.copytree(package_root, stage, symlinks=False, ignore=reject_links)
 
 
+def assert_install_path_budget(package_root: Path, install_root: Path) -> None:
+    """Reject a staging root that cannot represent every reviewed payload path."""
+    stage = install_root.parent / f".{PRODUCT_NAME}.install-{'0' * 32}"
+    longest: tuple[int, str] = (len(str(stage)), ".")
+    for source in package_root.rglob("*"):
+        if not source.is_file():
+            continue
+        relative = source.relative_to(package_root)
+        length = len(str(stage / relative))
+        if length > longest[0]:
+            longest = (length, relative.as_posix())
+    if longest[0] > MAX_WINDOWS_LEGACY_PATH:
+        raise ValueError(
+            "InstallDirectory is too deep for the reviewed payload on Windows: "
+            f"{longest[1]} requires {longest[0]} characters during staging; "
+            f"the fail-closed limit is {MAX_WINDOWS_LEGACY_PATH}. Choose a shorter isolated root."
+        )
+
+
 def stage_preserved_run_plan(install_root: Path, stage: Path) -> bool:
     source = install_root / RUN_PLAN_RELATIVE
     if not os.path.lexists(source):
@@ -853,6 +873,7 @@ def install(args: argparse.Namespace) -> None:
             "Close the installed My Bot 2.0 before updating it. "
             f"Running PID(s): {', '.join(map(str, running))}"
         )
+    assert_install_path_budget(package_root, install_root)
     source = Path(args.profile_source_directory) if args.profile_source_directory else None
     profiles_root = initialize_profiles(user_data_root, source)
     legacy_preserved = migrate_legacy_installed_profiles(install_root, profiles_root, user_data_root)

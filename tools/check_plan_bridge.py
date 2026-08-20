@@ -736,7 +736,11 @@ def main() -> int:
 
     for required in (
         'Global Const $g_sMBRFuncEngineSupervisorSchema = "engine-init-supervisor-v1"',
-        'Global Const $g_sMBRFuncEngineReceiptPath = @LocalAppDataDir & "\\My Bot 2.0\\engine-init-owner-v1.json"',
+        'Global Const $g_sMBRFuncRuntimeLocalAppData = _MBRFuncRuntimeLocalAppDataDir()',
+        'Global Const $g_sMBRFuncEngineReceiptPath = $g_sMBRFuncRuntimeLocalAppData & "\\My Bot 2.0\\engine-init-owner-v1.json"',
+        'If EnvGet("MYBOT_RUN_PYTHON_INTEGRATION") <> "1" Then Return @LocalAppDataDir',
+        'EnvGet("MYBOT_INSTALL_TEST_ROOT")',
+        'Return @ScriptDir & "\\.invalid-test-localappdata"',
         '"^[0-9a-f]{64}$"',
         '"^[0-9a-f]{16}$"',
         'EnvSet($g_sMBRFuncEngineTokenEnv, "")',

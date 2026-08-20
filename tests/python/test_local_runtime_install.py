@@ -76,7 +76,7 @@ class LocalRuntimeInstallContract(unittest.TestCase):
         self.assertIn('"after-registration"', PYTHON_INSTALLER)
 
     def test_launcher_creates_and_selects_a_persistent_first_run_profile(self) -> None:
-        self.assertIn('@LocalAppDataDir & "\\My Bot 2.0"', LAUNCHER)
+        self.assertIn('_LauncherRuntimeLocalAppDataDir() & "\\My Bot 2.0"', LAUNCHER)
         self.assertIn('$g_sProfilesRoot = $g_sUserDataRoot & "\\Profiles"', LAUNCHER)
         self.assertIn('$g_sFirstRunProfile = "MyVillage"', LAUNCHER)
         self.assertIn('IniWrite($g_sProfilesIniPath, "general", "defaultprofile"', LAUNCHER)

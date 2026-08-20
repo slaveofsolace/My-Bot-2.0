@@ -28,7 +28,7 @@ Global Const $g_sHostConfigPath = $g_sHostPath & ".config"
 Global Const $g_sEngineProbeConfigPath = @ScriptDir & "\MyBot.run.EngineProbe.exe.config"
 Global Const $g_sEngineMarkerPath = @ScriptDir & "\MyBot.run.txt"
 Global Const $g_sEnginePath = @ScriptDir & "\lib\MyBot.run.dll"
-Global Const $g_sUserDataRoot = @LocalAppDataDir & "\My Bot 2.0"
+Global Const $g_sUserDataRoot = _LauncherRuntimeLocalAppDataDir() & "\My Bot 2.0"
 Global Const $g_sProfilesRoot = $g_sUserDataRoot & "\Profiles"
 Global Const $g_sProfilesIniPath = $g_sProfilesRoot & "\profile.ini"
 Global Const $g_sFirstRunProfile = "MyVillage"
@@ -91,6 +91,16 @@ Global $g_sEngineSupervisorBackendCreated = ""
 Global $g_bEngineSupervisorAbortAttempted = False
 Global $g_bEngineSupervisorFailureLatched = False
 Global $g_sEngineSupervisorFailure = ""
+
+Func _LauncherRuntimeLocalAppDataDir()
+	If EnvGet("MYBOT_RUN_PYTHON_INTEGRATION") <> "1" Then Return @LocalAppDataDir
+	Local $sTestRoot = _LauncherCanonicalDirectory(EnvGet("MYBOT_INSTALL_TEST_ROOT"))
+	Local $sLocalRoot = _LauncherCanonicalDirectory(EnvGet("LOCALAPPDATA"))
+	If @error Or $sTestRoot = "" Or $sLocalRoot = "" Then Return @ScriptDir & "\.invalid-test-localappdata"
+	Local $sPrefix = StringLower($sTestRoot & "\")
+	If StringLeft(StringLower($sLocalRoot), StringLen($sPrefix)) <> $sPrefix Then Return @ScriptDir & "\.invalid-test-localappdata"
+	Return $sLocalRoot
+EndFunc   ;==>_LauncherRuntimeLocalAppDataDir
 
 _CloseOwnedAutoItErrorDialogs()
 If _CommandLineHas("/recover") Or _CommandLineHas("/repair") Then

@@ -299,7 +299,7 @@ Func _InstalledBackendProfilesRoot()
 	If @error Or Not IsArray($aAttributes) Or $aAttributes[0] = 0xFFFFFFFF Or BitAND($aAttributes[0], 0x400) = 0 Then Return SetError(1, 0, "")
 	Local $sActual = _CanonicalDirectoryPath($sLink)
 	If @error Or $sActual = "" Then Return SetError(2, 0, "")
-	Local $sExpected = _CanonicalDirectoryPath(@LocalAppDataDir & "\My Bot 2.0\Profiles")
+	Local $sExpected = _CanonicalDirectoryPath($g_sMBRFuncRuntimeLocalAppData & "\My Bot 2.0\Profiles")
 	If @error Or $sExpected = "" Or StringLower($sActual) <> StringLower($sExpected) Then Return SetError(3, 0, "")
 	Return SetError(0, 0, $sActual)
 EndFunc   ;==>_InstalledBackendProfilesRoot

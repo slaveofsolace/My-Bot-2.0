@@ -90,7 +90,7 @@ class EngineProbeLifecycleTests(unittest.TestCase):
 
     def test_receipt_is_fixed_atomic_flushed_and_identity_bound(self) -> None:
         self.assertIn(
-            'Global Const $g_sMBRFuncEngineReceiptPath = @LocalAppDataDir & "\\My Bot 2.0\\engine-init-owner-v1.json"',
+            'Global Const $g_sMBRFuncEngineReceiptPath = $g_sMBRFuncRuntimeLocalAppData & "\\My Bot 2.0\\engine-init-owner-v1.json"',
             self.parent,
         )
         publish = function_body(self.parent, "_MBRFuncPublishEngineReceipt")

@@ -23,7 +23,7 @@ Global Const $RUN_PLANNER_SERVICE_NAME = "my-bot-control-center"
 Global Const $RUN_PLANNER_BRIDGE_VERSION = "autoit-control-file-v1"
 Global Const $RUN_PLANNER_HEALTH_PROTOCOL = "my-bot-control-center-health-v2"
 Global Const $RUN_PLANNER_OWNERSHIP_SCHEMA = "my-bot-planner-owner-v1"
-Global Const $RUN_PLANNER_OWNERSHIP_RECEIPT = @LocalAppDataDir & "\My Bot 2.0\planner-owner-v1.json"
+Global Const $RUN_PLANNER_OWNERSHIP_RECEIPT = $g_sMBRFuncRuntimeLocalAppData & "\My Bot 2.0\planner-owner-v1.json"
 Global $g_oRunPlannerIntent = 0
 Global $g_sRunPlannerHeroIds = ""
 Global $g_iRunPlannerObservedServicePid = 0
@@ -138,7 +138,7 @@ Func _RunPlannerReadOwnershipReceipt()
 EndFunc   ;==>_RunPlannerReadOwnershipReceipt
 
 Func _RunPlannerReceiptPathSafe($bRequireReceipt = False)
-	Local $sParent = @LocalAppDataDir & "\My Bot 2.0"
+	Local $sParent = $g_sMBRFuncRuntimeLocalAppData & "\My Bot 2.0"
 	Local $aParent = DllCall("kernel32.dll", "dword", "GetFileAttributesW", "wstr", $sParent)
 	If @error Or Not IsArray($aParent) Or $aParent[0] = 0xFFFFFFFF Then Return False
 	If BitAND($aParent[0], 0x10) = 0 Or BitAND($aParent[0], 0x400) <> 0 Then Return False
@@ -197,7 +197,7 @@ Func _RunPlannerWriteOwnershipReceipt($iPid, $sOwnerToken, $sExpectedCommand)
 		_RunPlannerPathToken(@ScriptDir & "\tools\planner_ui.py") & '","profiles_root_token":"' & _RunPlannerPathToken($g_sProfilePath) & _
 		'","command_sha256":"' & _RunPlannerHashText($sCommand) & '","build_sha256":"' & _RunPlannerScriptBuildHash() & '"}'
 	If StringInStr($sReceipt, ':""') Then Return False
-	DirCreate(@LocalAppDataDir & "\My Bot 2.0")
+	DirCreate($g_sMBRFuncRuntimeLocalAppData & "\My Bot 2.0")
 	If Not _RunPlannerReceiptPathSafe(False) Then Return False
 	Local $sTemporary = $RUN_PLANNER_OWNERSHIP_RECEIPT & ".tmp." & StringLeft($sOwnerToken, 16)
 	If FileExists($sTemporary) Then Return False
@@ -282,10 +282,10 @@ EndFunc   ;==>_RunPlannerNewOwnerToken
 
 Func _RunPlannerPythonExecutable()
 	Local $aCandidates = [ _
-		@LocalAppDataDir & "\Programs\Python\Python313\pythonw.exe", _
-		@LocalAppDataDir & "\Programs\Python\Python312\pythonw.exe", _
-		@LocalAppDataDir & "\Programs\Python\Python311\pythonw.exe", _
-		@LocalAppDataDir & "\Programs\Python\Python310\pythonw.exe"]
+		$g_sMBRFuncRuntimeLocalAppData & "\Programs\Python\Python313\pythonw.exe", _
+		$g_sMBRFuncRuntimeLocalAppData & "\Programs\Python\Python312\pythonw.exe", _
+		$g_sMBRFuncRuntimeLocalAppData & "\Programs\Python\Python311\pythonw.exe", _
+		$g_sMBRFuncRuntimeLocalAppData & "\Programs\Python\Python310\pythonw.exe"]
 	For $i = 0 To UBound($aCandidates) - 1
 		If FileExists($aCandidates[$i]) Then Return $aCandidates[$i]
 	Next

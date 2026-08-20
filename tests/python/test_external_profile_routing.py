@@ -20,6 +20,9 @@ PLANNER_PATH = ROOT / "tools" / "planner_ui.py"
 PLANNER_CONTROL = (
     ROOT / "COCBot" / "GUI" / "MBR GUI Control Run Planner.au3"
 ).read_text(encoding="utf-8-sig")
+MBR_FUNC = (
+    ROOT / "COCBot" / "functions" / "Other" / "MBRFunc.au3"
+).read_text(encoding="utf-8-sig")
 
 SPEC = importlib.util.spec_from_file_location("planner_ui_profile_routing", PLANNER_PATH)
 PLANNER_UI = importlib.util.module_from_spec(SPEC)
@@ -79,10 +82,31 @@ class ExternalProfileRoutingSourceTests(unittest.TestCase):
         self.assertIn("$g_sProfilePath = $sInstalledProfilesRoot", process)
         helper = autoit_function(BACKEND, "_InstalledBackendProfilesRoot")
         self.assertIn('@ScriptDir & "\\Profiles"', helper)
-        self.assertIn('@LocalAppDataDir & "\\My Bot 2.0\\Profiles"', helper)
+        self.assertIn('$g_sMBRFuncRuntimeLocalAppData & "\\My Bot 2.0\\Profiles"', helper)
         self.assertIn("BitAND($aAttributes[0], 0x400)", helper)
         self.assertIn("StringLower($sActual) <> StringLower($sExpected)", helper)
         self.assertNotIn("MYBOT_PROFILES_ROOT64", BACKEND)
+
+    def test_isolated_localappdata_override_is_guarded_and_shared(self) -> None:
+        launcher = autoit_function(LAUNCHER, "_LauncherRuntimeLocalAppDataDir")
+        backend = autoit_function(MBR_FUNC, "_MBRFuncRuntimeLocalAppDataDir")
+        for body in (launcher, backend):
+            self.assertIn('EnvGet("MYBOT_RUN_PYTHON_INTEGRATION") <> "1" Then Return @LocalAppDataDir', body)
+            self.assertIn('EnvGet("MYBOT_INSTALL_TEST_ROOT")', body)
+            self.assertIn('EnvGet("LOCALAPPDATA")', body)
+            self.assertIn('StringLower($sTestRoot & "\\")', body)
+            self.assertIn('"\\.invalid-test-localappdata"', body)
+            self.assertNotIn('Then Return EnvGet("LOCALAPPDATA")', body)
+
+        self.assertIn(
+            'Global Const $g_sUserDataRoot = _LauncherRuntimeLocalAppDataDir() & "\\My Bot 2.0"',
+            LAUNCHER,
+        )
+        self.assertIn(
+            'Global Const $g_sMBRFuncRuntimeLocalAppData = _MBRFuncRuntimeLocalAppDataDir()',
+            MBR_FUNC,
+        )
+        self.assertIn('$g_sMBRFuncRuntimeLocalAppData & "\\My Bot 2.0\\planner-owner-v1.json"', PLANNER_CONTROL)
 
     def test_legacy_profile_switch_is_source_only_and_bad_paths_are_fatal(self) -> None:
         process = autoit_function(BACKEND, "ProcessCommandLine")
