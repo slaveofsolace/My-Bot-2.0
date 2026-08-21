@@ -315,6 +315,7 @@ input:disabled { background: var(--surface-muted); color: var(--ink-muted); curs
 
 .engine-controls { min-width: 0; }
 .engine-actions { display: grid; grid-template-columns: 1.2fr 1fr .8fr; gap: 7px; }
+.engine-actions #controlNativeMode { grid-column: 1 / -1; }
 .app-header .engine-actions button:not(.primary-action):not(.danger-action) { border-color: #65685e; color: var(--masthead-ink); }
 .app-header .danger-action { border-color: #8f5552; color: #f0a39d; }
 .control-ack { min-height: 18px; margin-top: 5px; font-size: 11px; overflow-wrap: anywhere; }

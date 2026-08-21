@@ -45,6 +45,7 @@
       <button class="primary-action" id="controlStart" type="button" disabled>Start run</button>
       <button id="controlPause" type="button" disabled>Pause</button>
       <button class="danger-action" id="controlStop" type="button" disabled>Stop</button>
+      <button id="controlNativeMode" type="button" disabled>Use native auto-launch</button>
     </div>
     <p class="control-ack" id="controlAck">Controls unlock after the saved plan and engine state load.</p>
   </div>
@@ -84,28 +85,28 @@
     <header class="view-heading">
       <div>
         <h2 id="runTitle" tabindex="-1">Run</h2>
-        <p>The applied plan, engine binding, and next safe action.</p>
+        <p id="runIntro">The applied plan, engine binding, and next safe action.</p>
       </div>
       <button id="editPlan" type="button" disabled>Edit plan</button>
     </header>
 
     <section class="route-overview" aria-labelledby="routeOverviewTitle">
       <div class="route-copy">
-        <span class="route-kicker">Safe run route</span>
+        <span class="route-kicker" id="routeModeKicker">Safe run route</span>
         <h3 id="routeOverviewTitle">Plan first. Prove every boundary.</h3>
-        <p>Start advances only after the saved plan, managed engine, emulator identity, and village state pass their own checks.</p>
+        <p id="routeOverviewCopy">Start advances only after the saved plan, managed engine, emulator identity, and village state pass their own checks.</p>
         <ul class="safety-rail" aria-label="Run safety contract">
           <li><span aria-hidden="true">◇</span><strong>No gems</strong><small>Hard stop on gem surfaces</small></li>
           <li><span aria-hidden="true">⌖</span><strong>Exact instance</strong><small>Profile and emulator bound</small></li>
           <li><span aria-hidden="true">✓</span><strong>Receipts</strong><small>Issued is not confirmed</small></li>
         </ul>
         <ol class="route-steps">
-          <li><strong>Plan</strong><span>Apply exact work</span></li>
+          <li><strong id="routeStepOneTitle">Plan</strong><span id="routeStepOneCopy">Apply exact work</span></li>
           <li><strong>Bind</strong><span>Verify engine and instance</span></li>
           <li><strong>Confirm</strong><span>Observe the village before input</span></li>
         </ol>
       </div>
-      <svg class="route-map" viewBox="0 0 520 240" role="img" aria-label="A guarded route from an applied plan through the engine gate to the Home Village">
+      <svg class="route-map" id="routeMap" viewBox="0 0 520 240" role="img" aria-label="A guarded route from an applied plan through the engine gate to the Home Village">
         <defs>
           <pattern id="routeGrid" width="26" height="26" patternUnits="userSpaceOnUse">
             <path d="M26 0H0v26"/>
@@ -138,7 +139,7 @@
         <circle class="route-marker route-marker-a" cx="151" cy="145" r="7"/>
         <circle class="route-marker route-marker-b" cx="352" cy="158" r="7"/>
         <g class="route-labels" aria-hidden="true">
-          <text x="40" y="218">01 / PLAN</text>
+          <text id="routeStepOneMapLabel" x="40" y="218">01 / PLAN</text>
           <text x="221" y="218">02 / ENGINE</text>
           <text x="403" y="218">03 / HOME</text>
         </g>
@@ -153,9 +154,9 @@
         </div>
         <div id="savedPlanSummary" class="summary-list"></div>
         <div class="plan-fingerprint">
-          <span>Saved plan fingerprint</span>
+          <span id="savedPlanFingerprintLabel">Saved plan fingerprint</span>
           <code id="savedPlanHash">Calculating</code>
-          <small>SHA-256 of the sorted saved values. Start uses this applied plan, never the visible draft.</small>
+          <small id="savedPlanFingerprintHelp">SHA-256 of the sorted saved values. Start uses this applied plan, never the visible draft.</small>
         </div>
         <div id="runEvidence" class="evidence-receipt"></div>
         <div class="validation" id="runValidation">

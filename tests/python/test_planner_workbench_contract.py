@@ -117,6 +117,20 @@ class PlannerWorkbenchContract(unittest.TestCase):
         self.assertIn("crypto.subtle.digest('SHA-256'", JS)
         self.assertIn("The applied plan is locked until the active run stops.", JS)
 
+    def test_native_profile_mode_is_explicit_recoverable_and_visibly_auto_launches(self):
+        render = JS.split("function renderControl()", 1)[1].split("function recoverControlPending", 1)[0]
+        send = JS.split("async function sendControl(action)", 1)[1].split("function capabilityLabel", 1)[0]
+        self.assertIn('id="controlNativeMode"', HTML)
+        self.assertIn("NATIVE_PROFILE_MODE", render)
+        self.assertIn("BlueStacks and Clash of Clans will be launched if needed", render)
+        self.assertIn("action === 'start' && !NATIVE_PROFILE_MODE", send)
+        self.assertIn("fetch('/api/plan/native'", send)
+        self.assertIn("NATIVE_PROFILE_MODE = false", JS.split("async function savePlan()", 1)[1])
+        self.assertIn(".engine-actions #controlNativeMode { grid-column: 1 / -1; }", CSS)
+        self.assertIn("Native profile. Launch the full stack.", JS)
+        self.assertIn("Apply this draft to leave native auto-launch mode.", JS)
+        self.assertIn("$('runValidation').hidden = nativeCopy", JS)
+
     def test_conditional_invalid_combinations_are_recoverable(self):
         self.assertIn("emulator === 'auto' && instance", JS)
         self.assertIn("emulator !== 'auto' && !instance", JS)

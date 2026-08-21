@@ -614,15 +614,55 @@ def plan_status() -> dict:
     worse than no status at all.
     """
     if not PLAN_PATH.exists():
-        return {"exists": False, "state": "defaults", "written_at": None}
+        return {"exists": False, "state": "defaults", "mode": "native-profile", "written_at": None}
     try:
         written = datetime.fromtimestamp(PLAN_PATH.stat().st_mtime, timezone.utc).isoformat()
     except OSError:
         written = None
     parsed = read_json(PLAN_PATH, None)
     if not isinstance(parsed, dict):
-        return {"exists": True, "state": "unreadable", "written_at": written}
-    return {"exists": True, "state": "saved", "written_at": written}
+        return {"exists": True, "state": "unreadable", "mode": "planned", "written_at": written}
+    return {"exists": True, "state": "saved", "mode": "planned", "written_at": written}
+
+
+def activate_native_profile_mode() -> tuple[dict, int]:
+    """Recoverably disable the applied plan so native Start owns emulator/game startup again."""
+    native = control_status()
+    if native.get("state") in {"starting", "running", "paused", "stopping", "closing"}:
+        return {
+            "ok": False,
+            "problems": ["native auto-launch mode cannot be changed while a run is active"],
+        }, 409
+
+    if not PLAN_PATH.exists():
+        return {
+            "ok": True,
+            "mode": "native-profile",
+            "backup": None,
+            "status": plan_status(),
+        }, 200
+
+    try:
+        plan_entry = PLAN_PATH.lstat()
+    except OSError:
+        return {"ok": False, "problems": ["the applied plan could not be inspected"]}, 500
+    if not stat.S_ISREG(plan_entry.st_mode):
+        return {"ok": False, "problems": ["the applied plan is not a regular file"]}, 409
+    if not isinstance(read_json(PLAN_PATH, None), dict):
+        return {"ok": False, "problems": ["the applied plan is unreadable and was left untouched"]}, 409
+
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    backup = PLAN_PATH.with_name(f"{PLAN_PATH.stem}.backup-{stamp}-{uuid.uuid4().hex[:8]}.json")
+    try:
+        os.replace(PLAN_PATH, backup)
+    except OSError:
+        return {"ok": False, "problems": ["the applied plan could not be backed up atomically"]}, 500
+    return {
+        "ok": True,
+        "mode": "native-profile",
+        "backup": displayed_path(backup),
+        "status": plan_status(),
+    }, 200
 
 
 def displayed_path(path: Path) -> str:
@@ -1106,7 +1146,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if not self._allow_local():
             return
-        if self.path not in {"/api/plan", "/api/control/command"}:
+        if self.path not in {"/api/plan", "/api/plan/native", "/api/control/command"}:
             self._send(404, b"not found", "text/plain; charset=utf-8")
             return
         if self.headers.get_content_type() != "application/json":
@@ -1139,6 +1179,11 @@ class Handler(BaseHTTPRequestHandler):
                 self._json({"ok": False, "problems": ["expected_start_request_id must be a string"]}, 400)
                 return
             payload, code = queue_control_command(action.strip().lower(), expected_start_request_id)
+            self._json(payload, code)
+            return
+
+        if self.path == "/api/plan/native":
+            payload, code = activate_native_profile_mode()
             self._json(payload, code)
             return
 
