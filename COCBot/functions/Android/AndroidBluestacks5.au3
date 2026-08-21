@@ -184,6 +184,38 @@ Func OpenBlueStacks5($bRestart = False)
 	Return _OpenBlueStacks5($bRestart)
 EndFunc   ;==>OpenBlueStacks5
 
+; A recognized frame is not a truthful launch receipt if the emulator immediately dies afterward.
+; Bind the exact proven window/PID and require a short passive settle period. This helper never
+; captures another frame or sends input; it only observes process/window liveness and Stop.
+Func _LaunchBlueStacks5FinalizePassiveProof(ByRef $sReason, $sProof, $bStartedEmulator)
+	Local $hProvenWindow = $g_hAndroidWindow
+	Local $iProvenPid = IsHWnd($hProvenWindow) ? WinGetProcess($hProvenWindow) : 0
+	If $iProvenPid <= 0 Or Not ProcessExists($iProvenPid) Or Not WinExists($hProvenWindow) Then
+		$sReason = "BlueStacks exited before the passive game-ready proof could settle"
+		Return False
+	EndIf
+
+	Local $hSettleTimer = __TimerInit()
+	While __TimerDiff($hSettleTimer) < 5000
+		If RunControlStopRequested() Or Not $g_bRunState Then
+			$sReason = "BlueStacks and Clash of Clans launch cancelled while settling passive game-ready proof"
+			Return False
+		EndIf
+		If Not ProcessExists($iProvenPid) Or Not IsHWnd($hProvenWindow) Or _
+				Not WinExists($hProvenWindow) Or WinGetProcess($hProvenWindow) <> $iProvenPid Then
+			$sReason = "BlueStacks exited during the passive game-ready settle period"
+			Return False
+		EndIf
+		If _Sleep(250) Then
+			$sReason = "BlueStacks and Clash of Clans launch cancelled while settling passive game-ready proof"
+			Return False
+		EndIf
+	WEnd
+
+	$sReason = "BlueStacks and Clash of Clans launched; " & $sProof & "; emulator_started=" & ($bStartedEmulator ? "true" : "false")
+	Return True
+EndFunc   ;==>_LaunchBlueStacks5FinalizePassiveProof
+
 ; Launch the exact configured BlueStacks 5 instance and the CoC activity for a bounded diagnostic.
 ; This route never enters the legacy run loop, changes accounts, pushes shared preferences, presses
 ; Home, clears obstacles, zooms, trains, donates, searches, attacks, upgrades, or spends. Home proof
@@ -275,16 +307,13 @@ Func LaunchBlueStacks5CoCOnly(ByRef $sReason)
 			; If a known startup overlay blocks Home, recognize it from that same fresh frame but never
 			; click or dismiss it. The caller returns idle and game_ready remains false until Home is visible.
 			If OpenHomeCollectorsProveHome() Then
-				$sReason = "BlueStacks and Clash of Clans launched; Home Village passively proven; emulator_started=" & ($bStartedEmulator ? "true" : "false")
-				Return True
+				Return _LaunchBlueStacks5FinalizePassiveProof($sReason, "Home Village passively proven", $bStartedEmulator)
 			EndIf
 			If OpenHomeDailyRewardOverlayReady() Or OpenHomeDailyRewardClaimedOverlayReady() Then
-				$sReason = "BlueStacks and Clash of Clans launched; verified Daily Reward overlay passively recognized; Home is blocked until the operator handles the overlay; emulator_started=" & ($bStartedEmulator ? "true" : "false")
-				Return True
+				Return _LaunchBlueStacks5FinalizePassiveProof($sReason, "verified Daily Reward overlay passively recognized; Home is blocked until the operator handles the overlay", $bStartedEmulator)
 			EndIf
 			If OpenHomeWelcomeBackOverlayReady() Then
-				$sReason = "BlueStacks and Clash of Clans launched; verified Welcome Back overlay passively recognized; Home is blocked until the operator handles the overlay; emulator_started=" & ($bStartedEmulator ? "true" : "false")
-				Return True
+				Return _LaunchBlueStacks5FinalizePassiveProof($sReason, "verified Welcome Back overlay passively recognized; Home is blocked until the operator handles the overlay", $bStartedEmulator)
 			EndIf
 		EndIf
 		If _Sleep(1000) Then
