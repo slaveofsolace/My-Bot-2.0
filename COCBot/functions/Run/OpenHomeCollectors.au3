@@ -207,7 +207,9 @@ EndFunc   ;==>_OpenHomeDailyRewardClaimCandidateReady
 ; actionable state, or >1 for an ambiguous state that must never receive input.
 Func OpenHomeDailyRewardFindClaim(ByRef $aClaim)
 	If Not IsArray($aClaim) Or UBound($aClaim) < 2 Or Not OpenHomeDailyRewardOverlayReady() Then Return 0
-	Local $aCandidates[7][2] = [[149, 326], [297, 326], [445, 326], [149, 477], [297, 477], [445, 477], [592, 477]]
+	; The current client places the lower-row recognition center at y=485. The earlier y=477
+	; landed on the white label and sampled above the green control at y-16.
+	Local $aCandidates[7][2] = [[149, 326], [297, 326], [445, 326], [149, 485], [297, 485], [445, 485], [592, 485]]
 	Local $iMatches = 0
 	For $i = 0 To UBound($aCandidates) - 1
 		If Not _OpenHomeDailyRewardClaimCandidateReady($aCandidates[$i][0], $aCandidates[$i][1]) Then ContinueLoop
@@ -235,7 +237,9 @@ Func OpenHomeDailyRewardIssueClaim($iExpectedX, $iExpectedY)
 		Return SetError(1, $iClaims, False)
 	If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, False)
 	If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
-	Return Click($iExpectedX, $iExpectedY, 1, 120, "#OpenHomeDailyRewardClaim", True)
+	; This route is admitted only when the exact ADB/minitouch input channel is ready.
+	; Do not force a window ControlClick: PostMessage acceptance is not game delivery.
+	Return Click($iExpectedX, $iExpectedY, 1, 120, "#OpenHomeDailyRewardClaim", False)
 EndFunc   ;==>OpenHomeDailyRewardIssueClaim
 
 ; After Claim, never accept an Okay/Confirm/sell/gem-conversion action. If the exact Daily Reward panel
@@ -249,7 +253,7 @@ Func OpenHomeDailyRewardCloseAndProveHome(ByRef $bCloseIssued)
 		If $iAttempt = 1 And (OpenHomeDailyRewardOverlayReady() Or OpenHomeDailyRewardClaimedOverlayReady()) Then
 			If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
 			If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, False)
-			If Not Click(759, 173, 1, 120, "#OpenHomeDailyRewardClose", True) Then Return SetError(3, 0, False)
+			If Not Click(759, 173, 1, 120, "#OpenHomeDailyRewardClose", False) Then Return SetError(3, 0, False)
 			$bCloseIssued = True
 		EndIf
 		If $iAttempt < 8 And _Sleep(250, True, True, False) Then Return SetError(2, 0, False)

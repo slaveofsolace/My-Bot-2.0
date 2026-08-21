@@ -266,9 +266,9 @@ Func _BotStartOpenDailyReward(ByRef $sStartError)
 		Return _BotOpenCollectorsReject("The active profile no longer matches the account bound at Start")
 	Local $sAttachmentError = ""
 	If Not _BotOpenHomeRequireExactBlueStacks($sAttachmentError) Then Return _BotOpenCollectorsReject($sAttachmentError)
-	If Not $g_bAndroidAdbScreencap Or Not AndroidControlAvailable() Or _
+	If Not $g_bAndroidAdbScreencap Or Not $g_bAndroidAdbClick Or Not AndroidControlAvailable() Or _
 			Not IsArray(GetBlueStacks5ModernAdbSurfacePosition()) Then _
-		Return _BotOpenCollectorsReject("The exact BlueStacks 5 framebuffer/control surface is not available")
+		Return _BotOpenCollectorsReject("The exact BlueStacks 5 framebuffer/ADB input surface is not available")
 
 	Local $aClaim[2]
 	Local $iClaimButtons = OpenHomeDailyRewardCaptureClaim($aClaim)
@@ -301,14 +301,14 @@ Func _BotStartOpenDailyReward(ByRef $sStartError)
 		RunEventLogMaintenanceDailyRewardUnavailable("none-actionable")
 		Local $bNoClaimCloseIssued = False
 		If Not OpenHomeDailyRewardCloseAndProveHome($bNoClaimCloseIssued) Then
-			$sStartError = "Daily Reward had no Claim button and Home Village was not re-proven"
+			$sStartError = "Daily Reward had no Claim button and Home Village was not re-proven; close_issued=" & String($bNoClaimCloseIssued)
 			RunEventLogMaintenanceDailyRewardUnconfirmed(False, $sStartError)
 			RunEventLogRunFailed("regular", $RUN_VERIFICATION_DIAGNOSTIC, $sStartError)
 			Return _BotOpenDailyRewardFail($sStartError)
 		EndIf
 		RunEventLogMaintenanceHomeVerified(0, "none-actionable", "disabled", "disabled")
 		RunExecutionComplete("home-daily-reward-none-actionable")
-		RunControlReportOneShotOutcome("completed", "Daily Reward had no actionable Claim; Home Village re-proven")
+		RunControlReportOneShotOutcome("completed", "Daily Reward had no actionable Claim; Home Village re-proven; close_issued=" & String($bNoClaimCloseIssued))
 		Return True
 	EndIf
 

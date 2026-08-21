@@ -228,6 +228,9 @@ class OpenHomeCollectorsTest(unittest.TestCase):
         for color, _variation in claim.values():
             self.assertIn(f"0x{color:06X}", claim_source)
         self.assertIn("Local $aCandidates[7][2]", find_source)
+        self.assertIn("[149, 485]", find_source)
+        self.assertIn("[592, 485]", find_source)
+        self.assertNotIn("[149, 477]", find_source)
         self.assertNotIn("ImgLoc", overlay_source + claim_source + find_source)
 
     def test_daily_reward_inputs_are_fresh_bounded_and_never_confirm(self):
@@ -238,6 +241,8 @@ class OpenHomeCollectorsTest(unittest.TestCase):
         self.assertGreaterEqual(issue[:click].count("RunControlStopRequested()"), 2)
         self.assertIn("$iClaims <> 1", issue)
         self.assertEqual(issue.count("Click("), 1)
+        self.assertIn('", False)', issue)
+        self.assertNotIn('", True)', issue)
 
         cleanup = autoit_function(route, "OpenHomeDailyRewardCloseAndProveHome")
         close = cleanup.index("Click(")
@@ -246,6 +251,8 @@ class OpenHomeCollectorsTest(unittest.TestCase):
         self.assertIn("OpenHomeDailyRewardOverlayReady()", cleanup)
         self.assertIn("OpenHomeDailyRewardClaimedOverlayReady()", cleanup)
         self.assertEqual(cleanup.count("Click("), 1)
+        self.assertIn('", False)', cleanup)
+        self.assertNotIn('", True)', cleanup)
         for forbidden in ("Okay", "Confirm", "GemClick", "findMultiple", "findImage"):
             self.assertNotIn(forbidden, issue + cleanup)
 
@@ -348,6 +355,7 @@ class OpenHomeCollectorsTest(unittest.TestCase):
             "HomeMaintenanceRouteAccountMatches",
             "_BotOpenHomeRequireExactBlueStacks($sAttachmentError)",
             "$g_bAndroidAdbScreencap",
+            "$g_bAndroidAdbClick",
             "AndroidControlAvailable()",
             "GetBlueStacks5ModernAdbSurfacePosition()",
             "OpenHomeDailyRewardCaptureClaim",
@@ -373,9 +381,11 @@ class OpenHomeCollectorsTest(unittest.TestCase):
         ):
             self.assertNotIn(forbidden, daily_runner)
 
-        for runner in (runner, loot_runner, treasury_runner, daily_runner):
+        for runner in (runner, loot_runner, treasury_runner):
             self.assertNotIn("$g_bAndroidAdbClick", runner)
             self.assertIn("AndroidControlAvailable()", runner)
+        self.assertIn("$g_bAndroidAdbClick", daily_runner)
+        self.assertIn("AndroidControlAvailable()", daily_runner)
 
     def test_terminal_outcome_restores_idle_without_legacy_stop(self):
         bridge = source("COCBot/functions/Run/RunControlBridge.au3")
@@ -386,14 +396,23 @@ class OpenHomeCollectorsTest(unittest.TestCase):
         self.assertNotIn("BotStop", outcome)
         self.assertNotIn("ResumeAndroid", outcome)
 
-    def test_one_shot_home_inputs_force_window_control_clicks(self):
+    def test_one_shot_home_inputs_use_their_declared_transport(self):
         for relative, expected_count in (
-            ("COCBot/functions/Run/OpenHomeCollectors.au3", 5),
+            ("COCBot/functions/Run/OpenHomeCollectors.au3", 3),
             ("COCBot/functions/Run/OpenHomeTreasury.au3", 3),
         ):
-            click_lines = [line for line in source(relative).splitlines() if "Click(" in line]
+            click_lines = [
+                line
+                for line in source(relative).splitlines()
+                if "Click(" in line and "#OpenHomeDailyReward" not in line
+            ]
             self.assertEqual(expected_count, len(click_lines), relative)
             self.assertTrue(all(", True)" in line for line in click_lines), click_lines)
+
+        daily = source("COCBot/functions/Run/OpenHomeCollectors.au3")
+        daily_lines = [line for line in daily.splitlines() if "#OpenHomeDailyReward" in line and "Click(" in line]
+        self.assertEqual(2, len(daily_lines))
+        self.assertTrue(all(", False)" in line for line in daily_lines), daily_lines)
 
         click = autoit_function(source("COCBot/functions/Other/Click.au3"), "Click")
         self.assertIn("$bForceControl = False", source("COCBot/functions/Other/Click.au3"))
