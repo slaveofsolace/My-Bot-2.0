@@ -72,6 +72,7 @@ class GameLaunchOnlyControlTests(unittest.TestCase):
             "OpenHomeDailyRewardOverlayReady()",
             "OpenHomeDailyRewardClaimedOverlayReady()",
             "OpenHomeWelcomeBackOverlayReady()",
+            "_LaunchBlueStacks5FinalizePassiveProof(",
             "RunControlStopRequested()",
         ):
             self.assertIn(required, adapter)
@@ -94,6 +95,21 @@ class GameLaunchOnlyControlTests(unittest.TestCase):
             "Attack",
         ):
             self.assertNotIn(forbidden, adapter)
+
+        settle = function_body(self.android, "_LaunchBlueStacks5FinalizePassiveProof")
+        for required in (
+            "IsHWnd($hProvenWindow)",
+            "WinGetProcess($hProvenWindow)",
+            "ProcessExists($iProvenPid)",
+            "WinExists($hProvenWindow)",
+            "__TimerDiff($hSettleTimer) < 5000",
+            "RunControlStopRequested()",
+            'WinGetProcess($hProvenWindow) <> $iProvenPid',
+            '"BlueStacks exited during the passive game-ready settle period"',
+        ):
+            self.assertIn(required, settle)
+        for forbidden in ("Click(", "AndroidAdbSendShellCommand", "_Capture", "GetScreen"):
+            self.assertNotIn(forbidden, settle)
 
     def test_native_bridge_owns_launch_request_and_returns_idle(self) -> None:
         consume = function_body(self.bridge, "_RunControlConsumeCommand")
