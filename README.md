@@ -153,7 +153,7 @@ army to match.
 | Windows compile — Au3Check, both AutoIt versions | Green |
 | Game model through July 2026 | Catalogued from official sources |
 | LDPlayer 9 and MuMu Player 12 adapters | Written, **never run on real hardware** |
-| Screen recognition for the current client | 5 reviewed fixtures replay through production recognizers and one additional training fixture is tracked as redacted; 49 required surfaces remain missing and no exact-current package proof exists |
+| Screen recognition for the current client | 6 reviewed fixtures replay through production recognizers and one additional training fixture is tracked as redacted; 49 required surfaces remain missing and no exact-current package proof exists |
 | Managed Start and attack execution | Still unproved for the local aa8ee424 package and the later unbuilt working tree; the historical successful engine check intentionally returned before plan preparation, emulator attachment, or gameplay, while older binaries completed bounded Standard and Smart TH17 observations only |
 
 **The honest summary:** the historical 2026-08-14 bea12973 LocalRuntime checkpoint contains six reviewed x86 AutoIt
@@ -480,7 +480,7 @@ the actual game. Listing it honestly beats a progress bar.
 <br>
 
 [`tests/fixtures/current-client/manifest.json`](tests/fixtures/current-client/manifest.json) currently
-tracks **55 required captures**: 6 are complete and 49 remain missing. The expanded set includes
+tracks **56 required captures**: 7 are complete and 49 remain missing. The expanded set includes
 battle surfaces, current-army and Builder Base states, Pets, equipment, rewards, chat/request states, and other
 recognition boundaries that cannot be promoted from source presence alone.
 

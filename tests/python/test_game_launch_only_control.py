@@ -71,6 +71,7 @@ class GameLaunchOnlyControlTests(unittest.TestCase):
             "OpenHomeCollectorsProveHome()",
             "OpenHomeDailyRewardOverlayReady()",
             "OpenHomeDailyRewardClaimedOverlayReady()",
+            "OpenHomeWelcomeBackOverlayReady()",
             "RunControlStopRequested()",
         ):
             self.assertIn(required, adapter)
@@ -152,8 +153,8 @@ class GameLaunchOnlyControlTests(unittest.TestCase):
     def test_browser_exposes_launch_only_and_retains_stop_during_stale_heartbeat(self) -> None:
         self.assertIn('id="controlGameLaunch"', self.html)
         self.assertIn("Return idle after passive game-ready proof", self.html)
-        self.assertIn("recognizes Home or a verified Daily Reward startup overlay", self.html)
-        self.assertIn("never clicks it", self.html)
+        self.assertIn("recognizes Home, Daily Reward, or Welcome Back startup overlays", self.html)
+        self.assertIn("never clicks them", self.html)
         self.assertIn("$('controlGameLaunch').onclick = () => sendControl('launch-game')", self.javascript)
         self.assertIn("['start', 'check-engine', 'launch-game'].includes(CONTROL_PENDING?.action)", self.javascript)
         self.assertIn("(!connected && !managedInitCanBeStopped)", self.javascript)

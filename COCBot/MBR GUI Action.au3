@@ -58,7 +58,7 @@ Func _BotOpenHomeEnsureExactBlueStacks(ByRef $sReason)
 		; A BlueStacks window alone does not prove that Clash is running. Avoid relaunching a game that
 		; is already at Home or a reviewed startup overlay; otherwise issue the one bounded activity start.
 		If OpenHomeCollectorsProveHome() Or OpenHomeDailyRewardOverlayReady() Or _
-				OpenHomeDailyRewardClaimedOverlayReady() Then Return True
+				OpenHomeDailyRewardClaimedOverlayReady() Or OpenHomeWelcomeBackOverlayReady() Then Return True
 	ElseIf $sReason <> "The exact BlueStacks 5 instance is not already running" Then
 		Return False
 	EndIf

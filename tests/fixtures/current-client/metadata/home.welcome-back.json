@@ -1,0 +1,67 @@
+{
+  "schema_version": 2,
+  "fixture_id": "home.welcome-back",
+  "captured_at": "2026-08-21T05:50:00Z",
+  "game_version": "18.400.22",
+  "source_type": "authorized-test-account",
+  "width": 860,
+  "height": 732,
+  "sha256": "59436b1c57181a83cf3717957a48265fcd66e2340925c835209135480c9b0ff8",
+  "raw_sha256": "52d30ab2a68bf4f09b7d61491abcfc6a505e79334341f3261ba3771bbce575ca",
+  "redacted_sha256": "59436b1c57181a83cf3717957a48265fcd66e2340925c835209135480c9b0ff8",
+  "redacted": true,
+  "redaction_masks": [
+    {
+      "x": 56,
+      "y": 0,
+      "width": 170,
+      "height": 50,
+      "fill_hex": "#000000FF"
+    },
+    {
+      "x": 654,
+      "y": 0,
+      "width": 180,
+      "height": 155,
+      "fill_hex": "#000000FF"
+    },
+    {
+      "x": 294,
+      "y": 310,
+      "width": 272,
+      "height": 164,
+      "fill_hex": "#000000FF"
+    }
+  ],
+  "redaction_pixel_changes": 80698,
+  "frame_content": {
+    "total_pixels": 629520,
+    "non_black_pixels": 539103,
+    "distinct_visible_colors": 2
+  },
+  "privacy_review_method": "decoded-pixel-diff-v1",
+  "redaction_notes": "Player name, resource totals, and the complete opponent card are replaced with opaque black rectangles; all twelve production recognition anchors and the operator-only Okay control remain unchanged.",
+  "assertions": [
+    "The canonical 860x732 frame shows the returning-player overlay with its red banner, neutral content panel, and one large green operator-only Okay control intact.",
+    "The production predicate classifies this as an operator-blocked startup overlay without OCR, text matching, or any input request.",
+    "Player identity, resource totals, opponent badge, opponent name, and elapsed attack time are hidden by opaque masks outside the recognition anchors.",
+    "No gem purchase, gem conversion, upgrade, donation, battle-start, or account-switch confirmation is visible."
+  ],
+  "replay_contract": {
+    "schema_version": 1,
+    "adapter": "production.open-home-welcome-back-v1",
+    "expected_state": "home.welcome-back.operator-blocked",
+    "safe_regions": [
+      {
+        "id": "operator-ok",
+        "x": 386,
+        "y": 516,
+        "width": 109,
+        "height": 51
+      }
+    ]
+  },
+  "reviewed_by": "supervised runtime evidence audit",
+  "reviewed_at": "2026-08-21T05:52:00Z",
+  "notes": "Positive returning-player overlay captured from the authorized MyVillage BlueStacks5 Pie64 account after bot-driven game launch and before any input."
+}

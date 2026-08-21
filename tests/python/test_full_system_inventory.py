@@ -13,7 +13,7 @@ class FullSystemInventoryTests(unittest.TestCase):
             {
                 "capabilities": 61,
                 "planner_settings": 48,
-                "fixtures": 55,
+                "fixtures": 56,
                 "compile_targets": 6,
                 "control_actions": 6,
                 "infrastructure_routes": 8,
