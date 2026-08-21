@@ -502,14 +502,14 @@ def main() -> int:
     def option_map(setting_id: str) -> dict[str, dict]:
         return {item.get("value"): item for item in settings_by_id.get(setting_id, {}).get("options", [])}
 
-    reviewed_checkpoint = "2026-08-14 bea12973 localruntime checkpoint"
+    current_package = "current reviewed local package"
     surface_options = option_map("run.surface")
     regular_option = surface_options.get("regular", {})
     if regular_option.get("availability") != "gated" or regular_option.get("runtime_verified") is not False:
         errors.append("Regular Battles must remain diagnostic-only until the current binary and client are reviewed")
     regular_copy = " ".join(str(regular_option.get(field, "")).lower() for field in ("description", "disabled_reason"))
-    if not all(term in regular_copy for term in (reviewed_checkpoint, "engine initialization", "post-checkpoint", "unbuilt", "managed start", "gameplay", "live human review")):
-        errors.append("Regular Battles must distinguish the reviewed engine checkpoint from the unbuilt source and missing gameplay proof")
+    if not all(term in regular_copy for term in (current_package, "exact-current no-input managed-engine", "bot-owned bluestacks", "managed start", "battle gameplay", "live human review")):
+        errors.append("Regular Battles must distinguish current engine/self-launch proof from missing Start, battle, fixture, and human-review proof")
     for surface_id, surface_option in surface_options.items():
         if surface_id != "regular" and surface_option.get("availability") not in {"planned", "unsupported"}:
             errors.append(f"{surface_id}: a surface with no native adapter must not remain selectable")
@@ -522,8 +522,8 @@ def main() -> int:
     if standard_option.get("availability") != "unsupported" or standard_option.get("runtime_verified") is not False:
         errors.append("legacy.standard must remain unavailable after the exact-current ImgLoc rejection")
     standard_copy = " ".join(str(standard_option.get(field, "")).lower() for field in ("description", "disabled_reason", "warning"))
-    if not all(term in standard_copy for term in ("older-binary", reviewed_checkpoint, "engine initialization", "post-checkpoint", "unbuilt", "managed start", "gameplay")):
-        errors.append("legacy.standard must distinguish older gameplay, the reviewed engine checkpoint, and the unbuilt source")
+    if not all(term in standard_copy for term in ("older-binary", current_package, "exact-current no-input managed-engine", "bot-owned bluestacks", "managed start", "battle gameplay")):
+        errors.append("legacy.standard must distinguish older gameplay from current engine/self-launch proof and missing battle proof")
     smart_option = strategy_options.get("smart.local", {})
     if smart_option.get("availability") != "unsupported" or smart_option.get("runtime_verified") is not False:
         errors.append("smart.local must remain unavailable after the exact-current ImgLoc rejection")
@@ -531,8 +531,8 @@ def main() -> int:
         str(smart_option.get(field, "")).lower()
         for field in ("description", "disabled_reason", "warning")
     )
-    if not all(term in smart_copy for term in ("older-binary bounded supervised th17 run", "strategy quality", reviewed_checkpoint, "engine initialization", "post-checkpoint", "unbuilt", "managed start", "gameplay")):
-        errors.append("smart.local must keep historical mechanics and checkpoint evidence narrower than the unbuilt source or quality proof")
+    if not all(term in smart_copy for term in ("older-binary bounded supervised th17 run", "strategy quality", current_package, "exact-current no-input managed-engine", "bot-owned bluestacks", "managed start", "current-client gameplay")):
+        errors.append("smart.local must keep historical mechanics narrower than current engine/self-launch proof and missing battle or quality proof")
     for strategy_id in ("legacy.csv", "legacy.standard", "smart.local"):
         blocker_copy = str(strategy_options.get(strategy_id, {}).get("disabled_reason", "")).lower()
         if not all(term in blocker_copy for term in ("imgloc", "cannot bypass", "licensing boundary")):
@@ -571,8 +571,8 @@ def main() -> int:
         str(bluestacks_option.get(field, "")).lower()
         for field in ("description", "disabled_reason", "warning")
     )
-    if not all(term in bluestacks_copy for term in ("older binary", reviewed_checkpoint, "connected-but-idle", "engine initialization", "not launched", "post-checkpoint", "unbuilt", "managed start", "gameplay", "live human review")):
-        errors.append("BlueStacks 5 must distinguish older smoke, the reviewed detached engine checkpoint, and the unbuilt source")
+    if not all(term in bluestacks_copy for term in ("older binary", current_package, "repeated no-input managed-engine", "exact pie64", "adb", "returning-player interruption", "passive home", "managed start", "gameplay")):
+        errors.append("BlueStacks 5 must distinguish exact current self-launch proof from missing managed Start and gameplay automation proof")
 
     presets = settings.get("presets")
     if not isinstance(presets, dict):
