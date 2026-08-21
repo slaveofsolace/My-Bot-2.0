@@ -469,10 +469,43 @@ Func _BotCheckManagedEngine()
 	Return _BotEngineCheckFinish(True, "Managed engine initialized in the real backend; no emulator or game action was attempted")
 EndFunc   ;==>_BotCheckManagedEngine
 
+Func _BotGameLaunchFinish($bPassed, $sMessage)
+	If $sMessage = "" Then $sMessage = $bPassed ? "BlueStacks and Clash of Clans launch passed" : "BlueStacks and Clash of Clans launch failed"
+	; As with check-engine, native terminalization is the linearization point. A Stop accepted before
+	; this call wins; a later Stop sees an idle backend and is a truthful no-op.
+	Local $sOutcome = RunControlReportGameLaunchOutcome($bPassed, $sMessage)
+	Switch $sOutcome
+		Case "passed"
+			RunEventLogGameLaunchPassed($sMessage)
+		Case "cancelled"
+			RunEventLogGameLaunchCancelled($sMessage)
+		Case Else
+			RunEventLogGameLaunchFailed($sMessage)
+	EndSwitch
+	Return $sOutcome = "passed"
+EndFunc   ;==>_BotGameLaunchFinish
+
+; Start only the exact BlueStacks 5 instance and CoC activity, passively prove Home, then return
+; idle. This diagnostic intentionally runs before plan preparation and managed-engine initialization.
+Func _BotLaunchGameOnly()
+	Local $sReason = ""
+	RunEventLogGameLaunchStarted()
+	If RunControlStopRequested() Then Return _BotGameLaunchFinish(False, "BlueStacks and Clash of Clans launch cancelled before initialization")
+	$g_bRunState = True
+	$g_bTogglePauseAllowed = False
+	If Not LaunchBlueStacks5CoCOnly($sReason) Then
+		If $sReason = "" Then $sReason = "BlueStacks and Clash of Clans launch failed"
+		Return _BotGameLaunchFinish(False, $sReason)
+	EndIf
+	If RunControlStopRequested() Then Return _BotGameLaunchFinish(False, "BlueStacks and Clash of Clans launch cancelled after passive Home proof")
+	Return _BotGameLaunchFinish(True, $sReason)
+EndFunc   ;==>_BotLaunchGameOnly
+
 Func BotStart($bAutostartDelay = 0)
 	FuncEnter(BotStart)
 	RunControlBeginStart()
 	If RunControlEngineCheckRequested() Then Return FuncReturn(_BotCheckManagedEngine())
+	If RunControlGameLaunchRequested() Then Return FuncReturn(_BotLaunchGameOnly())
 
 	Local $sStartError = ""
 	If Not RunExecutionPrepareStart($sStartError) Then

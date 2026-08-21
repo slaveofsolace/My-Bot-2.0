@@ -1414,7 +1414,7 @@ function renderControl() {
   const savedProblems = META && !NATIVE_PROFILE_MODE ? clientProblems(SAVED) : [];
   const hasUnsavedPlan = !NATIVE_PROFILE_MODE
     && (!META || allSettings().some(isUnsaved) || !PLAN_WRITTEN || savedProblems.length > 0);
-  const startCanBeStopped = ['start', 'check-engine'].includes(CONTROL_PENDING?.action) && !!CONTROL_PENDING.request_id;
+  const startCanBeStopped = ['start', 'check-engine', 'launch-game'].includes(CONTROL_PENDING?.action) && !!CONTROL_PENDING.request_id;
   const supervisedInitActive = CONTROL.engine_init_cancellable === true;
   const managedInitCanBeStopped = startCanBeStopped || supervisedInitActive;
   const engineAvailable = CONTROL.engine_available !== false;
@@ -1431,8 +1431,10 @@ function renderControl() {
   $('controlNativeMode').disabled = !BOOT_READY || busy || !connected || state !== 'idle' || NATIVE_PROFILE_MODE;
   $('controlEngineCheck').disabled = !BOOT_READY || busy || !connected || !engineAvailable || state !== 'idle';
   $('controlEngineCheck').title = 'Initialize the managed engine without opening or controlling the emulator or game';
+  $('controlGameLaunch').disabled = !BOOT_READY || busy || !connected || state !== 'idle';
+  $('controlGameLaunch').title = 'Start the exact BlueStacks 5 instance and Clash of Clans, passively prove Home, then return idle';
   $('controlPause').disabled = !BOOT_READY || busy || !connected || !['running', 'paused'].includes(state);
-  $('controlStop').disabled = !BOOT_READY || (!connected && !supervisedInitActive) || (busy && !managedInitCanBeStopped)
+  $('controlStop').disabled = !BOOT_READY || (!connected && !managedInitCanBeStopped) || (busy && !managedInitCanBeStopped)
     || (!managedInitCanBeStopped && !['starting', 'running', 'paused'].includes(state));
   $('controlPause').textContent = state === 'paused' ? 'Resume' : 'Pause';
   if (planLocked) {
@@ -1574,7 +1576,7 @@ function refreshInstanceControl() {
 async function sendControl(action) {
   if (!BOOT_READY) return;
   const previousPending = CONTROL_PENDING;
-  const replacingStart = action === 'stop' && ['start', 'check-engine'].includes(previousPending?.action) && !!previousPending.request_id;
+  const replacingStart = action === 'stop' && ['start', 'check-engine', 'launch-game'].includes(previousPending?.action) && !!previousPending.request_id;
   if (CONTROL_PENDING && !replacingStart) return;
   if (action === 'start' && !NATIVE_PROFILE_MODE
       && (allSettings().some(isUnsaved) || !PLAN_WRITTEN || clientProblems(SAVED).length)) {
@@ -1643,6 +1645,7 @@ async function activateNativeProfileMode() {
 
 $('controlStart').onclick = () => sendControl('start');
 $('controlEngineCheck').onclick = () => sendControl('check-engine');
+$('controlGameLaunch').onclick = () => sendControl('launch-game');
 $('controlPause').onclick = () => sendControl(CONTROL.state === 'paused' ? 'resume' : 'pause');
 $('controlStop').onclick = () => sendControl('stop');
 $('controlNativeMode').onclick = activateNativeProfileMode;

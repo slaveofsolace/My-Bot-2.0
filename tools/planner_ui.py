@@ -93,7 +93,7 @@ CONTROL_STATUS_READ_ATTEMPTS = 5
 CONTROL_BUSY_STATES = {"starting", "stopping", "closing"}
 ENGINE_INIT_CANCEL_CONTEXT_WAIT_SECONDS = 3.0
 ENGINE_INIT_CANCEL_CONTEXT_POLL_SECONDS = 0.025
-CONTROL_ACTIONS = {"start", "stop", "pause", "resume", "check-engine"}
+CONTROL_ACTIONS = {"start", "stop", "pause", "resume", "check-engine", "launch-game"}
 CONTROL_LOCK = threading.Lock()
 LOCAL_HOSTS = {"127.0.0.1", "localhost"}
 DIAGNOSTIC_ARTIFACTS = {
@@ -776,7 +776,7 @@ def queue_control_command(action: str, expected_start_request_id: str = "") -> t
         action == "stop"
         and init_context is None
         and not expected_init_request_id
-        and status.get("last_command") in {"start", "check-engine"}
+        and status.get("last_command") in {"start", "check-engine", "launch-game"}
         and status.get("last_outcome") == "accepted"
         and isinstance(status.get("last_command_id"), str)
         and re.fullmatch(r"[A-Za-z0-9._-]{1,80}", status["last_command_id"])

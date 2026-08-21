@@ -184,6 +184,105 @@ Func OpenBlueStacks5($bRestart = False)
 	Return _OpenBlueStacks5($bRestart)
 EndFunc   ;==>OpenBlueStacks5
 
+; Launch the exact configured BlueStacks 5 instance and the CoC activity for a bounded diagnostic.
+; This route never enters the legacy run loop, changes accounts, pushes shared preferences, presses
+; Home, clears obstacles, zooms, trains, donates, searches, attacks, upgrades, or spends. Home proof
+; is passive ADB capture only; failures do not close/reboot the emulator or call the legacy Stop path.
+Func LaunchBlueStacks5CoCOnly(ByRef $sReason)
+	$sReason = ""
+	If $g_sAndroidEmulator <> "BlueStacks5" Then
+		$sReason = "Launch-only validation currently requires BlueStacks 5"
+		Return False
+	EndIf
+	If Not StringRegExp($g_sAndroidInstance, "^[A-Za-z0-9._-]{1,64}$") Then
+		$sReason = "The configured BlueStacks 5 instance is missing or unsafe"
+		Return False
+	EndIf
+	If Not $g_bRunState Or RunControlStopRequested() Then
+		$sReason = "BlueStacks and Clash of Clans launch cancelled before initialization"
+		Return False
+	EndIf
+	If Not InitAndroid() Or $g_sAndroidEmulator <> "BlueStacks5" Then
+		$sReason = "The exact BlueStacks 5 adapter could not be initialized"
+		Return False
+	EndIf
+
+	Local $bStartedEmulator = False
+	Local $iLaunchPid = 0
+	Local $bProcessKilled = False
+	Local $hLaunchTimer = __TimerInit()
+	LaunchConsole($g_sAndroidAdbPath, AddSpace($g_sAndroidAdbGlobalOptions) & "start-server", $bProcessKilled)
+	If RunControlStopRequested() Or Not $g_bRunState Then
+		$sReason = "BlueStacks and Clash of Clans launch cancelled before the emulator start"
+		Return False
+	EndIf
+	If WinGetAndroidHandle() = 0 Then
+		$iLaunchPid = LaunchAndroid($g_sAndroidProgramPath, GetAndroidProgramParameter(), $g_sAndroidPath, 0, False)
+		$bStartedEmulator = $iLaunchPid > 0
+		If $iLaunchPid = 0 And WinGetAndroidHandle() = 0 Then
+			$sReason = "The exact BlueStacks 5 instance did not accept the launch request"
+			Return False
+		EndIf
+	EndIf
+
+	While WinGetAndroidHandle() = 0 Or $g_hAndroidControl = 0
+		If RunControlStopRequested() Or Not $g_bRunState Then
+			$sReason = "BlueStacks and Clash of Clans launch cancelled while waiting for the exact instance"
+			Return False
+		EndIf
+		If __TimerDiff($hLaunchTimer) > $g_iAndroidLaunchWaitSec * 1000 Then
+			$sReason = "The exact BlueStacks 5 instance did not become ready before the bounded deadline"
+			Return False
+		EndIf
+		If _Sleep(500) Then
+			$sReason = "BlueStacks and Clash of Clans launch cancelled while waiting for the exact instance"
+			Return False
+		EndIf
+	WEnd
+
+	If Not ConnectAndroidAdb(False, 3000) Then
+		$sReason = "ADB did not bind to the exact BlueStacks 5 instance"
+		Return False
+	EndIf
+	If WaitForAndroidBootCompleted($g_iAndroidLaunchWaitSec, $hLaunchTimer) Then
+		$sReason = RunControlStopRequested() ? _
+				"BlueStacks and Clash of Clans launch cancelled during Android boot" : _
+				"The exact BlueStacks 5 instance did not finish booting before the bounded deadline"
+		Return False
+	EndIf
+	If RunControlStopRequested() Or Not $g_bRunState Then
+		$sReason = "BlueStacks and Clash of Clans launch cancelled before the game activity"
+		Return False
+	EndIf
+
+	; Deliberately bypass the legacy game restart helper, which can push account shared preferences,
+	; close/reboot the emulator, clear queued clicks, and retry. One exact am-start command is the only
+	; allowed game-launch input in this diagnostic.
+	Local $sLaunchOutput = AndroidAdbSendShellCommand("am start -n " & $g_sAndroidGamePackage & "/" & $g_sAndroidGameClass, 15000)
+	If @error Or StringInStr($sLaunchOutput, "Error:") Or StringInStr($sLaunchOutput, "Exception") Then
+		$sReason = "Clash of Clans did not accept the one bounded Android activity launch"
+		Return False
+	EndIf
+
+	Local $hGameTimer = __TimerInit()
+	While __TimerDiff($hGameTimer) <= 90000
+		If RunControlStopRequested() Or Not $g_bRunState Then
+			$sReason = "BlueStacks and Clash of Clans launch cancelled while waiting for passive Home proof"
+			Return False
+		EndIf
+		If GetAndroidProcessPID(Default, False) <> 0 And OpenHomeCollectorsProveHome() Then
+			$sReason = "BlueStacks and Clash of Clans launched; Home Village passively proven; emulator_started=" & ($bStartedEmulator ? "true" : "false")
+			Return True
+		EndIf
+		If _Sleep(1000) Then
+			$sReason = "BlueStacks and Clash of Clans launch cancelled while waiting for passive Home proof"
+			Return False
+		EndIf
+	WEnd
+	$sReason = "Clash of Clans launched but Home Village was not passively proven before the bounded deadline"
+	Return False
+EndFunc   ;==>LaunchBlueStacks5CoCOnly
+
 Func _OpenBlueStacks5($bRestart = False)
 
 	Local $hTimer, $iCount = 0, $cmdPar

@@ -440,6 +440,23 @@ Func RunEventLogEngineCheckFailed($sReason)
 	Return RunEventLogWrite("engine.check.failed", "error", "Managed engine check failed: " & $sReason, "", $RUN_VERIFICATION_DIAGNOSTIC)
 EndFunc   ;==>RunEventLogEngineCheckFailed
 
+Func RunEventLogGameLaunchStarted()
+	Return RunEventLogWrite("emulator.launch.started", "info", _
+			"Exact BlueStacks 5 and Clash of Clans launch-only diagnostic started", "", $RUN_VERIFICATION_DIAGNOSTIC)
+EndFunc   ;==>RunEventLogGameLaunchStarted
+
+Func RunEventLogGameLaunchPassed($sDetail)
+	Return RunEventLogWrite("emulator.launch.passed", "info", $sDetail, "", $RUN_VERIFICATION_DIAGNOSTIC)
+EndFunc   ;==>RunEventLogGameLaunchPassed
+
+Func RunEventLogGameLaunchCancelled($sReason)
+	Return RunEventLogWrite("emulator.launch.cancelled", "warning", $sReason, "", $RUN_VERIFICATION_DIAGNOSTIC)
+EndFunc   ;==>RunEventLogGameLaunchCancelled
+
+Func RunEventLogGameLaunchFailed($sReason)
+	Return RunEventLogWrite("emulator.launch.failed", "error", $sReason, "", $RUN_VERIFICATION_DIAGNOSTIC)
+EndFunc   ;==>RunEventLogGameLaunchFailed
+
 Func RunEventLogEngineUnavailable($sReason)
 	Return RunEventLogWrite("error", "error", "Managed engine unavailable: " & $sReason, "", $RUN_VERIFICATION_DIAGNOSTIC)
 EndFunc   ;==>RunEventLogEngineUnavailable

@@ -30,8 +30,8 @@
     "dynamic_dispatch": ["DynamicCall"]
   },
   "owner_fingerprint": {
-    "count": 460,
-    "sha256": "e783a21f2f958a9e2f83e99807c296a4cf08beb180fd08c4a73ce1d118471d2d"
+    "count": 461,
+    "sha256": "2c869d976e29f05115a6fac21dcffc58906842eb34f4d5b98880fa010c41b8d1"
   },
   "mappings": [
     {
@@ -539,8 +539,8 @@
       "id": "infra.bot-start",
       "policy": "infrastructure",
       "path_globs": ["COCBot/GUI/MBR GUI Control Bottom.au3", "COCBot/MBR GUI Action.au3"],
-      "capability_ids": ["orchestration.engine-initialization", "orchestration.run-plan"],
-      "reason": "BotStart owns the supervised managed-engine call and hands off only after plan validation."
+      "capability_ids": ["orchestration.engine-initialization", "orchestration.run-plan", "emulator.bluestacks5"],
+      "reason": "BotStart owns the supervised managed-engine call, the bounded BlueStacks/CoC launch-only diagnostic, and plan-validated execution handoff."
     }
   ]
 }

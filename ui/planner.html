@@ -401,8 +401,14 @@
           <li id="healthEngine" data-state="waiting"><span>Managed engine</span><strong>Waiting</strong></li>
           <li id="healthEmulator" data-state="waiting"><span>Emulator and game</span><strong>Waiting</strong></li>
         </ol>
-        <button id="controlEngineCheck" type="button" disabled>Check managed engine</button>
-        <p class="field-help">Initializes the real managed engine and returns idle before emulator, ADB, or game work.</p>
+        <div class="diagnostic-actions" aria-label="Bounded startup diagnostics">
+          <button id="controlEngineCheck" type="button" disabled>Check managed engine</button>
+          <button id="controlGameLaunch" class="launch-diagnostic" type="button" disabled>
+            <span>Launch BlueStacks + CoC</span>
+            <small>Return idle after passive Home proof</small>
+          </button>
+        </div>
+        <p class="field-help">Each diagnostic is closed-world: engine-only returns before emulator, ADB, or game work; launch-only starts the exact Pie64 game activity without entering the bot loop.</p>
         <div class="recovery-note">
           <strong>Recovery stays exact.</strong>
           <span>Only receipt-bound launcher, controller, backend, and planner processes may be closed.</span>

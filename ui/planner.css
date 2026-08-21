@@ -1091,6 +1091,33 @@ input:disabled { background: var(--surface-muted); color: var(--ink-muted); curs
 .health-list li[data-state="ready"] strong { color: var(--success); }
 .health-list li[data-state="warning"] strong { color: var(--warning); }
 .health-list li[data-state="error"] strong { color: var(--danger); }
+.diagnostic-actions {
+  display: grid;
+  grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr);
+  gap: 10px;
+  margin-top: 16px;
+}
+.diagnostic-actions button { min-width: 0; min-height: 54px; }
+.launch-diagnostic {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  overflow: hidden;
+  padding-left: 18px;
+  text-align: left;
+  border-color: color-mix(in srgb, var(--success) 48%, var(--line));
+  background: color-mix(in srgb, var(--success) 8%, var(--surface));
+}
+.launch-diagnostic::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--success);
+}
+.launch-diagnostic span { font-weight: 720; }
+.launch-diagnostic small { color: var(--ink-muted); font-size: 10px; font-weight: 560; }
+.launch-diagnostic:not(:disabled):hover { border-color: var(--success); transform: translateY(-1px); }
 .field-help { margin: 8px 0 0; color: var(--ink-muted); font-size: 12px; }
 .recovery-note {
   display: grid;
@@ -1219,6 +1246,7 @@ input:disabled { background: var(--surface-muted); color: var(--ink-muted); curs
   .engine-facts { gap: 10px; }
   .engine-facts dd { white-space: normal; overflow-wrap: anywhere; font-size: 12px; }
   .engine-actions button { min-width: 0; padding-inline: 7px; }
+  .diagnostic-actions { grid-template-columns: 1fr; }
   .view-nav button { padding: 8px 7px; font-size: 14px; }
   .view-panel { padding: 26px 16px; }
   .view-heading { display: block; margin-bottom: 24px; }
