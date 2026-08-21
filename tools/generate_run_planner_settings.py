@@ -113,11 +113,10 @@ def build_surface_options(surfaces: dict) -> list[dict]:
         regular = sid == "regular"
         if regular:
             prose += (
-                " A bounded source adapter and an older-binary supervised gameplay receipt exist. The 2026-08-14 "
-                "bea12973 LocalRuntime checkpoint passed package installation, Windows shortcut launch, idle host "
-                "integrity, and exact-current no-input managed-engine initialization. This source revision is "
-                "post-checkpoint and unbuilt; managed Start and gameplay were not exercised, and current-client "
-                "fixtures and live human review are still absent."
+                " A bounded source adapter and an older-binary supervised gameplay receipt exist. The current "
+                "reviewed local package passed installation, repeated exact-current no-input managed-engine checks, "
+                "and bot-owned BlueStacks and game launch with passive Home proof. Managed Start and battle gameplay "
+                "were not exercised, and current-client battle fixtures and live human review are still absent."
             )
             prerequisites = prerequisites + ["Allow unverified with a supervised diagnostic acknowledgement"]
         options.append(option(
@@ -127,9 +126,9 @@ def build_surface_options(surfaces: dict) -> list[dict]:
             description=prose,
             availability="gated" if regular else "planned",
             disabled_reason=(
-                "The 2026-08-14 bea12973 LocalRuntime checkpoint passed no-input managed-engine initialization, "
-                "but not managed Start or gameplay. This post-checkpoint source revision is unbuilt; current-client "
-                "fixtures and live human review are still absent."
+                "The current reviewed local package passed repeated no-input managed-engine checks and bot-owned "
+                "BlueStacks and game launch, but not managed Start or battle gameplay. Current-client battle fixtures "
+                "and live human review are still absent."
             ) if regular else (
                 "The native execution contract has no adapter for this battle surface; selecting it cannot start a run."
             ),
@@ -315,35 +314,35 @@ def main() -> int:
                                    "An older-binary supervised run confirmed Standard could issue the trained-army and selected-"
                                    "Hero deployment, observe an empty troop bar, and return home. That single "
                                    "completion confirms the route and actuator, not strategy quality; it did not "
-                                   "exercise planned ability or spell actions. The 2026-08-14 bea12973 LocalRuntime "
-                                   "checkpoint passed install, idle launch, and exact-current no-input managed-engine "
-                                   "initialization. This source revision is post-checkpoint and unbuilt; neither the "
-                                   "checkpoint nor current source proves managed Start or current-client gameplay.",
+                                   "exercise planned ability or spell actions. The current reviewed local package "
+                                   "passed install, repeated exact-current no-input managed-engine checks, and bot-owned "
+                                   "BlueStacks and game launch with passive Home proof. Neither those orchestration checks "
+                                   "nor current source proves managed Start or current-client battle gameplay.",
                                    "unsupported", [], ["Licensed ImgLoc permission or a clean-room recognizer"],
                                    disabled_reason="Battle execution is disabled: exact-current supervised readiness reached inherited ImgLoc, which rejected this fork before matchmaking. Diagnostic acknowledgement cannot bypass the licensing boundary.",
-                                   warning="The historical gameplay receipt proves an older build only; the bea12973 checkpoint proves the current managed engine can initialize without emulator or game input."),
+                                    warning="The historical gameplay receipt proves an older build only; the current package proves engine initialization and self-launch, not battle execution."),
                             option("smart.local", "Smart Attack (research-guided)",
                                    "Concentrates the current army using a Town Hall-aware local policy.",
                                    "The deterministic Town Hall policy is versioned in config/game/smart-attack-"
                                    "strategies.json and executed locally. One older-binary bounded supervised TH17 run observed "
                                    "three zoom gestures, 240 red-line points, deterministic BL-side selection, "
                                    "23-to-zero troop deployment, four selected Hero phase commands, Rage 3-to-zero, "
-                                   "one Freeze decrement, and an automatic one-battle stop. The 2026-08-14 bea12973 "
-                                   "LocalRuntime checkpoint passed install, idle launch, and exact-current no-input "
-                                   "managed-engine initialization. This source revision is post-checkpoint and unbuilt; "
-                                   "neither the checkpoint nor current source verifies managed Start, current-"
+                                   "one Freeze decrement, and an automatic one-battle stop. The current reviewed local "
+                                   "package passed install, repeated exact-current no-input managed-engine checks, and "
+                                   "bot-owned BlueStacks and game launch with passive Home proof. Those orchestration "
+                                   "checks do not verify managed Start, current-"
                                    "client gameplay, fixtures, live human review, strategy quality, or every Town Hall and army.",
                                    "unsupported", [], ["Licensed ImgLoc permission or a clean-room recognizer"],
                                    disabled_reason="Battle execution is disabled: exact-current supervised readiness reached inherited ImgLoc, which rejected this fork before matchmaking. Diagnostic acknowledgement cannot bypass the licensing boundary.",
-                                    warning="Historical TH17 mechanics evidence exists; bea12973 adds exact-current no-input managed-engine initialization, not gameplay proof."),
+                                    warning="Historical TH17 mechanics evidence exists; current exact-package engine and self-launch proof is not gameplay proof."),
                              option("home.collectors", "Home maintenance",
                                     "Run selected one-shot Home Village collection tasks without matchmaking.",
                                     "Runs a bounded Home pass for collectors, the Loot Cart, a Treasury not-full check, and, when explicitly "
                                     "enabled, the startup Daily Reward. It re-proves Home and stops. It cannot search, attack, "
                                     "train, donate, upgrade, enter the Laboratory, run Clan Games, or rotate accounts.",
                                     "gated", ["village.collectors", "village.loot-cart", "village.treasury", "events.daily-reward"], ["At least one Home task enabled", "A supervised diagnostic operator"],
-                                    disabled_reason="Collectors have historical packaged-binary proof, but this post-checkpoint source is unbuilt and has no exact-current collector receipt. Loot Cart, Treasury transfer, and startup Daily Reward still need positive completion receipts.",
-                                    warning="Historical collector evidence exists; exact-current collector proof is still required. Every selected Home task keeps its own fail-closed evidence gate. Treasury currently proves only not-full/unavailable."),
+                                    disabled_reason="The current reviewed package proves engine readiness and bot-owned game launch, but it has no exact-current collection completion receipt. Verified recognition fixtures exist for collectors, Loot Cart, and Daily Reward; Treasury still lacks its full/actionable fixture.",
+                                    warning="Historical collector evidence exists; every real collection task still requires its own exact-current completion receipt and fail-closed no-gem gate. Treasury currently permits only not-full/unavailable proof."),
                             option("home.clan-request", "Home maintenance - Clan request only",
                                    "Request Clan Castle reinforcements once, without donating or matchmaking.",
                                    "Runs one bounded request-only pass on the exact active profile and emulator instance. "
@@ -463,14 +462,14 @@ def main() -> int:
                                    "The inherited BlueStacks 5 backend.",
                                    "An older binary was exercised on BlueStacks 5.22.252.1008/Pie64 through exact window binding, ADB "
                                    "readiness, current-client game readiness, and bounded Start/Stop smoke tests. "
-                                   "The 2026-08-14 bea12973 LocalRuntime checkpoint was installed, launched through "
-                                   "its Windows shortcut, and kept connected-but-idle. After a fresh reboot its exact "
-                                   "backend passed the no-input managed-engine check while BlueStacks remained not "
-                                   "launched. No managed Start, emulator attachment, or gameplay was exercised. This "
-                                   "source revision is post-checkpoint and unbuilt.",
+                                   "The current reviewed local package was installed and completed repeated no-input "
+                                   "managed-engine checks. Its launch-only control then started the exact Pie64 instance, "
+                                   "attached ADB and the emulator window, launched the game, recognized a returning-player "
+                                   "interruption, and passively proved Home after operator dismissal. Managed Start and "
+                                   "gameplay automation were not exercised.",
                                    "gated", ["emulator.bluestacks5"], ["BlueStacks 5 installed", "Exact instance selected", "A supervised diagnostic operator"],
-                                   disabled_reason="The 2026-08-14 bea12973 LocalRuntime checkpoint passed connected idle launch and no-input managed-engine initialization, but did not attach BlueStacks or run gameplay. This post-checkpoint source revision is unbuilt; capture/input fixtures and live human review remain absent.",
-                                   warning="Treat BlueStacks gameplay as unverified; bea12973 proves engine initialization only, with BlueStacks deliberately not launched."),
+                                    disabled_reason="The current reviewed package proves exact Pie64 self-launch, ADB/window attachment, returning-player interruption recognition, and passive Home proof. Managed Start, capture/input gameplay fixtures, and live gameplay review remain unverified.",
+                                    warning="BlueStacks self-launch is proven for the exact local package; gameplay automation remains gated."),
                             option("memu", "MEmu",
                                    "Inherited exact-instance MEmu backend.",
                                    "Discovers MEmu VM instances, reads their ADB host and port from VM information, "
@@ -1110,8 +1109,8 @@ def main() -> int:
                         "runtime_verified": False,
                         "capability_ids": ["village.collectors"],
                         "prerequisites": ["Current home-village collector recognition"],
-                        "disabled_reason": "A historical packaged-binary receipt records three accepted collector clicks, Gold/Elixir/Dark Elixir increases, Home re-proof, and zero gem change. This post-checkpoint source is unbuilt and has no exact-current collector receipt, so the real account action remains gated.",
-                        "warning": "Historical evidence only. Exact-current proof still requires Home maintenance, the exact account/emulator binding, supervised diagnostic consent, and an unchanged gem balance.",
+                        "disabled_reason": "A historical packaged-binary receipt records three accepted collector clicks, Gold/Elixir/Dark Elixir increases, Home re-proof, and zero gem change. The current package has engine and self-launch proof but no exact-current collector completion receipt, so the real account action remains gated.",
+                        "warning": "The verified collector fixture and historical receipt are not current account proof. Exact-current validation still requires the bound profile and emulator, supervised consent, a bounded collector-only route, and an unchanged gem balance.",
                     },
                     {
                         "id": "events.collect_daily_reward",
@@ -1172,8 +1171,8 @@ def main() -> int:
                         "runtime_verified": False,
                         "capability_ids": ["village.treasury"],
                         "prerequisites": ["Current Treasury recognition", "Exact cached Clan Castle", "No-gems policy"],
-                        "disabled_reason": "Treasury recognition is not wired without the restricted inherited image engine.",
-                        "warning": "Unavailable in this build. A future clean-room route must never use gems.",
+                        "disabled_reason": "The template-free Treasury adapter is wired fail-closed for not-full/unavailable only. Its full/actionable fixture and an exact-current completion receipt are still missing, so resource transfer remains unavailable.",
+                        "warning": "Unavailable for transfer in this build. The bounded check stops before Collect whenever a full/actionable Treasury is seen and never uses gems.",
                     },
                 ],
             },

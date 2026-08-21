@@ -202,7 +202,8 @@ class HomeMaintenanceRouteTest(unittest.TestCase):
         option = next(item for item in strategy["options"] if item["value"] == "home.collectors")
         self.assertEqual(option["availability"], "gated")
         self.assertFalse(option["runtime_verified"])
-        self.assertIn("collectors have historical packaged-binary proof", option["disabled_reason"].lower())
+        self.assertIn("current reviewed package proves engine readiness", option["disabled_reason"].lower())
+        self.assertIn("no exact-current collection completion receipt", option["disabled_reason"].lower())
 
         collectors = next(
             setting
@@ -212,7 +213,7 @@ class HomeMaintenanceRouteTest(unittest.TestCase):
         )
         self.assertFalse(collectors["runtime_verified"])
         self.assertIn("historical packaged-binary receipt", collectors["disabled_reason"].lower())
-        self.assertIn("no exact-current collector receipt", collectors["disabled_reason"].lower())
+        self.assertIn("no exact-current collector completion receipt", collectors["disabled_reason"].lower())
         self.assertIn("zero gem change", collectors["disabled_reason"].lower())
 
         event_schema = json.loads(source("config/run-event.schema.json"))

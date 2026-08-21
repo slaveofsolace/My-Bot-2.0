@@ -200,7 +200,7 @@ class GameplayScopeCatalogTests(unittest.TestCase):
                 self.assertFalse(setting["runtime_verified"])
                 if setting_id == "events.collect_resources":
                     self.assertIn("historical packaged-binary receipt", setting["disabled_reason"].lower())
-                    self.assertIn("no exact-current collector receipt", setting["disabled_reason"].lower())
+                    self.assertIn("no exact-current collector completion receipt", setting["disabled_reason"].lower())
                     self.assertIn("zero gem change", setting["disabled_reason"].lower())
                 self.assertEqual(setting["capability_ids"], [capability_id])
                 self.assertTrue(setting["prerequisites"])
