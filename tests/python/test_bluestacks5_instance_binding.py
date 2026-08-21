@@ -73,7 +73,15 @@ class BlueStacks5InstanceBindingTests(unittest.TestCase):
         self.assertLess(gate.index("BlueStacks5ExactInstanceWindowHung()"), gate.index("WinGetAndroidHandle()"))
         self.assertIn("is not responding; use Recovery", gate)
         self.assertNotIn("ProcessClose", gate)
-        self.assertEqual(action.count("_BotOpenHomeRequireExactBlueStacks($sAttachmentError)"), 5)
+        ensure_match = re.search(
+            r"(?ms)^Func _BotOpenHomeEnsureExactBlueStacks\([^\r\n]*\).*?^EndFunc",
+            action,
+        )
+        self.assertIsNotNone(ensure_match)
+        ensure = ensure_match.group(0)
+        self.assertIn("_BotOpenHomeRequireExactBlueStacks($sReason)", ensure)
+        self.assertIn("LaunchBlueStacks5CoCOnly($sLaunchReason)", ensure)
+        self.assertEqual(action.count("_BotOpenHomeEnsureExactBlueStacks($sAttachmentError)"), 5)
 
     def test_bound_adb_surface_never_enters_synchronous_qt_window_management(self) -> None:
         match = re.search(

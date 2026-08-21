@@ -48,9 +48,52 @@ Func _BotOpenHomeRequireExactBlueStacks(ByRef $sReason)
 	Return True
 EndFunc   ;==>_BotOpenHomeRequireExactBlueStacks
 
-; Run one collectors-only pass without loading the restricted managed image engine. The emulator must
-; already be running and exactly match the bound BlueStacks 5 instance; this path never launches,
-; reboots, resizes, zooms, authenticates, searches, trains, donates, upgrades, or spends.
+; A normal Start owns emulator and game startup. The exact-attachment gate remains fail-closed for
+; a hung or foreign window, but an absent verified BlueStacks 5 instance is launched through the
+; bounded, stop-aware adapter before the one-shot Home route continues.
+Func _BotOpenHomeEnsureExactBlueStacks(ByRef $sReason)
+	$sReason = ""
+	Local $bAlreadyAttached = _BotOpenHomeRequireExactBlueStacks($sReason)
+	If $bAlreadyAttached Then
+		; A BlueStacks window alone does not prove that Clash is running. Avoid relaunching a game that
+		; is already at Home or a reviewed startup overlay; otherwise issue the one bounded activity start.
+		If OpenHomeCollectorsProveHome() Or OpenHomeDailyRewardOverlayReady() Or _
+				OpenHomeDailyRewardClaimedOverlayReady() Then Return True
+	ElseIf $sReason <> "The exact BlueStacks 5 instance is not already running" Then
+		Return False
+	EndIf
+	If RunControlStopRequested() Then
+		$sReason = "BlueStacks and Clash of Clans launch cancelled before initialization"
+		Return False
+	EndIf
+
+	$g_bRunState = True
+	$g_bTogglePauseAllowed = False
+	Local $sLaunchReason = ""
+	RunEventLogGameLaunchStarted()
+	If Not LaunchBlueStacks5CoCOnly($sLaunchReason) Then
+		$sReason = $sLaunchReason = "" ? "BlueStacks and Clash of Clans launch failed" : $sLaunchReason
+		If RunControlStopRequested() Or Not $g_bRunState Then
+			RunEventLogGameLaunchCancelled($sReason)
+		Else
+			RunEventLogGameLaunchFailed($sReason)
+		EndIf
+		Return False
+	EndIf
+	If RunControlStopRequested() Or Not $g_bRunState Then
+		$sReason = "BlueStacks and Clash of Clans launch cancelled after passive game-ready proof"
+		RunEventLogGameLaunchCancelled($sReason)
+		Return False
+	EndIf
+	If Not _BotOpenHomeRequireExactBlueStacks($sReason) Then Return False
+	$sReason = $sLaunchReason
+	RunEventLogGameLaunchPassed($sReason)
+	Return True
+EndFunc   ;==>_BotOpenHomeEnsureExactBlueStacks
+
+; Run one collectors-only pass without loading the restricted managed image engine. Start launches
+; the exact plan-bound BlueStacks 5 instance and Clash of Clans when absent; the route never reboots,
+; resizes, zooms, authenticates, searches, trains, donates, upgrades, or spends.
 Func _BotStartOpenHomeCollectors(ByRef $sStartError)
 	If RunControlStopRequested() Then Return _BotOpenCollectorsReject("Template-free collectors cancelled before attachment", "cancelled")
 	If Not RunExecutionApplyPrepared($sStartError) Then Return _BotOpenCollectorsReject($sStartError)
@@ -58,7 +101,7 @@ Func _BotStartOpenHomeCollectors(ByRef $sStartError)
 	If Not IsObj($oIntent) Or Not HomeMaintenanceRouteAccountMatches($oIntent, $g_sProfileCurrentName) Then _
 		Return _BotOpenCollectorsReject("The active profile no longer matches the account bound at Start")
 	Local $sAttachmentError = ""
-	If Not _BotOpenHomeRequireExactBlueStacks($sAttachmentError) Then Return _BotOpenCollectorsReject($sAttachmentError)
+	If Not _BotOpenHomeEnsureExactBlueStacks($sAttachmentError) Then Return _BotOpenCollectorsReject($sAttachmentError)
 	If Not $g_bAndroidAdbScreencap Or Not AndroidControlAvailable() Or _
 			Not IsArray(GetBlueStacks5ModernAdbSurfacePosition()) Then _
 		Return _BotOpenCollectorsReject("The exact BlueStacks 5 framebuffer/control surface is not available")
@@ -120,7 +163,7 @@ Func _BotStartOpenHomeLootCart(ByRef $sStartError)
 	If Not IsObj($oIntent) Or Not HomeMaintenanceRouteAccountMatches($oIntent, $g_sProfileCurrentName) Then _
 		Return _BotOpenCollectorsReject("The active profile no longer matches the account bound at Start")
 	Local $sAttachmentError = ""
-	If Not _BotOpenHomeRequireExactBlueStacks($sAttachmentError) Then Return _BotOpenCollectorsReject($sAttachmentError)
+	If Not _BotOpenHomeEnsureExactBlueStacks($sAttachmentError) Then Return _BotOpenCollectorsReject($sAttachmentError)
 	If Not $g_bAndroidAdbScreencap Or Not AndroidControlAvailable() Or _
 			Not IsArray(GetBlueStacks5ModernAdbSurfacePosition()) Then _
 		Return _BotOpenCollectorsReject("The exact BlueStacks 5 framebuffer/control surface is not available")
@@ -192,7 +235,7 @@ Func _BotStartOpenHomeTreasury(ByRef $sStartError)
 	If Not IsObj($oIntent) Or Not HomeMaintenanceRouteAccountMatches($oIntent, $g_sProfileCurrentName) Then _
 		Return _BotOpenCollectorsReject("The active profile no longer matches the account bound at Start")
 	Local $sAttachmentError = ""
-	If Not _BotOpenHomeRequireExactBlueStacks($sAttachmentError) Then Return _BotOpenCollectorsReject($sAttachmentError)
+	If Not _BotOpenHomeEnsureExactBlueStacks($sAttachmentError) Then Return _BotOpenCollectorsReject($sAttachmentError)
 	If Not $g_bAndroidAdbScreencap Or Not AndroidControlAvailable() Or _
 			Not IsArray(GetBlueStacks5ModernAdbSurfacePosition()) Then _
 		Return _BotOpenCollectorsReject("The exact BlueStacks 5 framebuffer/control surface is not available")
@@ -265,7 +308,7 @@ Func _BotStartOpenDailyReward(ByRef $sStartError)
 	If Not IsObj($oIntent) Or Not HomeMaintenanceRouteAccountMatches($oIntent, $g_sProfileCurrentName) Then _
 		Return _BotOpenCollectorsReject("The active profile no longer matches the account bound at Start")
 	Local $sAttachmentError = ""
-	If Not _BotOpenHomeRequireExactBlueStacks($sAttachmentError) Then Return _BotOpenCollectorsReject($sAttachmentError)
+	If Not _BotOpenHomeEnsureExactBlueStacks($sAttachmentError) Then Return _BotOpenCollectorsReject($sAttachmentError)
 	If Not $g_bAndroidAdbScreencap Or Not $g_bAndroidAdbClick Or Not AndroidControlAvailable() Or _
 			Not IsArray(GetBlueStacks5ModernAdbSurfacePosition()) Then _
 		Return _BotOpenCollectorsReject("The exact BlueStacks 5 framebuffer/ADB input surface is not available")
@@ -371,7 +414,7 @@ Func _BotStartOpenClanRequest(ByRef $sStartError)
 	If Not IsObj($oIntent) Or Not ClanRequestRouteAccountMatches($oIntent, $g_sProfileCurrentName) Then _
 		Return _BotOpenCollectorsReject("The active profile no longer matches the account bound at Start")
 	Local $sAttachmentError = ""
-	If Not _BotOpenHomeRequireExactBlueStacks($sAttachmentError) Then Return _BotOpenCollectorsReject($sAttachmentError)
+	If Not _BotOpenHomeEnsureExactBlueStacks($sAttachmentError) Then Return _BotOpenCollectorsReject($sAttachmentError)
 	If Not $g_bAndroidAdbScreencap Or Not AndroidControlAvailable() Or _
 			Not IsArray(GetBlueStacks5ModernAdbSurfacePosition()) Then _
 		Return _BotOpenCollectorsReject("The exact BlueStacks 5 framebuffer/control surface is not available")
