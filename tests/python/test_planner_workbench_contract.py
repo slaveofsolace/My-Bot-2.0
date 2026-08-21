@@ -78,17 +78,20 @@ class PlannerWorkbenchContract(unittest.TestCase):
             "Hard stop on gem surfaces",
             "Profile and emulator bound",
             "Issued is not confirmed",
-            'class="route-pulse route-pulse-a"',
+            'class="route-gate-ring route-gate-ring-a"',
             "Recovery stays exact.",
             "Only receipt-bound launcher, controller, backend, and planner processes may be closed.",
         ):
             self.assertIn(token, HTML)
         self.assertIn(".engine-summary:has(.status-lamp[data-state=\"error\"])", CSS)
         self.assertIn(".safety-rail {", CSS)
-        self.assertIn(".route-pulse {", CSS)
+        self.assertIn("$('routeMap').dataset.state = state;", JS)
+        self.assertIn('.route-map:is([data-state="starting"], [data-state="running"]) .route-signal', CSS)
+        self.assertNotIn("route-radar", CSS)
+        self.assertNotIn("route-scan", CSS)
         self.assertIn(".recovery-note {", CSS)
         reduced = CSS[CSS.index("@media (prefers-reduced-motion: reduce)"):]
-        self.assertIn(".route-pulse,", reduced)
+        self.assertIn(".route-gate-ring,", reduced)
 
     def test_runtime_identities_remain_readable_and_discoverable(self):
         render = JS.split("function renderControl()", 1)[1].split("function recoverControlPending", 1)[0]

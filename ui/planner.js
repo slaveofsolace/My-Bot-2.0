@@ -1378,6 +1378,7 @@ function renderControl() {
   const connected = BOOT_READY && !!CONTROL.connected;
   const state = connected ? (CONTROL.state || 'idle') : 'offline';
   $('engineLamp').dataset.state = state;
+  $('routeMap').dataset.state = state;
   $('engineState').textContent = readableState(state);
   $('engineMessage').textContent = CONTROL.message || (connected ? 'Native engine connected.' : 'Launch My Bot 2.0 to enable run controls.');
   const profileIdentity = connected ? (CONTROL.profile || 'Default') : 'Not connected';
