@@ -405,10 +405,10 @@
           <button id="controlEngineCheck" type="button" disabled>Check managed engine</button>
           <button id="controlGameLaunch" class="launch-diagnostic" type="button" disabled>
             <span>Launch BlueStacks + CoC</span>
-            <small>Return idle after passive Home proof</small>
+            <small>Return idle after passive game-ready proof</small>
           </button>
         </div>
-        <p class="field-help">Each diagnostic is closed-world: engine-only returns before emulator, ADB, or game work; launch-only starts the exact Pie64 game activity without entering the bot loop.</p>
+        <p class="field-help">Each diagnostic is closed-world: engine-only returns before emulator, ADB, or game work; launch-only starts the exact Pie64 game activity, recognizes Home or a verified Daily Reward startup overlay, never clicks it, and never enters the bot loop.</p>
         <div class="recovery-note">
           <strong>Recovery stays exact.</strong>
           <span>Only receipt-bound launcher, controller, backend, and planner processes may be closed.</span>

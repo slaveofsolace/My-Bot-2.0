@@ -485,8 +485,9 @@ Func _BotGameLaunchFinish($bPassed, $sMessage)
 	Return $sOutcome = "passed"
 EndFunc   ;==>_BotGameLaunchFinish
 
-; Start only the exact BlueStacks 5 instance and CoC activity, passively prove Home, then return
-; idle. This diagnostic intentionally runs before plan preparation and managed-engine initialization.
+; Start only the exact BlueStacks 5 instance and CoC activity, passively prove Home or a verified
+; startup overlay, then return idle. This diagnostic intentionally runs before plan preparation and
+; managed-engine initialization and never dismisses the recognized overlay.
 Func _BotLaunchGameOnly()
 	Local $sReason = ""
 	RunEventLogGameLaunchStarted()
@@ -497,7 +498,7 @@ Func _BotLaunchGameOnly()
 		If $sReason = "" Then $sReason = "BlueStacks and Clash of Clans launch failed"
 		Return _BotGameLaunchFinish(False, $sReason)
 	EndIf
-	If RunControlStopRequested() Then Return _BotGameLaunchFinish(False, "BlueStacks and Clash of Clans launch cancelled after passive Home proof")
+	If RunControlStopRequested() Then Return _BotGameLaunchFinish(False, "BlueStacks and Clash of Clans launch cancelled after passive game-ready proof")
 	Return _BotGameLaunchFinish(True, $sReason)
 EndFunc   ;==>_BotLaunchGameOnly
 

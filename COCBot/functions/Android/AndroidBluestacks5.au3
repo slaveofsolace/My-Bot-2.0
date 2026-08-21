@@ -267,19 +267,28 @@ Func LaunchBlueStacks5CoCOnly(ByRef $sReason)
 	Local $hGameTimer = __TimerInit()
 	While __TimerDiff($hGameTimer) <= 90000
 		If RunControlStopRequested() Or Not $g_bRunState Then
-			$sReason = "BlueStacks and Clash of Clans launch cancelled while waiting for passive Home proof"
+			$sReason = "BlueStacks and Clash of Clans launch cancelled while waiting for passive game-ready proof"
 			Return False
 		EndIf
-		If GetAndroidProcessPID(Default, False) <> 0 And OpenHomeCollectorsProveHome() Then
-			$sReason = "BlueStacks and Clash of Clans launched; Home Village passively proven; emulator_started=" & ($bStartedEmulator ? "true" : "false")
-			Return True
+		If GetAndroidProcessPID(Default, False) <> 0 Then
+			; OpenHomeCollectorsProveHome() refreshes the current ADB frame before checking Home.
+			; If a known startup overlay blocks Home, recognize it from that same fresh frame but never
+			; click or dismiss it. The caller returns idle and game_ready remains false until Home is visible.
+			If OpenHomeCollectorsProveHome() Then
+				$sReason = "BlueStacks and Clash of Clans launched; Home Village passively proven; emulator_started=" & ($bStartedEmulator ? "true" : "false")
+				Return True
+			EndIf
+			If OpenHomeDailyRewardOverlayReady() Or OpenHomeDailyRewardClaimedOverlayReady() Then
+				$sReason = "BlueStacks and Clash of Clans launched; verified Daily Reward overlay passively recognized; Home is blocked until the operator handles the overlay; emulator_started=" & ($bStartedEmulator ? "true" : "false")
+				Return True
+			EndIf
 		EndIf
 		If _Sleep(1000) Then
-			$sReason = "BlueStacks and Clash of Clans launch cancelled while waiting for passive Home proof"
+			$sReason = "BlueStacks and Clash of Clans launch cancelled while waiting for passive game-ready proof"
 			Return False
 		EndIf
 	WEnd
-	$sReason = "Clash of Clans launched but Home Village was not passively proven before the bounded deadline"
+	$sReason = "Clash of Clans launched but neither Home Village nor a verified startup overlay was passively proven before the bounded deadline"
 	Return False
 EndFunc   ;==>LaunchBlueStacks5CoCOnly
 
