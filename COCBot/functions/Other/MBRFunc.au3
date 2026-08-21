@@ -69,6 +69,10 @@ Global $g_sMBRFuncEngineReceiptHistory = ""
 Global $g_sMBRFuncEngineReceiptStartRequestId = ""
 Global $g_bMBRFuncEngineInitializing = False
 
+Func MBRFuncManagedLaunchBound()
+	Return $g_bMBRFuncBackendHost And $g_bMBRFuncEngineSupervisorValid
+EndFunc   ;==>MBRFuncManagedLaunchBound
+
 Func MBRFunc($Start = True, $bInitialize = True)
 	Switch $Start
 		Case True

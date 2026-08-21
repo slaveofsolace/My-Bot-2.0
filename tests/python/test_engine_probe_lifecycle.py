@@ -48,6 +48,17 @@ class EngineProbeLifecycleTests(unittest.TestCase):
         self.assertIn("$g_bMBRFuncEngineContextHost ? EnvGet", declarations)
         self.assertIn("$g_bMBRFuncEngineContextHost And StringRegExp", declarations)
 
+    def test_managed_package_startup_skips_optional_outbound_version_check(self) -> None:
+        managed = function_body(self.parent, "MBRFuncManagedLaunchBound")
+        self.assertIn("$g_bMBRFuncBackendHost And $g_bMBRFuncEngineSupervisorValid", managed)
+        gate = self.main.index("If MBRFuncManagedLaunchBound() Then")
+        end = self.main.index("EndIf", gate)
+        block = self.main[gate:end]
+        self.assertIn("Managed local runtime skipped", block)
+        self.assertIn("Else", block)
+        self.assertEqual(1, block.count("CheckVersion()"))
+        self.assertLess(block.index("Else"), block.index("CheckVersion()"))
+
     def test_static_probe_never_launches_helper_or_calls_managed_export(self) -> None:
         probe = function_body(self.parent, "MBRFuncProbeEngine")
         for forbidden in ("Run(", "DllCall(", "MyBot.run.EngineProbe.exe", "setProcessingPoolSize("):

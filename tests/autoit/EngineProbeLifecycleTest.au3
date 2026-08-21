@@ -18,6 +18,7 @@ EndFunc   ;==>AssertTrue
 Local $sRoot = @ScriptDir & "\..\.."
 Local $sParent = FileRead($sRoot & "\COCBot\functions\Other\MBRFunc.au3")
 Local $sAction = FileRead($sRoot & "\COCBot\MBR GUI Action.au3")
+Local $sMain = FileRead($sRoot & "\MyBot.run.au3")
 
 Local $iProbeStart = StringInStr($sParent, "Func MBRFuncProbeEngine(", 1)
 Local $iProbeEnd = StringInStr($sParent, "EndFunc", 1, 1, $iProbeStart)
@@ -82,6 +83,15 @@ AssertTrue(StringInStr($sParent, "Func _MBRFuncAutomaticProcessingPoolSize()", 1
 AssertTrue(StringInStr($sParent, "GetActiveProcessorCount", 1) > 0, "automatic processing pool uses the Windows active processor count")
 AssertTrue(StringInStr($sPool, "_MBRFuncAutomaticProcessingPoolSize()", 1) > 0, "zero processing-pool setting resolves before the managed export")
 AssertTrue(StringInStr($sPool, "$i = -1", 1) = 0, "processing-pool export never receives the blocking minus-one sentinel")
+Local $iManagedBoundStart = StringInStr($sParent, "Func MBRFuncManagedLaunchBound()", 1)
+Local $iManagedBoundEnd = StringInStr($sParent, "EndFunc", 1, 1, $iManagedBoundStart)
+Local $sManagedBound = StringMid($sParent, $iManagedBoundStart, $iManagedBoundEnd - $iManagedBoundStart)
+AssertTrue(StringInStr($sManagedBound, "$g_bMBRFuncBackendHost And $g_bMBRFuncEngineSupervisorValid", 1) > 0, "managed launch binding requires the exact supervised backend")
+Local $iNetworkGate = StringInStr($sMain, "If MBRFuncManagedLaunchBound() Then", 1)
+Local $iNetworkGateEnd = StringInStr($sMain, "EndIf", 1, 1, $iNetworkGate)
+Local $sNetworkGate = StringMid($sMain, $iNetworkGate, $iNetworkGateEnd - $iNetworkGate)
+AssertTrue(StringInStr($sNetworkGate, "Managed local runtime skipped", 1) > 0, "managed package startup declares its local-only version policy")
+AssertTrue(StringInStr($sNetworkGate, "CheckVersion()", 1) > StringInStr($sNetworkGate, "Else", 1), "legacy version lookup remains reachable only outside the managed path")
 
 ; AutoIt string dispatch is Call(), not IsFunc(). This executable regression catches the exact
 ; field failure that previously made every supervised Start reject before publishing prepared.

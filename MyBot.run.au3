@@ -675,7 +675,15 @@ Func FinalInitialization(Const $sAI)
 	DestroySplashScreen()
 
 	; InitializeVariables();initialize variables used in extrawindows
-	CheckVersion() ; check latest version on mybot.run site
+	; A launcher-bound LocalRuntime must remain deterministic while its no-input engine gate is
+	; available. WinINet can retain the optional version request's connection after InetRead returns,
+	; making unrelated startup traffic overlap a later supervised check. Direct legacy launches keep
+	; the historical update check; the reviewed managed package stays local-only during startup.
+	If MBRFuncManagedLaunchBound() Then
+		SetDebugLog("Managed local runtime skipped the optional upstream version network check")
+	Else
+		CheckVersion() ; check latest version on mybot.run site
+	EndIf
 	UpdateMultiStats()
 	SetDebugLog("Maximum of " & $g_iGlobalActiveBotsAllowed & " bots running at same time configured")
 	SetDebugLog("MyBot.run launch time " & Round($g_iBotLaunchTime) & " ms.")
