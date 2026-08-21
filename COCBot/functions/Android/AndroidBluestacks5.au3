@@ -282,6 +282,10 @@ Func LaunchBlueStacks5CoCOnly(ByRef $sReason)
 				$sReason = "BlueStacks and Clash of Clans launched; verified Daily Reward overlay passively recognized; Home is blocked until the operator handles the overlay; emulator_started=" & ($bStartedEmulator ? "true" : "false")
 				Return True
 			EndIf
+			If OpenHomeWelcomeBackOverlayReady() Then
+				$sReason = "BlueStacks and Clash of Clans launched; verified Welcome Back overlay passively recognized; Home is blocked until the operator handles the overlay; emulator_started=" & ($bStartedEmulator ? "true" : "false")
+				Return True
+			EndIf
 		EndIf
 		If _Sleep(1000) Then
 			$sReason = "BlueStacks and Clash of Clans launch cancelled while waiting for passive game-ready proof"

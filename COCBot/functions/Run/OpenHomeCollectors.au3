@@ -194,6 +194,25 @@ Func OpenHomeDailyRewardClaimedOverlayReady()
 			_OpenHomePixelNear(80, 285, 0x844A00, 44)
 EndFunc   ;==>OpenHomeDailyRewardClaimedOverlayReady
 
+; The returning-player summary blocks Home with a fixed red banner, neutral content panel, and one
+; green operator-only Okay control. Recognition is passive and language-independent: no OCR, ImgLoc,
+; click, or dismissal is permitted. The reviewed fixture masks the account header and opponent card.
+Func OpenHomeWelcomeBackOverlayReady()
+	If $g_hBitmap = 0 Then Return False
+	Return _OpenHomePixelNear(160, 170, 0xB03222, 36) And _
+			_OpenHomePixelNear(250, 170, 0xB03323, 36) And _
+			_OpenHomePixelNear(610, 170, 0xAF3323, 36) And _
+			_OpenHomePixelNear(700, 170, 0xAF3322, 36) And _
+			_OpenHomePixelNear(120, 225, 0xE8E8E0, 24) And _
+			_OpenHomePixelNear(740, 225, 0xE8E8E0, 24) And _
+			_OpenHomePixelNear(120, 560, 0xE8E8E0, 24) And _
+			_OpenHomePixelNear(740, 560, 0xE8E8E0, 24) And _
+			_OpenHomePixelNear(390, 540, 0x8AD032, 44) And _
+			_OpenHomePixelNear(490, 540, 0x8BD033, 44) And _
+			_OpenHomePixelNear(440, 520, 0xD9F481, 44) And _
+			_OpenHomePixelNear(440, 558, 0x64AD32, 44)
+EndFunc   ;==>OpenHomeWelcomeBackOverlayReady
+
 ; A Claim button is a 117x40 green control. Sampling four interior edges avoids its localized white
 ; label while rejecting the small green claimed check and the gray/brown inactive day controls.
 Func _OpenHomeDailyRewardClaimCandidateReady($iX, $iY)

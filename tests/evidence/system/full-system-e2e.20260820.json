@@ -947,6 +947,14 @@
         ]
       },
       {
+        "id": "home.welcome-back",
+        "verdict": "PASS",
+        "status": "verified",
+        "capability_ids": [
+          "model.screen-state-registry"
+        ]
+      },
+      {
         "id": "safety.gem-window",
         "verdict": "DEFERRED",
         "status": "missing",
