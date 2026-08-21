@@ -87,6 +87,42 @@ class NativeProfileAutoLaunchTests(unittest.TestCase):
         ]
         self.assertNotIn("OpenAndroid", exact_gate)
 
+    def test_every_terminal_home_route_auto_launches_from_start(self):
+        action = (ROOT / "COCBot" / "MBR GUI Action.au3").read_text(encoding="utf-8-sig")
+        ensure = action[
+            action.index("Func _BotOpenHomeEnsureExactBlueStacks("):
+            action.index("EndFunc", action.index("Func _BotOpenHomeEnsureExactBlueStacks("))
+        ]
+        self.assertIn("_BotOpenHomeRequireExactBlueStacks($sReason)", ensure)
+        self.assertIn("OpenHomeCollectorsProveHome()", ensure)
+        self.assertIn("OpenHomeDailyRewardOverlayReady()", ensure)
+        self.assertIn("OpenHomeDailyRewardClaimedOverlayReady()", ensure)
+        self.assertIn('ElseIf $sReason <> "The exact BlueStacks 5 instance is not already running" Then', ensure)
+        self.assertIn("LaunchBlueStacks5CoCOnly($sLaunchReason)", ensure)
+        self.assertIn("RunControlStopRequested()", ensure)
+        self.assertLess(ensure.index("RunControlStopRequested()"), ensure.index("LaunchBlueStacks5CoCOnly($sLaunchReason)"))
+        self.assertIn("RunEventLogGameLaunchStarted()", ensure)
+        self.assertIn("RunEventLogGameLaunchPassed($sReason)", ensure)
+        self.assertIn("RunEventLogGameLaunchFailed($sReason)", ensure)
+        self.assertIn("RunEventLogGameLaunchCancelled($sReason)", ensure)
+
+        for function_name in (
+            "_BotStartOpenHomeCollectors",
+            "_BotStartOpenHomeLootCart",
+            "_BotStartOpenDailyReward",
+            "_BotStartOpenHomeTreasury",
+            "_BotStartOpenClanRequest",
+        ):
+            start = action.index(f"Func {function_name}(")
+            body = action[start:action.index("EndFunc", start)]
+            self.assertIn("RunExecutionApplyPrepared($sStartError)", body, function_name)
+            self.assertIn("_BotOpenHomeEnsureExactBlueStacks($sAttachmentError)", body, function_name)
+            self.assertLess(
+                body.index("RunExecutionApplyPrepared($sStartError)"),
+                body.index("_BotOpenHomeEnsureExactBlueStacks($sAttachmentError)"),
+                function_name,
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
