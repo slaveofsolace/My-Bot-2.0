@@ -90,6 +90,17 @@ class PlannerWorkbenchContract(unittest.TestCase):
         reduced = CSS[CSS.index("@media (prefers-reduced-motion: reduce)"):]
         self.assertIn(".route-pulse,", reduced)
 
+    def test_runtime_identities_remain_readable_and_discoverable(self):
+        render = JS.split("function renderControl()", 1)[1].split("function recoverControlPending", 1)[0]
+        self.assertIn("const profileIdentity =", render)
+        self.assertIn("const emulatorIdentity =", render)
+        self.assertIn("const versionIdentity =", render)
+        self.assertIn("$(id).title = identity;", render)
+        facts = CSS.split(".engine-facts dd {", 1)[1].split("}", 1)[0]
+        self.assertIn("overflow-wrap: anywhere;", facts)
+        self.assertNotIn("text-overflow: ellipsis", facts)
+        self.assertNotIn("white-space: nowrap", facts)
+
     def test_evidence_view_explains_issued_observed_and_proven_states_visually(self):
         for token in (
             'class="evidence-runway"',
