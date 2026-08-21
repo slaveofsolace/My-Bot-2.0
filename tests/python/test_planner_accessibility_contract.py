@@ -80,9 +80,8 @@ class PlannerAccessibilityContract(unittest.TestCase):
         self.assertIn("$(`capabilitySignal${state}`)", body)
         self.assertIn("the release evidence gate is reported separately below", body)
         self.assertNotIn("Support remains at 0", body)
-        self.assertIn(".perimeter-core-pulse", CSS)
-        reduced = CSS.split("@media (prefers-reduced-motion: reduce)", 1)[1]
-        self.assertIn(".perimeter-core-pulse", reduced)
+        self.assertIn(".perimeter-core-boundary", CSS)
+        self.assertNotIn("capability-radar", CSS)
 
     def test_release_evidence_snapshot_is_data_driven_and_fail_closed(self):
         for element_id in (

@@ -486,25 +486,28 @@ input:disabled { background: var(--surface-muted); color: var(--ink-muted); curs
   stroke-width: 2;
   stroke-linecap: round;
   stroke-dasharray: 1 44;
-  animation: route-scan 4.8s linear infinite;
+  opacity: .42;
 }
 .route-node { fill: var(--route-ground); stroke: var(--route-ink); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
 .route-node-gate { fill: color-mix(in srgb, var(--route-ground) 65%, var(--route-path)); }
 .route-node-village { fill: color-mix(in srgb, var(--route-ground) 82%, var(--surface)); }
-.route-marker { fill: var(--route-path); stroke: var(--route-sky); stroke-width: 4; animation: route-beacon 2.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
-.route-marker-b { animation-delay: 1.3s; }
-.route-pulse { fill: none; stroke: var(--route-path); stroke-width: 1.5; transform-box: fill-box; transform-origin: center; }
-.route-pulse-a { opacity: .25; animation: route-radar 3.8s ease-out infinite; }
-.route-pulse-b { opacity: .13; animation: route-radar 3.8s 1.3s ease-out infinite; }
+.route-marker { fill: var(--route-path); stroke: var(--route-sky); stroke-width: 4; opacity: .72; transform-box: fill-box; transform-origin: center; }
+.route-gate-ring { fill: none; stroke: var(--route-path); stroke-width: 1.5; opacity: .1; transform-box: fill-box; transform-origin: center; }
+.route-gate-ring-b { opacity: .05; }
+.route-map:is([data-state="starting"], [data-state="running"]) .route-signal { opacity: 1; animation: route-flow 4.8s linear infinite; }
+.route-map:is([data-state="starting"], [data-state="running"]) .route-marker { animation: route-stage-marker 2.6s ease-in-out infinite; }
+.route-map:is([data-state="starting"], [data-state="running"]) .route-marker-b { animation-delay: 1.3s; }
+.route-map:is([data-state="starting"], [data-state="running"]) .route-gate-ring-a { animation: route-stage-ring 3.8s ease-out infinite; }
+.route-map:is([data-state="starting"], [data-state="running"]) .route-gate-ring-b { animation: route-stage-ring 3.8s 1.3s ease-out infinite; }
 
-@keyframes route-scan { to { stroke-dashoffset: -180; } }
+@keyframes route-flow { to { stroke-dashoffset: -180; } }
 
-@keyframes route-beacon {
+@keyframes route-stage-marker {
   0%, 100% { transform: scale(.9); opacity: .68; }
   50% { transform: scale(1.22); opacity: 1; }
 }
 
-@keyframes route-radar {
+@keyframes route-stage-ring {
   0% { opacity: .34; transform: scale(.68); }
   72%, 100% { opacity: 0; transform: scale(1.2); }
 }
@@ -752,8 +755,7 @@ input:disabled { background: var(--surface-muted); color: var(--ink-muted); curs
 @media (prefers-reduced-motion: reduce) {
   .route-signal,
   .route-marker,
-  .route-pulse,
-  .perimeter-core-pulse,
+  .route-gate-ring,
   .maintenance-path,
   .maintenance-node[data-state="active"] { animation: none; }
 }
@@ -983,8 +985,8 @@ input:disabled { background: var(--surface-muted); color: var(--ink-muted); curs
 .perimeter-contour-b { stroke-dasharray: 3 7; }
 .perimeter-link { fill: none; stroke: color-mix(in srgb, var(--route-path) 68%, transparent); stroke-width: 2; stroke-dasharray: 2 9; }
 .perimeter-core-ring,
-.perimeter-core-pulse { fill: none; stroke: color-mix(in srgb, var(--route-path) 40%, transparent); stroke-width: 1.5; transform-box: fill-box; transform-origin: center; }
-.perimeter-core-pulse { opacity: .24; animation: capability-radar 4.2s ease-out infinite; }
+.perimeter-core-boundary { fill: none; stroke: color-mix(in srgb, var(--route-path) 40%, transparent); stroke-width: 1.5; }
+.perimeter-core-boundary { opacity: .24; }
 .perimeter-core path { fill: color-mix(in srgb, var(--route-ground) 78%, var(--masthead)); stroke: var(--route-ink); stroke-width: 3; }
 .perimeter-core text { fill: var(--route-ink); font-family: var(--font-mono); text-anchor: middle; }
 .perimeter-core text:first-of-type { font-size: 24px; font-weight: 750; }
@@ -999,11 +1001,6 @@ input:disabled { background: var(--surface-muted); color: var(--ink-muted); curs
 .signal-implemented { color: #efa461; }
 .signal-inherited { color: var(--warning); }
 .signal-gated { color: #c68d83; }
-
-@keyframes capability-radar {
-  0% { opacity: .34; transform: scale(.74); }
-  75%, 100% { opacity: 0; transform: scale(1.16); }
-}
 
 .evidence-runway {
   display: grid;
