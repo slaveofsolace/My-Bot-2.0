@@ -1380,11 +1380,19 @@ function renderControl() {
   $('engineLamp').dataset.state = state;
   $('engineState').textContent = readableState(state);
   $('engineMessage').textContent = CONTROL.message || (connected ? 'Native engine connected.' : 'Launch My Bot 2.0 to enable run controls.');
-  $('engineProfile').textContent = connected ? (CONTROL.profile || 'Default') : 'Not connected';
-  $('engineEmulator').textContent = connected
+  const profileIdentity = connected ? (CONTROL.profile || 'Default') : 'Not connected';
+  const emulatorIdentity = connected
     ? ([CONTROL.emulator, CONTROL.instance].filter(Boolean).join(' / ') || 'Not selected')
     : 'Not connected';
-  $('engineVersion').textContent = connected && CONTROL.engine_version ? `Upstream ${CONTROL.engine_version}` : 'Not connected';
+  const versionIdentity = connected && CONTROL.engine_version ? `Upstream ${CONTROL.engine_version}` : 'Not connected';
+  for (const [id, identity] of [
+    ['engineProfile', profileIdentity],
+    ['engineEmulator', emulatorIdentity],
+    ['engineVersion', versionIdentity],
+  ]) {
+    $(id).textContent = identity;
+    $(id).title = identity;
+  }
 
   setHealth('healthUi', BOOT_READY ? 'ready' : 'waiting', BOOT_READY ? 'Ready' : 'Loading');
   setHealth('healthNative', connected ? 'ready' : 'waiting', connected ? 'Connected' : 'Waiting');

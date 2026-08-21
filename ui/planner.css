@@ -306,9 +306,8 @@ input:disabled { background: var(--surface-muted); color: var(--ink-muted); curs
 .app-header .engine-facts dt { color: var(--masthead-muted); }
 .engine-facts dd {
   margin: 2px 0 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  line-height: 1.25;
   font-size: 13px;
   font-weight: 600;
 }
