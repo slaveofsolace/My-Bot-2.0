@@ -48,6 +48,17 @@ class EngineProbeLifecycleTests(unittest.TestCase):
         self.assertIn("$g_bMBRFuncEngineContextHost ? EnvGet", declarations)
         self.assertIn("$g_bMBRFuncEngineContextHost And StringRegExp", declarations)
 
+    def test_managed_package_startup_skips_optional_outbound_version_check(self) -> None:
+        managed = function_body(self.parent, "MBRFuncManagedLaunchBound")
+        self.assertIn("$g_bMBRFuncBackendHost And $g_bMBRFuncEngineSupervisorValid", managed)
+        gate = self.main.index("If MBRFuncManagedLaunchBound() Then")
+        end = self.main.index("EndIf", gate)
+        block = self.main[gate:end]
+        self.assertIn("Managed local runtime skipped", block)
+        self.assertIn("Else", block)
+        self.assertEqual(1, block.count("CheckVersion()"))
+        self.assertLess(block.index("Else"), block.index("CheckVersion()"))
+
     def test_static_probe_never_launches_helper_or_calls_managed_export(self) -> None:
         probe = function_body(self.parent, "MBRFuncProbeEngine")
         for forbidden in ("Run(", "DllCall(", "MyBot.run.EngineProbe.exe", "setProcessingPoolSize("):
@@ -87,6 +98,16 @@ class EngineProbeLifecycleTests(unittest.TestCase):
         self.assertEqual(initialize.count("setProcessingPoolSize("), 1)
         self.assertLess(initialize.index("MBRFuncValidateEngineMarker("), offsets[0])
         self.assertLess(initialize.index("$g_bMBRFuncEngineSupervisorValid"), offsets[0])
+
+    def test_automatic_processing_pool_uses_explicit_positive_processor_count(self) -> None:
+        resolver = function_body(self.parent, "_MBRFuncAutomaticProcessingPoolSize")
+        processing_pool = function_body(self.parent, "setProcessingPoolSize")
+        self.assertIn('DllCall("kernel32.dll", "dword", "GetActiveProcessorCount", "word", 0xFFFF)', resolver)
+        self.assertIn('EnvGet("NUMBER_OF_PROCESSORS")', resolver)
+        self.assertIn("Return 1", resolver)
+        self.assertIn("_MBRFuncAutomaticProcessingPoolSize()", processing_pool)
+        self.assertNotIn("$i = -1", processing_pool)
+        self.assertIn('DllCall($g_hLibMyBot, "none", "setProcessingPoolSize", "int", $i)', processing_pool)
 
     def test_receipt_is_fixed_atomic_flushed_and_identity_bound(self) -> None:
         self.assertIn(

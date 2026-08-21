@@ -60,6 +60,7 @@ class ReleasePackagingStaticTests(unittest.TestCase):
             "function Get-ProvenanceRecord", 1
         )[0]
         self.assertIn("$pragmaOutput = Join-Path $repositoryRoot $target.PragmaOutput", compile_body)
+        self.assertIn(r"(?:;[^\r\n]*)?\r?$", compile_body)
         self.assertIn("Compile source must declare exactly one output pragma", compile_body)
         self.assertIn("Compile source output pragma does not match the release contract", compile_body)
         self.assertIn("$hadOriginalOutput", compile_body)

@@ -292,7 +292,7 @@ function Invoke-ReleaseCompile {
                 throw "Compile source is missing: $($target.Source)"
             }
 			$sourceText = Get-Content -LiteralPath $source -Raw
-			$pragmaMatches = [regex]::Matches($sourceText, '(?im)^\s*#pragma\s+compile\(Out,\s*([^)]+?)\s*\)\s*(?:;[^\r\n]*)?$')
+			$pragmaMatches = [regex]::Matches($sourceText, '(?im)^\s*#pragma\s+compile\(Out,\s*([^)]+?)\s*\)\s*(?:;[^\r\n]*)?\r?$')
 			if ($pragmaMatches.Count -ne 1) {
 				throw "Compile source must declare exactly one output pragma: $($target.Source)"
 			}
