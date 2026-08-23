@@ -407,7 +407,7 @@ def main() -> int:
                         "default": 0,
                         "required": False,
                         "engine_binding": "RunPlan.planned_town_hall",
-                        "unit": "Town Hall (0 = detect at Start)",
+                        "unit": "0 = detect at Start",
                         "validation": {"minimum": 0, "maximum": 18, "step": 1},
                     },
                     {
@@ -800,7 +800,7 @@ def main() -> int:
                         "id": "army.manage_training",
                         "type": "boolean",
                         "label": "Manage training",
-                        "summary": "Keep this run from changing the training queue.",
+                        "summary": "Do not change the training queue.",
                         "description": (
                             "Planned combat uses one army already trained in game. The bot checks whether that army "
                             "is ready, then attempts one battle without boosting Super Troops, inspecting or editing "
@@ -1034,7 +1034,7 @@ def main() -> int:
                         "id": "donate.request_when_short",
                         "type": "boolean",
                         "label": "Request when available",
-                        "summary": "Ask the clan for Clan Castle reinforcements when the request button is available.",
+                        "summary": "Request reinforcements when available.",
                         "description": "Allows the explicit request-only route to post at most one request after fresh Available recognition.",
                         "default": False,
                         "required": False,
@@ -1115,8 +1115,8 @@ def main() -> int:
                     {
                         "id": "events.collect_daily_reward",
                         "type": "boolean",
-                        "label": "Claim startup Daily Reward",
-                        "summary": "Claim at most one visible Daily Reward, then return Home.",
+                        "label": "Claim Daily Reward",
+                        "summary": "Claim one visible reward, then return Home.",
                         "description": (
                             "Only Home maintenance may use this. It recognizes the startup reward window, permits one "
                             "Claim input, never accepts a sell-or-convert-for-gems dialog, closes any remaining popup, "
@@ -1136,7 +1136,7 @@ def main() -> int:
                         "id": "events.collect_loot_cart",
                         "type": "boolean",
                         "label": "Collect Loot Cart",
-                        "summary": "Open one recognized Loot Cart and press its exact Collect button once.",
+                        "summary": "Use one exact Loot Cart Collect action.",
                         "description": (
                             "Only Home maintenance may use this. It requires exactly one fresh cart match, permits one "
                             "cart-open input and one exact Collect input, passively re-proves Home, and stops. It never "
@@ -1155,8 +1155,8 @@ def main() -> int:
                     {
                         "id": "events.collect_treasury",
                         "type": "boolean",
-                        "label": "Check Treasury (full-only)",
-                        "summary": "Open the exact Treasury and safely prove the current not-full state.",
+                        "label": "Check Treasury",
+                        "summary": "Prove the exact Treasury is not full.",
                         "description": (
                             "Only Home maintenance may use this. It requires either an already-selected Clan Castle or an exact "
                             "cached coordinate, verifies the action card and Treasury window, and permits at most one Castle, "
