@@ -182,8 +182,15 @@ class NativeProfileAutoLaunchTests(unittest.TestCase):
             execution.index("Func RunExecutionComplete("):
             execution.index("EndFunc", execution.index("Func RunExecutionComplete("))
         ]
-        self.assertIn("If Not $g_bRunExecutionPrepared Then", complete)
-        self.assertIn("_RunExecutionRestoreProfile()", complete)
+        self.assertIn(
+            "If Not $g_bRunExecutionPrepared Then Return _RunExecutionCompleteFullProfile()",
+            complete,
+        )
+        full_profile_complete = execution[
+            execution.index("Func _RunExecutionCompleteFullProfile("):
+            execution.index("EndFunc", execution.index("Func _RunExecutionCompleteFullProfile("))
+        ]
+        self.assertIn("_RunExecutionRestoreProfile()", full_profile_complete)
 
         bot_start = action[action.index("Func BotStart("):action.index("EndFunc", action.index("Func BotStart("))]
         self.assertLess(bot_start.index("SaveConfig()"), bot_start.index("RunExecutionApplyPrepared($sStartError)"))

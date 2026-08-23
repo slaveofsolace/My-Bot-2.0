@@ -1359,12 +1359,15 @@ Func RunExecutionCancelPrepared($sReason)
 	$g_sRunExecutionMessage = $sReason
 EndFunc   ;==>RunExecutionCancelPrepared
 
+Func _RunExecutionCompleteFullProfile()
+	; There is no planner session to close, but the full-profile no-gem overlay still owns a captured
+	; snapshot. Restore is idempotent, so repeated Stop/close cleanup remains harmless.
+	_RunExecutionRestoreProfile()
+	Return True
+EndFunc   ;==>_RunExecutionCompleteFullProfile
+
 Func RunExecutionComplete($sFallbackReason = "stopped")
-	If Not $g_bRunExecutionPrepared Then
-		; Full-profile mode has no planner intent, but it still owns a reversible no-gem overlay.
-		_RunExecutionRestoreProfile()
-		Return
-	EndIf
+	If Not $g_bRunExecutionPrepared Then Return _RunExecutionCompleteFullProfile()
 	Local $sCompletedSessionId = RunExecutionSessionId()
 	If $g_bRunExecutionActive And IsObj($g_oRunExecutionSession) Then
 		_RunExecutionSyncSession()
