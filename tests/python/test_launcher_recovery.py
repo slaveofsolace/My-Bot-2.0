@@ -379,6 +379,16 @@ class LauncherRecoveryContractTests(unittest.TestCase):
         ):
             self.assertIn(proof, adopter)
 
+    def test_native_start_publishes_trusted_local_appdata_before_python_child(self):
+        start = PLANNER_CONTROL[
+            PLANNER_CONTROL.index("Func _RunPlannerStartService"):
+            PLANNER_CONTROL.index("EndFunc   ;==>_RunPlannerStartService")
+        ]
+        publish = 'EnvSet("LOCALAPPDATA", $g_sMBRFuncRuntimeLocalAppData)'
+        self.assertIn(publish, start)
+        self.assertLess(start.index(publish), start.index("Local $iPid = Run("))
+        self.assertIn("Trusted Local AppData could not be published", start)
+
     def test_launcher_errors_are_logged_and_bounded_without_topmost_focus(self):
         start = LAUNCHER.index("Func _ShowError($sMessage)")
         end = LAUNCHER.index("EndFunc   ;==>_ShowError", start)

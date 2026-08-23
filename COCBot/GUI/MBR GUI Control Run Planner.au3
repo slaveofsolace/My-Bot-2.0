@@ -311,6 +311,14 @@ Func _RunPlannerStartService(ByRef $sError)
 		Return False
 	EndIf
 	Local $sCommand = '"' & $sPython & '" "' & $sScript & '" --no-browser --owner-token "' & $sOwnerToken & '" --profiles-root "' & $g_sProfilePath & '"'
+	; The native runtime has an authoritative Local AppData path even when its parent was launched
+	; from a restricted environment without LOCALAPPDATA. The planner independently confines the
+	; supplied profiles root below this value, so publish the trusted native value to the child before
+	; it starts instead of weakening that validation or relying on the parent process environment.
+	If Not EnvSet("LOCALAPPDATA", $g_sMBRFuncRuntimeLocalAppData) Then
+		$sError = "Trusted Local AppData could not be published to the planner service"
+		Return False
+	EndIf
 	Local $iPid = Run($sCommand, @ScriptDir, @SW_HIDE)
 	If $iPid = 0 Then
 		$sError = "Python could not start the planner service"
