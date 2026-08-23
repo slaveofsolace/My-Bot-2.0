@@ -502,9 +502,13 @@ EndFunc   ;==>setVillageOffset
 Func setMaxDegreeOfParallelism($iMaxDegreeOfParallelism = 0)
 	If Not $g_bLibMyBotInitialized And Not $g_bMBRFuncEngineInitializing Then Return False
 	Local $i = Int($iMaxDegreeOfParallelism)
-	If $i < 1 Then $i = 0
-	SetDebugLog("Threading: Using " & $i & " threads for parallelism")
-	If $i < 1 Then $i = -1
+	; Zero means Automatic in the profile. Keep the managed default instead of making an optional
+	; tuning export the first CLR call. Explicit positive user overrides remain supervised below.
+	If $i < 1 Then
+		SetDebugLog("Threading: Using the managed engine default parallelism (automatic)")
+		Return True
+	EndIf
+	SetDebugLog("Threading: Using " & $i & " threads for parallelism (explicit)")
 	Local $aResult = DllCall($g_hLibMyBot, "none", "setMaxDegreeOfParallelism", "int", $i) ;set PARALLELOPTIONS.MaxDegreeOfParallelism for multi-threaded operations
 	If @error Or Not IsArray($aResult) Then Return False
 	Return True

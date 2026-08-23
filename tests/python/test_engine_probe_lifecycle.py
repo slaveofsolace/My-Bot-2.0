@@ -109,6 +109,15 @@ class EngineProbeLifecycleTests(unittest.TestCase):
         self.assertNotIn("$i = -1", processing_pool)
         self.assertNotIn("_MBRFuncAutomaticProcessingPoolSize", self.parent)
 
+    def test_automatic_parallelism_keeps_the_managed_default(self) -> None:
+        parallelism = function_body(self.parent, "setMaxDegreeOfParallelism")
+        automatic_return = parallelism.index("If $i < 1 Then")
+        managed_call = parallelism.index('DllCall($g_hLibMyBot, "none", "setMaxDegreeOfParallelism", "int", $i)')
+        self.assertLess(automatic_return, managed_call)
+        self.assertIn('SetDebugLog("Threading: Using the managed engine default parallelism (automatic)")', parallelism)
+        self.assertIn("Return True", parallelism[automatic_return:managed_call])
+        self.assertNotIn("$i = -1", parallelism)
+
     def test_receipt_is_fixed_atomic_flushed_and_identity_bound(self) -> None:
         self.assertIn(
             'Global Const $g_sMBRFuncEngineReceiptPath = $g_sMBRFuncRuntimeLocalAppData & "\\My Bot 2.0\\engine-init-owner-v1.json"',
