@@ -1249,7 +1249,7 @@ function renderPlanReceipts() {
     ? 'Full profile. Launch the complete stack.'
     : 'Plan first. Prove every boundary.';
   $('routeOverviewCopy').textContent = nativeCopy
-    ? 'Start uses the active profile, launches BlueStacks and Clash of Clans if needed, then continues through the existing engine and village gates.'
+    ? 'Start uses every enabled native profile setting except gem boosts and reward-to-gem conversion, which are blocked for every run.'
     : 'Start advances only after the saved plan, managed engine, emulator identity, and village state pass their own checks.';
   $('routeStepOneTitle').textContent = nativeCopy ? 'Profile' : 'Plan';
   $('routeStepOneCopy').textContent = nativeCopy ? 'Use active native settings' : 'Apply exact work';
@@ -1436,7 +1436,7 @@ function renderControl() {
   $('controlNativeMode').textContent = NATIVE_PROFILE_MODE ? 'Full profile automation active' : 'Use full profile automation';
   $('controlNativeMode').title = NATIVE_PROFILE_MODE
     ? 'Apply a plan to return to a bounded planned route'
-    : 'Back up the applied plan and run the complete saved native profile with its full configuration window';
+    : 'Back up the applied plan and run the saved native profile with its full configuration window and hard no-gem guard';
   $('controlNativeMode').disabled = !BOOT_READY || busy || !connected || state !== 'idle' || NATIVE_PROFILE_MODE;
   $('controlEngineCheck').disabled = !BOOT_READY || busy || !connected || !engineAvailable || state !== 'idle';
   $('controlEngineCheck').title = 'Initialize the managed engine without opening or controlling the emulator or game';
@@ -1471,7 +1471,7 @@ function renderControl() {
     $('controlAck').textContent = 'Managed engine initialization is active. Stop remains available through launcher supervision.';
     $('controlAck').className = 'control-ack pending';
   } else if (NATIVE_PROFILE_MODE && connected) {
-    $('controlAck').textContent = 'Full profile automation is active. Start uses every enabled native profile setting and launches BlueStacks and Clash of Clans if needed.';
+    $('controlAck').textContent = 'Full profile automation is active. Start uses every enabled native profile setting except gem boosts and reward-to-gem conversion, and launches BlueStacks and Clash of Clans if needed.';
     $('controlAck').className = 'control-ack';
   } else {
     $('controlAck').textContent = connected
@@ -1642,7 +1642,7 @@ async function activateNativeProfileMode() {
     NATIVE_PROFILE_MODE = true;
     PLAN_WRITTEN = false;
     const backup = payload.backup ? ` The applied plan was backed up to ${payload.backup}.` : '';
-    setControlNotice(`Full profile automation is active.${backup} Start will use every enabled setting in the selected native profile.`, 'info');
+    setControlNotice(`Full profile automation is active.${backup} Start will use every enabled non-gem setting in the selected native profile. Gem boosts and reward-to-gem conversion remain blocked.`, 'info');
     setSaveStatus('Full profile automation is active. Apply the visible plan to return to a bounded planned route.', 'warn');
     updateDirty();
   } catch {

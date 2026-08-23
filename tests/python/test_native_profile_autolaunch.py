@@ -125,6 +125,70 @@ class NativeProfileAutoLaunchTests(unittest.TestCase):
                 function_name,
             )
 
+    def test_full_profile_start_applies_and_restores_narrow_no_gem_overlay(self):
+        execution = (ROOT / "COCBot" / "functions" / "Run" / "RunExecution.au3").read_text(
+            encoding="utf-8-sig"
+        )
+        action = (ROOT / "COCBot" / "MBR GUI Action.au3").read_text(encoding="utf-8-sig")
+        javascript = (ROOT / "ui" / "planner.js").read_text(encoding="utf-8")
+
+        prepare = execution[
+            execution.index("Func RunExecutionPrepareStart("):
+            execution.index("EndFunc", execution.index("Func RunExecutionPrepareStart("))
+        ]
+        self.assertIn("$g_bRunExecutionFullProfileSafetyPending = True", prepare)
+
+        apply_safety = execution[
+            execution.index("Func _RunExecutionApplyFullProfileSafety("):
+            execution.index("EndFunc", execution.index("Func _RunExecutionApplyFullProfileSafety("))
+        ]
+        selectors = (
+            "Barracks",
+            "SpellFactory",
+            "Workshop",
+            "BarbarianKing",
+            "ArcherQueen",
+            "MinionPrince",
+            "Warden",
+            "Champion",
+            "Everything",
+        )
+        self.assertIn("_RunExecutionCaptureProfileSnapshot()", apply_safety)
+        for selector in selectors:
+            self.assertIn(f"$g_iCmbBoost{selector} = 0", apply_safety)
+            self.assertIn(f"$g_iRunExecutionSnapshotCmbBoost{selector}", execution)
+        self.assertIn("$g_bChkSellRewards = False", apply_safety)
+        self.assertNotIn("$g_bChkCollect = False", apply_safety)
+        self.assertNotIn("$g_bChkDonate = False", apply_safety)
+        self.assertNotIn("$g_bAutoUpgradeEnabled = False", apply_safety)
+
+        apply_prepared = execution[
+            execution.index("Func RunExecutionApplyPrepared("):
+            execution.index("EndFunc", execution.index("Func RunExecutionApplyPrepared("))
+        ]
+        self.assertIn("Return _RunExecutionApplyFullProfileSafety($sError)", apply_prepared)
+
+        restore = execution[
+            execution.index("Func _RunExecutionRestoreProfile("):
+            execution.index("EndFunc", execution.index("Func _RunExecutionRestoreProfile("))
+        ]
+        for selector in selectors:
+            self.assertIn(
+                f"$g_iCmbBoost{selector} = $g_iRunExecutionSnapshotCmbBoost{selector}",
+                restore,
+            )
+
+        complete = execution[
+            execution.index("Func RunExecutionComplete("):
+            execution.index("EndFunc", execution.index("Func RunExecutionComplete("))
+        ]
+        self.assertIn("If Not $g_bRunExecutionPrepared Then", complete)
+        self.assertIn("_RunExecutionRestoreProfile()", complete)
+
+        bot_start = action[action.index("Func BotStart("):action.index("EndFunc", action.index("Func BotStart("))]
+        self.assertLess(bot_start.index("SaveConfig()"), bot_start.index("RunExecutionApplyPrepared($sStartError)"))
+        self.assertIn("except gem boosts and reward-to-gem conversion", javascript)
+
 
 if __name__ == "__main__":
     unittest.main()

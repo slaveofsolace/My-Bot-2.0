@@ -68,6 +68,16 @@ Global $g_bRunExecutionSnapshotChkCollectAchievements = False
 Global $g_bRunExecutionSnapshotChkCollectFreeMagicItems = False
 Global $g_bRunExecutionSnapshotChkCollectRewards = False
 Global $g_bRunExecutionSnapshotChkSellRewards = False
+Global $g_iRunExecutionSnapshotCmbBoostBarracks = 0
+Global $g_iRunExecutionSnapshotCmbBoostSpellFactory = 0
+Global $g_iRunExecutionSnapshotCmbBoostWorkshop = 0
+Global $g_iRunExecutionSnapshotCmbBoostBarbarianKing = 0
+Global $g_iRunExecutionSnapshotCmbBoostArcherQueen = 0
+Global $g_iRunExecutionSnapshotCmbBoostMinionPrince = 0
+Global $g_iRunExecutionSnapshotCmbBoostWarden = 0
+Global $g_iRunExecutionSnapshotCmbBoostChampion = 0
+Global $g_iRunExecutionSnapshotCmbBoostEverything = 0
+Global $g_bRunExecutionFullProfileSafetyPending = False
 Global $g_bRunExecutionSnapshotAutoLabUpgradeEnable = False
 Global $g_bRunExecutionSnapshotAutoUpgradeWallsEnable = False
 Global $g_bRunExecutionSnapshotAutoUpgradeEnabled = False
@@ -887,6 +897,15 @@ Func _RunExecutionCaptureProfileSnapshot()
 	$g_bRunExecutionSnapshotChkCollectFreeMagicItems = $g_bChkCollectFreeMagicItems
 	$g_bRunExecutionSnapshotChkCollectRewards = $g_bChkCollectRewards
 	$g_bRunExecutionSnapshotChkSellRewards = $g_bChkSellRewards
+	$g_iRunExecutionSnapshotCmbBoostBarracks = $g_iCmbBoostBarracks
+	$g_iRunExecutionSnapshotCmbBoostSpellFactory = $g_iCmbBoostSpellFactory
+	$g_iRunExecutionSnapshotCmbBoostWorkshop = $g_iCmbBoostWorkshop
+	$g_iRunExecutionSnapshotCmbBoostBarbarianKing = $g_iCmbBoostBarbarianKing
+	$g_iRunExecutionSnapshotCmbBoostArcherQueen = $g_iCmbBoostArcherQueen
+	$g_iRunExecutionSnapshotCmbBoostMinionPrince = $g_iCmbBoostMinionPrince
+	$g_iRunExecutionSnapshotCmbBoostWarden = $g_iCmbBoostWarden
+	$g_iRunExecutionSnapshotCmbBoostChampion = $g_iCmbBoostChampion
+	$g_iRunExecutionSnapshotCmbBoostEverything = $g_iCmbBoostEverything
 	$g_bRunExecutionSnapshotAutoLabUpgradeEnable = $g_bAutoLabUpgradeEnable
 	$g_bRunExecutionSnapshotAutoUpgradeWallsEnable = $g_bAutoUpgradeWallsEnable
 	$g_bRunExecutionSnapshotAutoUpgradeEnabled = $g_bAutoUpgradeEnabled
@@ -922,6 +941,11 @@ Func RunExecutionPrepareStart(ByRef $sError)
 	ElseIf IsObj($g_oRunPlannerIntent) Then
 		$oIntent = $g_oRunPlannerIntent
 	Else
+		; The native GUI reloads its controls after this preparation step. Arm the safety overlay here,
+		; then capture and apply it in RunExecutionApplyPrepared() after that reload so a visible
+		; session-only gem boost selection cannot be restored between the guard and the inherited loop.
+		$g_bRunExecutionFullProfileSafetyPending = True
+		$g_sRunExecutionMessage = "Full profile mode (no-gem safety pending)"
 		Return True
 	EndIf
 	If Not RunExecutionBindCurrentProfileForHomeRoute($oIntent, $sError) Then
@@ -1106,9 +1130,37 @@ Func _RunExecutionApplyIntent(ByRef $sError)
 	Return True
 EndFunc   ;==>_RunExecutionApplyIntent
 
+Func _RunExecutionApplyFullProfileSafety(ByRef $sError)
+	$sError = ""
+	If Not $g_bRunExecutionFullProfileSafetyPending Then Return True
+	If Not _RunExecutionCaptureProfileSnapshot() Then
+		$sError = "Full profile automation could not capture the active no-gem safety fields"
+		Return SetError(1, 0, False)
+	EndIf
+
+	; Preserve the complete inherited profile while removing only the explicit gem-action routes.
+	; The nine boost selectors are deliberately not persisted by the inherited engine, but the
+	; visible native GUI can arm them for the current session. Their sinks recognize a GEM button
+	; and use an ordinary click, so they must be zero for every managed installed-product run.
+	$g_iCmbBoostBarracks = 0
+	$g_iCmbBoostSpellFactory = 0
+	$g_iCmbBoostWorkshop = 0
+	$g_iCmbBoostBarbarianKing = 0
+	$g_iCmbBoostArcherQueen = 0
+	$g_iCmbBoostMinionPrince = 0
+	$g_iCmbBoostWarden = 0
+	$g_iCmbBoostChampion = 0
+	$g_iCmbBoostEverything = 0
+	$g_bChkSellRewards = False
+	$g_bRunExecutionFullProfileSafetyPending = False
+	$g_sRunExecutionMessage = "Full profile mode (no-gem safety active)"
+	SetLog("Full profile automation: gem boosts and reward-to-gem conversion are disabled for this run", $COLOR_INFO)
+	Return True
+EndFunc   ;==>_RunExecutionApplyFullProfileSafety
+
 Func RunExecutionApplyPrepared(ByRef $sError)
 	$sError = ""
-	If Not $g_bRunExecutionPrepared Then Return True
+	If Not $g_bRunExecutionPrepared Then Return _RunExecutionApplyFullProfileSafety($sError)
 	If $g_bRunExecutionOverridesApplied Then Return True
 	; Capture every planner-owned field before applying. The write guard begins here so a partial
 	; emulator/config failure is also restored by RunExecutionCancelPrepared().
@@ -1157,6 +1209,7 @@ EndFunc   ;==>RunExecutionBegin
 Func _RunExecutionRestoreProfile()
 	If Not $g_bRunExecutionProfileSnapshotCaptured Then
 		$g_bRunExecutionManageTraining = True
+		$g_bRunExecutionFullProfileSafetyPending = False
 		RunProfileOverrideEnd()
 		Return
 	EndIf
@@ -1215,6 +1268,15 @@ Func _RunExecutionRestoreProfile()
 	$g_bChkCollectFreeMagicItems = $g_bRunExecutionSnapshotChkCollectFreeMagicItems
 	$g_bChkCollectRewards = $g_bRunExecutionSnapshotChkCollectRewards
 	$g_bChkSellRewards = $g_bRunExecutionSnapshotChkSellRewards
+	$g_iCmbBoostBarracks = $g_iRunExecutionSnapshotCmbBoostBarracks
+	$g_iCmbBoostSpellFactory = $g_iRunExecutionSnapshotCmbBoostSpellFactory
+	$g_iCmbBoostWorkshop = $g_iRunExecutionSnapshotCmbBoostWorkshop
+	$g_iCmbBoostBarbarianKing = $g_iRunExecutionSnapshotCmbBoostBarbarianKing
+	$g_iCmbBoostArcherQueen = $g_iRunExecutionSnapshotCmbBoostArcherQueen
+	$g_iCmbBoostMinionPrince = $g_iRunExecutionSnapshotCmbBoostMinionPrince
+	$g_iCmbBoostWarden = $g_iRunExecutionSnapshotCmbBoostWarden
+	$g_iCmbBoostChampion = $g_iRunExecutionSnapshotCmbBoostChampion
+	$g_iCmbBoostEverything = $g_iRunExecutionSnapshotCmbBoostEverything
 	$g_bAutoLabUpgradeEnable = $g_bRunExecutionSnapshotAutoLabUpgradeEnable
 	$g_bAutoUpgradeWallsEnable = $g_bRunExecutionSnapshotAutoUpgradeWallsEnable
 	$g_bAutoUpgradeEnabled = $g_bRunExecutionSnapshotAutoUpgradeEnabled
@@ -1223,6 +1285,7 @@ Func _RunExecutionRestoreProfile()
 	$g_bUseCCBalanced = $g_bRunExecutionSnapshotUseCCBalanced
 	$g_bRunExecutionManageTraining = True
 	$g_bRunExecutionEmulatorChanged = False
+	$g_bRunExecutionFullProfileSafetyPending = False
 	$g_bRunExecutionProfileSnapshotCaptured = False
 	RunProfileOverrideEnd()
 	SetDebugLog("Run Planner: restored the captured profile fields after one-run overrides")
@@ -1297,7 +1360,11 @@ Func RunExecutionCancelPrepared($sReason)
 EndFunc   ;==>RunExecutionCancelPrepared
 
 Func RunExecutionComplete($sFallbackReason = "stopped")
-	If Not $g_bRunExecutionPrepared Then Return
+	If Not $g_bRunExecutionPrepared Then
+		; Full-profile mode has no planner intent, but it still owns a reversible no-gem overlay.
+		_RunExecutionRestoreProfile()
+		Return
+	EndIf
 	Local $sCompletedSessionId = RunExecutionSessionId()
 	If $g_bRunExecutionActive And IsObj($g_oRunExecutionSession) Then
 		_RunExecutionSyncSession()
