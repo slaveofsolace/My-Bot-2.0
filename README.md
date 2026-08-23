@@ -273,6 +273,10 @@ window and passes its exact process ID through `/guipid`. The native window expo
 Village, Attack, Bot, Log and profile controls; the browser Control Center provides planning,
 status and remote run controls without replacing those settings.
 
+Launcher-managed native windows recover to the primary display even when a profile saved its last
+position on a disconnected or secondary monitor. Direct native/source launches retain the inherited
+multi-monitor placement behavior.
+
 The launcher snaps the Mini GUI beside the selected exact BlueStacks top-level window. This is a
 side-by-side layout of two independent windows: it does not embed, reparent or rename BlueStacks.
 

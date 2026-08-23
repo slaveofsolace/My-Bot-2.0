@@ -190,6 +190,8 @@ Func ProcessCommandLine()
 					$g_bBotLaunchOption_Autostart = True
 				Case "/nowatchdog", "/nwd", "-nowatchdog", "-nwd"
 					$g_bBotLaunchOption_NoWatchdog = True
+				Case "/primarywindow"
+					$g_bForcePrimaryWindow = True
 				Case "/dpiaware", "/da", "-dpiaware", "-da"
 					$g_bBotLaunchOption_ForceDpiAware = True
 				Case "/dock1", "/d1", "-dock1", "-d1", "/dock", "/d", "-dock", "-d"

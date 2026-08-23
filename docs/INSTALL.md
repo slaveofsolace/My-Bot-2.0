@@ -98,8 +98,11 @@ The launcher requests elevation and starts the exact reviewed MyBot.run v8.2-com
 safety and recovery parent for Start, Stop, Pause and Resume. It launches `MyBot.run.exe` with the
 full native configuration window and passes its exact process ID through `/guipid`. The native
 window retains the inherited Village, Attack, Bot, Log and profile controls; the browser Control
-Center remains a planning, status and run-control surface. The launcher also selects the validated per-user
-default profile and passes only that profile plus `/nowatchdog` to the exact Mini GUI. The installer
+Center remains a planning, status and run-control surface. Launcher-managed native windows recover
+to the primary display even when the profile saved a position on a disconnected or secondary monitor;
+direct native/source launches retain the inherited multi-monitor placement behavior. The launcher also
+selects the validated per-user default profile and passes only that profile plus `/nowatchdog` and
+`/primarywindow` to the exact Mini GUI. The installer
 creates `Profiles` beside the installed executables as a verified directory junction to
 `%LOCALAPPDATA%\My Bot 2.0\Profiles`, so the unchanged Mini and backend read the same persistent
 tree. Launcher and compiled backend resolve the junction and refuse startup unless its canonical

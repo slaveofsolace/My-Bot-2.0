@@ -157,7 +157,7 @@ If Not $bOwnDockKeeper Then
 EndIf
 
 ; The inherited image engine supports this exact upstream controller as its genuine remote GUI.
-; The controller remains visible and functional; it launches the modern backend with /ng and /guipid.
+; The controller remains visible and functional; it launches the full backend with /guipid.
 Local $sLaunchProfile = _PrepareUserProfile()
 If @error Or $sLaunchProfile = "" Then
 	_ShowError("My Bot 2.0 could not prepare its per-user profile." & @CRLF & @CRLF & _
@@ -250,7 +250,9 @@ EndFunc   ;==>_IsSafeProfileName
 Func _BuildControllerArguments($sProfile)
 	; The exact pinned Mini recognizes this profile as its only positional value and forwards it to
 	; the backend. Its package-local Profiles view is the installer-verified junction to user data.
-	Return $sProfile & " /nowatchdog"
+	; Managed installations recover both native surfaces to the primary display; direct native
+	; launches retain the upstream saved multi-monitor placement contract.
+	Return $sProfile & " /nowatchdog /primarywindow"
 EndFunc   ;==>_BuildControllerArguments
 
 Func _ProfilesRootToken($sPath)

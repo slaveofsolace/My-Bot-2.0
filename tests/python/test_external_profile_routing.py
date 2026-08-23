@@ -46,7 +46,7 @@ def pinned_mini_parse(arguments: list[str]) -> tuple[list[str], list[str]]:
         "/dock2", "/d2", "-dock2", "-d2", "/nobotslot", "/nbs", "-nobotslot",
         "-nbs", "/debug", "/debugmode", "/dev", "-debug", "-dev", "/minigui", "/mg",
         "-minigui", "-mg", "/nogui", "/ng", "-nogui", "-ng", "/console", "/c",
-        "-console", "-c",
+        "-console", "-c", "/primarywindow",
     }
     positional = [item for item in arguments if item not in supported and not item.startswith("/guipid=")]
     forwarded = [item for item in arguments if item not in {"/ng", "/mg", "/restart"}]
@@ -56,7 +56,7 @@ def pinned_mini_parse(arguments: list[str]) -> tuple[list[str], list[str]]:
 class ExternalProfileRoutingSourceTests(unittest.TestCase):
     def test_launcher_uses_exact_pinned_mini_argv_and_requires_verified_junction(self) -> None:
         body = autoit_function(LAUNCHER, "_BuildControllerArguments")
-        self.assertIn('Return $sProfile & " /nowatchdog"', body)
+        self.assertIn('Return $sProfile & " /nowatchdog /primarywindow"', body)
         self.assertNotIn("profiles64", body.casefold())
         self.assertNotIn("/profiles=", body)
         self.assertIn("Func _InstalledProfilesJunctionMatches()", LAUNCHER)
@@ -69,9 +69,10 @@ class ExternalProfileRoutingSourceTests(unittest.TestCase):
         self.assertIn('Case "/nowatchdog"', process)
         self.assertIn("$g_asCmdLine[$g_asCmdLine[0]] = $CmdLine[$i]", process)
         self.assertIn("$sParam = $CmdLine[$i]", launch)
-        positional, forwarded = pinned_mini_parse(["MyVillage", "/nowatchdog"])
+        self.assertIn('Case "/primarywindow"', process)
+        positional, forwarded = pinned_mini_parse(["MyVillage", "/nowatchdog", "/primarywindow"])
         self.assertEqual(positional, ["MyVillage"])
-        self.assertEqual(forwarded, ["MyVillage", "/nowatchdog"])
+        self.assertEqual(forwarded, ["MyVillage", "/nowatchdog", "/primarywindow"])
         poisoned, _ = pinned_mini_parse(["MyVillage", "/profiles64=abc", "/nowatchdog"])
         self.assertEqual(poisoned, ["MyVillage", "/profiles64=abc"])
 

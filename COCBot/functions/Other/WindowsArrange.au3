@@ -349,6 +349,18 @@ Func _CheckWindowVisibility(Const $hWnd, ByRef $p)
    ; If window is minimized then do nothing
    If $p[0] < -30000 And $p[1] < -30000 Then Return False
 
+   ; The installed launcher owns a primary-display contract so a saved position on a secondary
+   ; monitor cannot make its native control surfaces disappear from the managed user workflow.
+   If $g_bForcePrimaryWindow Then
+	  Local $aWindow = WinGetPos($hWnd)
+	  If Not @error And WindowPlacementIntersectsPrimary($aWindow) Then Return False
+	  Local $iWindowWidth = (IsArray($aWindow) And UBound($aWindow) >= 4) ? $aWindow[2] : 0
+	  Local $iWindowHeight = (IsArray($aWindow) And UBound($aWindow) >= 4) ? $aWindow[3] : 0
+	  $p[0] = (@DesktopWidth >= $iWindowWidth + 128) ? 64 : 0
+	  $p[1] = (@DesktopHeight >= $iWindowHeight + 128) ? 64 : 0
+	  Return True
+   EndIf
+
    ; See if the window intersects with a monitor
    Local $monitorHandle = _MonitorFromWindow($hWnd, 0)
 
