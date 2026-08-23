@@ -99,24 +99,35 @@ class EngineProbeLifecycleTests(unittest.TestCase):
         self.assertLess(initialize.index("MBRFuncValidateEngineMarker("), offsets[0])
         self.assertLess(initialize.index("$g_bMBRFuncEngineSupervisorValid"), offsets[0])
 
-    def test_automatic_processing_pool_keeps_the_managed_default(self) -> None:
+    def test_automatic_processing_pool_uses_explicit_positive_processor_count(self) -> None:
+        resolver = function_body(self.parent, "_MBRFuncAutomaticProcessingPoolSize")
         processing_pool = function_body(self.parent, "setProcessingPoolSize")
-        automatic_return = processing_pool.index("If $i < 1 Then")
-        managed_call = processing_pool.index('DllCall($g_hLibMyBot, "none", "setProcessingPoolSize", "int", $i)')
-        self.assertLess(automatic_return, managed_call)
-        self.assertIn('SetDebugLog("Threading: Using the managed engine default processing pool (automatic)")', processing_pool)
-        self.assertIn("Return True", processing_pool[automatic_return:managed_call])
+        self.assertIn('DllCall("kernel32.dll", "dword", "GetActiveProcessorCount", "word", 0xFFFF)', resolver)
+        self.assertIn('EnvGet("NUMBER_OF_PROCESSORS")', resolver)
+        self.assertIn("Return 1", resolver)
+        self.assertIn("_MBRFuncAutomaticProcessingPoolSize()", processing_pool)
         self.assertNotIn("$i = -1", processing_pool)
-        self.assertNotIn("_MBRFuncAutomaticProcessingPoolSize", self.parent)
+        self.assertIn('DllCall($g_hLibMyBot, "none", "setProcessingPoolSize", "int", $i)', processing_pool)
 
-    def test_automatic_parallelism_keeps_the_managed_default(self) -> None:
+    def test_automatic_parallelism_uses_the_proven_managed_sentinel_after_warmup(self) -> None:
         parallelism = function_body(self.parent, "setMaxDegreeOfParallelism")
-        automatic_return = parallelism.index("If $i < 1 Then")
+        sentinel = parallelism.index("If $i < 1 Then $i = -1")
         managed_call = parallelism.index('DllCall($g_hLibMyBot, "none", "setMaxDegreeOfParallelism", "int", $i)')
-        self.assertLess(automatic_return, managed_call)
-        self.assertIn('SetDebugLog("Threading: Using the managed engine default parallelism (automatic)")', parallelism)
-        self.assertIn("Return True", parallelism[automatic_return:managed_call])
-        self.assertNotIn("$i = -1", parallelism)
+        self.assertLess(sentinel, managed_call)
+        self.assertIn('SetDebugLog("Threading: Using " & $i & " threads for parallelism")', parallelism)
+
+    def test_bluestacks5_exact_adb_surface_keeps_managed_player_binding_detached(self) -> None:
+        binding = function_body(self.parent, "setAndroidPID")
+        for required in (
+            '$g_sAndroidEmulator = "BlueStacks5"',
+            "$g_bAndroidAdbScreencap",
+            "$g_bAndroidAdbClick",
+            "$bDetachedAdbBinding And $g_bLibMyBotInitialized",
+            "$pid = 0",
+            "exact ADB surface owns player PID",
+        ):
+            self.assertIn(required, binding)
+        self.assertLess(binding.index("$pid = 0"), binding.index('DllCall($g_hLibMyBot, "str", "setAndroidPID"'))
 
     def test_receipt_is_fixed_atomic_flushed_and_identity_bound(self) -> None:
         self.assertIn(

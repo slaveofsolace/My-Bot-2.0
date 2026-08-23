@@ -385,6 +385,20 @@ EndFunc   ;==>debugMBRFunctions
 Func setAndroidPID($pid = GetAndroidPid())
 	If Not $g_bLibMyBotInitialized And Not $g_bMBRFuncEngineInitializing Then Return False
 	If $g_hLibMyBot = -1 Then Return False ; Bot didn't finish launch yet
+	Local $iRequestedPid = Int($pid)
+	Local $bDetachedAdbBinding = $iRequestedPid > 0 And $g_sAndroidEmulator = "BlueStacks5" And $g_bAndroidAdbScreencap And $g_bAndroidAdbClick
+	; Current BlueStacks 5 is controlled through an exact instance-bound ADB screenshot/click
+	; surface. The managed player-process attachment can block indefinitely even though that ADB
+	; surface is healthy, and recognition receives explicit HBITMAP inputs. Initialize the managed
+	; engine in its supported detached state once, then keep the verified ADB adapter authoritative.
+	If $bDetachedAdbBinding And $g_bLibMyBotInitialized Then
+		SetDebugLog("BlueStacks5 managed Android binding remains detached; exact ADB surface owns player PID " & $iRequestedPid)
+		Return True
+	EndIf
+	If $bDetachedAdbBinding Then
+		SetDebugLog("BlueStacks5 exact ADB surface verified; initializing managed Android binding detached from player PID " & $iRequestedPid)
+		$pid = 0
+	EndIf
 	SetDebugLog("setAndroidPID: $pid=" & $pid)
 	Local $result = DllCall($g_hLibMyBot, "str", "setAndroidPID", "int", $pid, "str", $g_sBotVersion, "str", $g_sAndroidEmulator, "str", $g_sAndroidVersion, "str", $g_sAndroidInstance)
 	If @error Then
@@ -502,30 +516,40 @@ EndFunc   ;==>setVillageOffset
 Func setMaxDegreeOfParallelism($iMaxDegreeOfParallelism = 0)
 	If Not $g_bLibMyBotInitialized And Not $g_bMBRFuncEngineInitializing Then Return False
 	Local $i = Int($iMaxDegreeOfParallelism)
-	; Zero means Automatic in the profile. Keep the managed default instead of making an optional
-	; tuning export the first CLR call. Explicit positive user overrides remain supervised below.
-	If $i < 1 Then
-		SetDebugLog("Threading: Using the managed engine default parallelism (automatic)")
-		Return True
-	EndIf
-	SetDebugLog("Threading: Using " & $i & " threads for parallelism (explicit)")
+	If $i < 1 Then $i = 0
+	SetDebugLog("Threading: Using " & $i & " threads for parallelism")
+	If $i < 1 Then $i = -1
 	Local $aResult = DllCall($g_hLibMyBot, "none", "setMaxDegreeOfParallelism", "int", $i) ;set PARALLELOPTIONS.MaxDegreeOfParallelism for multi-threaded operations
 	If @error Or Not IsArray($aResult) Then Return False
 	Return True
 EndFunc   ;==>setMaxDegreeOfParallelism
 
+Func _MBRFuncAutomaticProcessingPoolSize()
+	; MyBot.run.dll's processing-pool export can block indefinitely when passed the inherited -1
+	; sentinel. Resolve the documented 0 = automatic setting to an explicit positive Windows
+	; processor count before crossing the externally supervised managed boundary.
+	Local $aProcessorCount = DllCall("kernel32.dll", "dword", "GetActiveProcessorCount", "word", 0xFFFF)
+	Local $iCallError = @error
+	If $iCallError = 0 And IsArray($aProcessorCount) Then
+		Local $iActiveProcessors = Int($aProcessorCount[0])
+		If $iActiveProcessors > 0 Then Return $iActiveProcessors
+	EndIf
+
+	Local $iEnvironmentProcessors = Int(EnvGet("NUMBER_OF_PROCESSORS"))
+	If $iEnvironmentProcessors > 0 Then Return $iEnvironmentProcessors
+	Return 1
+EndFunc   ;==>_MBRFuncAutomaticProcessingPoolSize
+
 Func setProcessingPoolSize($iProcessingPoolSize = 0)
 	If Not $g_bLibMyBotInitialized And Not $g_bMBRFuncEngineInitializing Then Return False
-	Local $i = Int($iProcessingPoolSize)
-	; Zero means Automatic in the profile. The managed library already owns that default. Calling the
-	; optional tuning export for Automatic has blocked inside the CLR with both the inherited -1
-	; sentinel and an explicit processor count, so leave the default untouched. Explicit positive
-	; user overrides still cross the supervised export boundary exactly once.
+	Local $iRequested = Int($iProcessingPoolSize)
+	Local $i = $iRequested
+	Local $sMode = ""
 	If $i < 1 Then
-		SetDebugLog("Threading: Using the managed engine default processing pool (automatic)")
-		Return True
+		$i = _MBRFuncAutomaticProcessingPoolSize()
+		$sMode = " (automatic)"
 	EndIf
-	SetDebugLog("Threading: Using " & $i & " threads shared across all bot instances (explicit)")
+	SetDebugLog("Threading: Using " & $i & " threads shared across all bot instances" & $sMode)
 	Local $aResult = DllCall($g_hLibMyBot, "none", "setProcessingPoolSize", "int", $i) ;set ProcessingPoolSize for multi-threaded operations (global number of used threads for ImgLoc for all bot instances)
 	If @error Or Not IsArray($aResult) Then Return False
 	Return True
