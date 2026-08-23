@@ -25,6 +25,8 @@ Global $g_bRunControlEngineCheckRequested = False
 Global $g_bRunControlGameLaunchRequested = False
 Global $g_sRunControlPendingStartRequestId = ""
 Global $g_sRunControlActiveStartRequestId = ""
+Global $g_sRunControlPendingStartMode = ""
+Global $g_sRunControlActiveStartMode = ""
 Global $g_hRunControlOwnerMutex = 0
 
 Func RunControlStopRequested()
@@ -49,6 +51,12 @@ Func RunControlCurrentCommandId()
 	If Not StringRegExp($g_sRunControlActiveStartRequestId, "^[A-Za-z0-9._-]{1,80}$") Then Return ""
 	Return $g_sRunControlActiveStartRequestId
 EndFunc   ;==>RunControlCurrentCommandId
+
+Func RunControlCurrentStartMode()
+	If Not $g_bRunControlStartInProgress Then Return ""
+	If Not StringRegExp($g_sRunControlActiveStartMode, "^(planned|native-profile)$") Then Return ""
+	Return $g_sRunControlActiveStartMode
+EndFunc   ;==>RunControlCurrentStartMode
 
 Func _RunControlNewLocalStartRequestId()
 	Local $sRequestId = "local-start-" & @AutoItPID & "-" & @YEAR & @MON & @MDAY & @HOUR & @MIN & @SEC & @MSEC & "-" & Random(100000, 999999, 1)
@@ -199,6 +207,8 @@ Func RunControlReportStartOutcome($bStarted, $sMessage)
 	$g_bRunControlGameLaunchRequested = False
 	$g_sRunControlActiveStartRequestId = ""
 	$g_sRunControlPendingStartRequestId = ""
+	$g_sRunControlActiveStartMode = ""
+	$g_sRunControlPendingStartMode = ""
 	If $g_bRunControlStopRequested Then
 		$g_bRunState = False
 		$g_iBotAction = $eBotStop
@@ -222,6 +232,8 @@ Func RunControlReportEngineCheckOutcome(ByRef $bPassed, ByRef $sMessage)
 	$g_bRunControlStopRequested = False
 	$g_sRunControlActiveStartRequestId = ""
 	$g_sRunControlPendingStartRequestId = ""
+	$g_sRunControlActiveStartMode = ""
+	$g_sRunControlPendingStartMode = ""
 	$g_bRunState = False
 	$g_iBotAction = $eBotNoAction
 	If $bStopAccepted Then
@@ -246,6 +258,8 @@ Func RunControlReportGameLaunchOutcome(ByRef $bPassed, ByRef $sMessage)
 	$g_bRunControlStopRequested = False
 	$g_sRunControlActiveStartRequestId = ""
 	$g_sRunControlPendingStartRequestId = ""
+	$g_sRunControlActiveStartMode = ""
+	$g_sRunControlPendingStartMode = ""
 	$g_bRunState = False
 	$g_iBotAction = $eBotNoAction
 	If $bStopAccepted Then
@@ -264,6 +278,8 @@ Func RunControlReportRunFailure($sMessage)
 	$g_bRunControlGameLaunchRequested = False
 	$g_sRunControlActiveStartRequestId = ""
 	$g_sRunControlPendingStartRequestId = ""
+	$g_sRunControlActiveStartMode = ""
+	$g_sRunControlPendingStartMode = ""
 	; Preserve an accepted Stop until BotStop publishes its terminal stopped outcome. A bounded
 	; recognition/readiness call may unwind after the Stop flag was latched, but that unwind is not
 	; a new run failure and must not overwrite the command acknowledgement.
@@ -286,6 +302,9 @@ Func RunControlReportOneShotOutcome($sOutcome, $sMessage)
 	$g_bRunControlGameLaunchRequested = False
 	$g_sRunControlActiveStartRequestId = ""
 	$g_sRunControlPendingStartRequestId = ""
+	$g_sRunControlActiveStartMode = ""
+	$g_sRunControlPendingStartMode = ""
+	$g_bBotPaused = False
 	$g_bRunState = False
 	$g_iBotAction = $eBotNoAction
 	If $bStopAccepted And $g_sRunControlLastCommand = "stop" And $g_sRunControlLastOutcome = "accepted" Then
@@ -303,14 +322,19 @@ Func RunControlBeginStart()
 	If $g_bRunControlStartInProgress And StringRegExp($g_sRunControlActiveStartRequestId, "^[A-Za-z0-9._-]{1,80}$") Then Return
 	If StringRegExp($g_sRunControlPendingStartRequestId, "^[A-Za-z0-9._-]{1,80}$") Then
 		$g_sRunControlActiveStartRequestId = $g_sRunControlPendingStartRequestId
+		$g_sRunControlActiveStartMode = $g_sRunControlPendingStartMode
 	Else
 		$g_sRunControlActiveStartRequestId = _RunControlNewLocalStartRequestId()
+		$g_sRunControlActiveStartMode = ""
 		$g_sRunControlLastCommandId = $g_sRunControlActiveStartRequestId
 		$g_sRunControlLastCommand = "start"
 		$g_sRunControlLastOutcome = "accepted"
 		$g_sRunControlMessage = "Start requested locally"
 	EndIf
 	$g_sRunControlPendingStartRequestId = ""
+	$g_sRunControlPendingStartMode = ""
+	; A completed one-shot must never leave Pause armed for the next Start.
+	$g_bBotPaused = False
 	$g_bRunControlStartInProgress = True
 	RunControlWriteStatus(True)
 EndFunc   ;==>RunControlBeginStart
@@ -322,6 +346,9 @@ Func RunControlReportStopComplete()
 	$g_bRunControlGameLaunchRequested = False
 	$g_sRunControlActiveStartRequestId = ""
 	$g_sRunControlPendingStartRequestId = ""
+	$g_sRunControlActiveStartMode = ""
+	$g_sRunControlPendingStartMode = ""
+	$g_bBotPaused = False
 	If $g_sRunControlLastCommand = "stop" And $g_sRunControlLastOutcome = "accepted" Then
 		$g_sRunControlLastOutcome = "stopped"
 		$g_sRunControlMessage = "Run stopped"
@@ -430,6 +457,16 @@ Func _RunControlConsumeCommand()
 		_RunControlAcknowledge($sRequestId, $sAction, "rejected", "Control command requested_at is invalid")
 		Return
 	EndIf
+	Local $sRunMode = ""
+	If $oCommand.Exists("run_mode") Then $sRunMode = StringLower(StringStripWS(String($oCommand.Item("run_mode")), $STR_STRIPALL))
+	If $sAction = "start" And Not StringRegExp($sRunMode, "^(planned|native-profile)$") Then
+		_RunControlAcknowledge($sRequestId, $sAction, "rejected", "Start command is missing a valid run_mode")
+		Return
+	EndIf
+	If $sAction <> "start" And $sRunMode <> "" Then
+		_RunControlAcknowledge($sRequestId, $sAction, "rejected", "run_mode is valid only for Start")
+		Return
+	EndIf
 
 	Switch $sAction
 		Case "start"
@@ -445,6 +482,7 @@ Func _RunControlConsumeCommand()
 			$g_bRunControlEngineCheckRequested = False
 			$g_bRunControlGameLaunchRequested = False
 			$g_sRunControlPendingStartRequestId = $sRequestId
+			$g_sRunControlPendingStartMode = $sRunMode
 			$g_iBotAction = $eBotStart
 			_RunControlAcknowledge($sRequestId, $sAction, "accepted", "Start requested by control center")
 		Case "check-engine"
@@ -460,6 +498,7 @@ Func _RunControlConsumeCommand()
 			$g_bRunControlEngineCheckRequested = True
 			$g_bRunControlGameLaunchRequested = False
 			$g_sRunControlPendingStartRequestId = $sRequestId
+			$g_sRunControlPendingStartMode = ""
 			$g_iBotAction = $eBotStart
 			_RunControlAcknowledge($sRequestId, $sAction, "accepted", "Managed engine check requested by control center")
 		Case "launch-game"
@@ -471,10 +510,12 @@ Func _RunControlConsumeCommand()
 			$g_bRunControlEngineCheckRequested = False
 			$g_bRunControlGameLaunchRequested = True
 			$g_sRunControlPendingStartRequestId = $sRequestId
+			$g_sRunControlPendingStartMode = ""
 			$g_iBotAction = $eBotStart
 			_RunControlAcknowledge($sRequestId, $sAction, "accepted", "BlueStacks and Clash of Clans launch requested by control center")
 		Case "stop"
 			$g_sRunControlPendingStartRequestId = ""
+			$g_sRunControlPendingStartMode = ""
 			If Not $g_bRunState And $g_iBotAction <> $eBotStart Then
 				_RunControlAcknowledge($sRequestId, $sAction, "no-op", "Engine is already idle")
 				Return
@@ -554,6 +595,8 @@ Func RunControlShutdown()
 	$g_bRunControlGameLaunchRequested = False
 	$g_sRunControlActiveStartRequestId = ""
 	$g_sRunControlPendingStartRequestId = ""
+	$g_sRunControlActiveStartMode = ""
+	$g_sRunControlPendingStartMode = ""
 	If $g_hRunControlOwnerMutex = 0 Then Return
 	FileDelete(RunControlStatusPath())
 	ReleaseMutex($g_hRunControlOwnerMutex)

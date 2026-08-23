@@ -42,6 +42,26 @@ class NativeProfileAutoLaunchTests(unittest.TestCase):
                 self.assertIsNone(second["backup"])
                 self.assertEqual(list(Path(folder).glob("run-plan.local.backup-*.json")), backups)
 
+    def test_web_start_binds_the_server_observed_mode_into_the_native_command(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            plan_path = root / "run-plan.local.json"
+            command_path = root / "control-command.local.json"
+            native_status = {"connected": True, "state": "idle", "engine_available": True}
+            with mock.patch.object(planner_ui, "PLAN_PATH", plan_path), \
+                    mock.patch.object(planner_ui, "CONTROL_COMMAND_PATH", command_path), \
+                    mock.patch.object(planner_ui, "control_status", return_value=native_status):
+                payload, code = planner_ui.queue_control_command("start")
+                self.assertEqual(code, 202)
+                self.assertTrue(payload["accepted"])
+                self.assertEqual(json.loads(command_path.read_text(encoding="utf-8"))["run_mode"], "native-profile")
+
+                command_path.unlink()
+                plan_path.write_text(json.dumps({"run.strategy": "home.collectors"}), encoding="utf-8")
+                payload, code = planner_ui.queue_control_command("start")
+                self.assertEqual(code, 202)
+                self.assertEqual(json.loads(command_path.read_text(encoding="utf-8"))["run_mode"], "planned")
+
     def test_busy_or_unreadable_plan_is_left_untouched(self):
         with tempfile.TemporaryDirectory() as folder:
             plan_path = Path(folder) / "run-plan.local.json"
@@ -88,6 +108,48 @@ class NativeProfileAutoLaunchTests(unittest.TestCase):
             action.index("EndFunc", action.index("Func _BotOpenHomeRequireExactBlueStacks("))
         ]
         self.assertNotIn("OpenAndroid", exact_gate)
+
+    def test_native_process_uses_explicit_start_mode_instead_of_a_stale_cached_plan(self):
+        bridge = (ROOT / "COCBot" / "functions" / "Run" / "RunControlBridge.au3").read_text(
+            encoding="utf-8-sig"
+        )
+        execution = (ROOT / "COCBot" / "functions" / "Run" / "RunExecution.au3").read_text(
+            encoding="utf-8-sig"
+        )
+        server = (ROOT / "tools" / "planner_ui.py").read_text(encoding="utf-8")
+        self.assertIn('command["run_mode"] = run_mode', server)
+        self.assertIn('Start command is missing a valid run_mode', bridge)
+        self.assertIn('$g_sRunControlPendingStartMode = $sRunMode', bridge)
+        self.assertIn('Func RunControlCurrentStartMode()', bridge)
+        prepare = execution[
+            execution.index("Func RunExecutionPrepareStart("):
+            execution.index("EndFunc", execution.index("Func RunExecutionPrepareStart("))
+        ]
+        native_branch = prepare.index('$sRequestedMode = "native-profile"')
+        stale_fallback = prepare.index('IsObj($g_oRunPlannerIntent)')
+        self.assertLess(native_branch, stale_fallback)
+        self.assertIn('$sRequestedMode = "" And IsObj($g_oRunPlannerIntent)', prepare)
+        self.assertIn('selected planned mode, but the applied plan is missing', prepare)
+
+    def test_one_shot_terminal_state_and_pause_latch_are_truthful(self):
+        javascript = (ROOT / "ui" / "planner.js").read_text(encoding="utf-8")
+        bridge = (ROOT / "COCBot" / "functions" / "Run" / "RunControlBridge.au3").read_text(
+            encoding="utf-8-sig"
+        )
+        self.assertIn("new Set(['completed', 'passed'", javascript)
+        self.assertNotIn("new Set(['started', 'passed'", javascript)
+        self.assertIn("outcome === 'started' && CONTROL_PENDING.action === 'start'", javascript)
+        self.assertIn("CONTROL_STARTED = { request_id: CONTROL_PENDING.request_id }", javascript)
+        one_shot = bridge[
+            bridge.index("Func RunControlReportOneShotOutcome("):
+            bridge.index("EndFunc", bridge.index("Func RunControlReportOneShotOutcome("))
+        ]
+        begin = bridge[
+            bridge.index("Func RunControlBeginStart("):
+            bridge.index("EndFunc", bridge.index("Func RunControlBeginStart("))
+        ]
+        self.assertIn("$g_bBotPaused = False", one_shot)
+        self.assertIn("$g_bBotPaused = False", begin)
 
     def test_every_terminal_home_route_auto_launches_from_start(self):
         action = (ROOT / "COCBot" / "MBR GUI Action.au3").read_text(encoding="utf-8-sig")

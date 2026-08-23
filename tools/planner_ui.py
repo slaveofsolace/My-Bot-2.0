@@ -801,6 +801,18 @@ def queue_control_command(action: str, expected_start_request_id: str = "") -> t
             "action": action,
             "requested_at": datetime.now(timezone.utc).isoformat(),
         }
+        if action == "start":
+            current_plan = plan_status()
+            run_mode = current_plan.get("mode")
+            if run_mode not in {"planned", "native-profile"}:
+                return {"ok": False, "problems": ["the selected run mode is invalid"]}, 409
+            if run_mode == "planned" and current_plan.get("state") != "saved":
+                return {"ok": False, "problems": ["the applied plan is not readable"]}, 409
+            # The native controller is long-lived and may still hold the last applied intent in
+            # memory after /api/plan/native atomically moves the file aside. Bind every web Start
+            # to the server-observed mode so a stale cached plan can never replace the operator's
+            # explicit Full profile choice.
+            command["run_mode"] = run_mode
         native_command_queued = False
         # A supervised Stop must replace any command that could otherwise be replayed by the
         # controller's replacement backend after the launcher closes the blocked generation.

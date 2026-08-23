@@ -935,10 +935,22 @@ Func RunExecutionPrepareStart(ByRef $sError)
 
 	Local $oIntent = 0
 	Local $sPlanPath = RunPlanFileDefaultPath()
+	Local $sRequestedMode = RunControlCurrentStartMode()
+	If $sRequestedMode = "native-profile" Then
+		; The web command is the Start linearization point. A removed plan file alone is not enough:
+		; this long-lived process can still retain $g_oRunPlannerIntent from the preceding run.
+		$g_bRunExecutionFullProfileSafetyPending = True
+		$g_sRunExecutionMessage = "Full profile mode (no-gem safety pending)"
+		Return True
+	EndIf
+	If $sRequestedMode = "planned" And Not FileExists($sPlanPath) Then
+		$sError = "The Start command selected planned mode, but the applied plan is missing"
+		Return SetError(1, 2, False)
+	EndIf
 	If FileExists($sPlanPath) Then
 		$oIntent = RunPlanFileLoadIntent($sPlanPath, $sError)
 		If Not IsObj($oIntent) Then Return SetError(1, 0, False)
-	ElseIf IsObj($g_oRunPlannerIntent) Then
+	ElseIf $sRequestedMode = "" And IsObj($g_oRunPlannerIntent) Then
 		$oIntent = $g_oRunPlannerIntent
 	Else
 		; The native GUI reloads its controls after this preparation step. Arm the safety overlay here,

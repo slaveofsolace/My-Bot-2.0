@@ -74,6 +74,7 @@ const MAINTENANCE_COLLECTIONS = Object.freeze([
 
 let CONTROL = { connected: false, state: 'offline' };
 let CONTROL_PENDING = null;
+let CONTROL_STARTED = null;
 let CONTROL_NOTICE = '';
 let CONTROL_NOTICE_KIND = 'info';
 let CONTROL_OFFLINE_SINCE = null;
@@ -86,7 +87,7 @@ let EVENTS_TIMER = null;
 let LOG_REFRESH_TIMER = null;
 let LAST_INSTANCE_SIGNATURE = '';
 
-const CONTROL_TERMINAL_OUTCOMES = new Set(['started', 'passed', 'rejected', 'failed', 'stopped', 'paused', 'resumed', 'no-op']);
+const CONTROL_TERMINAL_OUTCOMES = new Set(['completed', 'passed', 'rejected', 'failed', 'stopped', 'paused', 'resumed', 'no-op']);
 const CONTROL_QUEUE_TIMEOUT_MS = 45_000;
 const CONTROL_OPERATION_TIMEOUT_MS = 5 * 60_000;
 const CONTROL_OFFLINE_GRACE_MS = 5_000;
@@ -1535,11 +1536,24 @@ async function pollControl() {
           CONTROL_PENDING.accepted_at = Date.now();
           announceControl(`${CONTROL_PENDING.action} command accepted by the native engine.`);
         }
+      } else if (outcome === 'started' && CONTROL_PENDING.action === 'start') {
+        CONTROL_STARTED = { request_id: CONTROL_PENDING.request_id };
+        setControlNotice(`started: ${CONTROL.last_command_message || CONTROL.message || 'Run started'}`, 'info');
+        CONTROL_PENDING = null;
       } else if (CONTROL_TERMINAL_OUTCOMES.has(outcome)) {
         setControlNotice(`${outcome}: ${CONTROL.last_command_message || CONTROL.message || `${CONTROL_PENDING.action} command processed`}`,
           ['rejected', 'failed'].includes(outcome) ? 'error' : 'info');
         CONTROL_PENDING = null;
       }
+    }
+    if (!CONTROL_PENDING && CONTROL_STARTED
+        && CONTROL.last_command_id === CONTROL_STARTED.request_id
+        && CONTROL.last_command === 'start'
+        && CONTROL_TERMINAL_OUTCOMES.has(CONTROL.last_outcome || '')) {
+      const outcome = CONTROL.last_outcome;
+      setControlNotice(`${outcome}: ${CONTROL.last_command_message || CONTROL.message || 'Run completed'}`,
+        ['rejected', 'failed'].includes(outcome) ? 'error' : 'info');
+      CONTROL_STARTED = null;
     }
   } catch {
     CONTROL = { connected: false, state: 'offline', message: 'Control service is unreachable.' };
@@ -1584,6 +1598,7 @@ function refreshInstanceControl() {
 
 async function sendControl(action) {
   if (!BOOT_READY) return;
+  if (action !== 'start') CONTROL_STARTED = null;
   const previousPending = CONTROL_PENDING;
   const replacingStart = action === 'stop' && ['start', 'check-engine', 'launch-game'].includes(previousPending?.action) && !!previousPending.request_id;
   if (CONTROL_PENDING && !replacingStart) return;
