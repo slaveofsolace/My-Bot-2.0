@@ -166,6 +166,11 @@ def layout():
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--html", type=Path, help="write an HTML preview at true pixel size")
+    parser.add_argument(
+        "--fail-on-warnings",
+        action="store_true",
+        help="fail when text clipping or unused-space warnings are present",
+    )
     args = parser.parse_args()
 
     errors: list[str] = []
@@ -236,7 +241,7 @@ def main() -> int:
         report["preview"] = str(args.html)
 
     print(json.dumps(report, indent=2))
-    return 1 if report["errors"] else 0
+    return 1 if report["errors"] or (args.fail_on_warnings and report["warnings"]) else 0
 
 
 def render_html(boxes, tab_top, pages) -> str:
