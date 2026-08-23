@@ -122,10 +122,11 @@ Local $iStart = StringInStr($sAction, "Func BotStart(", 1)
 Local $iStartEnd = StringInStr($sAction, "EndFunc", 1, 1, $iStart)
 Local $sStart = StringMid($sAction, $iStart, $iStartEnd - $iStart)
 Local $iGate = StringInStr($sStart, "MBRFuncProbeEngine(", 1)
+Local $iLaunch = StringInStr($sStart, "_BotOpenHomeEnsureExactBlueStacks(", 1)
 Local $iInitialize = StringInStr($sStart, "MBRFuncInitialize()", 1)
 Local $iAuthorization = StringInStr($sStart, "ForumAuthentication()", 1)
 Local $iResume = StringInStr($sStart, "ResumeAndroid()", 1)
-AssertTrue($iGate > 0 And $iInitialize > $iGate And $iAuthorization > $iInitialize And $iResume > $iAuthorization, "BotStart gates input on real-host initialization")
+AssertTrue($iGate > 0 And $iLaunch > $iGate And $iInitialize > $iLaunch And $iAuthorization > $iInitialize And $iResume > $iAuthorization, "BotStart launches the exact game before managed attachment and gates later input on real-host initialization")
 
 ConsoleWrite("Engine supervision lifecycle tests passed: " & $g_iAssertions & " assertions" & @CRLF)
 Exit 0

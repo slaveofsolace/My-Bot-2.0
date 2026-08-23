@@ -572,6 +572,16 @@ Func BotStart($bAutostartDelay = 0)
 		Return FuncReturn(_BotStartReject($sStartError))
 	EndIf
 
+	; The managed engine binds to the configured Android process during initialization.
+	; Prove the exact BlueStacks instance and Clash Home surface first so that required
+	; native attachment never receives PID 0. This helper launches only the configured
+	; emulator/game and performs passive readiness checks; it issues no gameplay input.
+	If Not _BotOpenHomeEnsureExactBlueStacks($sStartError) Then
+		If $sStartError = "" Then $sStartError = "Unable to launch the configured BlueStacks instance and Clash of Clans."
+		SetLog($sStartError, $COLOR_ERROR)
+		Return FuncReturn(_BotStartReject($sStartError))
+	EndIf
+
 	If Not MBRFuncInitialize() Then
 		$sStartError = MBRFuncEngineError()
 		If $sStartError = "" Then

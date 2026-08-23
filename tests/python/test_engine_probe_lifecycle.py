@@ -165,13 +165,20 @@ class EngineProbeLifecycleTests(unittest.TestCase):
         self.assertIn('$g_sMBRFuncEngineProbeState = "running"', initialize)
         self.assertIn('$g_sMBRFuncEngineProbeState = "passed"', initialize)
 
-    def test_start_order_blocks_all_emulator_input_until_real_init_returns(self) -> None:
+    def test_start_launches_exact_game_before_managed_attachment(self) -> None:
         start = function_body(self.action, "BotStart")
         probe = start.index("MBRFuncProbeEngine(")
-        initialize = start.index("MBRFuncInitialize()", probe)
+        launch = start.index("If Not _BotOpenHomeEnsureExactBlueStacks(", probe)
+        initialize = start.index("MBRFuncInitialize()", launch)
         authorization = start.index("ForumAuthentication()", initialize)
         resume = start.index("ResumeAndroid()", authorization)
-        self.assertEqual([probe, initialize, authorization, resume], sorted((probe, initialize, authorization, resume)))
+        self.assertEqual(
+            [probe, launch, initialize, authorization, resume],
+            sorted((probe, launch, initialize, authorization, resume)),
+        )
+        pre_init = start[launch:initialize]
+        self.assertIn("If Not _BotOpenHomeEnsureExactBlueStacks($sStartError) Then", pre_init)
+        self.assertIn("Return FuncReturn(_BotStartReject($sStartError))", pre_init)
 
     def test_start_request_id_callback_fails_closed_and_initialization_requires_it(self) -> None:
         request = function_body(self.parent, "_MBRFuncCurrentStartRequestId")
