@@ -99,15 +99,15 @@ class EngineProbeLifecycleTests(unittest.TestCase):
         self.assertLess(initialize.index("MBRFuncValidateEngineMarker("), offsets[0])
         self.assertLess(initialize.index("$g_bMBRFuncEngineSupervisorValid"), offsets[0])
 
-    def test_automatic_processing_pool_keeps_the_managed_default(self) -> None:
+    def test_automatic_processing_pool_uses_explicit_positive_processor_count(self) -> None:
+        resolver = function_body(self.parent, "_MBRFuncAutomaticProcessingPoolSize")
         processing_pool = function_body(self.parent, "setProcessingPoolSize")
-        automatic_return = processing_pool.index("If $i < 1 Then")
-        managed_call = processing_pool.index('DllCall($g_hLibMyBot, "none", "setProcessingPoolSize", "int", $i)')
-        self.assertLess(automatic_return, managed_call)
-        self.assertIn('SetDebugLog("Threading: Using the managed engine default processing pool (automatic)")', processing_pool)
-        self.assertIn("Return True", processing_pool[automatic_return:managed_call])
+        self.assertIn('DllCall("kernel32.dll", "dword", "GetActiveProcessorCount", "word", 0xFFFF)', resolver)
+        self.assertIn('EnvGet("NUMBER_OF_PROCESSORS")', resolver)
+        self.assertIn("Return 1", resolver)
+        self.assertIn("_MBRFuncAutomaticProcessingPoolSize()", processing_pool)
         self.assertNotIn("$i = -1", processing_pool)
-        self.assertNotIn("_MBRFuncAutomaticProcessingPoolSize", self.parent)
+        self.assertIn('DllCall($g_hLibMyBot, "none", "setProcessingPoolSize", "int", $i)', processing_pool)
 
     def test_receipt_is_fixed_atomic_flushed_and_identity_bound(self) -> None:
         self.assertIn(
