@@ -15,10 +15,10 @@ class ActuatorRegistryTests(unittest.TestCase):
     def test_every_direct_actuator_owner_has_one_fail_closed_mapping(self) -> None:
         report = validate_actuator_registry.build_report()
         self.assertEqual([], report["errors"])
-        self.assertEqual(461, report["owners"])
+        self.assertEqual(462, report["owners"])
         self.assertEqual(72, report["sink_functions"])
         self.assertEqual(
-            "2c869d976e29f05115a6fac21dcffc58906842eb34f4d5b98880fa010c41b8d1",
+            "6e06301f646468119637e85b4f35b295465f13362ac6b7ca64e155bf1ba3c8d5",
             report["fingerprint"],
         )
         self.assertEqual(report["owners"], len(report["classifications"]))

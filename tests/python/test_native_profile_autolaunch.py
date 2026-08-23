@@ -70,6 +70,8 @@ class NativeProfileAutoLaunchTests(unittest.TestCase):
         self.assertIn('id="controlNativeMode"', html)
         self.assertIn("NATIVE_PROFILE_MODE", javascript)
         self.assertIn("fetch('/api/plan/native'", javascript)
+        self.assertIn("Full profile automation active", javascript)
+        self.assertIn("every enabled native profile setting", javascript)
         self.assertIn('"/api/plan/native"', server)
         native_mode = server[
             server.index("def activate_native_profile_mode("):

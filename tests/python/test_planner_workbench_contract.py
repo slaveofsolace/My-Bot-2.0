@@ -141,8 +141,8 @@ class PlannerWorkbenchContract(unittest.TestCase):
         self.assertIn("fetch('/api/plan/native'", send)
         self.assertIn("NATIVE_PROFILE_MODE = false", JS.split("async function savePlan()", 1)[1])
         self.assertIn(".engine-actions #controlNativeMode { grid-column: 1 / -1; }", CSS)
-        self.assertIn("Native profile. Launch the full stack.", JS)
-        self.assertIn("Apply this draft to leave native auto-launch mode.", JS)
+        self.assertIn("Full profile. Launch the complete stack.", JS)
+        self.assertIn("Apply this draft to leave full profile automation.", JS)
         self.assertIn("$('runValidation').hidden = nativeCopy", JS)
 
     def test_conditional_invalid_combinations_are_recoverable(self):

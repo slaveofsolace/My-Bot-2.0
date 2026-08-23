@@ -626,12 +626,12 @@ def plan_status() -> dict:
 
 
 def activate_native_profile_mode() -> tuple[dict, int]:
-    """Recoverably disable the applied plan so native Start owns emulator/game startup again."""
+    """Recoverably disable the applied plan so full-profile Start owns emulator/game startup."""
     native = control_status()
     if native.get("state") in {"starting", "running", "paused", "stopping", "closing"}:
         return {
             "ok": False,
-            "problems": ["native auto-launch mode cannot be changed while a run is active"],
+            "problems": ["full profile automation cannot be changed while a run is active"],
         }, 409
 
     if not PLAN_PATH.exists():

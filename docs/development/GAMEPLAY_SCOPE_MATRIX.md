@@ -2,7 +2,15 @@
 
 My Bot 2.0 is intended to automate the full repeatable Clash of Clans loop, not only resource farming. That product goal does not make every inherited routine current-client safe. This matrix is the release boundary: a source path means **implemented**, while support requires current recognition fixtures plus controlled runtime evidence.
 
-The exhaustive direct-owner audit currently covers 1,182 actuator call sites in 461 non-test AutoIt owners. Of those owners, 29 are held by closed-world capability routes, 253 remain explicitly blocked, 178 are shared infrastructure, 1 is a compile-time test/reference owner, and 0 are unclassified. The inventory includes intended untracked AutoIt source, treats every dynamic `Call(...)` dispatch as an actuator boundary, and includes the public click, drag, region, training, image-button, text-input, ADB-shell, process, and window-control APIs rather than only their lowest-level transports. These are source-ownership counts, not support percentages: a capability-owned route still needs its required fixture and exact-current runtime evidence before the UI may advertise it as available.
+The exhaustive direct-owner audit currently covers 1,183 actuator call sites in 462 non-test AutoIt owners. Of those owners, 29 are held by closed-world capability routes, 253 remain explicitly blocked, 179 are shared infrastructure, 1 is a compile-time test/reference owner, and 0 are unclassified. The inventory includes intended untracked AutoIt source, treats every dynamic `Call(...)` dispatch as an actuator boundary, and includes the public click, drag, region, training, image-button, text-input, ADB-shell, process, and window-control APIs rather than only their lowest-level transports. These are source-ownership counts, not support percentages: a capability-owned route still needs its required fixture and exact-current runtime evidence before the UI may advertise it as available.
+
+The generated full-system inventory also derives parity directly from the pinned OG commit in
+`config/upstreams.lock.json`. It classifies 339 OG automation sources (65 GUI/control sources,
+273 function sources and the native entry point; overlapping paths are counted once) and records
+the current path/blob state plus linked actuator policies for every row. No OG source is silently
+unclassified. Parity inventory is a reachability and ownership audit, not live support evidence:
+every exact-current runtime verdict remains deferred until its required fixture and supervised proof
+exist.
 
 | Scope | Native implementation | Current release status | Evidence required before support |
 | --- | --- | --- | --- |

@@ -510,32 +510,18 @@ Func setMaxDegreeOfParallelism($iMaxDegreeOfParallelism = 0)
 	Return True
 EndFunc   ;==>setMaxDegreeOfParallelism
 
-Func _MBRFuncAutomaticProcessingPoolSize()
-	; MyBot.run.dll's processing-pool export can block indefinitely when passed the inherited -1
-	; sentinel. Resolve the documented 0 = automatic setting to an explicit positive Windows
-	; processor count before crossing the externally supervised managed boundary.
-	Local $aProcessorCount = DllCall("kernel32.dll", "dword", "GetActiveProcessorCount", "word", 0xFFFF)
-	Local $iCallError = @error
-	If $iCallError = 0 And IsArray($aProcessorCount) Then
-		Local $iActiveProcessors = Int($aProcessorCount[0])
-		If $iActiveProcessors > 0 Then Return $iActiveProcessors
-	EndIf
-
-	Local $iEnvironmentProcessors = Int(EnvGet("NUMBER_OF_PROCESSORS"))
-	If $iEnvironmentProcessors > 0 Then Return $iEnvironmentProcessors
-	Return 1
-EndFunc   ;==>_MBRFuncAutomaticProcessingPoolSize
-
 Func setProcessingPoolSize($iProcessingPoolSize = 0)
 	If Not $g_bLibMyBotInitialized And Not $g_bMBRFuncEngineInitializing Then Return False
-	Local $iRequested = Int($iProcessingPoolSize)
-	Local $i = $iRequested
-	Local $sMode = ""
+	Local $i = Int($iProcessingPoolSize)
+	; Zero means Automatic in the profile. The managed library already owns that default. Calling the
+	; optional tuning export for Automatic has blocked inside the CLR with both the inherited -1
+	; sentinel and an explicit processor count, so leave the default untouched. Explicit positive
+	; user overrides still cross the supervised export boundary exactly once.
 	If $i < 1 Then
-		$i = _MBRFuncAutomaticProcessingPoolSize()
-		$sMode = " (automatic)"
+		SetDebugLog("Threading: Using the managed engine default processing pool (automatic)")
+		Return True
 	EndIf
-	SetDebugLog("Threading: Using " & $i & " threads shared across all bot instances" & $sMode)
+	SetDebugLog("Threading: Using " & $i & " threads shared across all bot instances (explicit)")
 	Local $aResult = DllCall($g_hLibMyBot, "none", "setProcessingPoolSize", "int", $i) ;set ProcessingPoolSize for multi-threaded operations (global number of used threads for ImgLoc for all bot instances)
 	If @error Or Not IsArray($aResult) Then Return False
 	Return True

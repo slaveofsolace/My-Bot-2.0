@@ -267,10 +267,11 @@ Anything reported as an *error* means the clone is incomplete or something is ge
 
 For the built application, double-click **`My Bot 2.0.exe`**. It starts the reviewed x86
 **`MyBot.run.MiniGui.exe`** built from this same source commit with the required administrator permission and opens the local
-Control Center in your browser. The Mini GUI remains visible and functional as the native safety
-controller for Start, Stop, Pause and Resume. It launches the modern **`MyBot.run.exe`** backend in
-`/ng` mode with `/guipid` set to that exact Mini GUI process. The browser Control Center remains the
-primary planner while the backend performs the automation work.
+Control Center in your browser. The Mini GUI remains visible as the exact safety and recovery parent
+for Start, Stop, Pause and Resume. It launches **`MyBot.run.exe`** with its full native configuration
+window and passes its exact process ID through `/guipid`. The native window exposes the inherited
+Village, Attack, Bot, Log and profile controls; the browser Control Center provides planning,
+status and remote run controls without replacing those settings.
 
 The launcher snaps the Mini GUI beside the selected exact BlueStacks top-level window. This is a
 side-by-side layout of two independent windows: it does not embed, reparent or rename BlueStacks.

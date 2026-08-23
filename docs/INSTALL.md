@@ -94,9 +94,11 @@ My Bot 2.0.exe
 ```
 
 The launcher requests elevation and starts the exact reviewed MyBot.run v8.2-compatible
-`MyBot.run.MiniGui.exe` built from the same source commit. The Mini GUI stays visible and functional as the native safety controller
-for Start, Stop, Pause and Resume. It launches `MyBot.run.exe` as the modern `/ng` backend and
-passes its exact process ID through `/guipid`. The launcher also selects the validated per-user
+`MyBot.run.MiniGui.exe` built from the same source commit. The Mini GUI stays visible as the exact
+safety and recovery parent for Start, Stop, Pause and Resume. It launches `MyBot.run.exe` with the
+full native configuration window and passes its exact process ID through `/guipid`. The native
+window retains the inherited Village, Attack, Bot, Log and profile controls; the browser Control
+Center remains a planning, status and run-control surface. The launcher also selects the validated per-user
 default profile and passes only that profile plus `/nowatchdog` to the exact Mini GUI. The installer
 creates `Profiles` beside the installed executables as a verified directory junction to
 `%LOCALAPPDATA%\My Bot 2.0\Profiles`, so the unchanged Mini and backend read the same persistent
@@ -121,7 +123,9 @@ required and must remain zero bytes. The Mini GUI and backend names are retained
 inherited image engine validates its host contract; the configuration lets the backend load its
 managed dependencies from `lib`.
 
-Closing the Mini GUI stops the native controller/backend pair. This independent downstream layout
+If the owned backend exits unexpectedly while the Mini GUI is still running, the Mini GUI launches
+one exact-path idle replacement after a bounded delay. It never replays Start automatically. Closing
+the Mini GUI stops the native controller/backend pair. This independent downstream layout
 is not endorsed, sponsored, supported, or approved by the upstream MyBot.run project.
 
 If an owned AutoIt error or stale controller prevents a normal restart, run the installed launcher

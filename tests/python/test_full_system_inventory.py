@@ -17,9 +17,13 @@ class FullSystemInventoryTests(unittest.TestCase):
                 "compile_targets": 6,
                 "control_actions": 6,
                 "infrastructure_routes": 8,
-                "actuator_owners": 461,
-                "actuator_sites": 1182,
+                "actuator_owners": 462,
+                "actuator_sites": 1183,
                 "exact_current_capabilities_ready": 0,
+                "og_parity_sources": 339,
+                "og_gui_sources": 65,
+                "og_function_sources": 273,
+                "og_unclassified_sources": 0,
             },
             report["counts"],
         )
@@ -47,6 +51,15 @@ class FullSystemInventoryTests(unittest.TestCase):
         self.assertTrue(all(item["final_status"] == "DEFERRED" for item in report["capabilities"]))
         self.assertTrue(all(item["runtime_status"] == "DEFERRED" for item in report["control_actions"]))
         self.assertTrue(all(item["installed_runtime_status"] == "DEFERRED" for item in report["compile_targets"]))
+
+    def test_pinned_og_gui_settings_and_function_graph_is_complete(self) -> None:
+        report = generate_full_system_inventory.build_report()
+        self.assertEqual("8ad6e5a552347acc2fcb8048d30262e2735a0c33", report["pinned_og_commit"])
+        self.assertEqual(339, len(report["og_parity"]))
+        self.assertTrue(all(item["family"] for item in report["og_parity"]))
+        self.assertTrue(all(item["source_contract"] == "PASS" for item in report["og_parity"]))
+        self.assertTrue(all(item["exact_current_runtime_status"] == "DEFERRED" for item in report["og_parity"]))
+        self.assertEqual(len(report["og_parity"]), len({item["path"] for item in report["og_parity"]}))
 
 
 if __name__ == "__main__":

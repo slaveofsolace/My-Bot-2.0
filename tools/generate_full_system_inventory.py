@@ -11,8 +11,10 @@ from __future__ import annotations
 
 import argparse
 import ast
+import hashlib
 import json
 import re
+import subprocess
 from collections import Counter
 from pathlib import Path
 from typing import Any
@@ -30,7 +32,18 @@ CAPABILITIES_PATH = ROOT / "config/current-client-capabilities.json"
 SETTINGS_PATH = ROOT / "config/ui/run-planner.settings.json"
 FIXTURES_PATH = ROOT / "tests/fixtures/current-client/manifest.json"
 PLANNER_SERVER_PATH = ROOT / "tools/planner_ui.py"
+UPSTREAMS_PATH = ROOT / "upstreams.lock.json"
 TEST_ROOTS = (ROOT / "tests/python", ROOT / "tests/autoit")
+
+OG_GUI_RE = re.compile(
+    r"^(?:COCBot/GUI/.+\.au3|COCBot/MBR GUI (?:Design|Control)\.au3)$"
+)
+OG_CONFIG_PATHS = {
+    "COCBot/functions/Config/readConfig.au3",
+    "COCBot/functions/Config/saveConfig.au3",
+    "COCBot/functions/Config/applyConfig.au3",
+}
+OG_ENTRYPOINTS = {"MyBot.run.au3"}
 
 INFRASTRUCTURE = (
     {
@@ -84,6 +97,174 @@ INFRASTRUCTURE = (
 
 def _load(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8-sig"))
+
+
+def _git(*args: str) -> bytes:
+    proc = subprocess.run(
+        ["git", *args],
+        cwd=ROOT,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if proc.returncode:
+        raise ValueError(proc.stderr.decode("utf-8", errors="replace").strip() or f"git {' '.join(args)} failed")
+    return proc.stdout
+
+
+def _pinned_og_commit() -> str:
+    upstreams = _load(UPSTREAMS_PATH)
+    matches = [item for item in upstreams.get("sources", []) if item.get("id") == "mybotrun-v8"]
+    if len(matches) != 1 or not re.fullmatch(r"[0-9a-f]{40}", str(matches[0].get("commit", ""))):
+        raise ValueError("upstreams.lock.json must pin exactly one mybotrun-v8 commit")
+    return str(matches[0]["commit"])
+
+
+def _og_family(path: str) -> str:
+    folded = path.casefold()
+    if path in OG_ENTRYPOINTS:
+        return "runtime.entrypoint"
+    if path in OG_CONFIG_PATHS:
+        return "profile.settings"
+    if OG_GUI_RE.fullmatch(path):
+        if "bot - android" in folded:
+            return "emulator.configuration"
+        if "bot - profiles" in folded:
+            return "profile.management"
+        if "bot - stats" in folded:
+            return "diagnostics.reports"
+        if "bot - options" in folded:
+            return "runtime.configuration"
+        if "army" in folded or "troops" in folded:
+            return "army.configuration"
+        if "attack" in folded:
+            return "battle.configuration"
+        if "donate" in folded:
+            return "village.donate-request"
+        if "achievement" in folded:
+            return "village.rewards"
+        if "upgrade" in folded:
+            return "village.upgrades"
+        if "notify" in folded:
+            return "notifications"
+        if "misc" in folded:
+            return "village.maintenance"
+        if "collector" in folded:
+            return "village.maintenance"
+        if "preset" in folded:
+            return "profile.settings"
+        if any(name in folded for name in ("about", "bottom", "log", "splash")):
+            return "native.shell"
+        return "native.configuration"
+    if not path.startswith("COCBot/functions/"):
+        return ""
+    relative = path.removeprefix("COCBot/functions/")
+    top = relative.split("/", 1)[0]
+    if top == "Android":
+        return "emulator.runtime"
+    if top == "Attack":
+        return "builder-base.battles" if relative.startswith("Attack/BuilderBase/") else "battle.runtime"
+    if top == "Config":
+        return "profile.settings"
+    if top == "CreateArmy":
+        return "army.runtime"
+    if top == "GUI":
+        return "native.infrastructure"
+    if top in {"Image Search", "Pixels", "Read Text", "Search"}:
+        return "recognition"
+    if top == "Main Screen":
+        return "runtime.recovery"
+    if top == "Other":
+        return "shared.infrastructure"
+    if top == "Village":
+        if relative.startswith("Village/BuilderBase/"):
+            return "builder-base.runtime"
+        if relative.startswith("Village/Clan Games/"):
+            return "village.clan-games"
+        return "village.runtime"
+    return ""
+
+
+def _og_parity_rows(actuator_report: dict[str, Any]) -> tuple[str, list[dict[str, Any]], list[str]]:
+    commit = _pinned_og_commit()
+    tree: dict[str, str] = {}
+    raw_tree = _git("ls-tree", "-r", "-z", commit, "--", "COCBot", "MyBot.run.au3")
+    for raw_entry in raw_tree.split(b"\0"):
+        if not raw_entry:
+            continue
+        metadata, raw_path = raw_entry.split(b"\t", 1)
+        fields = metadata.decode("ascii").split()
+        if len(fields) != 3 or fields[1] != "blob":
+            continue
+        tree[raw_path.decode("utf-8", errors="strict")] = fields[2]
+    selected = sorted(
+        path
+        for path in tree
+        if OG_GUI_RE.fullmatch(path)
+        or path in OG_CONFIG_PATHS
+        or path in OG_ENTRYPOINTS
+        or path.startswith("COCBot/functions/")
+    )
+
+    current_actuators: dict[str, list[dict[str, Any]]] = {}
+    for owner, classification in actuator_report["classifications"].items():
+        owner_path = owner.rsplit("::", 1)[0]
+        current_actuators.setdefault(owner_path, []).append(classification)
+
+    rows: list[dict[str, Any]] = []
+    errors: list[str] = []
+    for path in selected:
+        family = _og_family(path)
+        if not family:
+            errors.append(f"unclassified pinned OG source: {path}")
+        current_path = ROOT / path
+        current_exists = current_path.is_file()
+        current_bytes = current_path.read_bytes() if current_exists else b""
+        current_blob = (
+            hashlib.sha1(f"blob {len(current_bytes)}\0".encode("ascii") + current_bytes).hexdigest()
+            if current_exists
+            else None
+        )
+        classifications = current_actuators.get(path, [])
+        policies = sorted({str(item.get("policy")) for item in classifications})
+        capability_ids = sorted(
+            {
+                str(capability_id)
+                for item in classifications
+                for capability_id in item.get("capability_ids", [])
+            }
+        )
+        role = (
+            "user-visible-configuration"
+            if OG_GUI_RE.fullmatch(path)
+            else "persisted-settings"
+            if path in OG_CONFIG_PATHS
+            else "runtime-entrypoint"
+            if path in OG_ENTRYPOINTS
+            else "automation-or-infrastructure"
+        )
+        rows.append(
+            {
+                "path": path,
+                "family": family,
+                "role": role,
+                "og_git_blob": tree[path],
+                "current_sha256": hashlib.sha256(current_bytes).hexdigest() if current_exists else None,
+                "current_git_blob": current_blob,
+                "current_source_state": (
+                    "missing" if not current_exists else "unchanged" if current_blob == tree[path] else "adapted"
+                ),
+                "current_actuator_policies": policies,
+                "current_capability_ids": capability_ids,
+                "source_contract": "PASS" if current_exists else "FAIL",
+                "exact_current_runtime_status": "DEFERRED",
+            }
+        )
+        if not current_exists:
+            errors.append(f"pinned OG source is missing from current master: {path}")
+    if len(selected) != len(set(selected)):
+        errors.append("pinned OG source inventory contains duplicates")
+    return commit, rows, errors
 
 
 def _test_files() -> list[tuple[str, str]]:
@@ -275,6 +456,8 @@ def build_report(root: Path = ROOT) -> dict[str, Any]:
         for owner, classification in sorted(actuators["classifications"].items())
     ]
     errors = list(readiness["errors"]) + list(actuators["errors"])
+    og_commit, og_parity, og_errors = _og_parity_rows(actuators)
+    errors.extend(og_errors)
     if len(capability_rows) != len(readiness_by_id):
         errors.append("capability/readiness cardinality mismatch")
     if len(actuator_rows) != actuators["owners"]:
@@ -293,7 +476,13 @@ def build_report(root: Path = ROOT) -> dict[str, Any]:
             "actuator_owners": len(actuator_rows),
             "actuator_sites": actuators["sites"],
             "exact_current_capabilities_ready": sum(item["final_status"] == "PASS" for item in capability_rows),
+            "og_parity_sources": len(og_parity),
+            "og_gui_sources": sum(item["role"] == "user-visible-configuration" for item in og_parity),
+            "og_function_sources": sum(item["path"].startswith("COCBot/functions/") for item in og_parity),
+            "og_unclassified_sources": sum(not item["family"] for item in og_parity),
         },
+        "pinned_og_commit": og_commit,
+        "og_parity": og_parity,
         "capabilities": capability_rows,
         "planner_settings": planner_settings,
         "fixtures": fixture_rows,

@@ -1244,9 +1244,9 @@ function renderPlanReceipts() {
   $('runIntro').textContent = nativeCopy
     ? 'The active native profile, engine binding, and next safe action.'
     : 'The applied plan, engine binding, and next safe action.';
-  $('routeModeKicker').textContent = nativeCopy ? 'Native auto-launch route' : 'Safe run route';
+  $('routeModeKicker').textContent = nativeCopy ? 'Full profile automation' : 'Safe run route';
   $('routeOverviewTitle').textContent = nativeCopy
-    ? 'Native profile. Launch the full stack.'
+    ? 'Full profile. Launch the complete stack.'
     : 'Plan first. Prove every boundary.';
   $('routeOverviewCopy').textContent = nativeCopy
     ? 'Start uses the active profile, launches BlueStacks and Clash of Clans if needed, then continues through the existing engine and village gates.'
@@ -1260,7 +1260,7 @@ function renderPlanReceipts() {
   $('savedPlanTitle').textContent = nativeCopy ? 'Plan draft' : 'Saved plan';
   $('savedPlanFingerprintLabel').textContent = nativeCopy ? 'Draft fingerprint' : 'Saved plan fingerprint';
   $('savedPlanFingerprintHelp').textContent = nativeCopy
-    ? 'SHA-256 of the visible draft values. Apply this draft to leave native auto-launch mode.'
+    ? 'SHA-256 of the visible draft values. Apply this draft to leave full profile automation.'
     : 'SHA-256 of the sorted saved values. Start uses this applied plan, never the visible draft.';
   renderMaintenanceRoutePreview();
   renderSummary($('planSummary'), PLAN);
@@ -1433,10 +1433,10 @@ function renderControl() {
       ? 'Resolve and apply the saved plan issues before starting'
       : hasUnsavedPlan ? 'Apply the visible plan before starting' : 'Start the applied plan';
   $('controlStart').disabled = !BOOT_READY || busy || hasUnsavedPlan || !connected || !engineAvailable || state !== 'idle';
-  $('controlNativeMode').textContent = NATIVE_PROFILE_MODE ? 'Native auto-launch active' : 'Use native auto-launch';
+  $('controlNativeMode').textContent = NATIVE_PROFILE_MODE ? 'Full profile automation active' : 'Use full profile automation';
   $('controlNativeMode').title = NATIVE_PROFILE_MODE
-    ? 'Apply a plan to return to planned mode'
-    : 'Back up the applied plan and let the native profile launch BlueStacks and Clash of Clans';
+    ? 'Apply a plan to return to a bounded planned route'
+    : 'Back up the applied plan and run the complete saved native profile with its full configuration window';
   $('controlNativeMode').disabled = !BOOT_READY || busy || !connected || state !== 'idle' || NATIVE_PROFILE_MODE;
   $('controlEngineCheck').disabled = !BOOT_READY || busy || !connected || !engineAvailable || state !== 'idle';
   $('controlEngineCheck').title = 'Initialize the managed engine without opening or controlling the emulator or game';
@@ -1471,7 +1471,7 @@ function renderControl() {
     $('controlAck').textContent = 'Managed engine initialization is active. Stop remains available through launcher supervision.';
     $('controlAck').className = 'control-ack pending';
   } else if (NATIVE_PROFILE_MODE && connected) {
-    $('controlAck').textContent = 'Native auto-launch is active. Start uses the selected profile and launches BlueStacks and Clash of Clans if needed.';
+    $('controlAck').textContent = 'Full profile automation is active. Start uses every enabled native profile setting and launches BlueStacks and Clash of Clans if needed.';
     $('controlAck').className = 'control-ack';
   } else {
     $('controlAck').textContent = connected
@@ -1636,14 +1636,14 @@ async function activateNativeProfileMode() {
     });
     const payload = await response.json();
     if (!response.ok || !payload.ok) {
-      setControlNotice((payload.problems || ['Native auto-launch mode was refused.']).join('; '), 'error');
+      setControlNotice((payload.problems || ['Full profile automation was refused.']).join('; '), 'error');
       return;
     }
     NATIVE_PROFILE_MODE = true;
     PLAN_WRITTEN = false;
     const backup = payload.backup ? ` The applied plan was backed up to ${payload.backup}.` : '';
-    setControlNotice(`Native auto-launch is active.${backup} Start will use the selected native profile.`, 'info');
-    setSaveStatus('Native auto-launch is active. Apply the visible plan to return to planned mode.', 'warn');
+    setControlNotice(`Full profile automation is active.${backup} Start will use every enabled setting in the selected native profile.`, 'info');
+    setSaveStatus('Full profile automation is active. Apply the visible plan to return to a bounded planned route.', 'warn');
     updateDirty();
   } catch {
     setControlNotice('Could not reach the planner service. The applied plan was left unchanged.', 'error');

@@ -30,8 +30,8 @@
     "dynamic_dispatch": ["DynamicCall"]
   },
   "owner_fingerprint": {
-    "count": 461,
-    "sha256": "2c869d976e29f05115a6fac21dcffc58906842eb34f4d5b98880fa010c41b8d1"
+    "count": 462,
+    "sha256": "6e06301f646468119637e85b4f35b295465f13362ac6b7ca64e155bf1ba3c8d5"
   },
   "mappings": [
     {
@@ -47,6 +47,13 @@
       "path_globs": ["MyBot.run.au3", "MyBot.run.MiniGui.au3"],
       "capability_ids": ["runtime.recovery", "orchestration.engine-initialization"],
       "reason": "Compiled host entry points own only controller/backend lifecycle and user-invoked links."
+    },
+    {
+      "id": "infra.native-window-placement",
+      "policy": "infrastructure",
+      "path_globs": ["COCBot/functions/GUI/WindowPlacement.au3"],
+      "capability_ids": ["runtime.recovery"],
+      "reason": "The native presentation guard moves only the product window when saved coordinates no longer intersect an attached display."
     },
     {
       "id": "infra.android-transport",
