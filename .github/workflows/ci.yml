@@ -86,7 +86,7 @@ jobs:
       # Replays the GUI's own layout arithmetic: catches controls that overflow the window,
       # overlap each other, or carry text too wide for the control that holds it.
       - name: Check Run Planner layout
-        run: python tools/preview_run_planner.py
+        run: python tools/preview_run_planner.py --fail-on-warnings
 
       - name: Check Run Planner UI server contract
         run: python tools/planner_ui.py --selftest
