@@ -110,6 +110,13 @@ target is exactly that per-user directory. The backend passes that same resolved
 the browser Control Center. The upstream `/profiles=` switch remains available only for compatible
 direct source launches.
 
+**Full profile automation** runs the enabled native profile through the inherited engine, but it does
+not permit gem actions. Immediately after the native controls are reloaded for Start, the runtime
+captures and temporarily zeros all nine session-only gem-boost selectors and disables reward-to-gem
+conversion. Stop, close, or rejected Start restores the captured session values without writing the
+temporary overlay to the profile. All other enabled native settings remain available; this guard is a
+spend boundary, not a claim that every current-client route has live acceptance evidence.
+
 The launcher snaps the Mini GUI beside the selected exact BlueStacks top-level window. It keeps
 both windows independent and does not embed, reparent, or rename BlueStacks. This external
 side-by-side placement is the supported docked layout.
