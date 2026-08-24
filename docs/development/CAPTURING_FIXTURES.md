@@ -1,6 +1,6 @@
 # Capturing current-client fixtures
 
-The current manifest defines 56 current-client fixture surfaces. Until real captures, recognition assertions, and controlled runtime checks exist, the related capabilities remain unverified. The manifest is authoritative; its count grows whenever the actuator inventory exposes another recognition boundary.
+The current manifest defines 57 current-client fixture surfaces. Until real captures, recognition assertions, and controlled runtime checks exist, the related capabilities remain unverified. The manifest is authoritative; its count grows whenever the actuator inventory exposes another recognition boundary.
 
 `tools/capture_fixture.py` validates dimensions, privacy-preserving pixel changes, paths, hashes, and metadata. It never edits an image and never copies the raw account capture into the repository.
 

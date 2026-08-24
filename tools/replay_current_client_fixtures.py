@@ -105,6 +105,7 @@ CLAN_REQUEST_DIALOG_ADAPTER = "production.open-clan-request-dialog-v1"
 HOME_LOOT_CART_ADAPTER = "production.open-home-loot-cart-cue-v1"
 HOME_DAILY_REWARD_ADAPTER = "production.open-home-daily-reward-v1"
 HOME_DAILY_REWARD_CLAIMED_ADAPTER = "production.open-home-daily-reward-claimed-v1"
+HOME_INACTIVITY_RELOAD_ADAPTER = "production.open-home-inactivity-reload-v1"
 HOME_WELCOME_BACK_ADAPTER = "production.open-home-welcome-back-v1"
 HOME_MAIN_REGION = SafeRegion(id="home-proof", x=378, y=10, width=1, height=1)
 CLAN_REQUEST_SEND_REGION = SafeRegion(id="send", x=455, y=438, width=181, height=83)
@@ -299,6 +300,30 @@ def _load_home_daily_reward_claimed_contract() -> tuple[tuple[int, int, int, int
 
 
 @functools.lru_cache(maxsize=1)
+def _load_home_inactivity_reload_contract() -> tuple[tuple[int, int, int, int], ...]:
+    source = OPEN_HOME_COLLECTORS_SOURCE.read_text(encoding="utf-8-sig")
+    function = re.search(
+        r"Func\s+OpenHomeInactivityReloadDialogReady\(\)(.*?)EndFunc",
+        source,
+        re.DOTALL,
+    )
+    if function is None:
+        raise FixtureReplayError("cannot load the production inactivity reload predicate")
+    anchors = tuple(
+        (int(x), int(y), int(color, 16), int(variation))
+        for x, y, color, variation in re.findall(
+            r"_OpenHomePixelNear\(\s*(\d+)\s*,\s*(\d+)\s*,\s*0x([0-9A-Fa-f]{6})\s*,\s*(\d+)\s*\)",
+            function.group(1),
+        )
+    )
+    if len(anchors) != 6:
+        raise FixtureReplayError(
+            f"production inactivity reload predicate has {len(anchors)} anchors; expected exactly 6"
+        )
+    return anchors
+
+
+@functools.lru_cache(maxsize=1)
 def _load_home_welcome_back_contract() -> tuple[tuple[int, int, int, int], ...]:
     source = OPEN_HOME_COLLECTORS_SOURCE.read_text(encoding="utf-8-sig")
     function = re.search(
@@ -387,6 +412,18 @@ def recognize_home_daily_reward_claimed(
     return RecognitionResult(
         "home.daily-reward.claimed-close-ready",
         (SafeRegion(id="close", x=741, y=154, width=36, height=38),),
+    )
+
+
+def recognize_home_inactivity_reload(
+    image: DecodedPng,
+    _sink: "NoOpActionSink",
+) -> RecognitionResult | None:
+    if not all(_pixel_near(image, *anchor) for anchor in _load_home_inactivity_reload_contract()):
+        return None
+    return RecognitionResult(
+        "home.inactivity-reload.operator-reload-ready",
+        (SafeRegion(id="reload-game", x=232, y=404, width=112, height=31),),
     )
 
 
@@ -699,6 +736,7 @@ def main(argv: list[str] | None = None) -> int:
                 HOME_LOOT_CART_ADAPTER: recognize_home_loot_cart,
                 HOME_DAILY_REWARD_ADAPTER: recognize_home_daily_reward,
                 HOME_DAILY_REWARD_CLAIMED_ADAPTER: recognize_home_daily_reward_claimed,
+                HOME_INACTIVITY_RELOAD_ADAPTER: recognize_home_inactivity_reload,
                 HOME_WELCOME_BACK_ADAPTER: recognize_home_welcome_back,
             },
             require_verified=args.require_verified,
