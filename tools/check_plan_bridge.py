@@ -379,7 +379,15 @@ def main() -> int:
     action_source = ACTION.read_text(encoding="utf-8-sig")
     bot_start = action_source.split("Func BotStart(", 1)
     bot_start_body = bot_start[1].split("EndFunc", 1)[0] if len(bot_start) > 1 else ""
-    ordered_calls = ["RunExecutionPrepareStart", "MBRFuncProbeEngine", "MBRFuncInitialize", "ForumAuthentication", "applyConfig(False)", "RunExecutionApplyPrepared"]
+    ordered_calls = [
+        "RunExecutionPrepareStart",
+        "RunExecutionApplyPreparedTransport($sStartError)",
+        "MBRFuncProbeEngine",
+        "MBRFuncInitialize",
+        "ForumAuthentication",
+        "applyConfig(False)",
+        "RunExecutionApplyPrepared($sStartError)",
+    ]
     call_offsets = [bot_start_body.find(call) for call in ordered_calls]
     if any(offset < 0 for offset in call_offsets):
         errors.append("BotStart no longer prepares, probes, initializes, applies compatibility authorization, loads the profile, and applies the plan in the required order")

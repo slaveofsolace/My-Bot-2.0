@@ -231,7 +231,7 @@ class EngineInitOnlyControlTests(unittest.TestCase):
         self.assertIn("if (CONTROL.engine_init_cancellable === true)", self.javascript)
         self.assertIn("expected_start_request_id: previousPending.request_id", self.javascript)
         self.assertIn("action === 'start' &&", self.javascript)
-        self.assertIn("CONTROL_TERMINAL_OUTCOMES = new Set(['started', 'passed'", self.javascript)
+        self.assertIn("CONTROL_TERMINAL_OUTCOMES = new Set(['completed', 'passed'", self.javascript)
 
     def test_diagnostic_events_are_schema_bound_and_truthful(self) -> None:
         event_types = self.event_schema["properties"]["type"]["enum"]

@@ -25,6 +25,10 @@
 ; Example .......: No
 ;=================================================================================================
 Func _PostMessage_ClickDrag($X1, $Y1, $X2, $Y2, $Button = "left", $Delay = 50)
+	If TestCapture() Then Return False
+	Local $bPremiumReady = NoPremiumPreInputGate("window-drag")
+	Local $iPremiumError = @error, $iPremiumExtended = @extended
+	If Not $bPremiumReady Then Return SetError($iPremiumError, $iPremiumExtended, False)
 
 	Local $hWin = $g_hAndroidControl
 

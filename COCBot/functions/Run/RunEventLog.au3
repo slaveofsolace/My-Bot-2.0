@@ -442,7 +442,7 @@ EndFunc   ;==>RunEventLogEngineCheckFailed
 
 Func RunEventLogGameLaunchStarted()
 	Return RunEventLogWrite("emulator.launch.started", "info", _
-			"Exact BlueStacks 5 and Clash of Clans launch-only diagnostic started", "", $RUN_VERIFICATION_DIAGNOSTIC)
+			"Owned emulator and Clash of Clans bootstrap started; no gameplay input is authorized by this event", "", $RUN_VERIFICATION_DIAGNOSTIC)
 EndFunc   ;==>RunEventLogGameLaunchStarted
 
 Func RunEventLogGameLaunchPassed($sDetail)

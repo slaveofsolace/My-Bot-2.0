@@ -85,7 +85,7 @@ class LocalRuntimeInstallContract(unittest.TestCase):
 
     def test_launcher_passes_only_supported_pinned_mini_arguments(self) -> None:
         self.assertIn("Func _BuildControllerArguments($sProfile)", LAUNCHER)
-        self.assertIn('Return $sProfile & " /nowatchdog"', LAUNCHER)
+        self.assertIn('Return $sProfile & " /nowatchdog /primarywindow"', LAUNCHER)
         self.assertNotIn("/profiles64=", LAUNCHER)
         self.assertIn("_InstalledProfilesJunctionMatches()", LAUNCHER)
         self.assertIn(

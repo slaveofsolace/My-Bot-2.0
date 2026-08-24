@@ -130,9 +130,10 @@
     {
       "id": "army.training.ready",
       "status": "redacted",
-      "purpose": "Current-client troop, spell, siege, and capacity readiness surfaces",
+      "purpose": "Current-client Army Overview troop, spell, siege, capacity, and Clan Request entry surfaces",
       "capability_ids": [
-        "army.training"
+        "army.training",
+        "village.clan-request"
       ],
       "image_path": "tests/fixtures/current-client/images/army.training.ready.png",
       "metadata_path": "tests/fixtures/current-client/metadata/army.training.ready.json"

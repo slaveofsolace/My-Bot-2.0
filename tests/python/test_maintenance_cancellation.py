@@ -13,7 +13,13 @@ def source(relative: str) -> str:
 
 
 def function_body(text: str, name: str) -> str:
-    match = re.search(rf"(?ms)^Func {re.escape(name)}\([^\r\n]*\)\s*(.*?)^EndFunc", text)
+    match = re.search(
+        rf"^Func[ \t]+{re.escape(name)}\("
+        rf"(?:[^\r\n]*_[ \t]*\r?\n[ \t]*)*[^\r\n]*\)"
+        rf"[ \t]*(?:;[^\r\n]*)?\r?\n(.*?)^EndFunc\b",
+        text,
+        flags=re.MULTILINE | re.DOTALL,
+    )
     if not match:
         raise AssertionError(f"function not found: {name}")
     return match.group(1)

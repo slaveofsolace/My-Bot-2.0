@@ -147,38 +147,35 @@ army to match.
 |---|---|
 | Run engine — plan, intent, session, quota, loadout, events | Written, contract-tested |
 | Run Planner tab | Written, renders from generated metadata |
-| My Bot 2.0 launcher and local Control Center | The historical 2026-08-14 bea12973 LocalRuntime checkpoint installed, launched from its Windows shortcut, stayed connected and idle, and preserved all 2,578 manifest files. The local-only aa8ee424 package has not repeated those post-repair gates. |
-| Managed-engine initialization | The historical bea12973 backend passed the supervised no-input engine check after a fresh reboot, finalized its ownership receipt, and returned idle without launching BlueStacks or ADB. Its binary differs from current HEAD, so this is not exact-current proof. |
-| Home collection routes | Resource collectors, Loot Cart, a full Treasury transfer, and startup Daily Reward have separate bounded diagnostic routes with issued-input receipts and no-gems boundaries. Collectors, Loot Cart, and both Daily Reward states now have verified recognition fixtures; Treasury still lacks one, and every account-affecting completion still needs its own supervised receipt. |
+| My Bot 2.0 launcher and local Control Center | A 2026-08-23 local-only candidate was installed and launched from its exact Start-menu shortcut from a cold process state. The visible Mini controller, full native configuration window, backend, and connected Control Center all became responsive, retained their exact ownership chain, and shut down without package drift or orphaned task processes. A later source revision still needs its own rebuilt-package receipt. |
+| Managed-engine initialization | The same dated candidate passed the supervised no-input engine check through all nine managed phases, returned idle, and did not launch BlueStacks, ADB, or the game. This is exact evidence for that candidate only. |
+| Home collection routes | Resource collectors, Loot Cart, a Treasury not-full check, and startup Daily Reward have separate bounded diagnostic routes with issued-input receipts and no-gems boundaries. Collectors, Loot Cart, and both Daily Reward states now have verified recognition fixtures; Treasury still lacks one, and every account-affecting completion still needs its own supervised receipt. |
 | Windows compile — Au3Check, both AutoIt versions | Green |
 | Game model through July 2026 | Catalogued from official sources |
 | LDPlayer 9 and MuMu Player 12 adapters | Written, **never run on real hardware** |
-| Screen recognition for the current client | 6 reviewed fixtures replay through production recognizers and one additional training fixture is tracked as redacted; 49 required surfaces remain missing and no exact-current package proof exists |
-| Managed Start and attack execution | Still unproved for the local aa8ee424 package and the later unbuilt working tree; the historical successful engine check intentionally returned before plan preparation, emulator attachment, or gameplay, while older binaries completed bounded Standard and Smart TH17 observations only |
+| Screen recognition for the current client | 6 reviewed fixtures replay through production recognizers and one additional training fixture is tracked as redacted; 49 required surfaces remain missing. Package launch evidence does not convert any missing recognition surface into a pass. |
+| Managed Start and attack execution | The installed Control Center's real **Launch BlueStacks + CoC** control started the exact Pie64 instance and game, passively recognized the Daily Reward overlay, reported that Home remained blocked, and returned idle without input. Dismissing that overlay, entering the inherited bot loop, and any attack still require fresh action-specific acceptance. |
 
-**The honest summary:** the historical 2026-08-14 bea12973 LocalRuntime checkpoint contains six reviewed x86 AutoIt
-targets and a 2,578-file integrity manifest. It installed successfully, launched from the searchable
-Windows shortcut, and stayed connected and idle without changing any manifest file. After a fresh
-reboot the same reviewed backend completed its supervised no-input managed-engine initialization,
-emitted the exact started/passed diagnostic events, finalized its launcher receipt, and returned to
-idle. BlueStacks was deliberately not launched. This proves the package, installer, launcher chain,
-idle host integrity, and managed-engine initialization—not farming, donation, request, upgrade,
-training, battle, emulator attachment, recognition, or other account behavior. Its evidence is a
-regression reference rather than proof of the different current binary.
+**The honest summary:** the 2026-08-23 local acceptance reached the first real game-input boundary
+through the installed user flow. From zero owned processes, the exact shortcut started the visible
+native controller and configuration window, connected the Control Center, completed the managed
+engine check, and accepted an actual Control Center click that launched BlueStacks 5 Pie64 and Clash
+of Clans. The product passively recognized the Daily Reward overlay, explained why Home was blocked,
+issued no tap or swipe, and cleaned up its owned processes without changing the package or profile.
 
-The local-only aa8ee424 package is 32,288,698 bytes with SHA-256
-`d5cc8d0557c8f39a81c120f4f878c52421c4fd1fd0aafbb24eb61229d824ec72`. It is the post-repair
-discriminator, not a release: it has not been installed or live-tested after repair and has zero
-exact-current runtime evidence records. The working tree contains later unbuilt evidence and fixture
-hardening, so a new reviewed six-binary package and fresh evidence are still required before shipping.
+That proves installation, process ownership, visible controls, engine initialization, emulator/game
+startup, passive overlay recognition, truthful status, and recovery for that reviewed local candidate.
+It does **not** prove claiming the reward, collectors, Loot Cart, Treasury transfer, request, donation,
+training, upgrades, battles, or any other account mutation. Each such action needs fresh supervised
+acceptance with the exact profile, action, cost or resource effect, input bound, and unchanged gem
+balance. A rebuilt package also needs new exact-binary evidence; older receipts never transfer to a
+different executable.
 
-Older reviewed binaries produced bounded TH17 observations for zoom,
-red-line geometry, troop and Hero deployment, battle accounting, Return Home, automatic stop, and
-part of the Smart spell policy. Those receipts are useful regression references, but they verify
-neither aa8ee424's managed Start/gameplay nor the later working-tree source revision,
-every required current-client fixture, or an improvement in strategy quality. Other Town Halls,
-armies, surfaces, and most gameplay scopes remain unverified; package integrity and CI do not
-substitute for those runs.
+The source inventory currently tracks 61 canonical capabilities, 462 direct actuator owners, and 339
+user-facing or infrastructure surfaces from the pinned upstream behavior baseline. Source contracts
+and deterministic tests keep unverified routes honest, but 49 current-client fixture surfaces remain
+missing. Public binary distribution also remains blocked until the inherited ImgLoc redistribution
+rights record is resolved. Neither source coverage nor local package integrity removes those gates.
 
 ---
 
@@ -267,10 +264,15 @@ Anything reported as an *error* means the clone is incomplete or something is ge
 
 For the built application, double-click **`My Bot 2.0.exe`**. It starts the reviewed x86
 **`MyBot.run.MiniGui.exe`** built from this same source commit with the required administrator permission and opens the local
-Control Center in your browser. The Mini GUI remains visible and functional as the native safety
-controller for Start, Stop, Pause and Resume. It launches the modern **`MyBot.run.exe`** backend in
-`/ng` mode with `/guipid` set to that exact Mini GUI process. The browser Control Center remains the
-primary planner while the backend performs the automation work.
+Control Center in your browser. The Mini GUI remains visible as the exact safety and recovery parent
+for Start, Stop, Pause and Resume. It launches **`MyBot.run.exe`** with its full native configuration
+window and passes its exact process ID through `/guipid`. The native window exposes the inherited
+Village, Attack, Bot, Log and profile controls; the browser Control Center provides planning,
+status and remote run controls without replacing those settings.
+
+Launcher-managed native windows recover to the primary display even when a profile saved its last
+position on a disconnected or secondary monitor. Direct native/source launches retain the inherited
+multi-monitor placement behavior.
 
 The launcher snaps the Mini GUI beside the selected exact BlueStacks top-level window. This is a
 side-by-side layout of two independent windows: it does not embed, reparent or rename BlueStacks.

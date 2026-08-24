@@ -9,22 +9,21 @@ OPEN_HOME = (ROOT / "COCBot/functions/Run/OpenHomeCollectors.au3").read_text(enc
 GUI_ACTION = (ROOT / "COCBot/MBR GUI Action.au3").read_text(encoding="utf-8-sig")
 
 
-REWARD_FLAGS = (
+RESTORED_REWARD_FLAGS = (
     "ChkCollectCartFirst",
     "ChkTreasuryCollect",
     "ChkCollectAchievements",
     "ChkCollectFreeMagicItems",
     "ChkCollectRewards",
-    "ChkSellRewards",
 )
 
 
 class ManagedRewardSafetyTest(unittest.TestCase):
-    def test_every_legacy_reward_flag_is_snapshotted_disabled_and_restored(self) -> None:
+    def test_ordinary_legacy_reward_flags_are_snapshotted_disabled_and_restored(self) -> None:
         reset = RUN_EXECUTION.index("A reviewed plan is closed-world")
         collectors = RUN_EXECUTION.index("If $sStrategy = $HOME_MAINTENANCE_COLLECTORS_STRATEGY", reset)
         common_reset = RUN_EXECUTION[reset:collectors]
-        for suffix in REWARD_FLAGS:
+        for suffix in RESTORED_REWARD_FLAGS:
             with self.subTest(flag=suffix):
                 self.assertIn(f"Global $g_bRunExecutionSnapshot{suffix} = False", RUN_EXECUTION)
                 self.assertIn(
@@ -34,6 +33,27 @@ class ManagedRewardSafetyTest(unittest.TestCase):
                 self.assertIn(
                     f"$g_b{suffix} = $g_bRunExecutionSnapshot{suffix}", RUN_EXECUTION
                 )
+
+    def test_reward_conversion_remains_permanently_disabled_after_restore(self) -> None:
+        reset = RUN_EXECUTION.index("A reviewed plan is closed-world")
+        collectors = RUN_EXECUTION.index(
+            "If $sStrategy = $HOME_MAINTENANCE_COLLECTORS_STRATEGY", reset
+        )
+        common_reset = RUN_EXECUTION[reset:collectors]
+        restore_start = RUN_EXECUTION.index("Func _RunExecutionRestoreProfile()")
+        restore_end = RUN_EXECUTION.index(
+            "EndFunc   ;==>_RunExecutionRestoreProfile", restore_start
+        )
+        restore = RUN_EXECUTION[restore_start:restore_end]
+
+        self.assertIn("$g_bChkSellRewards = False", common_reset)
+        self.assertIn("$g_bChkSellRewards = False", restore)
+        self.assertNotIn(
+            "$g_bRunExecutionSnapshotChkSellRewards = $g_bChkSellRewards", RUN_EXECUTION
+        )
+        self.assertNotIn(
+            "$g_bChkSellRewards = $g_bRunExecutionSnapshotChkSellRewards", restore
+        )
 
     def test_only_the_explicit_home_route_may_attempt_one_daily_reward_claim(self) -> None:
         start = OBSTACLES.index("Func CheckDailyRewardWindow()")
@@ -53,8 +73,13 @@ class ManagedRewardSafetyTest(unittest.TestCase):
         dispatch_end = GUI_ACTION.index("EndFunc", dispatch_start)
         dispatch = GUI_ACTION[dispatch_start:dispatch_end]
         self.assertLess(dispatch.index("OpenHomeCollectorsPreparedMode"), dispatch.index("MBRFuncProbeEngine"))
-        self.assertIn("$iOpenCollectorsMode = 3", dispatch)
-        self.assertIn("_BotStartOpenDailyReward", dispatch)
+        self.assertIn("$iOpenCollectorsMode >= 1 And $iOpenCollectorsMode <= 4", dispatch)
+        self.assertIn("_BotStartRunOneShot($iOpenCollectorsMode, $sStartError)", dispatch)
+        wrapper_start = GUI_ACTION.index("Func _BotStartRunOneShot(")
+        wrapper_end = GUI_ACTION.index("EndFunc", wrapper_start)
+        wrapper = GUI_ACTION[wrapper_start:wrapper_end]
+        self.assertIn("Case 3", wrapper)
+        self.assertIn("_BotStartOpenDailyReward($sStartError)", wrapper)
 
         issue_start = OPEN_HOME.index("Func OpenHomeDailyRewardIssueClaim")
         issue_end = OPEN_HOME.index("EndFunc", issue_start)
@@ -88,6 +113,19 @@ class ManagedRewardSafetyTest(unittest.TestCase):
         self.assertNotIn("CollectLootCart(", home)
         self.assertNotIn("$g_bChkCollectCartFirst = True", RUN_EXECUTION)
         self.assertNotIn("$g_bChkTreasuryCollect = True", RUN_EXECUTION)
+
+    def test_home_maintenance_branch_is_complete_before_the_terminal_route_begins(self) -> None:
+        apply_start = RUN_EXECUTION.index("Func _RunExecutionApplyIntent(")
+        collectors_start = RUN_EXECUTION.index(
+            "If $sStrategy = $HOME_MAINTENANCE_COLLECTORS_STRATEGY Then", apply_start
+        )
+        collectors_end = RUN_EXECUTION.index("EndIf", collectors_start)
+        collectors = RUN_EXECUTION[collectors_start:collectors_end]
+        self.assertIn("$g_bRunExecutionGameplayApplied = True", collectors)
+        self.assertLess(
+            collectors.index("$g_bRunExecutionGameplayApplied = True"),
+            collectors.index("Return True"),
+        )
 
     def test_explicit_treasury_route_does_not_reenable_the_legacy_reward_path(self) -> None:
         home_start = RUN_EXECUTION.index("Func HomeMaintenanceRouteExecute()")

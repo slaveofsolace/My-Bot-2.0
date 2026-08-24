@@ -109,6 +109,35 @@ class EngineProbeLifecycleTests(unittest.TestCase):
         self.assertNotIn("$i = -1", processing_pool)
         self.assertIn('DllCall($g_hLibMyBot, "none", "setProcessingPoolSize", "int", $i)', processing_pool)
 
+    def test_automatic_parallelism_uses_the_proven_managed_sentinel_after_warmup(self) -> None:
+        parallelism = function_body(self.parent, "setMaxDegreeOfParallelism")
+        sentinel = parallelism.index("If $i < 1 Then $i = -1")
+        managed_call = parallelism.index('DllCall($g_hLibMyBot, "none", "setMaxDegreeOfParallelism", "int", $i)')
+        self.assertLess(sentinel, managed_call)
+        self.assertIn('SetDebugLog("Threading: Using " & $i & " threads for parallelism")', parallelism)
+
+    def test_bluestacks5_exact_adb_surface_keeps_managed_player_binding_detached(self) -> None:
+        binding = function_body(self.parent, "setAndroidPID")
+        verifier = function_body(self.parent, "_MBRFuncExactDetachedAdbSurfaceAvailable")
+        for required in (
+            '$g_sAndroidEmulator = "BlueStacks5"',
+            "$g_bAndroidAdbScreencap",
+            "$g_bAndroidAdbClick",
+            "_MBRFuncExactDetachedAdbSurfaceAvailable()",
+            '$g_sMBRFuncAndroidBindingMode = "detached-adb"',
+            "The exact detached ADB transport changed after managed initialization",
+            "$pid = 0",
+            "exact ADB surface owns player PID",
+        ):
+            self.assertIn(required, binding)
+        self.assertLess(binding.index("$pid = 0"), binding.index('DllCall($g_hLibMyBot, "str", "setAndroidPID"'))
+        self.assertLess(binding.index('Case "detached-adb"'), binding.index('DllCall($g_hLibMyBot, "str", "setAndroidPID"'))
+        self.assertIn('"GetBlueStacks5ModernAdbSurface" & "Position"', verifier)
+        self.assertIn("Call($sSurfaceVerifier)", verifier)
+        self.assertIn("Local $iCallError = @error", verifier)
+        self.assertNotIn("IsFunc(", verifier)
+        self.assertNotIn("GetBlueStacks5ModernAdbSurfacePosition()", self.parent)
+
     def test_receipt_is_fixed_atomic_flushed_and_identity_bound(self) -> None:
         self.assertIn(
             'Global Const $g_sMBRFuncEngineReceiptPath = $g_sMBRFuncRuntimeLocalAppData & "\\My Bot 2.0\\engine-init-owner-v1.json"',
@@ -156,13 +185,20 @@ class EngineProbeLifecycleTests(unittest.TestCase):
         self.assertIn('$g_sMBRFuncEngineProbeState = "running"', initialize)
         self.assertIn('$g_sMBRFuncEngineProbeState = "passed"', initialize)
 
-    def test_start_order_blocks_all_emulator_input_until_real_init_returns(self) -> None:
+    def test_start_launches_exact_game_before_managed_attachment(self) -> None:
         start = function_body(self.action, "BotStart")
         probe = start.index("MBRFuncProbeEngine(")
-        initialize = start.index("MBRFuncInitialize()", probe)
+        launch = start.index("If Not _BotEnsureConfiguredAndroidAndGame(", probe)
+        initialize = start.index("MBRFuncInitialize()", launch)
         authorization = start.index("ForumAuthentication()", initialize)
         resume = start.index("ResumeAndroid()", authorization)
-        self.assertEqual([probe, initialize, authorization, resume], sorted((probe, initialize, authorization, resume)))
+        self.assertEqual(
+            [probe, launch, initialize, authorization, resume],
+            sorted((probe, launch, initialize, authorization, resume)),
+        )
+        pre_init = start[launch:initialize]
+        self.assertIn("If Not _BotEnsureConfiguredAndroidAndGame($sStartError) Then", pre_init)
+        self.assertIn("Return FuncReturn(_BotStartReject($sStartError))", pre_init)
 
     def test_start_request_id_callback_fails_closed_and_initialization_requires_it(self) -> None:
         request = function_body(self.parent, "_MBRFuncCurrentStartRequestId")

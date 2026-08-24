@@ -61,6 +61,8 @@ Func ZoomOutNox()
 EndFunc   ;==>ZoomOutNox
 
 Func DefaultZoomOut($ZoomOutKey = "{DOWN}", $tryCtrlWheelScrollAfterCycles = 40, $bAndroidZoomOut = True) ;Zooms out
+	If TestCapture() Then Return False
+	Return NoPremiumActionBlocked("window/ADB zoom input is unavailable until a reviewed positive route receipt is wired")
 	Local $sFunc = "DefaultZoomOut"
 	Local $result0, $result1, $i = 0
 	Local $exitCount = 80
@@ -135,6 +137,8 @@ EndFunc   ;==>DefaultZoomOut
 
 ;Func ZoomOutCtrlWheelScroll($CenterMouseWhileZooming = True, $GlobalMouseWheel = True, $AlwaysControlFocus = False, $AndroidZoomOut = True, $WheelRotation = -5, $WheelRotationCount = 1)
 Func ZoomOutCtrlWheelScroll($CenterMouseWhileZooming = True, $GlobalMouseWheel = True, $AlwaysControlFocus = False, $AndroidZoomOut = True, $hWin = Default, $ScrollSteps = -5, $ClickDelay = 250)
+	If TestCapture() Then Return False
+	Return NoPremiumActionBlocked("window wheel zoom input is unavailable until a reviewed positive route receipt is wired")
 	Local $sFunc = "ZoomOutCtrlWheelScroll"
 	;AutoItSetOption ( "SendKeyDownDelay", 3000)
 	Local $exitCount = 80
@@ -239,6 +243,8 @@ Func ZoomOutCtrlWheelScroll($CenterMouseWhileZooming = True, $GlobalMouseWheel =
 EndFunc   ;==>ZoomOutCtrlWheelScroll
 
 Func ZoomOutCtrlClick($CenterMouseWhileZooming = False, $AlwaysControlFocus = False, $AndroidZoomOut = True, $ClickDelay = 250)
+	If TestCapture() Then Return False
+	Return NoPremiumActionBlocked("window control-click zoom input is unavailable until a reviewed positive route receipt is wired")
 	Local $sFunc = "ZoomOutCtrlClick"
 	;AutoItSetOption ( "SendKeyDownDelay", 3000)
 	Local $exitCount = 80
@@ -332,6 +338,8 @@ Func ZoomOutCtrlClick($CenterMouseWhileZooming = False, $AlwaysControlFocus = Fa
 EndFunc   ;==>ZoomOutCtrlClick
 
 Func AndroidOnlyZoomOut() ;Zooms out
+	If TestCapture() Then Return False
+	Return NoPremiumActionBlocked("ADB zoom input is unavailable until a reviewed positive route receipt is wired")
 	Local $sFunc = "AndroidOnlyZoomOut"
 	Local $i = 0
 	Local $exitCount = 80

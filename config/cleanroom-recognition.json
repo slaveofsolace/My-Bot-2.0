@@ -1,0 +1,191 @@
+{
+  "schema_version": 1,
+  "adapter_id": "mybot.cleanroom-recognition.v1",
+  "runtime_bridge": {
+    "contract_path": "COCBot/functions/Run/CleanRoomRecognitionContract.generated.au3",
+    "bridge_path": "COCBot/functions/Run/CleanRoomRecognitionBridge.au3",
+    "mode": "read-only",
+    "legacy_dispatch_wired": false,
+    "bot_start_wired": false,
+    "find_tile_behavior": "verified-fixture-attestation-only-no-coordinate",
+    "python_adapter_packaged": false
+  },
+  "limits": {
+    "max_file_bytes": 16777216,
+    "max_width": 2048,
+    "max_height": 2048,
+    "max_pixels": 4194304,
+    "max_results": 32,
+    "max_points": 256,
+    "max_deadline_ms": 2000,
+    "max_capture_age_seconds": 30,
+    "minimum_non_black_ratio": 0.02,
+    "minimum_distinct_colors": 4
+  },
+  "legacy_exports": [
+    {
+      "name": "DoOCR",
+      "arguments": ["HBITMAP handle", "language id string"],
+      "legacy_return_contract": "Caller reads OCR text from DllCall result element zero; an empty string is no text or failure.",
+      "clean_room_status": "unavailable",
+      "phase": "ocr",
+      "unavailable_reason": "No reviewed clean-room glyph model is manifest-owned."
+    },
+    {
+      "name": "FindTile",
+      "arguments": ["HBITMAP handle", "tile path string", "search-area string", "maximum result count integer"],
+      "legacy_return_contract": "Caller expects count|x,y|... in DllCall result element zero.",
+      "clean_room_status": "implemented",
+      "phase": "template-candidates",
+      "legacy_wire_compatible": false
+    },
+    {
+      "name": "GetDeployableNextTo",
+      "arguments": ["target point string", "distance integer", "optional redline override string"],
+      "legacy_return_contract": "Caller expects a delimited coordinate string in DllCall result element zero.",
+      "clean_room_status": "implemented",
+      "phase": "pure-coordinate",
+      "legacy_wire_compatible": false
+    },
+    {
+      "name": "GetOffSetRedline",
+      "arguments": ["area enum string TL|BL|BR|TR", "distance integer"],
+      "legacy_return_contract": "Caller expects a delimited coordinate string derived from the prior redline result.",
+      "clean_room_status": "implemented",
+      "phase": "pure-coordinate",
+      "legacy_wire_compatible": false
+    },
+    {
+      "name": "GetProperty",
+      "arguments": ["opaque result key string", "property enum string"],
+      "legacy_return_contract": "Caller reads a property string for state retained by a prior multi-tile search.",
+      "clean_room_status": "unavailable",
+      "phase": "structured-search",
+      "unavailable_reason": "The clean-room adapter does not retain opaque cross-call search state."
+    },
+    {
+      "name": "SearchMultipleTilesBetweenLevels",
+      "arguments": ["HBITMAP handle", "tile directory string", "search-area string", "maximum result count integer", "redline string", "minimum level integer", "maximum level integer"],
+      "legacy_return_contract": "Caller expects pipe-separated opaque result keys and resolves object properties in later GetProperty calls.",
+      "clean_room_status": "unavailable",
+      "phase": "structured-search",
+      "unavailable_reason": "No reviewed manifest-owned multi-level asset family exists."
+    },
+    {
+      "name": "SearchRedLines",
+      "arguments": ["HBITMAP handle", "search-area string"],
+      "legacy_return_contract": "Caller expects x,y|... redline coordinates in DllCall result element zero.",
+      "clean_room_status": "unavailable",
+      "phase": "redline-segmentation",
+      "unavailable_reason": "Current-client segmentation fixtures are missing."
+    },
+    {
+      "name": "getLocationDarkElixirStorage",
+      "arguments": ["HBITMAP pointer"],
+      "legacy_return_contract": "Caller parses one or more x-y coordinates from DllCall result element zero.",
+      "clean_room_status": "unavailable",
+      "phase": "building-location",
+      "unavailable_reason": "Current-client storage fixtures and reviewed assets are missing."
+    },
+    {
+      "name": "getLocationDarkElixirStorageWithLevel",
+      "arguments": ["HBITMAP pointer"],
+      "legacy_return_contract": "Caller consumes a level#x-y~... string from DllCall result element zero.",
+      "clean_room_status": "unavailable",
+      "phase": "building-location",
+      "unavailable_reason": "Current-client level-labelled storage fixtures and reviewed assets are missing."
+    },
+    {
+      "name": "getLocationElixirExtractorWithLevel",
+      "arguments": ["HBITMAP pointer"],
+      "legacy_return_contract": "Caller consumes a level#x-y~... string from DllCall result element zero.",
+      "clean_room_status": "unavailable",
+      "phase": "building-location",
+      "unavailable_reason": "Current-client extractor fixtures and reviewed assets are missing."
+    },
+    {
+      "name": "getLocationMineExtractorWithLevel",
+      "arguments": ["HBITMAP pointer"],
+      "legacy_return_contract": "Caller consumes a level#x-y~... string from DllCall result element zero.",
+      "clean_room_status": "unavailable",
+      "phase": "building-location",
+      "unavailable_reason": "Current-client mine fixtures and reviewed assets are missing."
+    },
+    {
+      "name": "getLocationSnowElixirExtractorWithLevel",
+      "arguments": ["HBITMAP pointer"],
+      "legacy_return_contract": "Caller consumes a level#x-y~... string from DllCall result element zero.",
+      "clean_room_status": "unavailable",
+      "phase": "building-location",
+      "unavailable_reason": "Current-client snow-theme extractor fixtures and reviewed assets are missing."
+    },
+    {
+      "name": "getLocationSnowMineExtractorWithLevel",
+      "arguments": ["HBITMAP pointer"],
+      "legacy_return_contract": "Caller consumes a level#x-y~... string from DllCall result element zero.",
+      "clean_room_status": "unavailable",
+      "phase": "building-location",
+      "unavailable_reason": "Current-client snow-theme mine fixtures and reviewed assets are missing."
+    },
+    {
+      "name": "getLocationTownHall",
+      "arguments": ["HBITMAP pointer"],
+      "legacy_return_contract": "Caller parses one or more x-y coordinates from DllCall result element zero.",
+      "clean_room_status": "unavailable",
+      "phase": "building-location",
+      "unavailable_reason": "Current-client Town Hall level fixtures and reviewed assets are missing."
+    },
+    {
+      "name": "getRedArea",
+      "arguments": ["HBITMAP pointer", "x skip integer", "y skip integer", "color variation integer"],
+      "legacy_return_contract": "Caller splits DllCall result element zero into four side point lists separated by #.",
+      "clean_room_status": "unavailable",
+      "phase": "redline-segmentation",
+      "unavailable_reason": "Current-client attack red-area fixtures are missing."
+    },
+    {
+      "name": "getRedAreaSideBuilding",
+      "arguments": ["HBITMAP pointer", "x skip integer", "y skip integer", "color variation integer", "side-building selector integer"],
+      "legacy_return_contract": "Caller splits DllCall result element zero into four side point lists separated by #.",
+      "clean_room_status": "unavailable",
+      "phase": "redline-segmentation",
+      "unavailable_reason": "Current-client side-building and attack red-area fixtures are missing."
+    },
+    {
+      "name": "ocr",
+      "arguments": ["HBITMAP pointer", "language id string", "debug integer"],
+      "legacy_return_contract": "Caller reads OCR text from DllCall result element zero; an empty string is no text or failure.",
+      "clean_room_status": "unavailable",
+      "phase": "ocr",
+      "unavailable_reason": "No reviewed clean-room glyph model is manifest-owned."
+    }
+  ],
+  "assets": {
+    "current-client.daily-reward.claim": {
+      "kind": "verified-fixture-template-candidates",
+      "export": "FindTile",
+      "fixture_id": "home.daily-reward",
+      "image_path": "tests/fixtures/current-client/images/home.daily-reward.png",
+      "image_sha256": "33a759cb71627aa48a7f032966e50ceb540b9c736d125ca98bd532347c5429c9",
+      "metadata_path": "tests/fixtures/current-client/metadata/home.daily-reward.json",
+      "metadata_sha256": "a4a5f6279a5d00c28e603bff0930055b956f112224c4d921e9668a90b4251fec",
+      "required_screenshot_size": [860, 732],
+      "template_box": [239, 305, 356, 345],
+      "candidate_boxes": [
+        [91, 305, 208, 345],
+        [239, 305, 356, 345],
+        [387, 305, 504, 345],
+        [91, 464, 208, 504],
+        [239, 464, 356, 504],
+        [387, 464, 504, 504],
+        [534, 464, 651, 504]
+      ],
+      "minimum_score": 0.9,
+      "maximum_matches": 1,
+      "evidence_scope": "verified-fixture-replay-only",
+      "live_tolerance_proven": false,
+      "bot_start_wired": false,
+      "legacy_wire_compatible": false
+    }
+  }
+}

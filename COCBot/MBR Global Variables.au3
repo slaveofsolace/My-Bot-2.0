@@ -1347,6 +1347,7 @@ Global $g_aiRunTime[8], $g_ahTimerSinceSwitched[8]
 Global Const $g_WIN_POS_DEFAULT = 0xFFFFFFF
 Global $g_iFrmBotPosX = $g_WIN_POS_DEFAULT ; Position X of the GUI
 Global $g_iFrmBotPosY = $g_WIN_POS_DEFAULT ; Position Y of the GUI
+Global $g_bForcePrimaryWindow = False ; Installed launcher keeps managed native surfaces on the primary display
 Global $g_iAndroidPosX = $g_WIN_POS_DEFAULT ; Position X of the Android Window (undocked)
 Global $g_iAndroidPosY = $g_WIN_POS_DEFAULT ; Position Y of the Android Window (undocked)
 Global $g_iFrmBotDockedPosX = $g_WIN_POS_DEFAULT ; Position X of the docked GUI
@@ -1980,7 +1981,7 @@ Global $g_bChkCollectFreeMagicItems = True
 
 ; Daily challenge
 Global $g_bChkCollectRewards = True
-Global $g_bChkSellRewards = True  ; Sell "storage full" extra magic items for gems
+Global $g_bChkSellRewards = False  ; Premium reward conversion is permanently unavailable
 Global $g_iBuilderBoostDiscount = 0 ; in percent
 
 ; SC_ID without shared_prefs

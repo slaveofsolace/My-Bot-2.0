@@ -144,7 +144,7 @@ Func _RunPlannerMetadataInit()
 	$g_aRunPlannerSettings[3][$eRunPlannerSettingDefault] = 0
 	$g_aRunPlannerSettings[3][$eRunPlannerSettingRequired] = False
 	$g_aRunPlannerSettings[3][$eRunPlannerSettingBinding] = "RunPlan.planned_town_hall"
-	$g_aRunPlannerSettings[3][$eRunPlannerSettingUnit] = "Town Hall (0 = detect)"
+	$g_aRunPlannerSettings[3][$eRunPlannerSettingUnit] = "0 = detect at Start"
 	$g_aRunPlannerSettings[3][$eRunPlannerSettingMinimum] = 0
 	$g_aRunPlannerSettings[3][$eRunPlannerSettingMaximum] = 18
 	$g_aRunPlannerSettings[3][$eRunPlannerSettingStep] = 1
@@ -241,7 +241,7 @@ Func _RunPlannerMetadataInit()
 	$g_aRunPlannerSettings[9][$eRunPlannerSettingSectionId] = "army"
 	$g_aRunPlannerSettings[9][$eRunPlannerSettingType] = "boolean"
 	$g_aRunPlannerSettings[9][$eRunPlannerSettingLabel] = "Manage training"
-	$g_aRunPlannerSettings[9][$eRunPlannerSettingSummary] = "Leave the training queue unchanged."
+	$g_aRunPlannerSettings[9][$eRunPlannerSettingSummary] = "Do not change the training queue."
 	$g_aRunPlannerSettings[9][$eRunPlannerSettingDescription] = "Planned combat uses one army already trained in game. The bot checks whether that army is ready, then attempts one battle without boosting Super Troops, inspecting or editing Quick Train, removing troops, queuing troops or spells, or building siege machines."
 	$g_aRunPlannerSettings[9][$eRunPlannerSettingDefault] = False
 	$g_aRunPlannerSettings[9][$eRunPlannerSettingRequired] = False
@@ -649,7 +649,7 @@ Func _RunPlannerMetadataInit()
 	$g_aRunPlannerSettings[33][$eRunPlannerSettingSectionId] = "donate"
 	$g_aRunPlannerSettings[33][$eRunPlannerSettingType] = "boolean"
 	$g_aRunPlannerSettings[33][$eRunPlannerSettingLabel] = "Request when available"
-	$g_aRunPlannerSettings[33][$eRunPlannerSettingSummary] = "Request Clan Castle troops when available."
+	$g_aRunPlannerSettings[33][$eRunPlannerSettingSummary] = "Request reinforcements when available."
 	$g_aRunPlannerSettings[33][$eRunPlannerSettingDescription] = "Allows the explicit request-only route to post at most one request after fresh Available recognition."
 	$g_aRunPlannerSettings[33][$eRunPlannerSettingDefault] = False
 	$g_aRunPlannerSettings[33][$eRunPlannerSettingRequired] = False
@@ -734,7 +734,7 @@ Func _RunPlannerMetadataInit()
 	$g_aRunPlannerSettings[38][$eRunPlannerSettingSectionId] = "events"
 	$g_aRunPlannerSettings[38][$eRunPlannerSettingType] = "boolean"
 	$g_aRunPlannerSettings[38][$eRunPlannerSettingLabel] = "Collect Loot Cart"
-	$g_aRunPlannerSettings[38][$eRunPlannerSettingSummary] = "Collect once from one recognized Loot Cart."
+	$g_aRunPlannerSettings[38][$eRunPlannerSettingSummary] = "Use one exact Loot Cart Collect action."
 	$g_aRunPlannerSettings[38][$eRunPlannerSettingDescription] = "Only Home maintenance may use this. It requires exactly one fresh cart match, permits one cart-open input and one exact Collect input, passively re-proves Home, and stops. It never opens chat, uses fallback coordinates, accepts a confirmation, or converts anything into gems."
 	$g_aRunPlannerSettings[38][$eRunPlannerSettingDefault] = False
 	$g_aRunPlannerSettings[38][$eRunPlannerSettingRequired] = False
@@ -751,7 +751,7 @@ Func _RunPlannerMetadataInit()
 	$g_aRunPlannerSettings[39][$eRunPlannerSettingSectionId] = "events"
 	$g_aRunPlannerSettings[39][$eRunPlannerSettingType] = "boolean"
 	$g_aRunPlannerSettings[39][$eRunPlannerSettingLabel] = "Check Treasury"
-	$g_aRunPlannerSettings[39][$eRunPlannerSettingSummary] = "Open Treasury and confirm it is not full."
+	$g_aRunPlannerSettings[39][$eRunPlannerSettingSummary] = "Prove the exact Treasury is not full."
 	$g_aRunPlannerSettings[39][$eRunPlannerSettingDescription] = "Only Home maintenance may use this. It requires either an already-selected Clan Castle or an exact cached coordinate, verifies the action card and Treasury window, and permits at most one Castle, entry, and recognized close input. The template-free adapter proves not-full/unavailable and stops before Collect when a full/actionable state is seen. It never locates a building, retries, uses fallback coordinates, confirms a transfer, or uses gems."
 	$g_aRunPlannerSettings[39][$eRunPlannerSettingDefault] = False
 	$g_aRunPlannerSettings[39][$eRunPlannerSettingRequired] = False

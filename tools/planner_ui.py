@@ -95,6 +95,7 @@ ENGINE_INIT_CANCEL_CONTEXT_WAIT_SECONDS = 3.0
 ENGINE_INIT_CANCEL_CONTEXT_POLL_SECONDS = 0.025
 CONTROL_ACTIONS = {"start", "stop", "pause", "resume", "check-engine", "launch-game"}
 CONTROL_LOCK = threading.Lock()
+PLAN_ABSENCE_TOKEN = "absent"
 LOCAL_HOSTS = {"127.0.0.1", "localhost"}
 DIAGNOSTIC_ARTIFACTS = {
     "native_app": ROOT / "MyBot.run.exe",
@@ -102,7 +103,7 @@ DIAGNOSTIC_ARTIFACTS = {
     "managed_engine": ROOT / "lib/MyBot.run.dll",
 }
 DIAGNOSTIC_ENGINE_FIELDS = {
-    "connected", "state", "authorization_ready", "engine_available", "engine_probe_state", "product_name",
+    "connected", "state", "authorization_ready", "engine_available", "engine_probe_state", "recognition_available", "recognition_error", "product_name",
     "product_version", "engine_version", "plan_active", "plan_message", "session_id",
     "emulator", "emulator_attached", "window_attached", "adb_ready", "game_ready", "bot_pid", "last_command", "last_outcome", "last_command_message",
     "message", "last_seen_at", "age_seconds",
@@ -625,44 +626,104 @@ def plan_status() -> dict:
     return {"exists": True, "state": "saved", "mode": "planned", "written_at": written}
 
 
-def activate_native_profile_mode() -> tuple[dict, int]:
-    """Recoverably disable the applied plan so native Start owns emulator/game startup again."""
-    native = control_status()
-    if native.get("state") in {"starting", "running", "paused", "stopping", "closing"}:
-        return {
-            "ok": False,
-            "problems": ["native auto-launch mode cannot be changed while a run is active"],
-        }, 409
+def plan_start_token(run_mode: str) -> str | None:
+    """Return the exact applied-plan identity while the caller holds CONTROL_LOCK."""
+    if run_mode == "native-profile":
+        return PLAN_ABSENCE_TOKEN if not PLAN_PATH.exists() else None
+    if run_mode != "planned":
+        return None
+    try:
+        raw = PLAN_PATH.read_bytes()
+        parsed = json.loads(raw.decode("utf-8-sig"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return None
+    if not isinstance(parsed, dict):
+        return None
+    return f"sha256:{hashlib.sha256(raw).hexdigest()}"
 
-    if not PLAN_PATH.exists():
+
+def save_plan(submitted: dict) -> tuple[dict, int]:
+    """Validate and replace the applied plan at the shared control linearization point."""
+    with CONTROL_LOCK:
+        clean, adjustments, rejected = validate_plan(submitted)
+
+        # An unknown setting means the caller and this server disagree about what exists. Saving
+        # the rest would silently drop intent, so refuse the whole document and write nothing.
+        if rejected:
+            return {"ok": False, "problems": rejected, "written": None}, 400
+
+        preflight = engine_preflight(clean)
+        if preflight:
+            return {
+                "ok": False,
+                "problems": preflight,
+                "written": None,
+                "plan": clean,
+            }, 422
+
+        try:
+            write_plan_atomic(clean)
+        except OSError:
+            return {"ok": False, "problems": ["the plan could not be written atomically"]}, 500
         return {
             "ok": True,
-            "mode": "native-profile",
-            "backup": None,
+            "problems": adjustments,
+            "written": displayed_path(PLAN_PATH),
+            "plan": clean,
             "status": plan_status(),
         }, 200
 
-    try:
-        plan_entry = PLAN_PATH.lstat()
-    except OSError:
-        return {"ok": False, "problems": ["the applied plan could not be inspected"]}, 500
-    if not stat.S_ISREG(plan_entry.st_mode):
-        return {"ok": False, "problems": ["the applied plan is not a regular file"]}, 409
-    if not isinstance(read_json(PLAN_PATH, None), dict):
-        return {"ok": False, "problems": ["the applied plan is unreadable and was left untouched"]}, 409
 
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
-    backup = PLAN_PATH.with_name(f"{PLAN_PATH.stem}.backup-{stamp}-{uuid.uuid4().hex[:8]}.json")
-    try:
-        os.replace(PLAN_PATH, backup)
-    except OSError:
-        return {"ok": False, "problems": ["the applied plan could not be backed up atomically"]}, 500
-    return {
-        "ok": True,
-        "mode": "native-profile",
-        "backup": displayed_path(backup),
-        "status": plan_status(),
-    }, 200
+def activate_native_profile_mode() -> tuple[dict, int]:
+    """Recoverably disable the applied plan so full-profile Start owns emulator/game startup."""
+    with CONTROL_LOCK:
+        native = control_status()
+        if native.get("connected") is not True or native.get("state") != "idle":
+            return {
+                "ok": False,
+                "problems": [
+                    "full profile automation requires a fresh connected idle native engine"
+                ],
+            }, 409
+
+        if native.get("recognition_available") is not True:
+            return {
+                "ok": False,
+                "problems": [
+                    native.get("recognition_error")
+                    or "Full profile automation requires a licensed or clean-room recognizer; the applied bounded plan was left unchanged"
+                ],
+            }, 409
+
+        if not PLAN_PATH.exists():
+            return {
+                "ok": True,
+                "mode": "native-profile",
+                "backup": None,
+                "status": plan_status(),
+            }, 200
+
+        try:
+            plan_entry = PLAN_PATH.lstat()
+        except OSError:
+            return {"ok": False, "problems": ["the applied plan could not be inspected"]}, 500
+        if not stat.S_ISREG(plan_entry.st_mode):
+            return {"ok": False, "problems": ["the applied plan is not a regular file"]}, 409
+        if not isinstance(read_json(PLAN_PATH, None), dict):
+            return {"ok": False, "problems": ["the applied plan is unreadable and was left untouched"]}, 409
+
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+        backup = PLAN_PATH.with_name(f"{PLAN_PATH.stem}.backup-{stamp}-{uuid.uuid4().hex[:8]}.json")
+        try:
+            os.replace(PLAN_PATH, backup)
+        except OSError:
+            return {"ok": False, "problems": ["the applied plan could not be backed up atomically"]}, 500
+        return {
+            "ok": True,
+            "mode": "native-profile",
+            "backup": displayed_path(backup),
+            "status": plan_status(),
+        }, 200
 
 
 def displayed_path(path: Path) -> str:
@@ -710,6 +771,8 @@ def control_status() -> dict:
         "connected": False,
         "authorization_ready": False,
         "engine_available": False,
+        "recognition_available": False,
+        "recognition_error": "Native recognition state is unavailable while the engine is offline",
         "emulator_attached": False,
         "window_attached": False,
         "adb_ready": False,
@@ -749,6 +812,10 @@ def control_status() -> dict:
     if not document["connected"]:
         document["state"] = "offline"
         document["message"] = "Native engine heartbeat is stale"
+        document["recognition_available"] = False
+        document["recognition_error"] = (
+            "Native recognition state is unavailable because the engine heartbeat is stale"
+        )
     native_attached = (
         document.get("window_attached") is True
         if "window_attached" in document
@@ -801,6 +868,34 @@ def queue_control_command(action: str, expected_start_request_id: str = "") -> t
             "action": action,
             "requested_at": datetime.now(timezone.utc).isoformat(),
         }
+        if action == "start":
+            current_plan = plan_status()
+            run_mode = current_plan.get("mode")
+            if run_mode not in {"planned", "native-profile"}:
+                return {"ok": False, "problems": ["the selected run mode is invalid"]}, 409
+            if run_mode == "planned" and current_plan.get("state") != "saved":
+                return {"ok": False, "problems": ["the applied plan is not readable"]}, 409
+            if run_mode == "native-profile" and status.get("recognition_available") is not True:
+                return {
+                    "ok": False,
+                    "problems": [
+                        status.get("recognition_error")
+                        or "Full profile automation requires a licensed or clean-room recognizer; apply a verified bounded route"
+                    ],
+                    "status": status,
+                }, 409
+            plan_token = plan_start_token(run_mode)
+            if plan_token is None:
+                return {
+                    "ok": False,
+                    "problems": ["the selected plan changed while Start was being prepared"],
+                }, 409
+            # The native controller is long-lived and may still hold the last applied intent in
+            # memory after /api/plan/native atomically moves the file aside. Bind every web Start
+            # to the server-observed mode so a stale cached plan can never replace the operator's
+            # explicit Full profile choice.
+            command["run_mode"] = run_mode
+            command["plan_token"] = plan_token
         native_command_queued = False
         # A supervised Stop must replace any command that could otherwise be replayed by the
         # controller's replacement backend after the launcher closes the blocked generation.
@@ -1187,31 +1282,8 @@ class Handler(BaseHTTPRequestHandler):
             self._json(payload, code)
             return
 
-        clean, adjustments, rejected = validate_plan(submitted)
-
-        # An unknown setting means the caller and this server disagree about what exists. Saving the
-        # rest would silently drop the caller's intent, so refuse the whole document and write nothing.
-        if rejected:
-            self._json({"ok": False, "problems": rejected, "written": None}, 400)
-            return
-
-        preflight = engine_preflight(clean)
-        if preflight:
-            self._json({"ok": False, "problems": preflight, "written": None, "plan": clean}, 422)
-            return
-
-        try:
-            write_plan_atomic(clean)
-        except OSError:
-            self._json({"ok": False, "problems": ["the plan could not be written atomically"]}, 500)
-            return
-        self._json({
-            "ok": True,
-            "problems": adjustments,
-            "written": displayed_path(PLAN_PATH),
-            "plan": clean,
-            "status": plan_status(),
-        })
+        payload, code = save_plan(submitted)
+        self._json(payload, code)
 
 
 class PlannerServer(ThreadingHTTPServer):

@@ -1118,105 +1118,110 @@ EndFunc   ;==>CreateCustomTrainSubTab
 Func CreateTrainBoost()
 
 	Local $sTxtTip = ""
+	Local Const $sPremiumBoostUnavailable = "Unavailable: premium boost automation is disabled in this build."
 
 	$g_hGUI_TRAINARMY_BOOST = _GUICreate("", $g_iSizeWGrpTab3, $g_iSizeHGrpTab3, 5, 25, BitOR($WS_CHILD, $WS_TABSTOP), -1, $g_hGUI_TRAINARMY)
 	GUISetBkColor($COLOR_WHITE, $g_hGUI_TRAINARMY_BOOST)
 
 	Local $x = 25, $y = 20
 	; Army Buildings
-	GUICtrlCreateGroup(GetTranslatedFileIni("MBR GUI Design Child Attack - Troops_Boost", "Group_01", "Boost Army Buildings"), $x - 20, $y - 20, $g_iSizeWGrpTab3 - 12, 73)
+	GUICtrlCreateGroup("Premium boosts unavailable", $x - 20, $y - 20, $g_iSizeWGrpTab3 - 12, 73)
 	_GUICtrlCreateIcon($g_sLibIconPath, $eIcnBarrackBoost, $x - 10, $y - 2, 24, 24)
 	_GUICtrlCreateIcon($g_sLibIconPath, $eIcnDarkBarrackBoost, $x + 19, $y - 2, 24, 24)
-	GUICtrlCreateLabel(GetTranslatedFileIni("MBR GUI Design Child Attack - Troops_Boost", "LblBarracksBoost", "Barracks"), $x + 20 + 29, $y + 4, -1, -1)
-	$sTxtTip = GetTranslatedFileIni("MBR GUI Design Child Attack - Troops_Boost", "LblBarracksBoost_Info_01", "Use this to boost your Barracks with GEMS! Use with caution!")
+	GUICtrlCreateLabel("Barracks (unavailable)", $x + 20 + 29, $y + 4, -1, -1)
+	$sTxtTip = $sPremiumBoostUnavailable
 	_GUICtrlSetTip(-1, $sTxtTip)
 	$g_hCmbBoostBarracks = GUICtrlCreateCombo("", $x + 135, $y, 60, 25, BitOR($CBS_DROPDOWNLIST, $CBS_AUTOHSCROLL))
-	GUICtrlSetData(-1, "0|1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|No limit", "0")
+	GUICtrlSetData(-1, "0", "0")
 	_GUICtrlSetTip(-1, $sTxtTip)
+	GUICtrlSetState(-1, $GUI_DISABLE)
 
 	_GUICtrlCreateIcon($g_sLibIconPath, $eIcnSpellFactoryBoost, $x + 204, $y - 2, 24, 24)
 	_GUICtrlCreateIcon($g_sLibIconPath, $eIcnDarkSpellBoost, $x + 233, $y - 2, 24, 24)
-	GUICtrlCreateLabel(GetTranslatedFileIni("MBR GUI Design Child Attack - Troops_Boost", "LblSpellFactoryBoost", "Spell Factory"), $x + 263, $y + 4, -1, -1)
-	$sTxtTip = GetTranslatedFileIni("MBR GUI Design Child Attack - Troops_Boost", "LblSpellFactoryBoost_Info_01", "Use this to boost your Spell Factory with GEMS! Use with caution!")
+	GUICtrlCreateLabel("Spell Factory (unavailable)", $x + 263, $y + 4, -1, -1)
+	$sTxtTip = $sPremiumBoostUnavailable
 	_GUICtrlSetTip(-1, $sTxtTip)
 	$g_hCmbBoostSpellFactory = GUICtrlCreateCombo("", $x + 330, $y, 60, 25, BitOR($CBS_DROPDOWNLIST, $CBS_AUTOHSCROLL))
-	GUICtrlSetData(-1, "0|1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|No limit", "0")
+	GUICtrlSetData(-1, "0", "0")
 	_GUICtrlSetTip(-1, $sTxtTip)
+	GUICtrlSetState(-1, $GUI_DISABLE)
 
 	$y += 25
 	_GUICtrlCreateIcon($g_sLibIconPath, $eIcnWorkshopBoost, $x + 5, $y - 2, 24, 24)
-	GUICtrlCreateLabel(GetTranslatedFileIni("MBR GUI Design Child Attack - Troops_Boost", "LblWorkshopBoost", "Workshop"), $x + 20 + 29, $y + 4, -1, -1)
-	$sTxtTip = GetTranslatedFileIni("MBR GUI Design Child Attack - Troops_Boost", "LblWorkshopBoost_Info_01", "Use this to boost your Workshop with GEMS! Use with caution!")
+	GUICtrlCreateLabel("Workshop (unavailable)", $x + 20 + 29, $y + 4, -1, -1)
+	$sTxtTip = $sPremiumBoostUnavailable
 	_GUICtrlSetTip(-1, $sTxtTip)
 	$g_hCmbBoostWorkshop = GUICtrlCreateCombo("", $x + 135, $y, 60, 25, BitOR($CBS_DROPDOWNLIST, $CBS_AUTOHSCROLL))
-	GUICtrlSetData(-1, "0|1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|No limit", "0")
+	GUICtrlSetData(-1, "0", "0")
 	_GUICtrlSetTip(-1, $sTxtTip)
+	GUICtrlSetState(-1, $GUI_DISABLE)
 	GUICtrlCreateGroup("", -99, -99, 1, 1)
 
 	; Heroes
 	$y += 55
-	GUICtrlCreateGroup(GetTranslatedFileIni("MBR GUI Design Child Attack - Troops_Boost", "Group_02", "Boost Heroes"), $x - 20, $y - 20, $g_iSizeWGrpTab3 - 12, 75)
+	GUICtrlCreateGroup("Hero premium boosts unavailable", $x - 20, $y - 20, $g_iSizeWGrpTab3 - 12, 75)
 	_GUICtrlCreateIcon($g_sLibIconPath, $eIcnKingBoost, $x - 10, $y - 2, 24, 24)
-	GUICtrlCreateLabel(GetTranslatedFileIni("MBR Global GUI Design Names Troops", "King", -1), $x + 20, $y + 4, -1, -1)
-	$sTxtTip = GetTranslatedFileIni("MBR GUI Design Child Attack - Troops_Boost", "LblKingBoost_Info_01", "Use this to boost your Barbarian King with GEMS! Use with caution!")
+	GUICtrlCreateLabel("King (unavailable)", $x + 20, $y + 4, -1, -1)
+	$sTxtTip = $sPremiumBoostUnavailable
 	_GUICtrlSetTip(-1, $sTxtTip)
 	$g_hCmbBoostBarbarianKing = GUICtrlCreateCombo("", $x + 50, $y, 60, 25, BitOR($CBS_DROPDOWNLIST, $CBS_AUTOHSCROLL))
-	GUICtrlSetData(-1, "0|1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|No limit", "0")
+	GUICtrlSetData(-1, "0", "0")
 	_GUICtrlSetTip(-1, $sTxtTip)
 	GUICtrlSetState(-1, $GUI_DISABLE)
 	GUICtrlSetOnEvent(-1, "chkUpgradeKing")
 
 	_GUICtrlCreateIcon($g_sLibIconPath, $eIcnQueenBoost, $x + 120, $y - 2, 24, 24)
-	GUICtrlCreateLabel(GetTranslatedFileIni("MBR Global GUI Design Names Troops", "Queen", -1), $x + 150, $y + 4, -1, -1)
-	$sTxtTip = GetTranslatedFileIni("MBR GUI Design Child Attack - Troops_Boost", "LblQueenBoost_Info_01", "Use this to boost your Archer Queen with GEMS! Use with caution!")
+	GUICtrlCreateLabel("Queen (unavailable)", $x + 150, $y + 4, -1, -1)
+	$sTxtTip = $sPremiumBoostUnavailable
 	_GUICtrlSetTip(-1, $sTxtTip)
 	$g_hCmbBoostArcherQueen = GUICtrlCreateCombo("", $x + 190, $y, 60, 25, BitOR($CBS_DROPDOWNLIST, $CBS_AUTOHSCROLL))
-	GUICtrlSetData(-1, "0|1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|No limit", "0")
+	GUICtrlSetData(-1, "0", "0")
 	_GUICtrlSetTip(-1, $sTxtTip)
 	GUICtrlSetState(-1, $GUI_DISABLE)
 	GUICtrlSetOnEvent(-1, "chkUpgradeQueen")
 
 	_GUICtrlCreateIcon($g_sLibIconPath, $eIcnPrinceBoost, $x + 260, $y - 2, 24, 24)
-	GUICtrlCreateLabel(GetTranslatedFileIni("MBR Global GUI Design Names Troops", "Prince", -1), $x + 290, $y + 4, -1, -1)
-	$sTxtTip = GetTranslatedFileIni("MBR GUI Design Child Attack - Troops_Boost", "LblPrinceBoost_Info_01", "Use this to boost your Minion Prince with GEMS! Use with caution!")
+	GUICtrlCreateLabel("Prince (unavailable)", $x + 290, $y + 4, -1, -1)
+	$sTxtTip = $sPremiumBoostUnavailable
 	_GUICtrlSetTip(-1, $sTxtTip)
 	$g_hCmbBoostMinionPrince = GUICtrlCreateCombo("", $x + 330, $y, 60, 25, BitOR($CBS_DROPDOWNLIST, $CBS_AUTOHSCROLL))
-	GUICtrlSetData(-1, "0|1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|No limit", "0")
+	GUICtrlSetData(-1, "0", "0")
 	_GUICtrlSetTip(-1, $sTxtTip)
 	GUICtrlSetState(-1, $GUI_DISABLE)
 	GUICtrlSetOnEvent(-1, "chkUpgradePrince")
 
 	$y += 25
 	_GUICtrlCreateIcon($g_sLibIconPath, $eIcnWardenBoost, $x - 10, $y - 2, 24, 24)
-	GUICtrlCreateLabel(GetTranslatedFileIni("MBR Global GUI Design Names Troops", "Grand Warden", -1), $x + 20, $y + 4, -1, -1)
-	$sTxtTip = GetTranslatedFileIni("MBR GUI Design Child Attack - Troops_Boost", "LblWardenBoost_Info_01", "Use this to boost your Grand Warden with GEMS! Use with caution!")
+	GUICtrlCreateLabel("Warden (unavailable)", $x + 20, $y + 4, -1, -1)
+	$sTxtTip = $sPremiumBoostUnavailable
 	_GUICtrlSetTip(-1, $sTxtTip)
 	$g_hCmbBoostWarden = GUICtrlCreateCombo("", $x + 135, $y, 60, 25, BitOR($CBS_DROPDOWNLIST, $CBS_AUTOHSCROLL))
-	GUICtrlSetData(-1, "0|1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|No limit", "0")
+	GUICtrlSetData(-1, "0", "0")
 	_GUICtrlSetTip(-1, $sTxtTip)
 	GUICtrlSetState(-1, $GUI_DISABLE)
 	GUICtrlSetOnEvent(-1, "chkUpgradeWarden")
 
 	_GUICtrlCreateIcon($g_sLibIconPath, $eIcnChampionBoost, $x + 204, $y - 2, 24, 24)
-	GUICtrlCreateLabel(GetTranslatedFileIni("MBR Global GUI Design Names Troops", "Royal Champion", -1), $x + 234, $y + 4, -1, -1)
-	$sTxtTip = GetTranslatedFileIni("MBR GUI Design Child Attack - Troops_Boost", "LblChampionBoost_Info_01", "Use this to boost your Royal Champion with GEMS! Use with caution!")
+	GUICtrlCreateLabel("Champion (unavailable)", $x + 234, $y + 4, -1, -1)
+	$sTxtTip = $sPremiumBoostUnavailable
 	_GUICtrlSetTip(-1, $sTxtTip)
 	$g_hCmbBoostChampion = GUICtrlCreateCombo("", $x + 330, $y, 60, 25, BitOR($CBS_DROPDOWNLIST, $CBS_AUTOHSCROLL))
-	GUICtrlSetData(-1, "0|1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|No limit", "0")
+	GUICtrlSetData(-1, "0", "0")
 	_GUICtrlSetTip(-1, $sTxtTip)
 	GUICtrlSetState(-1, $GUI_DISABLE)
 	GUICtrlSetOnEvent(-1, "chkUpgradeChampion")
 	GUICtrlCreateGroup("", -99, -99, 1, 1)
 
 	$y += 55
-	GUICtrlCreateGroup(GetTranslatedFileIni("MBR GUI Design Child Attack - Troops_Boost", "Group_03", "Boost Everything"), $x - 20, $y - 20, $g_iSizeWGrpTab3 - 12, 48)
+	GUICtrlCreateGroup("Everything boost unavailable", $x - 20, $y - 20, $g_iSizeWGrpTab3 - 12, 48)
 	_GUICtrlCreateIcon($g_sLibIconPath, $eIcnBoostPotion, $x - 10, $y - 2, 24, 24)
-	GUICtrlCreateLabel(GetTranslatedFileIni("MBR Global GUI Design Names Troops", "Potion", -1), $x + 20, $y + 4, -1, -1)
-	$sTxtTip = GetTranslatedFileIni("MBR GUI Design Child Attack - Troops_Boost", "LblEverythingBoost_Info_01", "Use this to boost everything with POTIONS! Use with caution!")
+	GUICtrlCreateLabel("Everything (unavailable)", $x + 20, $y + 4, -1, -1)
+	$sTxtTip = $sPremiumBoostUnavailable
 	_GUICtrlSetTip(-1, $sTxtTip)
 	$g_hCmbBoostEverything = GUICtrlCreateCombo("", $x + 135, $y, 60, 25, BitOR($CBS_DROPDOWNLIST, $CBS_AUTOHSCROLL))
-	GUICtrlSetData(-1, "0|1|2|3|4|5", "0")
+	GUICtrlSetData(-1, "0", "0")
 	_GUICtrlSetTip(-1, $sTxtTip)
+	GUICtrlSetState(-1, $GUI_DISABLE)
 	GUICtrlCreateGroup("", -99, -99, 1, 1)
 
 	$y += 55

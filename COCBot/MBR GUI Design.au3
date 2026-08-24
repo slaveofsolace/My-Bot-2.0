@@ -20,6 +20,7 @@
 #include "Functions\GUI\_GUICtrlSetTip.au3"
 #include "functions\GUI\_GUICtrlCreatePic.au3"
 #include "functions\GUI\GUI_State.au3"
+#include "functions\GUI\WindowPlacement.au3"
 
 Global Const $TCM_SETITEM = 0x1306
 Global $_GUI_MAIN_WIDTH = 472 ; changed from 470 to 472 for DPI scaling cutting off right by 2 pixel
@@ -98,6 +99,7 @@ Func CreateMainGUI()
 
 	$g_hFrmBot = GUICreate($g_sBotTitle, $_GUI_MAIN_WIDTH, $_GUI_MAIN_HEIGHT + $_GUI_MAIN_TOP, ($g_iFrmBotPosX = $g_WIN_POS_DEFAULT ? -1 : $g_iFrmBotPosX), ($g_iFrmBotPosY = $g_WIN_POS_DEFAULT ? -1 : $g_iFrmBotPosY), _
 			BitOR($WS_MINIMIZEBOX, $WS_POPUP, $WS_SYSMENU, $WS_CLIPCHILDREN, $WS_CLIPSIBLINGS, $iStyle))
+	WindowPlacementEnsureVisible($g_hFrmBot, $g_iFrmBotPosX, $g_iFrmBotPosY)
 
 	; see https://github.com/Microsoft/Windows-classic-samples/blob/master/Samples/Win7Samples/winui/shell/appshellintegration/TaskbarThumbnailToolbar/ThumbnailToolbar.cpp
 	_WinAPI_ChangeWindowMessageFilterEx($g_hFrmBot, $g_WM_TaskbarButtonCreated, $MSGFLT_ALLOW)

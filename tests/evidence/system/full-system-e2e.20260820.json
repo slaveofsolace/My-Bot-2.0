@@ -984,7 +984,8 @@
         "verdict": "DEFERRED",
         "status": "redacted",
         "capability_ids": [
-          "army.training"
+          "army.training",
+          "village.clan-request"
         ]
       },
       {
@@ -1544,7 +1545,11 @@
         "mapping": "infra.bot-start",
         "capability_ids": [
           "orchestration.engine-initialization",
-          "orchestration.run-plan"
+          "orchestration.run-plan",
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu"
         ],
         "verdict": "PASS"
       },
@@ -1647,7 +1652,11 @@
         "mapping": "infra.bot-start",
         "capability_ids": [
           "orchestration.engine-initialization",
-          "orchestration.run-plan"
+          "orchestration.run-plan",
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu"
         ],
         "verdict": "PASS"
       },
@@ -1657,7 +1666,25 @@
         "mapping": "infra.bot-start",
         "capability_ids": [
           "orchestration.engine-initialization",
-          "orchestration.run-plan"
+          "orchestration.run-plan",
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/MBR GUI Action.au3::_BotEnsureConfiguredAndroidAndGame",
+        "policy": "infrastructure",
+        "mapping": "infra.bot-start",
+        "capability_ids": [
+          "orchestration.engine-initialization",
+          "orchestration.run-plan",
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu"
         ],
         "verdict": "PASS"
       },
@@ -1705,13 +1732,6 @@
       },
       {
         "id": "COCBot/MBR GUI Control.au3::EnableControls",
-        "policy": "infrastructure",
-        "mapping": "infra.native-gui",
-        "capability_ids": [],
-        "verdict": "PASS"
-      },
-      {
-        "id": "COCBot/MBR GUI Control.au3::GUIControl_AndroidEmbedded",
         "policy": "infrastructure",
         "mapping": "infra.native-gui",
         "capability_ids": [],
@@ -3333,6 +3353,15 @@
         "verdict": "PASS"
       },
       {
+        "id": "COCBot/functions/GUI/WindowPlacement.au3::WindowPlacementEnsureVisible",
+        "policy": "infrastructure",
+        "mapping": "infra.native-window-placement",
+        "capability_ids": [
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
         "id": "COCBot/functions/Image Search/CheckTombs.au3::CheckTombs",
         "policy": "blocked",
         "mapping": "blocked.obstacles",
@@ -3716,14 +3745,14 @@
         "verdict": "PASS"
       },
       {
-        "id": "COCBot/functions/Other/Click.au3::GemClick",
+        "id": "COCBot/functions/Other/Click.au3::GemClickP",
         "policy": "infrastructure",
         "mapping": "infra.input-primitives",
         "capability_ids": [],
         "verdict": "PASS"
       },
       {
-        "id": "COCBot/functions/Other/Click.au3::GemClickP",
+        "id": "COCBot/functions/Other/Click.au3::NoPremiumPointClick",
         "policy": "infrastructure",
         "mapping": "infra.input-primitives",
         "capability_ids": [],
@@ -3800,13 +3829,6 @@
         "verdict": "PASS"
       },
       {
-        "id": "COCBot/functions/Other/ClickZoneR.au3::GemClickR",
-        "policy": "infrastructure",
-        "mapping": "infra.input-primitives",
-        "capability_ids": [],
-        "verdict": "PASS"
-      },
-      {
         "id": "COCBot/functions/Other/ClickZoneR.au3::PureClickR",
         "policy": "infrastructure",
         "mapping": "infra.input-primitives",
@@ -3868,6 +3890,15 @@
       },
       {
         "id": "COCBot/functions/Other/MBRFunc.au3::_MBRFuncCurrentStartRequestId",
+        "policy": "infrastructure",
+        "mapping": "infra.managed-engine-debug",
+        "capability_ids": [
+          "orchestration.engine-initialization"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Other/MBRFunc.au3::_MBRFuncExactDetachedAdbSurfaceAvailable",
         "policy": "infrastructure",
         "mapping": "infra.managed-engine-debug",
         "capability_ids": [
@@ -5739,6 +5770,16 @@
         "verdict": "PASS"
       },
       {
+        "id": "My Bot 2.0.au3::_CloseVerifiedLauncherBackend",
+        "policy": "infrastructure",
+        "mapping": "infra.launcher",
+        "capability_ids": [
+          "runtime.recovery",
+          "orchestration.engine-initialization"
+        ],
+        "verdict": "PASS"
+      },
+      {
         "id": "My Bot 2.0.au3::_CloseWindowsForPid",
         "policy": "infrastructure",
         "mapping": "infra.launcher",
@@ -5993,15 +6034,15 @@
   "counts": {
     "capabilities": 61,
     "planner_settings": 48,
-    "fixtures": 55,
+    "fixtures": 56,
     "compile_targets": 6,
     "control_actions": 6,
     "infrastructure_routes": 8,
-    "actuator_owners": 461,
-    "actuator_sites": 1182,
+    "actuator_owners": 463,
+    "actuator_sites": 1177,
     "pass_capabilities": 2,
     "deferred_capabilities": 59,
-    "pass_actuator_owners": 432,
+    "pass_actuator_owners": 434,
     "deferred_actuator_owners": 29
   }
 }

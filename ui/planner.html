@@ -45,8 +45,9 @@
       <button class="primary-action" id="controlStart" type="button" disabled>Start run</button>
       <button id="controlPause" type="button" disabled>Pause</button>
       <button class="danger-action" id="controlStop" type="button" disabled>Stop</button>
-      <button id="controlNativeMode" type="button" disabled>Use native auto-launch</button>
+      <button id="controlNativeMode" type="button" aria-describedby="controlNativeModeReason" disabled>Use full profile automation</button>
     </div>
+    <p class="mode-availability" id="controlNativeModeReason">Full profile availability is loading.</p>
     <p class="control-ack" id="controlAck">Controls unlock after the saved plan and engine state load.</p>
   </div>
 
@@ -105,6 +106,16 @@
           <li><strong>Bind</strong><span>Verify engine and instance</span></li>
           <li><strong>Confirm</strong><span>Observe the village before input</span></li>
         </ol>
+        <div class="route-prepare">
+          <span class="route-prepare-marker" aria-hidden="true">04</span>
+          <div>
+            <span class="route-prepare-kicker">Bounded starting point</span>
+            <p id="controlSafeHomeRouteHelp">Load Home collection settings for review. Nothing is applied or started.</p>
+          </div>
+          <button id="controlSafeHomeRoute" type="button" aria-describedby="controlSafeHomeRouteHelp" disabled>
+            Prepare Home route <span aria-hidden="true">→</span>
+          </button>
+        </div>
       </div>
       <svg class="route-map" id="routeMap" viewBox="0 0 520 240" role="img" aria-label="A guarded route from an applied plan through the engine gate to the Home Village">
         <defs>

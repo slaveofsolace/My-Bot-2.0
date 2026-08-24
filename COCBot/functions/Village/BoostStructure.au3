@@ -16,6 +16,9 @@
 Func BoostStructure($sName, $sOcrName, $aPos, ByRef $icmbBoostValue, $cmbBoostCtrl)
 	Local $boosted = False
 	Local $ok = False
+	If $icmbBoostValue <= 0 Then Return False
+	SetLog("Gem-based " & $sName & " boosting is unavailable in this build", $COLOR_WARNING)
+	Return NoPremiumActionBlocked("BoostStructure gem confirmation is permanently unavailable")
 
 	If UBound($aPos) > 1 And $aPos[0] > 0 And $aPos[1] > 0 Then
 		BuildingClickP($aPos, "#0462")
@@ -43,7 +46,7 @@ Func BoostStructure($sName, $sOcrName, $aPos, ByRef $icmbBoostValue, $cmbBoostCt
 			If _Sleep($DELAYBOOSTHEROES1) Then Return
 			$Boost = findButton("GEM")
 			If IsArray($Boost) Then
-				Click($Boost[0], $Boost[1], 1, 120, "#0464")
+				Return NoPremiumActionBlocked("BoostStructure reached a gem confirmation surface")
 				If _Sleep($DELAYBOOSTHEROES4) Then Return
 				If IsArray(findButton("EnterShop")) Then
 					SetLog("Not enough gems to boost " & $sName, $COLOR_ERROR)

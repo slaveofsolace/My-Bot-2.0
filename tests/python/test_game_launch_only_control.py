@@ -190,6 +190,10 @@ class GameLaunchOnlyControlTests(unittest.TestCase):
         mapping = next(item for item in self.actuators["mappings"] if item["id"] == "infra.bot-start")
         self.assertIn("emulator.bluestacks5", mapping["capability_ids"])
 
+        started = function_body(self.events, "RunEventLogGameLaunchStarted")
+        self.assertIn("Owned emulator and Clash of Clans bootstrap started", started)
+        self.assertNotIn("launch-only diagnostic", started)
+
 
 if __name__ == "__main__":
     unittest.main()

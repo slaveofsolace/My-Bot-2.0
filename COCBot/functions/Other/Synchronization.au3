@@ -13,6 +13,161 @@
 ; Example .......: No
 ; ===============================================================================================================================
 
+Global $g_hExactAndroidInstanceMutex = 0
+Global $g_sExactAndroidInstanceMutexIdentity = ""
+Global $g_hConfiguredAndroidInstanceMutex = 0
+Global $g_sConfiguredAndroidInstanceMutexIdentity = ""
+
+Func _CanonicalExactAndroidInstanceIdentity($sEmulator, $sInstance)
+	Local $sNormalizedEmulator = StringLower(StringStripWS(String($sEmulator), $STR_STRIPLEADING + $STR_STRIPTRAILING))
+	Local $sNormalizedInstance = StringLower(StringStripWS(String($sInstance), $STR_STRIPLEADING + $STR_STRIPTRAILING))
+	If Not StringRegExp($sNormalizedEmulator, "^[a-z0-9._ -]{1,64}$") Then Return ""
+	If Not StringRegExp($sNormalizedInstance, "^[a-z0-9._ -]{0,64}$") Then Return ""
+
+	Switch $sNormalizedEmulator
+		Case "ldplayer9"
+			Local $sLdIndex = StringReplace($sNormalizedInstance, "leidian", "")
+			If Not StringIsInt($sLdIndex) Then $sLdIndex = "0"
+			$sNormalizedInstance = "index-" & Int($sLdIndex)
+		Case "mumu"
+			Local $sMumuIndex = StringReplace($sNormalizedInstance, "mumuplayerglobal-12.0-", "")
+			If Not StringIsInt($sMumuIndex) Then $sMumuIndex = "0"
+			$sNormalizedInstance = "index-" & Int($sMumuIndex)
+		Case "nox"
+			If $sNormalizedInstance = "" Or $sNormalizedInstance = "nox" Or $sNormalizedInstance = "nox_0" Then _
+				$sNormalizedInstance = "nox_0"
+		Case "memu"
+			If $sNormalizedInstance = "" Then $sNormalizedInstance = "memu"
+		Case Else
+			If $sNormalizedInstance = "" Then $sNormalizedInstance = "__default__"
+	EndSwitch
+	Return $sNormalizedEmulator & "|" & $sNormalizedInstance
+EndFunc   ;==>_CanonicalExactAndroidInstanceIdentity
+
+Func _ExactAndroidInstanceMutexName($sEmulator, $sInstance)
+	Local $sCanonical = _CanonicalExactAndroidInstanceIdentity($sEmulator, $sInstance)
+	Local $iSeparator = StringInStr($sCanonical, "|")
+	If $iSeparator <= 1 Then Return ""
+	Local $sNormalizedEmulator = StringLeft($sCanonical, $iSeparator - 1)
+	Local $sNormalizedInstance = StringTrimLeft($sCanonical, $iSeparator)
+	; Length-prefix each validated component. This is collision-free without importing Crypt into the
+	; Watchdog and Mini entry points that also include the shared synchronization helpers.
+	Return "Global\MyBot.run.AndroidInstance.v1." & StringLen($sNormalizedEmulator) & "." & _
+			$sNormalizedEmulator & "." & StringLen($sNormalizedInstance) & "." & $sNormalizedInstance
+EndFunc   ;==>_ExactAndroidInstanceMutexName
+
+Func _AcquireExactAndroidInstanceMutexHandle($sIdentity, $iTimeoutMs, $bStopAware)
+	Local $hTimer = __TimerInit()
+	While (Not $bStopAware Or $g_bRunState) And ($iTimeoutMs < 1 Or __TimerDiff($hTimer) < $iTimeoutMs)
+		Local $hMutex = CreateMutex($sIdentity)
+		If $hMutex Then Return $hMutex
+		Sleep(100)
+	WEnd
+	Return 0
+EndFunc   ;==>_AcquireExactAndroidInstanceMutexHandle
+
+; Reserve the configured physical emulator for the lifetime of the native backend. This covers
+; independently callable idle/manual GUI actuators as well as Start. Action-scoped locks below are
+; still used for a plan that temporarily targets a different exact instance.
+Func ReserveConfiguredAndroidInstanceLock($sEmulator, $sInstance, ByRef $sReason, $iTimeoutMs = 5000)
+	$sReason = ""
+	Local $sIdentity = _ExactAndroidInstanceMutexName($sEmulator, $sInstance)
+	If $sIdentity = "" Then
+		$sReason = "The configured emulator instance cannot be canonicalized for exclusive ownership"
+		Return False
+	EndIf
+	If $g_hConfiguredAndroidInstanceMutex Then
+		If $g_sConfiguredAndroidInstanceMutexIdentity = $sIdentity Then Return True
+		$sReason = "The native controller is already reserved for a different emulator instance"
+		Return False
+	EndIf
+	Local $hMutex = _AcquireExactAndroidInstanceMutexHandle($sIdentity, $iTimeoutMs, False)
+	If Not $hMutex Then
+		$sReason = "Another native controller is using the configured physical emulator instance"
+		Return False
+	EndIf
+	$g_hConfiguredAndroidInstanceMutex = $hMutex
+	$g_sConfiguredAndroidInstanceMutexIdentity = $sIdentity
+	SetDebugLog("Reserved configured Android instance for this native controller")
+	Return True
+EndFunc   ;==>ReserveConfiguredAndroidInstanceLock
+
+Func RebindConfiguredAndroidInstanceLock($sEmulator, $sInstance, ByRef $sReason)
+	$sReason = ""
+	If Not $g_hConfiguredAndroidInstanceMutex Then Return True
+	Local $sIdentity = _ExactAndroidInstanceMutexName($sEmulator, $sInstance)
+	If $sIdentity = "" Then
+		$sReason = "The selected emulator instance cannot be canonicalized for exclusive ownership"
+		Return False
+	EndIf
+	If $g_sConfiguredAndroidInstanceMutexIdentity = $sIdentity Then Return True
+	; Never wait while retaining another physical-instance reservation: two controllers swapping
+	; instances could otherwise deadlock. Make exactly one acquisition attempt, then retain the old
+	; reservation on failure. The action-scoped handle (when present) independently keeps the old
+	; instance exclusive until that action reaches its terminal boundary.
+	Local $hNewMutex = CreateMutex($sIdentity)
+	If Not $hNewMutex Then
+		$sReason = "Another native controller is using the selected physical emulator instance"
+		Return False
+	EndIf
+	Local $hPrevious = $g_hConfiguredAndroidInstanceMutex
+	$g_hConfiguredAndroidInstanceMutex = $hNewMutex
+	$g_sConfiguredAndroidInstanceMutexIdentity = $sIdentity
+	ReleaseMutex($hPrevious)
+	SetDebugLog("Rebound configured Android instance reservation")
+	Return True
+EndFunc   ;==>RebindConfiguredAndroidInstanceLock
+
+Func ReleaseConfiguredAndroidInstanceLock()
+	If Not $g_hConfiguredAndroidInstanceMutex Then Return
+	Local $hMutex = $g_hConfiguredAndroidInstanceMutex
+	$g_hConfiguredAndroidInstanceMutex = 0
+	$g_sConfiguredAndroidInstanceMutexIdentity = ""
+	ReleaseMutex($hMutex)
+	SetDebugLog("Released configured Android instance reservation")
+EndFunc   ;==>ReleaseConfiguredAndroidInstanceLock
+
+; The capacity-based ActiveBot ticket limits total work, but it does not protect one account from
+; two bot processes. Hold this exact emulator+instance mutex across every emulator/game/input path.
+; The kernel abandons the mutex on process death, so a crashed owner cannot deadlock future runs.
+Func AcquireExactAndroidInstanceLock($sEmulator, $sInstance, ByRef $sReason, $iTimeoutMs = 30000, $bStopAware = True)
+	$sReason = ""
+	Local $sIdentity = _ExactAndroidInstanceMutexName($sEmulator, $sInstance)
+	If $sIdentity = "" Then
+		$sReason = "The configured emulator instance cannot be bound to an exclusive input lock"
+		Return False
+	EndIf
+	If $g_hExactAndroidInstanceMutex Then
+		If $g_sExactAndroidInstanceMutexIdentity = $sIdentity Then Return True
+		$sReason = "The active run is already bound to a different emulator instance"
+		Return False
+	EndIf
+	; Acquire an independent recursive kernel ownership even when the process-lifetime reservation
+	; already owns this name. A later configuration rebind may release the base handle; this action
+	; handle must continue excluding another process from the original instance until completion.
+	Local $hMutex = _AcquireExactAndroidInstanceMutexHandle($sIdentity, $iTimeoutMs, $bStopAware)
+	If $hMutex Then
+		$g_hExactAndroidInstanceMutex = $hMutex
+		$g_sExactAndroidInstanceMutexIdentity = $sIdentity
+		SetDebugLog("Acquired exact Android instance mutex: " & $sEmulator & " (" & ($sInstance = "" ? "default" : $sInstance) & ")")
+		Return True
+	EndIf
+	$sReason = ($bStopAware And Not $g_bRunState) ? "Start cancelled while waiting for the configured emulator instance" : "Another bot process is using the configured emulator instance"
+	Return False
+EndFunc   ;==>AcquireExactAndroidInstanceLock
+
+Func ReleaseExactAndroidInstanceLock()
+	If Not $g_hExactAndroidInstanceMutex Then
+		$g_sExactAndroidInstanceMutexIdentity = ""
+		Return
+	EndIf
+	Local $hMutex = $g_hExactAndroidInstanceMutex
+	$g_hExactAndroidInstanceMutex = 0
+	$g_sExactAndroidInstanceMutexIdentity = ""
+	ReleaseMutex($hMutex)
+	SetDebugLog("Released exact Android instance mutex")
+EndFunc   ;==>ReleaseExactAndroidInstanceLock
+
 Func CreateMutex($sMutex)
 
 	Local $hMutex = _WinAPI_CreateMutex($sMutex, False)

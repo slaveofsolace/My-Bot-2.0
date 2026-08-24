@@ -20,6 +20,17 @@ def function_body(name: str) -> str:
 
 
 class BlueStacks5InstanceBindingTests(unittest.TestCase):
+    def test_vulkan_renderer_uses_the_proven_adb_screencap_mode(self) -> None:
+        background = function_body("GetBlueStacks5BackgroundMode")
+        self.assertIn('Case "vlcn"', background)
+        self.assertIn(
+            'SetDebugLog("BlueStacks5 Vulkan render mode uses ADB screencap for Background Mode")',
+            background,
+        )
+        vulkan = background.split('Case "vlcn"', maxsplit=1)[1].split("Case Else", maxsplit=1)[0]
+        self.assertIn("Return $g_iAndroidBackgroundModeOpenGL", vulkan)
+        self.assertNotIn("$g_iAndroidBackgroundModeDirectX", vulkan)
+
     def test_blank_title_requires_exact_instance_adb_listener_owner(self) -> None:
         owner = function_body("_BlueStacks5ConfiguredAdbOwnerPid")
         for required in (

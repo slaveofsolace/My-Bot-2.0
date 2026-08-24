@@ -15,6 +15,7 @@
 
 Func CollectFreeMagicItems($bTest = False)
 	If Not $g_bChkCollectFreeMagicItems Or Not $g_bRunState Then Return
+	If Not $bTest Then Return NoPremiumActionBlocked("Trader/deal automation is unavailable until a non-purchase surface is exactly recognized")
 
 	Local Static $iLastTimeChecked[8] = [0, 0, 0, 0, 0, 0, 0, 0]
 	If $iLastTimeChecked[$g_iCurAccount] = @MDAY And Not $bTest Then Return

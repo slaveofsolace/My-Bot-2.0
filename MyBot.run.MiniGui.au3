@@ -83,6 +83,9 @@ Global $g_iMainLoopSleep = 50 ;
 Global $g_hFrmBotBackend = 0
 Global $g_bBotLaunched = False
 Global $g_iBotBackendFindTimeout = 3000
+Global Const $g_iMiniBackendRecoveryDelayMs = 1500
+Global $g_hMiniBackendRecoveryTimer = 0
+Global $g_bMiniBackendRecoveryActive = False
 
 Global $hStruct_SleepMicro = DllStructCreate("int64 time;")
 Global $pStruct_SleepMicro = DllStructGetPtr($hStruct_SleepMicro)
@@ -187,6 +190,8 @@ Func ProcessCommandLine()
 					$g_bBotLaunchOption_Autostart = True
 				Case "/nowatchdog", "/nwd", "-nowatchdog", "-nwd"
 					$g_bBotLaunchOption_NoWatchdog = True
+				Case "/primarywindow"
+					$g_bForcePrimaryWindow = True
 				Case "/dpiaware", "/da", "-dpiaware", "-da"
 					$g_bBotLaunchOption_ForceDpiAware = True
 				Case "/dock1", "/d1", "-dock1", "-d1", "/dock", "/d", "-dock", "-d"
@@ -1205,7 +1210,10 @@ Func UpdateManagedMyBot($aBotDetails)
 	Return True
 EndFunc   ;==>UpdateManagedMyBot
 
-Func LaunchBotBackend($bNoGUI = True)
+; Keep the exact MiniGui parent as the lightweight recovery owner, but present the inherited full
+; native configuration surface in the backend. The browser is a control plane; it must not make
+; the Village, Attack, Bot, Log, profile, and advanced settings tabs disappear from the product.
+Func LaunchBotBackend($bNoGUI = False)
 
 	Local $sParam = ""
 	For $i = 1 To $CmdLine[0]
@@ -1295,6 +1303,35 @@ Func LaunchBotBackend($bNoGUI = True)
 	Return $pid
 
 EndFunc   ;==>LaunchBotBackend
+
+; The managed backend owns the planner service. If launcher supervision closes a blocked or crashed
+; generation, keep the visible controller alive and recreate one exact-path idle backend. Start is
+; never replayed: the restored Control Center reconnects in Idle and requires a new user command.
+Func _MiniEnsureBackendAvailable()
+	If $g_WatchOnlyClientPID <> Default And $g_WatchOnlyClientPID > 0 And ProcessExists($g_WatchOnlyClientPID) Then
+		$g_hMiniBackendRecoveryTimer = 0
+		Return True
+	EndIf
+	If $g_bMiniBackendRecoveryActive Then Return False
+	If $g_hMiniBackendRecoveryTimer = 0 Then
+		$g_hMiniBackendRecoveryTimer = __TimerInit()
+		SetLog("Native engine exited; preparing one exact-path recovery generation", $COLOR_WARNING)
+		Return False
+	EndIf
+	If __TimerDiff($g_hMiniBackendRecoveryTimer) < $g_iMiniBackendRecoveryDelayMs Then Return False
+
+	$g_hMiniBackendRecoveryTimer = __TimerInit()
+	$g_bMiniBackendRecoveryActive = True
+	Local $iRecoveredPid = LaunchBotBackend()
+	$g_bMiniBackendRecoveryActive = False
+	If $iRecoveredPid > 0 Then
+		$g_hMiniBackendRecoveryTimer = 0
+		SetLog("Native engine recovered in Idle; Start was not replayed", $COLOR_SUCCESS)
+		Return True
+	EndIf
+	SetLog("Native engine recovery did not become ready; retrying remains bounded by the controller watchdog", $COLOR_ERROR)
+	Return False
+EndFunc   ;==>_MiniEnsureBackendAvailable
 
 Func _MiniEngineReceiptString($sReceipt, $sName)
 	Local $aValue = StringRegExp($sReceipt, '"' & $sName & '"\s*:\s*"([A-Za-z0-9_-]+)"', $STR_REGEXPARRAYMATCH)
@@ -1542,6 +1579,7 @@ Local $hStatusUpdateTimer = 0, $hTimeUpdateTimer = 0
 Local $iMainLoop = 1
 While 1
 	_Sleep($g_iMainLoopSleep, True, False)
+	_MiniEnsureBackendAvailable()
 
 	Switch $g_iBotAction
 		#cs

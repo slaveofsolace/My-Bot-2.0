@@ -50,6 +50,39 @@ Func _OpenClanRequestDialogFrameReady()
 			_OpenHomePixelNear(390, 450, 0xFFCB7E, 28)
 EndFunc   ;==>_OpenClanRequestDialogFrameReady
 
+; These point predicates read only the current captured framebuffer. The one-shot permit
+; gate invokes them once while minting and again immediately before the single egress.
+Func _OpenClanRequestNeutralHomeFrameReady()
+	If $g_hBitmap = 0 Then Return False
+	If _OpenClanRequestDialogFrameReady() Or _OpenClanRequestArmyOverviewFrameReady(False) Then Return False
+	Return _CheckPixel($aIsMain, False)
+EndFunc   ;==>_OpenClanRequestNeutralHomeFrameReady
+
+Func OpenClanRequestArmyOverviewPointReady($iX, $iY)
+	If Int($iX) <> $OPEN_CLAN_REQUEST_ARMY_X Or Int($iY) <> $OPEN_CLAN_REQUEST_ARMY_Y Then Return False
+	Return _OpenClanRequestNeutralHomeFrameReady()
+EndFunc   ;==>OpenClanRequestArmyOverviewPointReady
+
+Func OpenClanRequestRequestPointReady($iX, $iY)
+	If Int($iX) <> $OPEN_CLAN_REQUEST_BUTTON_X Or Int($iY) <> $OPEN_CLAN_REQUEST_BUTTON_Y Then Return False
+	Return _OpenClanRequestArmyOverviewFrameReady(True)
+EndFunc   ;==>OpenClanRequestRequestPointReady
+
+Func OpenClanRequestSendPointReady($iX, $iY)
+	If Int($iX) <> $OPEN_CLAN_REQUEST_SEND_X Or Int($iY) <> $OPEN_CLAN_REQUEST_SEND_Y Then Return False
+	Return _OpenClanRequestDialogFrameReady()
+EndFunc   ;==>OpenClanRequestSendPointReady
+
+Func OpenClanRequestCancelPointReady($iX, $iY)
+	If Int($iX) <> $OPEN_CLAN_REQUEST_CANCEL_X Or Int($iY) <> $OPEN_CLAN_REQUEST_CANCEL_Y Then Return False
+	Return _OpenClanRequestDialogFrameReady()
+EndFunc   ;==>OpenClanRequestCancelPointReady
+
+Func OpenClanRequestClosePointReady($iX, $iY)
+	If Int($iX) <> $OPEN_CLAN_REQUEST_CLOSE_X Or Int($iY) <> $OPEN_CLAN_REQUEST_CLOSE_Y Then Return False
+	Return _OpenClanRequestArmyOverviewFrameReady(False)
+EndFunc   ;==>OpenClanRequestClosePointReady
+
 Func OpenClanRequestArmyOverviewReady($bRequireAvailable = False)
 	If Not OpenHomeCollectorsCapture() Then Return False
 	Return _OpenClanRequestArmyOverviewFrameReady($bRequireAvailable)
@@ -62,8 +95,7 @@ EndFunc   ;==>OpenClanRequestDialogReady
 
 Func OpenClanRequestProveNeutralHome()
 	If Not OpenHomeCollectorsCapture() Then Return False
-	If _OpenClanRequestDialogFrameReady() Or _OpenClanRequestArmyOverviewFrameReady(False) Then Return False
-	Return _CheckPixel($aIsMain, False)
+	Return _OpenClanRequestNeutralHomeFrameReady()
 EndFunc   ;==>OpenClanRequestProveNeutralHome
 
 Func OpenClanRequestOpenArmyOverview()
@@ -71,7 +103,8 @@ Func OpenClanRequestOpenArmyOverview()
 	If Not OpenClanRequestProveNeutralHome() Then Return False
 	If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, False)
 	If RunControlStopRequested() Or Not $g_bRunState Then Return False
-	If Not Click($OPEN_CLAN_REQUEST_ARMY_X, $OPEN_CLAN_REQUEST_ARMY_Y, 1, 120, "#OpenClanRequestArmy", True) Then Return False
+	If Not NoPremiumPointClick($NO_PREMIUM_ACTION_CLAN_REQUEST_ARMY, $OPEN_CLAN_REQUEST_ARMY_X, _
+			$OPEN_CLAN_REQUEST_ARMY_Y, 120, "#OpenClanRequestArmy", True) Then Return False
 	If _Sleep(400, True, True, False) Then Return False
 	For $iAttempt = 1 To 10
 		If RunControlStopRequested() Or Not $g_bRunState Then Return False
@@ -98,11 +131,12 @@ EndFunc   ;==>OpenClanRequestDetectState
 
 Func OpenClanRequestOpenDialog($iRequestX, $iRequestY)
 	If RunControlStopRequested() Or Not $g_bRunState Then Return 0
-	If Int($iRequestX) < 734 Or Int($iRequestX) > 773 Or Int($iRequestY) < 455 Or Int($iRequestY) > 520 Then Return 0
+	If Int($iRequestX) <> $OPEN_CLAN_REQUEST_BUTTON_X Or Int($iRequestY) <> $OPEN_CLAN_REQUEST_BUTTON_Y Then Return 0
 	If Not OpenClanRequestArmyOverviewReady(True) Then Return 0
 	If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, 0)
 	If RunControlStopRequested() Or Not $g_bRunState Then Return 0
-	If Not Click(Int($iRequestX), Int($iRequestY), 1, 120, "#OpenClanRequestDialog", True) Then Return 0
+	If Not NoPremiumPointClick($NO_PREMIUM_ACTION_CLAN_REQUEST_REQUEST, $OPEN_CLAN_REQUEST_BUTTON_X, _
+			$OPEN_CLAN_REQUEST_BUTTON_Y, 120, "#OpenClanRequestDialog", True) Then Return 0
 	If _Sleep(300, True, True, False) Then Return 0
 	For $iAttempt = 1 To 8
 		If RunControlStopRequested() Or Not $g_bRunState Then Return 0
@@ -115,11 +149,12 @@ EndFunc   ;==>OpenClanRequestOpenDialog
 
 Func OpenClanRequestIssueSend($iSendX, $iSendY)
 	If RunControlStopRequested() Or Not $g_bRunState Then Return False
-	If Int($iSendX) < 455 Or Int($iSendX) > 635 Or Int($iSendY) < 438 Or Int($iSendY) > 520 Then Return False
+	If Int($iSendX) <> $OPEN_CLAN_REQUEST_SEND_X Or Int($iSendY) <> $OPEN_CLAN_REQUEST_SEND_Y Then Return False
 	If Not OpenClanRequestDialogReady() Then Return False
 	If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, False)
 	If RunControlStopRequested() Or Not $g_bRunState Then Return False
-	Return Click(Int($iSendX), Int($iSendY), 1, 120, "#OpenClanRequestSend", True)
+	Return NoPremiumPointClick($NO_PREMIUM_ACTION_CLAN_REQUEST_SEND, $OPEN_CLAN_REQUEST_SEND_X, _
+			$OPEN_CLAN_REQUEST_SEND_Y, 120, "#OpenClanRequestSend", True)
 EndFunc   ;==>OpenClanRequestIssueSend
 
 ; Close only recognized request-owned overlays. A Stop authorizes no cleanup input.
@@ -129,14 +164,16 @@ Func OpenClanRequestCloseAndProveHome()
 		If OpenClanRequestDialogReady() Then
 			If RunControlStopRequested() Or Not $g_bRunState Then Return False
 			If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, False)
-			If Not Click($OPEN_CLAN_REQUEST_CANCEL_X, $OPEN_CLAN_REQUEST_CANCEL_Y, 1, 120, "#OpenClanRequestCancel", True) Then Return False
+			If Not NoPremiumPointClick($NO_PREMIUM_ACTION_CLAN_REQUEST_CANCEL, $OPEN_CLAN_REQUEST_CANCEL_X, _
+					$OPEN_CLAN_REQUEST_CANCEL_Y, 120, "#OpenClanRequestCancel", True) Then Return False
 			If _Sleep(300, True, True, False) Then Return False
 			ContinueLoop
 		EndIf
 		If OpenClanRequestArmyOverviewReady(False) Then
 			If RunControlStopRequested() Or Not $g_bRunState Then Return False
 			If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, False)
-			If Not Click($OPEN_CLAN_REQUEST_CLOSE_X, $OPEN_CLAN_REQUEST_CLOSE_Y, 1, 120, "#OpenClanRequestClose", True) Then Return False
+			If Not NoPremiumPointClick($NO_PREMIUM_ACTION_CLAN_REQUEST_CLOSE, $OPEN_CLAN_REQUEST_CLOSE_X, _
+					$OPEN_CLAN_REQUEST_CLOSE_Y, 120, "#OpenClanRequestClose", True) Then Return False
 			If _Sleep(300, True, True, False) Then Return False
 			ContinueLoop
 		EndIf

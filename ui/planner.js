@@ -74,6 +74,7 @@ const MAINTENANCE_COLLECTIONS = Object.freeze([
 
 let CONTROL = { connected: false, state: 'offline' };
 let CONTROL_PENDING = null;
+let CONTROL_STARTED = null;
 let CONTROL_NOTICE = '';
 let CONTROL_NOTICE_KIND = 'info';
 let CONTROL_OFFLINE_SINCE = null;
@@ -86,7 +87,7 @@ let EVENTS_TIMER = null;
 let LOG_REFRESH_TIMER = null;
 let LAST_INSTANCE_SIGNATURE = '';
 
-const CONTROL_TERMINAL_OUTCOMES = new Set(['started', 'passed', 'rejected', 'failed', 'stopped', 'paused', 'resumed', 'no-op']);
+const CONTROL_TERMINAL_OUTCOMES = new Set(['completed', 'passed', 'rejected', 'failed', 'stopped', 'paused', 'resumed', 'no-op']);
 const CONTROL_QUEUE_TIMEOUT_MS = 45_000;
 const CONTROL_OPERATION_TIMEOUT_MS = 5 * 60_000;
 const CONTROL_OFFLINE_GRACE_MS = 5_000;
@@ -1244,12 +1245,12 @@ function renderPlanReceipts() {
   $('runIntro').textContent = nativeCopy
     ? 'The active native profile, engine binding, and next safe action.'
     : 'The applied plan, engine binding, and next safe action.';
-  $('routeModeKicker').textContent = nativeCopy ? 'Native auto-launch route' : 'Safe run route';
+  $('routeModeKicker').textContent = nativeCopy ? 'Full profile automation' : 'Safe run route';
   $('routeOverviewTitle').textContent = nativeCopy
-    ? 'Native profile. Launch the full stack.'
+    ? 'Full profile. Launch the complete stack.'
     : 'Plan first. Prove every boundary.';
   $('routeOverviewCopy').textContent = nativeCopy
-    ? 'Start uses the active profile, launches BlueStacks and Clash of Clans if needed, then continues through the existing engine and village gates.'
+    ? 'Start uses the selected native profile through the current recognition and no-premium gates.'
     : 'Start advances only after the saved plan, managed engine, emulator identity, and village state pass their own checks.';
   $('routeStepOneTitle').textContent = nativeCopy ? 'Profile' : 'Plan';
   $('routeStepOneCopy').textContent = nativeCopy ? 'Use active native settings' : 'Apply exact work';
@@ -1260,7 +1261,7 @@ function renderPlanReceipts() {
   $('savedPlanTitle').textContent = nativeCopy ? 'Plan draft' : 'Saved plan';
   $('savedPlanFingerprintLabel').textContent = nativeCopy ? 'Draft fingerprint' : 'Saved plan fingerprint';
   $('savedPlanFingerprintHelp').textContent = nativeCopy
-    ? 'SHA-256 of the visible draft values. Apply this draft to leave native auto-launch mode.'
+    ? 'SHA-256 of the visible draft values. Apply this draft to leave full profile automation.'
     : 'SHA-256 of the sorted saved values. Start uses this applied plan, never the visible draft.';
   renderMaintenanceRoutePreview();
   renderSummary($('planSummary'), PLAN);
@@ -1427,17 +1428,50 @@ function renderControl() {
   const supervisedInitActive = CONTROL.engine_init_cancellable === true;
   const managedInitCanBeStopped = startCanBeStopped || supervisedInitActive;
   const engineAvailable = CONTROL.engine_available !== false;
-  $('controlStart').title = NATIVE_PROFILE_MODE
-    ? 'Start the active native profile; BlueStacks and Clash of Clans will be launched if needed'
+  const recognitionAvailable = CONTROL.recognition_available === true;
+  const nativeProfileBlocked = NATIVE_PROFILE_MODE && !recognitionAvailable;
+  const recognitionError = CONTROL.recognition_error
+    || 'Full profile automation requires licensed inherited recognition or a clean-room replacement.';
+  $('controlStart').title = nativeProfileBlocked
+    ? recognitionError
+    : NATIVE_PROFILE_MODE
+      ? 'Start the active native profile; BlueStacks and Clash of Clans will be launched if needed'
     : savedProblems.length
       ? 'Resolve and apply the saved plan issues before starting'
       : hasUnsavedPlan ? 'Apply the visible plan before starting' : 'Start the applied plan';
-  $('controlStart').disabled = !BOOT_READY || busy || hasUnsavedPlan || !connected || !engineAvailable || state !== 'idle';
-  $('controlNativeMode').textContent = NATIVE_PROFILE_MODE ? 'Native auto-launch active' : 'Use native auto-launch';
-  $('controlNativeMode').title = NATIVE_PROFILE_MODE
-    ? 'Apply a plan to return to planned mode'
-    : 'Back up the applied plan and let the native profile launch BlueStacks and Clash of Clans';
-  $('controlNativeMode').disabled = !BOOT_READY || busy || !connected || state !== 'idle' || NATIVE_PROFILE_MODE;
+  $('controlStart').disabled = !BOOT_READY || busy || hasUnsavedPlan || !connected || !engineAvailable || nativeProfileBlocked || state !== 'idle';
+  $('controlNativeMode').textContent = NATIVE_PROFILE_MODE ? 'Full profile automation active' : 'Use full profile automation';
+  $('controlNativeMode').title = !recognitionAvailable
+    ? recognitionError
+    : NATIVE_PROFILE_MODE
+      ? 'Apply a plan to return to a bounded planned route'
+      : 'Back up the applied plan and run the saved native profile with its full configuration window and hard no-gem guard';
+  $('controlNativeMode').disabled = !BOOT_READY || busy || !connected || state !== 'idle'
+    || !recognitionAvailable || NATIVE_PROFILE_MODE;
+  const nativeModeReason = $('controlNativeModeReason');
+  if (!BOOT_READY) {
+    nativeModeReason.textContent = 'Full profile availability is loading.';
+    nativeModeReason.className = 'mode-availability';
+  } else if (!connected) {
+    nativeModeReason.textContent = 'Full profile automation requires a fresh native-engine heartbeat.';
+    nativeModeReason.className = 'mode-availability warning';
+  } else if (!recognitionAvailable) {
+    nativeModeReason.textContent = recognitionError;
+    nativeModeReason.className = 'mode-availability warning';
+  } else {
+    nativeModeReason.textContent = NATIVE_PROFILE_MODE
+      ? 'The selected native profile is active; Apply a plan to return to a bounded route.'
+      : 'Available: Start will use the selected native profile through current safety gates.';
+    nativeModeReason.className = 'mode-availability ready';
+  }
+  let safeHomeReason = 'Load Home collection settings for review. Nothing is applied or started.';
+  if (!BOOT_READY) safeHomeReason = 'Home-route preparation unlocks after the saved plan and engine state load.';
+  else if (busy) safeHomeReason = 'Wait for the current native command to finish before changing the visible route.';
+  else if (!connected) safeHomeReason = 'A fresh native-engine heartbeat is required before preparing a run.';
+  else if (state !== 'idle') safeHomeReason = `Stop the current ${readableState(state).toLocaleLowerCase()} before preparing a Home route.`;
+  $('controlSafeHomeRouteHelp').textContent = safeHomeReason;
+  $('controlSafeHomeRoute').title = safeHomeReason;
+  $('controlSafeHomeRoute').disabled = !BOOT_READY || busy || !connected || state !== 'idle';
   $('controlEngineCheck').disabled = !BOOT_READY || busy || !connected || !engineAvailable || state !== 'idle';
   $('controlEngineCheck').title = 'Initialize the managed engine without opening or controlling the emulator or game';
   $('controlGameLaunch').disabled = !BOOT_READY || busy || !connected || state !== 'idle';
@@ -1470,8 +1504,11 @@ function renderControl() {
   } else if (supervisedInitActive) {
     $('controlAck').textContent = 'Managed engine initialization is active. Stop remains available through launcher supervision.';
     $('controlAck').className = 'control-ack pending';
+  } else if (nativeProfileBlocked && connected) {
+    $('controlAck').textContent = `${recognitionError} Apply a verified bounded route to run safely.`;
+    $('controlAck').className = 'control-ack notice warning';
   } else if (NATIVE_PROFILE_MODE && connected) {
-    $('controlAck').textContent = 'Native auto-launch is active. Start uses the selected profile and launches BlueStacks and Clash of Clans if needed.';
+    $('controlAck').textContent = 'Full profile automation is active. Start uses the selected native profile through current recognition and no-premium gates, and launches BlueStacks and Clash of Clans if needed.';
     $('controlAck').className = 'control-ack';
   } else {
     $('controlAck').textContent = connected
@@ -1535,11 +1572,24 @@ async function pollControl() {
           CONTROL_PENDING.accepted_at = Date.now();
           announceControl(`${CONTROL_PENDING.action} command accepted by the native engine.`);
         }
+      } else if (outcome === 'started' && CONTROL_PENDING.action === 'start') {
+        CONTROL_STARTED = { request_id: CONTROL_PENDING.request_id };
+        setControlNotice(`started: ${CONTROL.last_command_message || CONTROL.message || 'Run started'}`, 'info');
+        CONTROL_PENDING = null;
       } else if (CONTROL_TERMINAL_OUTCOMES.has(outcome)) {
         setControlNotice(`${outcome}: ${CONTROL.last_command_message || CONTROL.message || `${CONTROL_PENDING.action} command processed`}`,
           ['rejected', 'failed'].includes(outcome) ? 'error' : 'info');
         CONTROL_PENDING = null;
       }
+    }
+    if (!CONTROL_PENDING && CONTROL_STARTED
+        && CONTROL.last_command_id === CONTROL_STARTED.request_id
+        && CONTROL.last_command === 'start'
+        && CONTROL_TERMINAL_OUTCOMES.has(CONTROL.last_outcome || '')) {
+      const outcome = CONTROL.last_outcome;
+      setControlNotice(`${outcome}: ${CONTROL.last_command_message || CONTROL.message || 'Run completed'}`,
+        ['rejected', 'failed'].includes(outcome) ? 'error' : 'info');
+      CONTROL_STARTED = null;
     }
   } catch {
     CONTROL = { connected: false, state: 'offline', message: 'Control service is unreachable.' };
@@ -1584,6 +1634,7 @@ function refreshInstanceControl() {
 
 async function sendControl(action) {
   if (!BOOT_READY) return;
+  if (action !== 'start') CONTROL_STARTED = null;
   const previousPending = CONTROL_PENDING;
   const replacingStart = action === 'stop' && ['start', 'check-engine', 'launch-game'].includes(previousPending?.action) && !!previousPending.request_id;
   if (CONTROL_PENDING && !replacingStart) return;
@@ -1636,14 +1687,14 @@ async function activateNativeProfileMode() {
     });
     const payload = await response.json();
     if (!response.ok || !payload.ok) {
-      setControlNotice((payload.problems || ['Native auto-launch mode was refused.']).join('; '), 'error');
+      setControlNotice((payload.problems || ['Full profile automation was refused.']).join('; '), 'error');
       return;
     }
     NATIVE_PROFILE_MODE = true;
     PLAN_WRITTEN = false;
     const backup = payload.backup ? ` The applied plan was backed up to ${payload.backup}.` : '';
-    setControlNotice(`Native auto-launch is active.${backup} Start will use the selected native profile.`, 'info');
-    setSaveStatus('Native auto-launch is active. Apply the visible plan to return to planned mode.', 'warn');
+    setControlNotice(`Full profile automation is active.${backup} Start will use the selected native profile through current recognition and no-premium gates.`, 'info');
+    setSaveStatus('Full profile automation is active. Apply the visible plan to return to a bounded planned route.', 'warn');
     updateDirty();
   } catch {
     setControlNotice('Could not reach the planner service. The applied plan was left unchanged.', 'error');
@@ -1652,12 +1703,35 @@ async function activateNativeProfileMode() {
   }
 }
 
+function prepareVerifiedHomeRoute() {
+  if (!BOOT_READY) return;
+  if (CONTROL_PENDING) {
+    setControlNotice('Wait for the current native command to finish before changing the visible route.', 'warning');
+    renderControl();
+    return;
+  }
+  if (!CONTROL.connected || CONTROL.state !== 'idle') {
+    setControlNotice('A fresh connected idle native engine is required before preparing a Home route.', 'warning');
+    renderControl();
+    return;
+  }
+  if (!applyStrategySafetyPatch('home.collectors')) {
+    setControlNotice('The bounded Home route could not be loaded.', 'error');
+    return;
+  }
+  setView('plan', { updateHash: true, focusHeading: true });
+  setGroup('between', { updateHash: true, focusGroup: true });
+  setControlNotice('Collectors-only safety settings are visible for review. Apply plan, then Start remains a separate action.', 'info');
+  renderControl();
+}
+
 $('controlStart').onclick = () => sendControl('start');
 $('controlEngineCheck').onclick = () => sendControl('check-engine');
 $('controlGameLaunch').onclick = () => sendControl('launch-game');
 $('controlPause').onclick = () => sendControl(CONTROL.state === 'paused' ? 'resume' : 'pause');
 $('controlStop').onclick = () => sendControl('stop');
 $('controlNativeMode').onclick = activateNativeProfileMode;
+$('controlSafeHomeRoute').onclick = prepareVerifiedHomeRoute;
 
 function capabilityLabel(id) {
   const labels = {
@@ -2055,6 +2129,7 @@ function setBootControls(enabled) {
   $('refreshNativeLog').disabled = !enabled;
   $('followNativeLog').disabled = !enabled;
   if (!enabled) $('controlNativeMode').disabled = true;
+  if (!enabled) $('controlSafeHomeRoute').disabled = true;
   if (!enabled) $('apply').disabled = true;
 }
 

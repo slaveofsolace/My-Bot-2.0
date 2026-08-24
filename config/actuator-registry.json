@@ -10,7 +10,7 @@
   },
   "sink_groups": {
     "game_input": [
-      "Click", "ClickP", "BuildingClick", "BuildingClickP", "ClickAway", "ClickAway2",
+      "Click", "NoPremiumPointClick", "ClickP", "BuildingClick", "BuildingClickP", "ClickAway", "ClickAway2",
       "PureClick", "PureClickP", "PureClickTrain", "GemClick", "GemClickP", "AttackClick", "AttackClickCSV",
       "ClickZone", "ClickR", "PureClickR", "GemClickR", "ClickDrag", "_PostMessage_ClickDrag",
       "ClickOkay", "ClickRemove", "ClickB", "ClickButton", "TrainClick", "TrainClickP",
@@ -30,8 +30,8 @@
     "dynamic_dispatch": ["DynamicCall"]
   },
   "owner_fingerprint": {
-    "count": 461,
-    "sha256": "2c869d976e29f05115a6fac21dcffc58906842eb34f4d5b98880fa010c41b8d1"
+    "count": 463,
+    "sha256": "82c24f44249f1d4d3d10ba0d15e17aec91f3e1a3ea3d795e2fcbcdc9066ecd7b"
   },
   "mappings": [
     {
@@ -47,6 +47,13 @@
       "path_globs": ["MyBot.run.au3", "MyBot.run.MiniGui.au3"],
       "capability_ids": ["runtime.recovery", "orchestration.engine-initialization"],
       "reason": "Compiled host entry points own only controller/backend lifecycle and user-invoked links."
+    },
+    {
+      "id": "infra.native-window-placement",
+      "policy": "infrastructure",
+      "path_globs": ["COCBot/functions/GUI/WindowPlacement.au3"],
+      "capability_ids": ["runtime.recovery"],
+      "reason": "The native presentation guard moves only the product window when saved coordinates no longer intersect an attached display."
     },
     {
       "id": "infra.android-transport",
@@ -539,8 +546,11 @@
       "id": "infra.bot-start",
       "policy": "infrastructure",
       "path_globs": ["COCBot/GUI/MBR GUI Control Bottom.au3", "COCBot/MBR GUI Action.au3"],
-      "capability_ids": ["orchestration.engine-initialization", "orchestration.run-plan", "emulator.bluestacks5"],
-      "reason": "BotStart owns the supervised managed-engine call, the bounded BlueStacks/CoC launch-only diagnostic, and plan-validated execution handoff."
+      "capability_ids": [
+        "orchestration.engine-initialization", "orchestration.run-plan", "emulator.bluestacks5",
+        "emulator.memu", "emulator.ldplayer9", "emulator.mumu"
+      ],
+      "reason": "BotStart owns the supervised managed-engine call, exact plan-selected emulator/game bootstrap, the bounded BlueStacks/CoC launch-only diagnostic, and plan-validated execution handoff."
     }
   ]
 }

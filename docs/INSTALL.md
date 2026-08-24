@@ -94,16 +94,28 @@ My Bot 2.0.exe
 ```
 
 The launcher requests elevation and starts the exact reviewed MyBot.run v8.2-compatible
-`MyBot.run.MiniGui.exe` built from the same source commit. The Mini GUI stays visible and functional as the native safety controller
-for Start, Stop, Pause and Resume. It launches `MyBot.run.exe` as the modern `/ng` backend and
-passes its exact process ID through `/guipid`. The launcher also selects the validated per-user
-default profile and passes only that profile plus `/nowatchdog` to the exact Mini GUI. The installer
+`MyBot.run.MiniGui.exe` built from the same source commit. The Mini GUI stays visible as the exact
+safety and recovery parent for Start, Stop, Pause and Resume. It launches `MyBot.run.exe` with the
+full native configuration window and passes its exact process ID through `/guipid`. The native
+window retains the inherited Village, Attack, Bot, Log and profile controls; the browser Control
+Center remains a planning, status and run-control surface. Launcher-managed native windows recover
+to the primary display even when the profile saved a position on a disconnected or secondary monitor;
+direct native/source launches retain the inherited multi-monitor placement behavior. The launcher also
+selects the validated per-user default profile and passes only that profile plus `/nowatchdog` and
+`/primarywindow` to the exact Mini GUI. The installer
 creates `Profiles` beside the installed executables as a verified directory junction to
 `%LOCALAPPDATA%\My Bot 2.0\Profiles`, so the unchanged Mini and backend read the same persistent
 tree. Launcher and compiled backend resolve the junction and refuse startup unless its canonical
 target is exactly that per-user directory. The backend passes that same resolved root explicitly to
 the browser Control Center. The upstream `/profiles=` switch remains available only for compatible
 direct source launches.
+
+**Full profile automation** runs the enabled native profile through the inherited engine, but it does
+not permit gem actions. Immediately after the native controls are reloaded for Start, the runtime
+captures and temporarily zeros all nine session-only gem-boost selectors and disables reward-to-gem
+conversion. Stop, close, or rejected Start restores the captured session values without writing the
+temporary overlay to the profile. All other enabled native settings remain available; this guard is a
+spend boundary, not a claim that every current-client route has live acceptance evidence.
 
 The launcher snaps the Mini GUI beside the selected exact BlueStacks top-level window. It keeps
 both windows independent and does not embed, reparent, or rename BlueStacks. This external
@@ -121,7 +133,9 @@ required and must remain zero bytes. The Mini GUI and backend names are retained
 inherited image engine validates its host contract; the configuration lets the backend load its
 managed dependencies from `lib`.
 
-Closing the Mini GUI stops the native controller/backend pair. This independent downstream layout
+If the owned backend exits unexpectedly while the Mini GUI is still running, the Mini GUI launches
+one exact-path idle replacement after a bounded delay. It never replays Start automatically. Closing
+the Mini GUI stops the native controller/backend pair. This independent downstream layout
 is not endorsed, sponsored, supported, or approved by the upstream MyBot.run project.
 
 If an owned AutoIt error or stale controller prevents a normal restart, run the installed launcher

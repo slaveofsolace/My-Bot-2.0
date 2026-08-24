@@ -118,7 +118,7 @@ class LauncherRecoveryContractTests(unittest.TestCase):
 
     def test_recovery_closes_only_identity_bound_backend_adb_children(self):
         recovery = LAUNCHER[LAUNCHER.index("Func _RecoverBotStack()"):LAUNCHER.index("EndFunc   ;==>_RecoverBotStack")]
-        snapshot = LAUNCHER[LAUNCHER.index("Func _SnapshotOwnedAdbChildren()"):LAUNCHER.index("EndFunc   ;==>_SnapshotOwnedAdbChildren")]
+        snapshot = LAUNCHER[LAUNCHER.index("Func _SnapshotOwnedAdbChildren("):LAUNCHER.index("EndFunc   ;==>_SnapshotOwnedAdbChildren")]
         close = LAUNCHER[LAUNCHER.index("Func _CloseVerifiedAdbChildren("):LAUNCHER.index("EndFunc   ;==>_CloseVerifiedAdbChildren")]
         self.assertLess(recovery.index("_SnapshotOwnedAdbChildren()"), recovery.index('_CloseExactPathProcesses("MyBot.run.MiniGui.exe"'))
         self.assertLess(recovery.index('_CloseExactPathProcesses("MyBot.run.exe"'), recovery.index("_CloseVerifiedAdbChildren("))
@@ -152,7 +152,7 @@ class LauncherRecoveryContractTests(unittest.TestCase):
 
     def test_recovery_closes_only_a_verified_checkout_planner_service(self):
         self.assertIn('Global Const $g_sPlannerServiceName = "my-bot-control-center"', LAUNCHER)
-        start = LAUNCHER.index("Func _CloseOwnedPlannerService()")
+        start = LAUNCHER.index("Func _CloseOwnedPlannerService(")
         end = LAUNCHER.index("EndFunc   ;==>_CloseOwnedPlannerService", start)
         body = LAUNCHER[start:end]
         for proof in (
@@ -246,7 +246,7 @@ class LauncherRecoveryContractTests(unittest.TestCase):
         self.assertFalse(receipt_is_valid(receipt, health, service, stale_backend))
 
     def test_launcher_rechecks_receipt_and_pid_identity_immediately_before_close(self):
-        start = LAUNCHER.index("Func _CloseOwnedPlannerService()")
+        start = LAUNCHER.index("Func _CloseOwnedPlannerService(")
         end = LAUNCHER.index("EndFunc   ;==>_CloseOwnedPlannerService", start)
         body = LAUNCHER[start:end]
         close_at = body.index("ProcessClose($iPid)")
@@ -263,7 +263,7 @@ class LauncherRecoveryContractTests(unittest.TestCase):
         self.assertLess(recovery.index("_CloseOwnedPlannerService()"), recovery.index('_CloseExactPathProcesses("MyBot.run.exe"'))
 
     def test_orphan_close_reports_foreign_listener_as_unresolved(self):
-        start = LAUNCHER.index("Func _CloseOwnedPlannerService()")
+        start = LAUNCHER.index("Func _CloseOwnedPlannerService(")
         end = LAUNCHER.index("EndFunc   ;==>_CloseOwnedPlannerService", start)
         body = LAUNCHER[start:end]
         close_at = body.index("ProcessClose($iPid)")
@@ -286,7 +286,7 @@ class LauncherRecoveryContractTests(unittest.TestCase):
             "$oRequest.Abort()",
         ):
             self.assertIn(proof, helper)
-        start = LAUNCHER.index("Func _CloseOwnedPlannerService()")
+        start = LAUNCHER.index("Func _CloseOwnedPlannerService(")
         end = LAUNCHER.index("EndFunc   ;==>_CloseOwnedPlannerService", start)
         body = LAUNCHER[start:end]
         self.assertNotIn("InetRead(", body)
@@ -378,6 +378,16 @@ class LauncherRecoveryContractTests(unittest.TestCase):
             "$g_sRunPlannerOwnedServiceToken = $sOwnerToken",
         ):
             self.assertIn(proof, adopter)
+
+    def test_native_start_publishes_trusted_local_appdata_before_python_child(self):
+        start = PLANNER_CONTROL[
+            PLANNER_CONTROL.index("Func _RunPlannerStartService"):
+            PLANNER_CONTROL.index("EndFunc   ;==>_RunPlannerStartService")
+        ]
+        publish = 'EnvSet("LOCALAPPDATA", $g_sMBRFuncRuntimeLocalAppData)'
+        self.assertIn(publish, start)
+        self.assertLess(start.index(publish), start.index("Local $iPid = Run("))
+        self.assertIn("Trusted Local AppData could not be published", start)
 
     def test_launcher_errors_are_logged_and_bounded_without_topmost_focus(self):
         start = LAUNCHER.index("Func _ShowError($sMessage)")
@@ -684,6 +694,57 @@ class LauncherRecoveryContractTests(unittest.TestCase):
         self.assertIn("$g_sEngineInitOwnershipReceipt", active)
         self.assertIn("$g_iEngineInitActivePollMs", delay)
         self.assertIn("Return $iDefaultDelayMs", delay)
+
+    def test_controller_exit_runs_exact_recovery_before_launcher_exit(self):
+        keeper = LAUNCHER.index("_KeepDocked($hController, $iControllerPid)")
+        recover = LAUNCHER.index("_RecoverExitedOwnedControllerStack($iControllerPid", keeper)
+        disarm = LAUNCHER.index('_EngineSupervisorDisarm("owned controller exited")', recover)
+        terminal = LAUNCHER.index("Exit 0", disarm)
+        self.assertLess(keeper, recover)
+        self.assertLess(recover, disarm)
+        self.assertLess(disarm, terminal)
+        recovery = autoit_function(LAUNCHER, "_RecoverExitedOwnedControllerStack")
+        self.assertIn("_CloseVerifiedLauncherBackend($iControllerPid, $iBackendPid, $sBackendCreated)", recovery)
+        self.assertIn("_CloseOwnedPlannerService($iBackendPid, $sBackendCreated)", recovery)
+        self.assertNotIn("_CloseExactPathProcesses", recovery)
+
+    def test_automatic_cleanup_never_adopts_post_exit_adb_by_reused_parent_pid(self):
+        recovery = autoit_function(LAUNCHER, "_RecoverExitedOwnedControllerStack")
+        detector = autoit_function(LAUNCHER, "_HasUncapturedAdbChildForRecordedBackend")
+        self.assertNotIn("_SnapshotAdbChildrenForRecordedBackend", LAUNCHER)
+        self.assertIn("_HasUncapturedAdbChildForRecordedBackend($iBackendPid)", recovery)
+        self.assertNotIn("_RememberLauncherOwnedAdbChildren", detector)
+        self.assertNotIn("ProcessClose", detector)
+        self.assertIn("refused uncaptured ADB child after backend exit", detector)
+        self.assertIn("And Not $bUncapturedAdbChild", recovery)
+
+    def test_live_backend_final_child_is_checked_again_after_backend_exit(self):
+        recovery = autoit_function(LAUNCHER, "_RecoverExitedOwnedControllerStack")
+        close_backend = recovery.index(
+            "_CloseVerifiedLauncherBackend($iControllerPid, $iBackendPid, $sBackendCreated)"
+        )
+        post_close_guard = recovery.index("If $bBackendClosed And Not ProcessExists($iBackendPid)", close_backend)
+        post_close_detector = recovery.index(
+            "_HasUncapturedAdbChildForRecordedBackend($iBackendPid)", post_close_guard
+        )
+        close_children = recovery.index("_CloseVerifiedAdbChildren($aOwnedAdbChildren)", post_close_detector)
+        self.assertEqual(
+            [close_backend, post_close_guard, post_close_detector, close_children],
+            sorted((close_backend, post_close_guard, post_close_detector, close_children)),
+        )
+        self.assertIn("Then $bUncapturedAdbChild = True", recovery[post_close_detector:close_children])
+
+    def test_automatic_adb_identity_tracking_is_pruned_and_bounded(self):
+        remember = autoit_function(LAUNCHER, "_RememberLauncherOwnedAdbChildren")
+        prune = autoit_function(LAUNCHER, "_PruneLauncherOwnedAdbChildren")
+        recovery = autoit_function(LAUNCHER, "_RecoverExitedOwnedControllerStack")
+        self.assertIn("Global Const $g_iLauncherOwnedAdbChildLimit = 64", LAUNCHER)
+        self.assertIn("_PruneLauncherOwnedAdbChildren()", remember)
+        self.assertIn("$iNext > $g_iLauncherOwnedAdbChildLimit", remember)
+        self.assertIn("$g_bLauncherOwnedAdbTrackingIncomplete = True", remember)
+        self.assertIn("If $g_bLauncherOwnedAdbTrackingIncomplete Then Return False", recovery)
+        self.assertIn("Not ProcessExists($iPid) Then ContinueLoop", prune)
+        self.assertIn("_ProcessCreationId($iPid) <> $sCreated", prune)
 
 
 if __name__ == "__main__":
