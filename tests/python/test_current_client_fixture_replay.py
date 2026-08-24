@@ -14,6 +14,7 @@ from tools.replay_current_client_fixtures import (
     FixtureReplayError,
     HOME_DAILY_REWARD_ADAPTER,
     HOME_DAILY_REWARD_CLAIMED_ADAPTER,
+    HOME_INACTIVITY_RELOAD_ADAPTER,
     HOME_WELCOME_BACK_ADAPTER,
     HOME_LOOT_CART_ADAPTER,
     HOME_MAIN_ADAPTER,
@@ -23,6 +24,7 @@ from tools.replay_current_client_fixtures import (
     recognize_clan_request_dialog,
     recognize_home_daily_reward,
     recognize_home_daily_reward_claimed,
+    recognize_home_inactivity_reload,
     recognize_home_welcome_back,
     recognize_home_loot_cart,
     recognize_home_main,
@@ -134,6 +136,7 @@ class CurrentClientFixtureReplayTests(unittest.TestCase):
                 HOME_LOOT_CART_ADAPTER: recognize_home_loot_cart,
                 HOME_DAILY_REWARD_ADAPTER: recognize_home_daily_reward,
                 HOME_DAILY_REWARD_CLAIMED_ADAPTER: recognize_home_daily_reward_claimed,
+                HOME_INACTIVITY_RELOAD_ADAPTER: recognize_home_inactivity_reload,
                 HOME_WELCOME_BACK_ADAPTER: recognize_home_welcome_back,
             },
             require_verified=True,
@@ -144,6 +147,7 @@ class CurrentClientFixtureReplayTests(unittest.TestCase):
         self.assertIn("home.loot-cart", report.replayed_fixture_ids)
         self.assertIn("home.daily-reward", report.replayed_fixture_ids)
         self.assertIn("home.daily-reward.claimed", report.replayed_fixture_ids)
+        self.assertIn("home.inactivity-reload", report.replayed_fixture_ids)
         self.assertIn("home.welcome-back", report.replayed_fixture_ids)
         self.assertEqual(
             set(report.checked_adapters),
@@ -153,10 +157,11 @@ class CurrentClientFixtureReplayTests(unittest.TestCase):
                 HOME_LOOT_CART_ADAPTER,
                 HOME_DAILY_REWARD_ADAPTER,
                 HOME_DAILY_REWARD_CLAIMED_ADAPTER,
+                HOME_INACTIVITY_RELOAD_ADAPTER,
                 HOME_WELCOME_BACK_ADAPTER,
             },
         )
-        self.assertEqual(report.unknown_checks, 6)
+        self.assertEqual(report.unknown_checks, 7)
 
     def test_verified_fixture_replays_pixels_regions_and_unknown_fail_closed(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

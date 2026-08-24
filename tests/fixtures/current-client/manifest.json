@@ -87,6 +87,17 @@
       "metadata_path": "tests/fixtures/current-client/metadata/home.daily-reward.claimed.json"
     },
     {
+      "id": "home.inactivity-reload",
+      "status": "verified",
+      "purpose": "Foreground inactivity dialog blocking startup Daily Reward and exact non-premium Reload Game recovery state",
+      "capability_ids": [
+        "events.daily-reward",
+        "runtime.recovery"
+      ],
+      "image_path": "tests/fixtures/current-client/images/home.inactivity-reload.png",
+      "metadata_path": "tests/fixtures/current-client/metadata/home.inactivity-reload.json"
+    },
+    {
       "id": "home.welcome-back",
       "status": "verified",
       "purpose": "Returning-player summary overlay and its operator-only Okay state",

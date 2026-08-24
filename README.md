@@ -153,7 +153,7 @@ army to match.
 | Windows compile — Au3Check, both AutoIt versions | Green |
 | Game model through July 2026 | Catalogued from official sources |
 | LDPlayer 9 and MuMu Player 12 adapters | Written, **never run on real hardware** |
-| Screen recognition for the current client | 6 reviewed fixtures replay through production recognizers and one additional training fixture is tracked as redacted; 49 required surfaces remain missing. Package launch evidence does not convert any missing recognition surface into a pass. |
+| Screen recognition for the current client | 7 reviewed fixtures replay through production recognizers and one additional training fixture is tracked as redacted; 49 required surfaces remain missing. Package launch evidence does not convert any missing recognition surface into a pass. |
 | Managed Start and attack execution | The installed Control Center's real **Launch BlueStacks + CoC** control started the exact Pie64 instance and game, passively recognized the Daily Reward overlay, reported that Home remained blocked, and returned idle without input. Dismissing that overlay, entering the inherited bot loop, and any attack still require fresh action-specific acceptance. |
 
 **The honest summary:** the 2026-08-23 local acceptance reached the first real game-input boundary
@@ -482,7 +482,7 @@ the actual game. Listing it honestly beats a progress bar.
 <br>
 
 [`tests/fixtures/current-client/manifest.json`](tests/fixtures/current-client/manifest.json) currently
-tracks **56 required captures**: 7 are complete and 49 remain missing. The expanded set includes
+tracks **57 required captures**: 8 are complete and 49 remain missing. The expanded set includes
 battle surfaces, current-army and Builder Base states, Pets, equipment, rewards, chat/request states, and other
 recognition boundaries that cannot be promoted from source presence alone.
 

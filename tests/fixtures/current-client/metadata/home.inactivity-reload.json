@@ -1,0 +1,82 @@
+{
+  "schema_version": 2,
+  "fixture_id": "home.inactivity-reload",
+  "captured_at": "2026-08-24T15:55:55Z",
+  "game_version": "18.400.22",
+  "source_type": "authorized-test-account",
+  "width": 860,
+  "height": 732,
+  "sha256": "1f9f9af8000bc842826b6c8015b337d3b1960b66356a30d841602ac6790c31d2",
+  "raw_sha256": "0ce02b1adbd56d95ceb7465553d2e3d557bfe79305649ea3488a95298ab1604a",
+  "redacted_sha256": "1f9f9af8000bc842826b6c8015b337d3b1960b66356a30d841602ac6790c31d2",
+  "redacted": true,
+  "redaction_masks": [
+    {
+      "x": 56,
+      "y": 7,
+      "width": 154,
+      "height": 31,
+      "fill_hex": "#000000FF"
+    },
+    {
+      "x": 654,
+      "y": 10,
+      "width": 164,
+      "height": 38,
+      "fill_hex": "#000000FF"
+    },
+    {
+      "x": 654,
+      "y": 61,
+      "width": 164,
+      "height": 40,
+      "fill_hex": "#000000FF"
+    },
+    {
+      "x": 654,
+      "y": 112,
+      "width": 164,
+      "height": 40,
+      "fill_hex": "#000000FF"
+    },
+    {
+      "x": 786,
+      "y": 154,
+      "width": 68,
+      "height": 43,
+      "fill_hex": "#000000FF"
+    }
+  ],
+  "redaction_pixel_changes": 26891,
+  "frame_content": {
+    "total_pixels": 629520,
+    "non_black_pixels": 572673,
+    "distinct_visible_colors": 2
+  },
+  "privacy_review_method": "decoded-pixel-diff-v1",
+  "redaction_notes": "Player name and four resource total regions are replaced with opaque black rectangles; the foreground inactivity dialog, Reload Game control, Daily Reward title, close control, reward grid, and visually blocked Claim button remain unchanged.",
+  "assertions": [
+    "The canonical 860x732 frame shows the Daily Reward overlay with a foreground Clash inactivity dialog.",
+    "The inactivity dialog is the active surface and exposes exactly one non-premium Reload Game recovery control.",
+    "The Daily Reward Claim button is visible but blocked by the dialog and must not be clicked until the route reloads and re-recognizes the screen.",
+    "No gem purchase, gem conversion, paid offer, shop purchase, credential, account switch, or battle-start confirmation is visible.",
+    "All privacy masks are outside the inactivity dialog anchors and the reviewed Reload Game control geometry."
+  ],
+  "replay_contract": {
+    "schema_version": 1,
+    "adapter": "production.open-home-inactivity-reload-v1",
+    "expected_state": "home.inactivity-reload.operator-reload-ready",
+    "safe_regions": [
+      {
+        "id": "reload-game",
+        "x": 232,
+        "y": 404,
+        "width": 112,
+        "height": 31
+      }
+    ]
+  },
+  "reviewed_by": "supervised runtime evidence audit",
+  "reviewed_at": "2026-08-24T16:55:00Z",
+  "notes": "Positive inactivity overlay captured from the authorized MyVillage BlueStacks5 Pie64 account after bot-driven game launch, before any Reload Game or Daily Reward input."
+}
