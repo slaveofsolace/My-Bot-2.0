@@ -15,6 +15,10 @@
 ; ===============================================================================================================================
 Func AndroidBackButton($bCheckRunState = True)
 	If (IsDeclared("bCheckRunState") <> 0 And $bCheckRunState) And Not $g_bRunState Then Return False
+	If TestCapture() Then Return False
+	Local $bPremiumReady = NoPremiumPreInputGate("adb-back-key")
+	Local $iPremiumError = @error, $iPremiumExtended = @extended
+	If Not $bPremiumReady Then Return SetError($iPremiumError, $iPremiumExtended, False)
 	;SendAdbCommand("shell input keyevent 4", False)
 	AndroidAdbSendShellCommand("input keyevent 4")
 	If $g_bDebugAndroid Then SetDebugLog("Used Adb to press back button", $COLOR_INFO)
@@ -38,6 +42,10 @@ EndFunc   ;==>AndroidBackButton
 ; ===============================================================================================================================
 Func AndroidHomeButton($bCheckRunState = True)
 	If (IsDeclared("bCheckRunState") <> 0 And $bCheckRunState) And Not $g_bRunState Then Return False
+	If TestCapture() Then Return False
+	Local $bPremiumReady = NoPremiumPreInputGate("adb-home-key")
+	Local $iPremiumError = @error, $iPremiumExtended = @extended
+	If Not $bPremiumReady Then Return SetError($iPremiumError, $iPremiumExtended, False)
 	;SendAdbCommand("shell input keyevent 3", False)
 	AndroidAdbSendShellCommand("input keyevent 3")
 	If $g_bDebugAndroid Then SetDebugLog("Used Adb to press home button", $COLOR_INFO)

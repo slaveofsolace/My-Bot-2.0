@@ -151,6 +151,7 @@ class ClanRequestRouteTests(unittest.TestCase):
         self.assertIn("$g_bRequestTroopsEnable = True", clan_branch)
         self.assertIn("$g_bChkDonate = False", clan_branch)
         self.assertIn("$g_bDonateLikeCrazy = False", clan_branch)
+        self.assertIn("$g_bRunExecutionGameplayApplied = True", clan_branch)
         self.assertIn("$g_bRequestTroopsEnable = $g_bRunExecutionSnapshotRequestTroopsEnable", restore)
 
     def test_stop_paths_do_not_invoke_cleanup_callback_after_latch(self) -> None:
@@ -196,7 +197,11 @@ class ClanRequestRouteTests(unittest.TestCase):
         request_dispatch = bot_start.index("ClanRequestRouteSelected($oPreparedIntent)")
         managed_probe = bot_start.index("MBRFuncProbeEngine")
         self.assertLess(request_dispatch, managed_probe)
-        self.assertIn("_BotStartOpenClanRequest", bot_start[request_dispatch:managed_probe])
+        self.assertIn("_BotStartRunOneShot(5, $sStartError)", bot_start[request_dispatch:managed_probe])
+        wrapper = function_body(self.gui_action, "_BotStartRunOneShot")
+        self.assertIn("_BotStartOpenClanRequest($sStartError)", wrapper)
+        self.assertLess(wrapper.index("LockBotSlot(True)"), wrapper.index("_BotStartOpenClanRequest"))
+        self.assertLess(wrapper.index("_BotStartOpenClanRequest"), wrapper.rindex("LockBotSlot(False)"))
 
     def test_open_request_path_never_enters_generic_or_managed_startup(self) -> None:
         open_request = function_body(self.gui_action, "_BotStartOpenClanRequest")

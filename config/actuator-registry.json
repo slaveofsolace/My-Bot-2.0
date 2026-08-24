@@ -10,7 +10,7 @@
   },
   "sink_groups": {
     "game_input": [
-      "Click", "ClickP", "BuildingClick", "BuildingClickP", "ClickAway", "ClickAway2",
+      "Click", "NoPremiumPointClick", "ClickP", "BuildingClick", "BuildingClickP", "ClickAway", "ClickAway2",
       "PureClick", "PureClickP", "PureClickTrain", "GemClick", "GemClickP", "AttackClick", "AttackClickCSV",
       "ClickZone", "ClickR", "PureClickR", "GemClickR", "ClickDrag", "_PostMessage_ClickDrag",
       "ClickOkay", "ClickRemove", "ClickB", "ClickButton", "TrainClick", "TrainClickP",
@@ -30,8 +30,8 @@
     "dynamic_dispatch": ["DynamicCall"]
   },
   "owner_fingerprint": {
-    "count": 462,
-    "sha256": "6e06301f646468119637e85b4f35b295465f13362ac6b7ca64e155bf1ba3c8d5"
+    "count": 463,
+    "sha256": "82c24f44249f1d4d3d10ba0d15e17aec91f3e1a3ea3d795e2fcbcdc9066ecd7b"
   },
   "mappings": [
     {
@@ -546,8 +546,11 @@
       "id": "infra.bot-start",
       "policy": "infrastructure",
       "path_globs": ["COCBot/GUI/MBR GUI Control Bottom.au3", "COCBot/MBR GUI Action.au3"],
-      "capability_ids": ["orchestration.engine-initialization", "orchestration.run-plan", "emulator.bluestacks5"],
-      "reason": "BotStart owns the supervised managed-engine call, the bounded BlueStacks/CoC launch-only diagnostic, and plan-validated execution handoff."
+      "capability_ids": [
+        "orchestration.engine-initialization", "orchestration.run-plan", "emulator.bluestacks5",
+        "emulator.memu", "emulator.ldplayer9", "emulator.mumu"
+      ],
+      "reason": "BotStart owns the supervised managed-engine call, exact plan-selected emulator/game bootstrap, the bounded BlueStacks/CoC launch-only diagnostic, and plan-validated execution handoff."
     }
   ]
 }

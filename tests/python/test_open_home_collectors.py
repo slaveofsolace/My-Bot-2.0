@@ -83,11 +83,18 @@ class OpenHomeCollectorsTest(unittest.TestCase):
         start = autoit_function(action, "BotStart")
         self.assertLess(start.index("RunExecutionPrepareStart"), start.index("OpenHomeCollectorsPreparedMode"))
         self.assertLess(start.index("OpenHomeCollectorsPreparedMode"), start.index("MBRFuncProbeEngine"))
-        self.assertIn("$iOpenCollectorsMode = 1", start)
-        self.assertIn("$iOpenCollectorsMode = 2", start)
-        self.assertIn("$iOpenCollectorsMode = 3", start)
-        self.assertIn("$iOpenCollectorsMode = 4", start)
+        self.assertIn("$iOpenCollectorsMode >= 1 And $iOpenCollectorsMode <= 4", start)
+        self.assertIn("_BotStartRunOneShot($iOpenCollectorsMode, $sStartError)", start)
         self.assertIn("$iOpenCollectorsMode = -1", start)
+        wrapper = autoit_function(action, "_BotStartRunOneShot")
+        for mode, route in (
+            (1, "_BotStartOpenHomeCollectors"),
+            (2, "_BotStartOpenHomeLootCart"),
+            (3, "_BotStartOpenDailyReward"),
+            (4, "_BotStartOpenHomeTreasury"),
+        ):
+            self.assertIn(f"Case {mode}", wrapper)
+            self.assertIn(f"{route}($sStartError)", wrapper)
 
     def test_mode_allows_exact_collectors_loot_cart_treasury_or_daily_reward_and_bluestacks_only(self):
         route = source("COCBot/functions/Run/OpenHomeCollectors.au3")
@@ -127,12 +134,12 @@ class OpenHomeCollectorsTest(unittest.TestCase):
         self.assertNotIn("$g_sImg", route)
         self.assertLess(route.index("ForceCaptureRegion()"), route.index("AndroidScreencap("))
         self.assertIn("AndroidScreencap(", route)
-        self.assertEqual(route.count("Click("), 5)
+        self.assertEqual(route.count("NoPremiumPointClick("), 5)
 
     def test_every_click_is_bounded_by_stop_and_home_proof(self):
         route = source("COCBot/functions/Run/OpenHomeCollectors.au3")
         collect = autoit_function(route, "OpenHomeCollectorsCollectOnePass")
-        click = collect.index("If Not Click(")
+        click = collect.index("If Not NoPremiumPointClick(")
         self.assertLess(collect.rindex("RunControlStopRequested()", 0, click), click)
         self.assertLess(collect.rindex("_CheckPixel($aIsMain, False)", 0, click), click)
         self.assertIn("OpenHomeCollectorsProveHome()", collect[click:])
@@ -182,10 +189,10 @@ class OpenHomeCollectorsTest(unittest.TestCase):
         issue_open = autoit_function(route, "OpenHomeLootCartIssueOpen")
         issue_collect = autoit_function(route, "OpenHomeLootCartIssueCollect")
         for function in (issue_open, issue_collect):
-            click = function.index("Click(")
+            click = function.index("NoPremiumPointClick(")
             self.assertLess(function.index("RunControlStopRequested()"), click)
             self.assertLess(function.index("Not $g_bRunState"), click)
-            self.assertEqual(function.count("Click("), 1)
+            self.assertEqual(function.count("NoPremiumPointClick("), 1)
         self.assertIn("_CheckPixel($aIsMain, False)", issue_open)
         self.assertIn("OpenHomeLootCartCollectPanelReady()", issue_collect)
         self.assertIn("OpenHomeNoGemInputReady()", issue_open)
@@ -236,21 +243,21 @@ class OpenHomeCollectorsTest(unittest.TestCase):
     def test_daily_reward_inputs_are_fresh_bounded_and_never_confirm(self):
         route = source("COCBot/functions/Run/OpenHomeCollectors.au3")
         issue = autoit_function(route, "OpenHomeDailyRewardIssueClaim")
-        click = issue.index("Click(")
+        click = issue.index("NoPremiumPointClick(")
         self.assertLess(issue.index("OpenHomeDailyRewardCaptureClaim"), click)
         self.assertGreaterEqual(issue[:click].count("RunControlStopRequested()"), 2)
         self.assertIn("$iClaims <> 1", issue)
-        self.assertEqual(issue.count("Click("), 1)
+        self.assertEqual(issue.count("NoPremiumPointClick("), 1)
         self.assertIn('", False)', issue)
         self.assertNotIn('", True)', issue)
 
         cleanup = autoit_function(route, "OpenHomeDailyRewardCloseAndProveHome")
-        close = cleanup.index("Click(")
+        close = cleanup.index("NoPremiumPointClick(")
         self.assertLess(cleanup.rindex("RunControlStopRequested()", 0, close), close)
         self.assertIn("OpenHomeCollectorsProveHome()", cleanup)
         self.assertIn("OpenHomeDailyRewardOverlayReady()", cleanup)
         self.assertIn("OpenHomeDailyRewardClaimedOverlayReady()", cleanup)
-        self.assertEqual(cleanup.count("Click("), 1)
+        self.assertEqual(cleanup.count("NoPremiumPointClick("), 1)
         self.assertIn('", False)', cleanup)
         self.assertNotIn('", True)', cleanup)
         for forbidden in ("Okay", "Confirm", "GemClick", "findMultiple", "findImage"):
@@ -404,13 +411,13 @@ class OpenHomeCollectorsTest(unittest.TestCase):
             click_lines = [
                 line
                 for line in source(relative).splitlines()
-                if "Click(" in line and "#OpenHomeDailyReward" not in line
+                if "NoPremiumPointClick(" in line and "#OpenHomeDailyReward" not in line
             ]
             self.assertEqual(expected_count, len(click_lines), relative)
             self.assertTrue(all(", True)" in line for line in click_lines), click_lines)
 
         daily = source("COCBot/functions/Run/OpenHomeCollectors.au3")
-        daily_lines = [line for line in daily.splitlines() if "#OpenHomeDailyReward" in line and "Click(" in line]
+        daily_lines = [line for line in daily.splitlines() if "#OpenHomeDailyReward" in line and "NoPremiumPointClick(" in line]
         self.assertEqual(2, len(daily_lines))
         self.assertTrue(all(", False)" in line for line in daily_lines), daily_lines)
 

@@ -1,3 +1,4 @@
+import json
 import re
 import unittest
 from pathlib import Path
@@ -9,6 +10,10 @@ ROOT = Path(__file__).resolve().parents[2]
 ROUTE = ROOT / "COCBot" / "functions" / "Run" / "OpenClanRequest.au3"
 GUI_ACTION = ROOT / "COCBot" / "MBR GUI Action.au3"
 FIXTURES = ROOT / "tests" / "fixtures" / "current-client" / "images"
+FIXTURE_MANIFEST = ROOT / "tests" / "fixtures" / "current-client" / "manifest.json"
+PERMIT_POLICY = ROOT / "COCBot" / "functions" / "Run" / "NoPremiumPermitPolicy.au3"
+CLICK = ROOT / "COCBot" / "functions" / "Other" / "Click.au3"
+PERMIT_DOC = ROOT / "docs" / "development" / "CLAN_REQUEST_INPUT_PERMITS.md"
 
 
 def function_block(source: str, name: str) -> str:
@@ -102,15 +107,38 @@ class OpenClanRequestContract(unittest.TestCase):
 
     def test_send_is_one_attempt_with_a_last_moment_stop_poll(self) -> None:
         block = function_block(self.source, "OpenClanRequestIssueSend")
-        self.assertEqual(block.count("Click("), 1)
-        self.assertIn("Int($iSendX) < 455", block)
-        self.assertIn("Int($iSendX) > 635", block)
-        self.assertIn("Int($iSendY) < 438", block)
-        self.assertIn("Int($iSendY) > 520", block)
-        self.assertLess(block.rindex("RunControlStopRequested"), block.index("Click("))
+        self.assertEqual(block.count("NoPremiumPointClick("), 1)
+        self.assertIn("Int($iSendX) <> $OPEN_CLAN_REQUEST_SEND_X", block)
+        self.assertIn("Int($iSendY) <> $OPEN_CLAN_REQUEST_SEND_Y", block)
+        self.assertLess(block.rindex("RunControlStopRequested"), block.index("NoPremiumPointClick("))
         self.assertIn("OpenClanRequestDialogReady", block)
+        self.assertIn("$NO_PREMIUM_ACTION_CLAN_REQUEST_SEND", block)
         self.assertIn("$OPEN_CLAN_REQUEST_SEND_X = 545", self.source)
         self.assertIn("$OPEN_CLAN_REQUEST_SEND_Y = 478", self.source)
+
+    def test_each_input_has_an_exact_action_point_and_pure_current_frame_predicate(self) -> None:
+        policy = PERMIT_POLICY.read_text(encoding="utf-8")
+        click = CLICK.read_text(encoding="utf-8-sig")
+        actions = (
+            ("ARMY", 39, 585, "OpenClanRequestArmyOverviewPointReady", "_OpenClanRequestNeutralHomeFrameReady"),
+            ("REQUEST", 761, 498, "OpenClanRequestRequestPointReady", "_OpenClanRequestArmyOverviewFrameReady(True)"),
+            ("SEND", 545, 478, "OpenClanRequestSendPointReady", "_OpenClanRequestDialogFrameReady()"),
+            ("CANCEL", 316, 478, "OpenClanRequestCancelPointReady", "_OpenClanRequestDialogFrameReady()"),
+            ("CLOSE", 792, 187, "OpenClanRequestClosePointReady", "_OpenClanRequestArmyOverviewFrameReady(False)"),
+        )
+        recognizer = function_block(click, "NoPremiumSurfaceState")
+        for suffix, x, y, predicate, anchor in actions:
+            action = f"$NO_PREMIUM_ACTION_CLAN_REQUEST_{suffix}"
+            self.assertIn(action, policy)
+            self.assertRegex(
+                policy,
+                rf"(?ms)Case {re.escape(action)}\s+Return \$iX = {x} And \$iY = {y}",
+            )
+            self.assertIn(predicate, recognizer)
+            predicate_block = function_block(self.source, predicate)
+            self.assertIn(anchor, predicate_block)
+            self.assertNotIn("OpenHomeCollectorsCapture", predicate_block)
+            self.assertNotRegex(predicate_block, r"(?<![A-Za-z_])Click\(")
 
     def test_cleanup_is_bounded_and_only_closes_recognized_overlays(self) -> None:
         block = function_block(self.source, "OpenClanRequestCloseAndProveHome")
@@ -144,9 +172,45 @@ class OpenClanRequestContract(unittest.TestCase):
             self.assertNotIn(legacy, block)
 
     def test_all_request_inputs_force_window_control_clicks(self) -> None:
-        click_lines = [line for line in self.source.splitlines() if "Click(" in line]
-        self.assertEqual(5, len(click_lines))
-        self.assertTrue(all(", True)" in line for line in click_lines), click_lines)
+        blocks = [
+            function_block(self.source, name)
+            for name in (
+                "OpenClanRequestOpenArmyOverview",
+                "OpenClanRequestOpenDialog",
+                "OpenClanRequestIssueSend",
+                "OpenClanRequestCloseAndProveHome",
+            )
+        ]
+        self.assertEqual(5, sum(block.count("NoPremiumPointClick(") for block in blocks))
+        self.assertEqual(5, sum(block.count(", True)") for block in blocks))
+        executable = "\n".join(
+            line for line in self.source.splitlines() if not line.lstrip().startswith(";")
+        )
+        self.assertNotRegex(executable, r"(?<![A-Za-z_])Click\(")
+
+    def test_army_overview_fixture_keeps_clan_request_fixture_blocked_until_reviewed(self) -> None:
+        manifest = json.loads(FIXTURE_MANIFEST.read_text(encoding="utf-8-sig"))
+        fixtures = {item["id"]: item for item in manifest["required_fixtures"]}
+        army = fixtures["army.training.ready"]
+        dialog = fixtures["clan.request.available"]
+        self.assertEqual("redacted", army["status"])
+        self.assertIn("village.clan-request", army["capability_ids"])
+        self.assertEqual("verified", dialog["status"])
+        self.assertIn("village.clan-request", dialog["capability_ids"])
+        clan_request_fixtures = [
+            item
+            for item in manifest["required_fixtures"]
+            if "village.clan-request" in item["capability_ids"]
+        ]
+        self.assertEqual(
+            ["army.training.ready"],
+            sorted(item["id"] for item in clan_request_fixtures if item["status"] != "verified"),
+        )
+        documentation = PERMIT_DOC.read_text(encoding="utf-8")
+        self.assertIn("fixture-blocked", documentation)
+        self.assertIn("army.training.ready", documentation)
+        self.assertIn("redacted", documentation)
+        self.assertIn("clan.request.available", documentation)
 
 
 if __name__ == "__main__":

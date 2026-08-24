@@ -1981,7 +1981,7 @@ Global $g_bChkCollectFreeMagicItems = True
 
 ; Daily challenge
 Global $g_bChkCollectRewards = True
-Global $g_bChkSellRewards = True  ; Sell "storage full" extra magic items for gems
+Global $g_bChkSellRewards = False  ; Premium reward conversion is permanently unavailable
 Global $g_iBuilderBoostDiscount = 0 ; in percent
 
 ; SC_ID without shared_prefs

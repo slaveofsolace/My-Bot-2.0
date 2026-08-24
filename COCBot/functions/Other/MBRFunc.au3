@@ -68,6 +68,17 @@ Global $g_iMBRFuncEngineReceiptSequence = 0
 Global $g_sMBRFuncEngineReceiptHistory = ""
 Global $g_sMBRFuncEngineReceiptStartRequestId = ""
 Global $g_bMBRFuncEngineInitializing = False
+Global $g_sMBRFuncAndroidBindingMode = ""
+Global $g_sMBRFuncAndroidBindingEmulator = ""
+Global $g_sMBRFuncAndroidBindingInstance = ""
+Global $g_iMBRFuncAndroidBindingPid = 0
+
+Func _MBRFuncResetAndroidBinding()
+	$g_sMBRFuncAndroidBindingMode = ""
+	$g_sMBRFuncAndroidBindingEmulator = ""
+	$g_sMBRFuncAndroidBindingInstance = ""
+	$g_iMBRFuncAndroidBindingPid = 0
+EndFunc   ;==>_MBRFuncResetAndroidBinding
 
 Func MBRFuncManagedLaunchBound()
 	Return $g_bMBRFuncBackendHost And $g_bMBRFuncEngineSupervisorValid
@@ -88,6 +99,7 @@ Func MBRFunc($Start = True, $bInitialize = True)
 			$g_hLibMyBot = -1
 			$g_bLibMyBotInitialized = False
 			$g_bMBRFuncEngineInitializing = False
+			_MBRFuncResetAndroidBinding()
 			SetDebugLog($g_sMBRLib & " closed.")
 	EndSwitch
 EndFunc   ;==>MBRFunc
@@ -126,6 +138,7 @@ Func MBRFuncInitialize($bDiscoverAndroid = True)
 	$g_sMBRFuncEngineReceiptStartRequestId = $sStartRequestId
 	$g_iMBRFuncEngineReceiptSequence = 0
 	$g_sMBRFuncEngineReceiptHistory = ""
+	_MBRFuncResetAndroidBinding()
 
 	$g_sMBRFuncEngineProbeState = "running"
 	If Not _MBRFuncPublishEngineReceipt("prepared") Then Return _MBRFuncInitializationFailed("Managed engine supervisor receipt could not be prepared")
@@ -173,6 +186,29 @@ EndFunc   ;==>MBRFuncEngineProbeState
 Func MBRFuncEngineError()
 	Return $g_sMBRFuncEngineError
 EndFunc   ;==>MBRFuncEngineError
+
+; The inherited public image-search exports are intentionally unavailable until authoritative
+; redistribution/operation permission is recorded or a clean-room recognizer owns those routes.
+; Managed initialization remains available because terminal clean-room Home routes use the
+; independently implemented ADB screenshot/click adapters without invoking those exports.
+Func MBRFuncRecognitionAvailable()
+	Return False
+EndFunc   ;==>MBRFuncRecognitionAvailable
+
+Func MBRFuncRecognitionError()
+	Return "Full profile automation requires licensed inherited recognition or a clean-room replacement; use a verified bounded Home route"
+EndFunc   ;==>MBRFuncRecognitionError
+
+; MBRFunc.au3 is shared by the full backend and the lightweight MiniGui/engine-probe include graph.
+; Resolve the BlueStacks transport verifier by name so the lightweight entry points compile without
+; importing AndroidBluestacks5.au3, while the full backend still requires the exact live adapter.
+Func _MBRFuncExactDetachedAdbSurfaceAvailable()
+	Local $sSurfaceVerifier = "GetBlueStacks5ModernAdbSurface" & "Position"
+	Local $aSurface = Call($sSurfaceVerifier)
+	Local $iCallError = @error
+	If $iCallError Then Return False
+	Return IsArray($aSurface)
+EndFunc   ;==>_MBRFuncExactDetachedAdbSurfaceAvailable
 
 Func MBRFuncMarkUnavailable($sReason)
 	$g_bMBRFuncEngineAvailable = False
@@ -323,6 +359,7 @@ Func _MBRFuncInitializationFailed($sReason)
 	_MBRFuncPublishEngineReceipt("failed")
 	$g_bMBRFuncEngineInitializing = False
 	$g_bLibMyBotInitialized = False
+	_MBRFuncResetAndroidBinding()
 	If $g_hLibMyBot <> 0 And $g_hLibMyBot <> -1 Then DllClose($g_hLibMyBot)
 	$g_hLibMyBot = -1
 	Return False
@@ -386,15 +423,32 @@ Func setAndroidPID($pid = GetAndroidPid())
 	If Not $g_bLibMyBotInitialized And Not $g_bMBRFuncEngineInitializing Then Return False
 	If $g_hLibMyBot = -1 Then Return False ; Bot didn't finish launch yet
 	Local $iRequestedPid = Int($pid)
-	Local $bDetachedAdbBinding = $iRequestedPid > 0 And $g_sAndroidEmulator = "BlueStacks5" And $g_bAndroidAdbScreencap And $g_bAndroidAdbClick
+	If $g_bLibMyBotInitialized Then
+		Switch $g_sMBRFuncAndroidBindingMode
+			Case "detached-adb"
+				If $iRequestedPid <= 0 Or $g_sAndroidEmulator <> $g_sMBRFuncAndroidBindingEmulator Or _
+						$g_sAndroidInstance <> $g_sMBRFuncAndroidBindingInstance Or Not _MBRFuncExactDetachedAdbSurfaceAvailable() Then
+					MBRFuncMarkUnavailable("The exact detached ADB transport changed after managed initialization; stop and restart the owned backend")
+					Return False
+				EndIf
+				SetDebugLog("BlueStacks5 managed Android binding remains detached; exact ADB surface owns player PID " & $iRequestedPid)
+				Return True
+			Case "player"
+				If $iRequestedPid = $g_iMBRFuncAndroidBindingPid And $g_sAndroidEmulator = $g_sMBRFuncAndroidBindingEmulator And _
+						$g_sAndroidInstance = $g_sMBRFuncAndroidBindingInstance Then Return True
+				MBRFuncMarkUnavailable("The managed Android process binding changed after initialization; stop and restart the owned backend")
+				Return False
+			Case Else
+				MBRFuncMarkUnavailable("Managed Android binding ownership is missing; stop and restart the owned backend")
+				Return False
+		EndSwitch
+	EndIf
+	Local $bDetachedAdbBinding = $iRequestedPid > 0 And $g_sAndroidEmulator = "BlueStacks5" And _
+			$g_bAndroidAdbScreencap And $g_bAndroidAdbClick And _MBRFuncExactDetachedAdbSurfaceAvailable()
 	; Current BlueStacks 5 is controlled through an exact instance-bound ADB screenshot/click
 	; surface. The managed player-process attachment can block indefinitely even though that ADB
 	; surface is healthy, and recognition receives explicit HBITMAP inputs. Initialize the managed
 	; engine in its supported detached state once, then keep the verified ADB adapter authoritative.
-	If $bDetachedAdbBinding And $g_bLibMyBotInitialized Then
-		SetDebugLog("BlueStacks5 managed Android binding remains detached; exact ADB surface owns player PID " & $iRequestedPid)
-		Return True
-	EndIf
 	If $bDetachedAdbBinding Then
 		SetDebugLog("BlueStacks5 exact ADB surface verified; initializing managed Android binding detached from player PID " & $iRequestedPid)
 		$pid = 0
@@ -411,6 +465,16 @@ Func setAndroidPID($pid = GetAndroidPid())
 			SetDebugLog($g_sMBRLib & " error setting Android PID.")
 			Return False
 		Else
+			If $bDetachedAdbBinding Then
+				$g_sMBRFuncAndroidBindingMode = "detached-adb"
+			ElseIf $iRequestedPid > 0 Then
+				$g_sMBRFuncAndroidBindingMode = "player"
+			Else
+				$g_sMBRFuncAndroidBindingMode = "engine-only"
+			EndIf
+			$g_sMBRFuncAndroidBindingEmulator = $g_sAndroidEmulator
+			$g_sMBRFuncAndroidBindingInstance = $g_sAndroidInstance
+			$g_iMBRFuncAndroidBindingPid = $iRequestedPid
 			SetDebugLog("Android PID=" & $pid & " initialized: " & $result[0])
 			debugMBRFunctions(0, $g_bDebugRedArea ? 1 : 0, $g_bDebugOcr ? 1 : 0) ; set debug levels
 		EndIf

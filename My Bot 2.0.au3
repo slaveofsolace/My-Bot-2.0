@@ -62,6 +62,7 @@ Global Const $g_iPlannerHealthConnectTimeoutMs = 300
 Global Const $g_iPlannerHealthSendTimeoutMs = 300
 Global Const $g_iPlannerHealthReceiveTimeoutMs = 500
 Global Const $g_iLauncherErrorTimeoutSec = 15
+Global Const $g_iLauncherOwnedAdbChildLimit = 64
 Global Const $g_iControlStripHeight = 34
 Global Const $g_iControlStripGap = 4
 Global $g_hControlStrip = 0
@@ -91,6 +92,11 @@ Global $g_sEngineSupervisorBackendCreated = ""
 Global $g_bEngineSupervisorAbortAttempted = False
 Global $g_bEngineSupervisorFailureLatched = False
 Global $g_sEngineSupervisorFailure = ""
+Global $g_iLauncherOwnedBackendPid = 0
+Global $g_sLauncherOwnedBackendCreated = ""
+Global $g_bLauncherOwnedBackendAmbiguous = False
+Global $g_bLauncherOwnedAdbTrackingIncomplete = False
+Global $g_aLauncherOwnedAdbChildren[1][4]
 
 Func _LauncherRuntimeLocalAppDataDir()
 	If EnvGet("MYBOT_RUN_PYTHON_INTEGRATION") <> "1" Then Return @LocalAppDataDir
@@ -184,6 +190,9 @@ If Not _EngineSupervisorBindController($iControllerPid) Then
 		"The controller was left running for inspection; do not press Start again until recovery is complete.")
 	Exit 11
 EndIf
+; Keep controller creation identity outside supervisor state: Poll may disarm itself in the narrow
+; window where the controller exits, but automatic descendant cleanup still needs this immutable proof.
+Local $sLauncherOwnedControllerCreated = $g_sEngineSupervisorControllerCreated
 
 $hController = _WaitForControllerWindow($iControllerPid, 60000)
 If Not $hController Then
@@ -201,7 +210,16 @@ EndIf
 _ShowControlStrip($hController)
 _DockWhenReady($hController, $iControllerPid, $g_iDockWaitMs)
 _KeepDocked($hController, $iControllerPid)
+; Mini owns the backend and planner, but a forced or abnormal controller close can orphan either
+; child after its window disappears. Close only the backend identity captured while it was still an
+; exact child of this launcher's controller; never reuse the broader operator-invoked Recovery here.
+Local $bControllerStackRecovered = _RecoverExitedOwnedControllerStack($iControllerPid, _
+		$sLauncherOwnedControllerCreated, $g_iLauncherOwnedBackendPid, $g_sLauncherOwnedBackendCreated)
 _EngineSupervisorDisarm("owned controller exited")
+If Not $bControllerStackRecovered Then
+	_RecoveryLog("controller-exit recovery remained incomplete")
+	Exit 12
+EndIf
 Exit 0
 
 Func _DockKeeperMutexName()
@@ -288,14 +306,16 @@ Func _RecoverBotStack()
 	Return $bRecovered
 EndFunc   ;==>_RecoverBotStack
 
-Func _SnapshotOwnedAdbChildren()
+Func _SnapshotOwnedAdbChildren($iExpectedBackendPid = 0, $sExpectedBackendCreated = "")
 	Local $aChildren[1][4]
 	Local $iCount = 0
 	Local $aBackendProcesses = ProcessList("MyBot.run.exe")
 	Local $aAdbNames[2] = ["HD-Adb.exe", "adb.exe"]
 	For $iBackend = 1 To $aBackendProcesses[0][0]
 		Local $iBackendPid = $aBackendProcesses[$iBackend][1]
+		If $iExpectedBackendPid > 0 And $iBackendPid <> $iExpectedBackendPid Then ContinueLoop
 		If StringLower(_ProcessImagePath($iBackendPid)) <> StringLower($g_sHostPath) Then ContinueLoop
+		If $iExpectedBackendPid > 0 And _ProcessCreationId($iBackendPid) <> $sExpectedBackendCreated Then ContinueLoop
 		For $iName = 0 To UBound($aAdbNames) - 1
 			Local $aProcesses = ProcessList($aAdbNames[$iName])
 			For $i = 1 To $aProcesses[0][0]
@@ -318,6 +338,183 @@ Func _SnapshotOwnedAdbChildren()
 	$aChildren[0][0] = $iCount
 	Return $aChildren
 EndFunc   ;==>_SnapshotOwnedAdbChildren
+
+; Automatic recovery may close only children captured while the exact backend generation was alive.
+; A matching numeric PPID observed after backend exit is only an ambiguity signal: Windows can reuse
+; that PID for an unrelated parent, so the launcher must never adopt or close the new process.
+Func _HasUncapturedAdbChildForRecordedBackend($iBackendPid)
+	Local $aAdbNames[2] = ["HD-Adb.exe", "adb.exe"]
+	For $iName = 0 To UBound($aAdbNames) - 1
+		Local $aProcesses = ProcessList($aAdbNames[$iName])
+		For $i = 1 To $aProcesses[0][0]
+			Local $iPid = $aProcesses[$i][1]
+			If _ProcessParentPid($iPid) <> $iBackendPid Then ContinueLoop
+			Local $sCreated = _ProcessCreationId($iPid)
+			Local $bCaptured = False
+			For $iKnown = 1 To $g_aLauncherOwnedAdbChildren[0][0]
+				If $g_aLauncherOwnedAdbChildren[$iKnown][0] = $iPid And _
+						$g_aLauncherOwnedAdbChildren[$iKnown][1] = $sCreated Then
+					$bCaptured = True
+					ExitLoop
+				EndIf
+			Next
+			If $bCaptured Then ContinueLoop
+			_RecoveryLog("refused uncaptured ADB child after backend exit; pid=" & $iPid & "; recorded_parent=" & $iBackendPid)
+			Return True
+		Next
+	Next
+	Return False
+EndFunc   ;==>_HasUncapturedAdbChildForRecordedBackend
+
+Func _PruneLauncherOwnedAdbChildren()
+	Local $aPruned[1][4]
+	Local $iCount = 0
+	For $i = 1 To $g_aLauncherOwnedAdbChildren[0][0]
+		Local $iPid = $g_aLauncherOwnedAdbChildren[$i][0]
+		Local $sCreated = $g_aLauncherOwnedAdbChildren[$i][1]
+		Local $sName = $g_aLauncherOwnedAdbChildren[$i][2]
+		Local $iBackendPid = $g_aLauncherOwnedAdbChildren[$i][3]
+		If Not ProcessExists($iPid) Then ContinueLoop
+		If _ProcessCreationId($iPid) <> $sCreated Or _ProcessParentPid($iPid) <> $iBackendPid Or _
+				Not _ProcessNameMatches($iPid, $sName) Then ContinueLoop
+		$iCount += 1
+		ReDim $aPruned[$iCount + 1][4]
+		For $iField = 0 To 3
+			$aPruned[$iCount][$iField] = $g_aLauncherOwnedAdbChildren[$i][$iField]
+		Next
+	Next
+	$aPruned[0][0] = $iCount
+	$g_aLauncherOwnedAdbChildren = $aPruned
+EndFunc   ;==>_PruneLauncherOwnedAdbChildren
+
+Func _RememberLauncherOwnedAdbChildren(ByRef $aObserved)
+	_PruneLauncherOwnedAdbChildren()
+	If $g_bLauncherOwnedAdbTrackingIncomplete Then Return False
+	For $i = 1 To $aObserved[0][0]
+		Local $bKnown = False
+		For $iKnown = 1 To $g_aLauncherOwnedAdbChildren[0][0]
+			If $g_aLauncherOwnedAdbChildren[$iKnown][0] = $aObserved[$i][0] And _
+					$g_aLauncherOwnedAdbChildren[$iKnown][1] = $aObserved[$i][1] Then
+				$bKnown = True
+				ExitLoop
+			EndIf
+		Next
+		If $bKnown Then ContinueLoop
+		Local $iNext = $g_aLauncherOwnedAdbChildren[0][0] + 1
+		If $iNext > $g_iLauncherOwnedAdbChildLimit Then
+			$g_bLauncherOwnedAdbTrackingIncomplete = True
+			_RecoveryLog("launcher-owned ADB identity limit reached; automatic recovery disabled")
+			Return False
+		EndIf
+		ReDim $g_aLauncherOwnedAdbChildren[$iNext + 1][4]
+		For $iField = 0 To 3
+			$g_aLauncherOwnedAdbChildren[$iNext][$iField] = $aObserved[$i][$iField]
+		Next
+		$g_aLauncherOwnedAdbChildren[0][0] = $iNext
+	Next
+	Return True
+EndFunc   ;==>_RememberLauncherOwnedAdbChildren
+
+Func _RefreshLauncherOwnedAdbChildren($iBackendPid, $sBackendCreated)
+	Local $aObserved = _SnapshotOwnedAdbChildren($iBackendPid, $sBackendCreated)
+	Return _RememberLauncherOwnedAdbChildren($aObserved)
+EndFunc   ;==>_RefreshLauncherOwnedAdbChildren
+
+; Capture one exact backend while the owned controller is alive. The identity is latched as PID plus
+; creation FILETIME and refreshed only after the previous generation exits. Automatic cleanup uses
+; this record; path-only enumeration remains limited to the explicit operator Recovery command.
+Func _RefreshLauncherOwnedBackend($iControllerPid)
+	If $iControllerPid <= 0 Or Not ProcessExists($iControllerPid) Then Return False
+	If $g_bLauncherOwnedBackendAmbiguous Then Return False
+	Local $aBackends = ProcessList("MyBot.run.exe")
+	Local $iMatchPid = 0
+	Local $sMatchCreated = ""
+	Local $iMatchCount = 0
+	For $i = 1 To $aBackends[0][0]
+		Local $iPid = $aBackends[$i][1]
+		If StringLower(_ProcessImagePath($iPid)) <> StringLower($g_sHostPath) Or _ProcessParentPid($iPid) <> $iControllerPid Then ContinueLoop
+		Local $sCreated = _ProcessCreationId($iPid)
+		If Not StringRegExp($sCreated, "^[0-9a-f]{16}$") Then ContinueLoop
+		$iMatchCount += 1
+		If $iMatchCount > 1 Then
+			$g_bLauncherOwnedBackendAmbiguous = True
+			_RecoveryLog("refused ambiguous owned backend capture; controller_pid=" & $iControllerPid)
+			Return False
+		EndIf
+		$iMatchPid = $iPid
+		$sMatchCreated = $sCreated
+	Next
+	If $iMatchCount = 0 Then
+		If $g_iLauncherOwnedBackendPid > 0 And ProcessExists($g_iLauncherOwnedBackendPid) Then
+			$g_bLauncherOwnedBackendAmbiguous = True
+			_RecoveryLog("latched changed launcher-owned backend identity; controller_pid=" & $iControllerPid)
+			Return False
+		EndIf
+		; Retain the last exact generation and every captured ADB child. They remain the only safe
+		; authority if the backend exits before its controller and leaves pipe clients orphaned.
+		Return True
+	EndIf
+	If $g_iLauncherOwnedBackendPid = $iMatchPid And $g_sLauncherOwnedBackendCreated = $sMatchCreated Then
+		Return _RefreshLauncherOwnedAdbChildren($iMatchPid, $sMatchCreated)
+	EndIf
+	If $g_iLauncherOwnedBackendPid > 0 And ProcessExists($g_iLauncherOwnedBackendPid) Then
+		$g_bLauncherOwnedBackendAmbiguous = True
+		_RecoveryLog("refused overlapping launcher-owned backend generations; controller_pid=" & $iControllerPid)
+		Return False
+	EndIf
+	If $iMatchPid > 0 Then
+		$g_iLauncherOwnedBackendPid = $iMatchPid
+		$g_sLauncherOwnedBackendCreated = $sMatchCreated
+		If Not _RefreshLauncherOwnedAdbChildren($iMatchPid, $sMatchCreated) Then Return False
+		_RecoveryLog("captured launcher-owned backend; controller_pid=" & $iControllerPid & "; backend_pid=" & $iMatchPid)
+	EndIf
+	Return True
+EndFunc   ;==>_RefreshLauncherOwnedBackend
+
+Func _CloseVerifiedLauncherBackend($iControllerPid, $iBackendPid, $sBackendCreated)
+	If Not ProcessExists($iBackendPid) Then Return True
+	If _ProcessCreationId($iBackendPid) <> $sBackendCreated Or _
+			StringLower(_ProcessImagePath($iBackendPid)) <> StringLower($g_sHostPath) Or _
+			_ProcessParentPid($iBackendPid) <> $iControllerPid Then
+		_RecoveryLog("refused changed launcher-owned backend; pid=" & $iBackendPid)
+		Return False
+	EndIf
+	_RecoveryLog("closing verified launcher-owned backend; pid=" & $iBackendPid)
+	If Not ProcessClose($iBackendPid) And ProcessExists($iBackendPid) Then Return False
+	Return ProcessWaitClose($iBackendPid, 2) Or Not ProcessExists($iBackendPid)
+EndFunc   ;==>_CloseVerifiedLauncherBackend
+
+Func _RecoverExitedOwnedControllerStack($iControllerPid, $sControllerCreated, $iBackendPid, $sBackendCreated)
+	_RecoveryLog("owned controller-exit recovery requested; controller_pid=" & $iControllerPid & "; backend_pid=" & $iBackendPid)
+	If $iControllerPid <= 0 Or ProcessExists($iControllerPid) Or Not StringRegExp($sControllerCreated, "^[0-9a-f]{16}$") Then Return False
+	If $g_bLauncherOwnedBackendAmbiguous Then Return False
+	If $g_bLauncherOwnedAdbTrackingIncomplete Then Return False
+	If $iBackendPid <= 0 Then
+		; No backend was captured. A remaining receipt is ambiguous and is left for explicit Recovery.
+		Return Not FileExists($g_sPlannerOwnershipReceipt) And $g_aLauncherOwnedAdbChildren[0][0] = 0
+	EndIf
+	If Not StringRegExp($sBackendCreated, "^[0-9a-f]{16}$") Then Return False
+	If ProcessExists($iBackendPid) And (_ProcessCreationId($iBackendPid) <> $sBackendCreated Or _
+			StringLower(_ProcessImagePath($iBackendPid)) <> StringLower($g_sHostPath) Or _
+			_ProcessParentPid($iBackendPid) <> $iControllerPid) Then Return False
+	If ProcessExists($iBackendPid) And Not _RefreshLauncherOwnedAdbChildren($iBackendPid, $sBackendCreated) Then Return False
+	_PruneLauncherOwnedAdbChildren()
+	Local $bUncapturedAdbChild = False
+	If Not ProcessExists($iBackendPid) Then $bUncapturedAdbChild = _HasUncapturedAdbChildForRecordedBackend($iBackendPid)
+	Local $aOwnedAdbChildren = $g_aLauncherOwnedAdbChildren
+	Local $bPlannerClosed = _CloseOwnedPlannerService($iBackendPid, $sBackendCreated)
+	Local $bBackendClosed = _CloseVerifiedLauncherBackend($iControllerPid, $iBackendPid, $sBackendCreated)
+	; The live backend may create a final pipe child after the last exact snapshot but before it
+	; exits. Once the backend is confirmed gone, detect that child as an unresolved ambiguity;
+	; never adopt it from the now-reusable numeric parent PID.
+	If $bBackendClosed And Not ProcessExists($iBackendPid) Then
+		If _HasUncapturedAdbChildForRecordedBackend($iBackendPid) Then $bUncapturedAdbChild = True
+	EndIf
+	Local $bAdbChildrenClosed = _CloseVerifiedAdbChildren($aOwnedAdbChildren)
+	Local $bRecovered = $bPlannerClosed And $bBackendClosed And $bAdbChildrenClosed And Not $bUncapturedAdbChild
+	_RecoveryLog("owned controller-exit recovery completed; backend_closed=" & $bBackendClosed & "; planner_closed=" & $bPlannerClosed & "; adb_children_closed=" & $bAdbChildrenClosed & "; uncaptured_adb_child=" & $bUncapturedAdbChild)
+	Return $bRecovered
+EndFunc   ;==>_RecoverExitedOwnedControllerStack
 
 Func _ProcessNameMatches($iPid, $sExpectedName)
 	Local $aProcesses = ProcessList($sExpectedName)
@@ -873,7 +1070,7 @@ EndFunc   ;==>_ReadPlannerHealthBounded
 
 ; Loopback health is not authority. Recovery requires the exact, atomically persisted ownership
 ; receipt plus a live process/lineage match, then uses health only as a second-channel liveness proof.
-Func _CloseOwnedPlannerService()
+Func _CloseOwnedPlannerService($iExpectedBackendPid = 0, $sExpectedBackendCreated = "")
 	Local $sReceipt = _ReadPlannerOwnershipReceipt()
 	If $sReceipt = "" Then
 		Local $sUnownedHealth = ""
@@ -882,6 +1079,11 @@ Func _CloseOwnedPlannerService()
 			Return False
 		EndIf
 		Return True
+	EndIf
+	If $iExpectedBackendPid > 0 And (_PlannerReceiptInt($sReceipt, "backend_pid") <> $iExpectedBackendPid Or _
+			_PlannerReceiptString($sReceipt, "backend_created") <> $sExpectedBackendCreated) Then
+		_RecoveryLog("refused planner service: receipt does not match captured launcher-owned backend")
+		Return False
 	EndIf
 	Local $sHealth = ""
 	Local $bHealthAvailable = _ReadPlannerHealthBounded($sHealth)
@@ -1183,6 +1385,7 @@ EndFunc   ;==>_WindowClassName
 Func _DockWhenReady($hController, $iControllerPid, $iTimeoutMs)
 	Local $hTimer = TimerInit()
 	Do
+		_RefreshLauncherOwnedBackend($iControllerPid)
 		_EngineSupervisorPoll()
 		If Not ProcessExists($iControllerPid) Or Not WinExists($hController) Then Return False
 		Local $hBlueStacks = _FindBlueStacksWindow($hController)
@@ -1196,6 +1399,7 @@ EndFunc   ;==>_DockWhenReady
 Func _KeepDocked($hController, $iControllerPid)
 	Local $sPreviousDockState = ""
 	While ProcessExists($iControllerPid)
+		_RefreshLauncherOwnedBackend($iControllerPid)
 		_EngineSupervisorPoll()
 		; Re-prove the controller's exact PID, path, and title before every possible move. If its
 		; window is briefly recreated, reacquire only another exact window from the same process.

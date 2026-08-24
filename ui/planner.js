@@ -1250,7 +1250,7 @@ function renderPlanReceipts() {
     ? 'Full profile. Launch the complete stack.'
     : 'Plan first. Prove every boundary.';
   $('routeOverviewCopy').textContent = nativeCopy
-    ? 'Start uses every enabled native profile setting except gem boosts and reward-to-gem conversion, which are blocked for every run.'
+    ? 'Start uses the selected native profile through the current recognition and no-premium gates.'
     : 'Start advances only after the saved plan, managed engine, emulator identity, and village state pass their own checks.';
   $('routeStepOneTitle').textContent = nativeCopy ? 'Profile' : 'Plan';
   $('routeStepOneCopy').textContent = nativeCopy ? 'Use active native settings' : 'Apply exact work';
@@ -1428,17 +1428,50 @@ function renderControl() {
   const supervisedInitActive = CONTROL.engine_init_cancellable === true;
   const managedInitCanBeStopped = startCanBeStopped || supervisedInitActive;
   const engineAvailable = CONTROL.engine_available !== false;
-  $('controlStart').title = NATIVE_PROFILE_MODE
-    ? 'Start the active native profile; BlueStacks and Clash of Clans will be launched if needed'
+  const recognitionAvailable = CONTROL.recognition_available === true;
+  const nativeProfileBlocked = NATIVE_PROFILE_MODE && !recognitionAvailable;
+  const recognitionError = CONTROL.recognition_error
+    || 'Full profile automation requires licensed inherited recognition or a clean-room replacement.';
+  $('controlStart').title = nativeProfileBlocked
+    ? recognitionError
+    : NATIVE_PROFILE_MODE
+      ? 'Start the active native profile; BlueStacks and Clash of Clans will be launched if needed'
     : savedProblems.length
       ? 'Resolve and apply the saved plan issues before starting'
       : hasUnsavedPlan ? 'Apply the visible plan before starting' : 'Start the applied plan';
-  $('controlStart').disabled = !BOOT_READY || busy || hasUnsavedPlan || !connected || !engineAvailable || state !== 'idle';
+  $('controlStart').disabled = !BOOT_READY || busy || hasUnsavedPlan || !connected || !engineAvailable || nativeProfileBlocked || state !== 'idle';
   $('controlNativeMode').textContent = NATIVE_PROFILE_MODE ? 'Full profile automation active' : 'Use full profile automation';
-  $('controlNativeMode').title = NATIVE_PROFILE_MODE
-    ? 'Apply a plan to return to a bounded planned route'
-    : 'Back up the applied plan and run the saved native profile with its full configuration window and hard no-gem guard';
-  $('controlNativeMode').disabled = !BOOT_READY || busy || !connected || state !== 'idle' || NATIVE_PROFILE_MODE;
+  $('controlNativeMode').title = !recognitionAvailable
+    ? recognitionError
+    : NATIVE_PROFILE_MODE
+      ? 'Apply a plan to return to a bounded planned route'
+      : 'Back up the applied plan and run the saved native profile with its full configuration window and hard no-gem guard';
+  $('controlNativeMode').disabled = !BOOT_READY || busy || !connected || state !== 'idle'
+    || !recognitionAvailable || NATIVE_PROFILE_MODE;
+  const nativeModeReason = $('controlNativeModeReason');
+  if (!BOOT_READY) {
+    nativeModeReason.textContent = 'Full profile availability is loading.';
+    nativeModeReason.className = 'mode-availability';
+  } else if (!connected) {
+    nativeModeReason.textContent = 'Full profile automation requires a fresh native-engine heartbeat.';
+    nativeModeReason.className = 'mode-availability warning';
+  } else if (!recognitionAvailable) {
+    nativeModeReason.textContent = recognitionError;
+    nativeModeReason.className = 'mode-availability warning';
+  } else {
+    nativeModeReason.textContent = NATIVE_PROFILE_MODE
+      ? 'The selected native profile is active; Apply a plan to return to a bounded route.'
+      : 'Available: Start will use the selected native profile through current safety gates.';
+    nativeModeReason.className = 'mode-availability ready';
+  }
+  let safeHomeReason = 'Load Home collection settings for review. Nothing is applied or started.';
+  if (!BOOT_READY) safeHomeReason = 'Home-route preparation unlocks after the saved plan and engine state load.';
+  else if (busy) safeHomeReason = 'Wait for the current native command to finish before changing the visible route.';
+  else if (!connected) safeHomeReason = 'A fresh native-engine heartbeat is required before preparing a run.';
+  else if (state !== 'idle') safeHomeReason = `Stop the current ${readableState(state).toLocaleLowerCase()} before preparing a Home route.`;
+  $('controlSafeHomeRouteHelp').textContent = safeHomeReason;
+  $('controlSafeHomeRoute').title = safeHomeReason;
+  $('controlSafeHomeRoute').disabled = !BOOT_READY || busy || !connected || state !== 'idle';
   $('controlEngineCheck').disabled = !BOOT_READY || busy || !connected || !engineAvailable || state !== 'idle';
   $('controlEngineCheck').title = 'Initialize the managed engine without opening or controlling the emulator or game';
   $('controlGameLaunch').disabled = !BOOT_READY || busy || !connected || state !== 'idle';
@@ -1471,8 +1504,11 @@ function renderControl() {
   } else if (supervisedInitActive) {
     $('controlAck').textContent = 'Managed engine initialization is active. Stop remains available through launcher supervision.';
     $('controlAck').className = 'control-ack pending';
+  } else if (nativeProfileBlocked && connected) {
+    $('controlAck').textContent = `${recognitionError} Apply a verified bounded route to run safely.`;
+    $('controlAck').className = 'control-ack notice warning';
   } else if (NATIVE_PROFILE_MODE && connected) {
-    $('controlAck').textContent = 'Full profile automation is active. Start uses every enabled native profile setting except gem boosts and reward-to-gem conversion, and launches BlueStacks and Clash of Clans if needed.';
+    $('controlAck').textContent = 'Full profile automation is active. Start uses the selected native profile through current recognition and no-premium gates, and launches BlueStacks and Clash of Clans if needed.';
     $('controlAck').className = 'control-ack';
   } else {
     $('controlAck').textContent = connected
@@ -1657,7 +1693,7 @@ async function activateNativeProfileMode() {
     NATIVE_PROFILE_MODE = true;
     PLAN_WRITTEN = false;
     const backup = payload.backup ? ` The applied plan was backed up to ${payload.backup}.` : '';
-    setControlNotice(`Full profile automation is active.${backup} Start will use every enabled non-gem setting in the selected native profile. Gem boosts and reward-to-gem conversion remain blocked.`, 'info');
+    setControlNotice(`Full profile automation is active.${backup} Start will use the selected native profile through current recognition and no-premium gates.`, 'info');
     setSaveStatus('Full profile automation is active. Apply the visible plan to return to a bounded planned route.', 'warn');
     updateDirty();
   } catch {
@@ -1667,12 +1703,35 @@ async function activateNativeProfileMode() {
   }
 }
 
+function prepareVerifiedHomeRoute() {
+  if (!BOOT_READY) return;
+  if (CONTROL_PENDING) {
+    setControlNotice('Wait for the current native command to finish before changing the visible route.', 'warning');
+    renderControl();
+    return;
+  }
+  if (!CONTROL.connected || CONTROL.state !== 'idle') {
+    setControlNotice('A fresh connected idle native engine is required before preparing a Home route.', 'warning');
+    renderControl();
+    return;
+  }
+  if (!applyStrategySafetyPatch('home.collectors')) {
+    setControlNotice('The bounded Home route could not be loaded.', 'error');
+    return;
+  }
+  setView('plan', { updateHash: true, focusHeading: true });
+  setGroup('between', { updateHash: true, focusGroup: true });
+  setControlNotice('Collectors-only safety settings are visible for review. Apply plan, then Start remains a separate action.', 'info');
+  renderControl();
+}
+
 $('controlStart').onclick = () => sendControl('start');
 $('controlEngineCheck').onclick = () => sendControl('check-engine');
 $('controlGameLaunch').onclick = () => sendControl('launch-game');
 $('controlPause').onclick = () => sendControl(CONTROL.state === 'paused' ? 'resume' : 'pause');
 $('controlStop').onclick = () => sendControl('stop');
 $('controlNativeMode').onclick = activateNativeProfileMode;
+$('controlSafeHomeRoute').onclick = prepareVerifiedHomeRoute;
 
 function capabilityLabel(id) {
   const labels = {
@@ -2070,6 +2129,7 @@ function setBootControls(enabled) {
   $('refreshNativeLog').disabled = !enabled;
   $('followNativeLog').disabled = !enabled;
   if (!enabled) $('controlNativeMode').disabled = true;
+  if (!enabled) $('controlSafeHomeRoute').disabled = true;
   if (!enabled) $('apply').disabled = true;
 }
 

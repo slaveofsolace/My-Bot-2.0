@@ -1,0 +1,31 @@
+{
+  "allowed_proof_relative_paths": [
+    "Profiles/profile.ini",
+    "Profiles/Proof/config.ini"
+  ],
+  "profile_copy_policy": "hash-source-copy-zero-files",
+  "profile_selector_sha256": "8290b2a419da32531c29ec1068dbc7f4c6761adf6f85c1a9f2b7c11d68991ba1",
+  "proof_config_sha256": "66fb27b395bbac645c825410a383053786aeb1f2194d51b6b7a6d6e3df993a45",
+  "proof_mode": "unlaunched-static-only",
+  "required_profile_values": [
+    "general|AutoStart|0",
+    "general|Restarted|0",
+    "general|ChkVersion|0",
+    "general|AutoStartDelay|0",
+    "general|DisposeWindows|0",
+    "other|ChkSellRewards|0",
+    "other|ChkAutoResume|0",
+    "other|ChkDisableNotifications|1",
+    "SuperTroopsBoost|SuperTroopsEnable|0",
+    "android|shared_prefs.update|0",
+    "android|emulator|",
+    "android|instance|",
+    "notify|TGEnabled|0",
+    "notify|TGToken|",
+    "notify|PBRemote|0",
+    "notify|Origin|",
+    "ProfileSCID|OnlySCIDAccounts|0",
+    "ProfileSCID|WhatSCIDAccount2Use|0"
+  ],
+  "schema": "my-bot-local-inherited-profile-safety-v2"
+}

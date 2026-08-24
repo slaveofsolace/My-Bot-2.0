@@ -3,7 +3,7 @@
 ; Description ...: Test the screen for Gem Window open
 ; Syntax ........: isGemOpen($bNeedCaptureRegion), FALSE is default.
 ; Parameters ....: $bNeedCaptureRegion = True will make a new 2x2 screencapture to identify the pixels to test, False will assume there is a full screen capture to use.
-; Return values .: True if Gem window is open and it was closed with click to $aAway
+; Return values .: True if a Gem window is open; no dismissal or confirmation input is ever issued
 ; Author ........: KnowJack (05-2015)
 ; Modified ......: Sardo (12-2015), MonkeyHutner (12-2015)
 ; Remarks .......: This file is part of MyBot, previously known as ClashGameBot. Copyright 2015-2025
@@ -17,13 +17,13 @@ Func isGemOpen($bNeedCaptureRegion = False)
 	If _Sleep($DELAYISGEMOPEN1) Then Return
 	If _CheckPixel($aIsGemWindow1, $bNeedCaptureRegion) Then ; Safety Check if the normal use Gem window opens
 		If $g_bDebugSetLog Then SetDebugLog("Gemclick Red X detect", $COLOR_DEBUG)
-		CloseWindow()
+		NoPremiumActionBlocked("gem confirmation surface recognized by isGemOpen")
 		Return True
 	ElseIf _CheckPixel($aIsGemWindow2, $bNeedCaptureRegion) And _ ; check for the red line under the redX square of gem window
 			_CheckPixel($aIsGemWindow3, $bNeedCaptureRegion) And _
 			_CheckPixel($aIsGemWindow4, $bNeedCaptureRegion) Then
 		If $g_bDebugSetLog Then SetDebugLog("Gemclick Red Line detect", $COLOR_DEBUG)
-		CloseWindow()
+		NoPremiumActionBlocked("gem confirmation surface recognized by isGemOpen")
 		Return True
 	EndIf
 	Return False

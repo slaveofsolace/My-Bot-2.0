@@ -24,8 +24,10 @@ Func applyConfig($bRedrawAtExit = True, $TypeReadSave = "Read") ;Applies the dat
 	$g_bApplyConfigIsActive = True
 	SetDebugLog("applyConfig(), call number " & $iApplyConfigCount)
 
-	If $g_bLibMyBotInitialized Then setMaxDegreeOfParallelism($g_iThreads)
-	If $g_bLibMyBotInitialized Then setProcessingPoolSize($g_iGlobalThreads)
+	; Managed threading exports are part of the launcher-supervised initialization generation.
+	; Re-entering either export from a generic configuration redraw can block the GUI after the
+	; launcher has finalized its receipt. Updated values are therefore applied only by the next
+	; supervised backend generation; applyConfig remains a side-effect-free GUI/config adapter.
 
 	; Saved window positions
 	If $g_bAndroidEmbedded = False Then
@@ -323,7 +325,8 @@ Func ApplyConfig_600_6($TypeReadSave)
 			GUICtrlSetData($g_hTxtTreasuryElixir, $g_iTxtTreasuryElixir)
 			GUICtrlSetData($g_hTxtTreasuryDark, $g_iTxtTreasuryDark)
 			GUICtrlSetState($g_hChkCollectRewards, $g_bChkCollectRewards ? $GUI_CHECKED : $GUI_UNCHECKED)
-			GUICtrlSetState($g_hChkSellRewards, $g_bChkSellRewards ? $GUI_CHECKED : $GUI_UNCHECKED)
+			GUICtrlSetState($g_hChkSellRewards, BitOR($GUI_UNCHECKED, $GUI_DISABLE))
+			GUICtrlSetData($g_hChkSellRewards, "Sell Extras (premium action unavailable)")
 
 			GUICtrlSetState($g_hChkCollectBuilderBase, $g_bChkCollectBuilderBase ? $GUI_CHECKED : $GUI_UNCHECKED)
 			GUICtrlSetState($g_hChkCleanBBYard, $g_bChkCleanBBYard ? $GUI_CHECKED : $GUI_UNCHECKED)
@@ -530,7 +533,7 @@ Func ApplyConfig_600_6($TypeReadSave)
 			$g_iTxtTreasuryElixir = GUICtrlRead($g_hTxtTreasuryElixir)
 			$g_iTxtTreasuryDark = GUICtrlRead($g_hTxtTreasuryDark)
 			$g_bChkCollectRewards = (GUICtrlRead($g_hChkCollectRewards) = $GUI_CHECKED)
-			$g_bChkSellRewards = (GUICtrlRead($g_hChkSellRewards) = $GUI_CHECKED)
+			$g_bChkSellRewards = False
 
 			$g_bChkCollectBuilderBase = (GUICtrlRead($g_hChkCollectBuilderBase) = $GUI_CHECKED)
 			$g_bChkCleanBBYard = (GUICtrlRead($g_hChkCleanBBYard) = $GUI_CHECKED)
@@ -1203,19 +1206,31 @@ Func ApplyConfig_600_19($TypeReadSave)
 	EndSwitch
 EndFunc   ;==>ApplyConfig_600_19
 
+Func ApplyNoPremiumBoostPolicy()
+	$g_iCmbBoostBarracks = 0
+	$g_iCmbBoostSpellFactory = 0
+	$g_iCmbBoostWorkshop = 0
+	$g_iCmbBoostBarbarianKing = 0
+	$g_iCmbBoostArcherQueen = 0
+	$g_iCmbBoostMinionPrince = 0
+	$g_iCmbBoostWarden = 0
+	$g_iCmbBoostChampion = 0
+	$g_iCmbBoostEverything = 0
+	Local $ahPremiumBoostControls[9] = [$g_hCmbBoostBarracks, $g_hCmbBoostSpellFactory, $g_hCmbBoostWorkshop, $g_hCmbBoostBarbarianKing, _
+			$g_hCmbBoostArcherQueen, $g_hCmbBoostMinionPrince, $g_hCmbBoostWarden, $g_hCmbBoostChampion, $g_hCmbBoostEverything]
+	For $hControl In $ahPremiumBoostControls
+		If $hControl = 0 Then ContinueLoop
+		_GUICtrlComboBox_SetCurSel($hControl, 0)
+		GUICtrlSetState($hControl, $GUI_DISABLE)
+		_GUICtrlSetTip($hControl, "Unavailable: premium boost automation is disabled in this build.")
+	Next
+EndFunc   ;==>ApplyNoPremiumBoostPolicy
+
 Func ApplyConfig_600_22($TypeReadSave)
 	; <><><> Attack Plan / Train Army / Boost <><><>
 	Switch $TypeReadSave
 		Case "Read"
-			_GUICtrlComboBox_SetCurSel($g_hCmbBoostBarracks, $g_iCmbBoostBarracks)
-			_GUICtrlComboBox_SetCurSel($g_hCmbBoostSpellFactory, $g_iCmbBoostSpellFactory)
-			_GUICtrlComboBox_SetCurSel($g_hCmbBoostWorkshop, $g_iCmbBoostWorkshop)
-			_GUICtrlComboBox_SetCurSel($g_hCmbBoostBarbarianKing, $g_iCmbBoostBarbarianKing)
-			_GUICtrlComboBox_SetCurSel($g_hCmbBoostArcherQueen, $g_iCmbBoostArcherQueen)
-			_GUICtrlComboBox_SetCurSel($g_hCmbBoostMinionPrince, $g_iCmbBoostMinionPrince)
-			_GUICtrlComboBox_SetCurSel($g_hCmbBoostWarden, $g_iCmbBoostWarden)
-			_GUICtrlComboBox_SetCurSel($g_hCmbBoostChampion, $g_iCmbBoostChampion)
-			_GUICtrlComboBox_SetCurSel($g_hCmbBoostEverything, $g_iCmbBoostEverything)
+			ApplyNoPremiumBoostPolicy()
 			For $i = 0 To 23
 				GUICtrlSetState($g_hChkBoostBarracksHours[$i], $g_abBoostBarracksHours[$i] ? $GUI_CHECKED : $GUI_UNCHECKED)
 			Next
@@ -1228,15 +1243,7 @@ Func ApplyConfig_600_22($TypeReadSave)
 				_GUICtrlSetImage($g_ahPicSuperTroops[$i], $g_sLibIconPath, $g_aSuperTroopsIcons[$g_iCmbSuperTroops[$i]])
 			Next
 		Case "Save"
-			$g_iCmbBoostBarracks = _GUICtrlComboBox_GetCurSel($g_hCmbBoostBarracks)
-			$g_iCmbBoostSpellFactory = _GUICtrlComboBox_GetCurSel($g_hCmbBoostSpellFactory)
-			$g_iCmbBoostWorkshop = _GUICtrlComboBox_GetCurSel($g_hCmbBoostWorkshop)
-			$g_iCmbBoostBarbarianKing = _GUICtrlComboBox_GetCurSel($g_hCmbBoostBarbarianKing)
-			$g_iCmbBoostArcherQueen = _GUICtrlComboBox_GetCurSel($g_hCmbBoostArcherQueen)
-			$g_iCmbBoostMinionPrince = _GUICtrlComboBox_GetCurSel($g_hCmbBoostMinionPrince)
-			$g_iCmbBoostWarden = _GUICtrlComboBox_GetCurSel($g_hCmbBoostWarden)
-			$g_iCmbBoostChampion = _GUICtrlComboBox_GetCurSel($g_hCmbBoostChampion)
-			$g_iCmbBoostEverything = _GUICtrlComboBox_GetCurSel($g_hCmbBoostEverything)
+			ApplyNoPremiumBoostPolicy()
 			For $i = 0 To 23
 				$g_abBoostBarracksHours[$i] = (GUICtrlRead($g_hChkBoostBarracksHours[$i]) = $GUI_CHECKED)
 			Next

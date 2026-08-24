@@ -16,6 +16,239 @@
 #include-once
 #include <WinAPISys.au3>
 #include "..\Run\RunPacingGate.au3"
+#include "..\Run\NoPremiumPermitPolicy.au3"
+
+; Premium-currency and purchase input is disabled in this build. This is a source-level invariant,
+; not a profile preference: neither a saved INI value nor a GUI callback may turn it off.
+Global Const $NO_PREMIUM_POLICY_ENABLED = True
+Global Const $NO_PREMIUM_SURFACE_SAFE = 0
+Global Const $NO_PREMIUM_SURFACE_BLOCKED = 1
+Global Const $NO_PREMIUM_SURFACE_UNKNOWN = 2
+Global $g_bNoPremiumPolicyTripped = False
+Global $g_sNoPremiumInputPermitAction = ""
+Global $g_iNoPremiumInputPermitX = -1
+Global $g_iNoPremiumInputPermitY = -1
+Global $g_hNoPremiumInputPermitTimer = 0
+
+; Read one already-captured pixel without invoking any input helper. Keep the read error separate from
+; the match result so a missing/corrupt recognition frame is never mistaken for an ordinary screen.
+Func _NoPremiumPixelMatches(ByRef $aScreenCode, ByRef $bReadOk)
+	If $g_hBitmap = 0 Or Not IsArray($aScreenCode) Or UBound($aScreenCode) < 4 Then
+		$bReadOk = False
+		Return False
+	EndIf
+	Local $iPixel = _GDIPlus_BitmapGetPixel($g_hBitmap, Int($aScreenCode[0]), Int($aScreenCode[1]))
+	Local $iPixelError = @error
+	If $iPixelError Then
+		$bReadOk = False
+		Return False
+	EndIf
+	Return _ColorCheck(Hex($iPixel, 6), Hex($aScreenCode[2], 6), $aScreenCode[3])
+EndFunc   ;==>_NoPremiumPixelMatches
+
+; Passive only: this function recognizes the inherited gem confirmation and shop-window anchors and
+; never clicks a close, confirmation, or fallback coordinate.
+Func NoPremiumSurfaceState(ByRef $sReason, $sPermitAction = "", $iExpectedX = Default, $iExpectedY = Default)
+        $sReason = ""
+	Local $iFrameWidth = _GDIPlus_ImageGetWidth($g_hBitmap)
+	Local $iFrameWidthError = @error
+	Local $iFrameHeight = _GDIPlus_ImageGetHeight($g_hBitmap)
+	Local $iFrameHeightError = @error
+	If $iFrameWidthError Or $iFrameHeightError Or $iFrameWidth <> $g_iGAME_WIDTH Or $iFrameHeight <> $g_iGAME_HEIGHT Then
+		$sReason = "premium-surface recognition frame is unavailable or non-canonical"
+		Return $NO_PREMIUM_SURFACE_UNKNOWN
+	EndIf
+        Local $bReadOk = True
+	Local $bGemCorner = _NoPremiumPixelMatches($aIsGemWindow1, $bReadOk)
+	Local $bGemLine1 = _NoPremiumPixelMatches($aIsGemWindow2, $bReadOk)
+	Local $bGemLine2 = _NoPremiumPixelMatches($aIsGemWindow3, $bReadOk)
+	Local $bGemLine3 = _NoPremiumPixelMatches($aIsGemWindow4, $bReadOk)
+	Local $bShopWindow = _NoPremiumPixelMatches($g_aShopWindowOpen, $bReadOk)
+	If Not $bReadOk Then
+		$sReason = "premium-surface recognition failed"
+		Return $NO_PREMIUM_SURFACE_UNKNOWN
+	EndIf
+	If $bGemCorner Or ($bGemLine1 And $bGemLine2 And $bGemLine3) Then
+		$sReason = "gem confirmation surface recognized"
+		Return $NO_PREMIUM_SURFACE_BLOCKED
+	EndIf
+        If $bShopWindow Then
+                $sReason = "shop surface recognized"
+                Return $NO_PREMIUM_SURFACE_BLOCKED
+        EndIf
+	; Negative legacy anchors are never sufficient. The exact action, exact target point, and
+	; its reviewed current-client framebuffer predicate must all agree on this fresh frame.
+	If Not NoPremiumPermitTargetValid($sPermitAction, $iExpectedX, $iExpectedY) Then
+		$sReason = "no exact reviewed action and target permit"
+		Return $NO_PREMIUM_SURFACE_UNKNOWN
+	EndIf
+	Local $bRouteReady = False
+	Switch StringLower(String($sPermitAction))
+		Case $NO_PREMIUM_ACTION_COLLECTOR_GOLD
+			$bRouteReady = OpenHomeCollectorTargetReady(1, Int($iExpectedX), Int($iExpectedY))
+		Case $NO_PREMIUM_ACTION_COLLECTOR_ELIXIR
+			$bRouteReady = OpenHomeCollectorTargetReady(2, Int($iExpectedX), Int($iExpectedY))
+		Case $NO_PREMIUM_ACTION_COLLECTOR_DARK
+			$bRouteReady = OpenHomeCollectorTargetReady(3, Int($iExpectedX), Int($iExpectedY))
+		Case $NO_PREMIUM_ACTION_LOOT_CART_OPEN
+			$bRouteReady = OpenHomeLootCartOpenPointReady(Int($iExpectedX), Int($iExpectedY))
+		Case $NO_PREMIUM_ACTION_LOOT_CART_COLLECT
+			$bRouteReady = OpenHomeLootCartCollectPointReady(Int($iExpectedX), Int($iExpectedY))
+		Case $NO_PREMIUM_ACTION_DAILY_REWARD_CLAIM
+			$bRouteReady = OpenHomeDailyRewardClaimPointReady(Int($iExpectedX), Int($iExpectedY))
+		Case $NO_PREMIUM_ACTION_DAILY_REWARD_CLOSE
+			$bRouteReady = OpenHomeDailyRewardClosePointReady(Int($iExpectedX), Int($iExpectedY))
+		Case $NO_PREMIUM_ACTION_TREASURY_CASTLE
+			$bRouteReady = OpenHomeTreasuryCastlePointReady(Int($iExpectedX), Int($iExpectedY))
+		Case $NO_PREMIUM_ACTION_TREASURY_ENTRY
+			$bRouteReady = OpenHomeTreasuryEntryPointReady(Int($iExpectedX), Int($iExpectedY))
+		Case $NO_PREMIUM_ACTION_TREASURY_CLOSE
+			$bRouteReady = OpenHomeTreasuryClosePointReady(Int($iExpectedX), Int($iExpectedY))
+		Case $NO_PREMIUM_ACTION_CLAN_REQUEST_ARMY
+			$bRouteReady = OpenClanRequestArmyOverviewPointReady(Int($iExpectedX), Int($iExpectedY))
+		Case $NO_PREMIUM_ACTION_CLAN_REQUEST_REQUEST
+			$bRouteReady = OpenClanRequestRequestPointReady(Int($iExpectedX), Int($iExpectedY))
+		Case $NO_PREMIUM_ACTION_CLAN_REQUEST_SEND
+			$bRouteReady = OpenClanRequestSendPointReady(Int($iExpectedX), Int($iExpectedY))
+		Case $NO_PREMIUM_ACTION_CLAN_REQUEST_CANCEL
+			$bRouteReady = OpenClanRequestCancelPointReady(Int($iExpectedX), Int($iExpectedY))
+		Case $NO_PREMIUM_ACTION_CLAN_REQUEST_CLOSE
+			$bRouteReady = OpenClanRequestClosePointReady(Int($iExpectedX), Int($iExpectedY))
+	EndSwitch
+	If $bRouteReady Then Return $NO_PREMIUM_SURFACE_SAFE
+	$sReason = "positive current-client surface was not recognized for action " & $sPermitAction
+	Return $NO_PREMIUM_SURFACE_UNKNOWN
+EndFunc   ;==>NoPremiumSurfaceState
+
+Func NoPremiumClearInputPermit()
+	$g_sNoPremiumInputPermitAction = ""
+	$g_iNoPremiumInputPermitX = -1
+	$g_iNoPremiumInputPermitY = -1
+	$g_hNoPremiumInputPermitTimer = 0
+EndFunc   ;==>NoPremiumClearInputPermit
+
+; A reviewed route calls this immediately after its own positive, current-client recognition.
+; The gate captures and validates the same allowlisted surface again, and consumes the one-shot
+; permit before returning to the transport. No profile/config value can mint a permit.
+Func NoPremiumGrantInputPermit($sAction, $iExpectedX, $iExpectedY)
+	; A failed mint must never leave an older permit available to another transport.
+	NoPremiumClearInputPermit()
+	If TestCapture() Then Return False
+	If Not $NO_PREMIUM_POLICY_ENABLED Or $g_bNoPremiumPolicyTripped Then Return SetError(7, 1, False)
+	If Not NoPremiumPermitActionKnown($sAction) Or Not NoPremiumPermitTargetValid($sAction, $iExpectedX, $iExpectedY) Then _
+		Return NoPremiumActionBlocked("unreviewed premium-safety action or target requested: " & $sAction)
+	Local $hCaptured = OpenHomeCollectorsCapture()
+	Local $sReason = ""
+	If $hCaptured = 0 Or $g_hBitmap = 0 Then _
+		Return NoPremiumActionBlocked("positive current-client capture failed for action " & $sAction)
+	If NoPremiumSurfaceState($sReason, $sAction, $iExpectedX, $iExpectedY) <> $NO_PREMIUM_SURFACE_SAFE Then _
+		Return NoPremiumActionBlocked($sReason)
+	$g_sNoPremiumInputPermitAction = StringLower(String($sAction))
+	$g_iNoPremiumInputPermitX = Int($iExpectedX)
+	$g_iNoPremiumInputPermitY = Int($iExpectedY)
+	$g_hNoPremiumInputPermitTimer = TimerInit()
+	Return True
+EndFunc   ;==>NoPremiumGrantInputPermit
+
+; Latch a terminal receipt before returning to the caller. There is intentionally no cleanup click:
+; the main Stop lifecycle owns process/config restoration after all further game input is disabled.
+Func NoPremiumActionBlocked($sReason)
+        Local $sMessage = "Premium input blocked; input_issued=false; " & String($sReason)
+	NoPremiumClearInputPermit()
+	If Not $g_bNoPremiumPolicyTripped Then
+		$g_bNoPremiumPolicyTripped = True
+		SetLog($sMessage, $COLOR_ERROR)
+		RunEventLogWrite("safety.premium-blocked", "error", $sMessage, "", $RUN_VERIFICATION_DIAGNOSTIC)
+		Assign("g_sRunExecutionMessage", $sMessage, $ASSIGN_FORCEGLOBAL)
+		RunControlReportRunFailure($sMessage)
+		Assign("g_bRunControlStopRequested", True, $ASSIGN_FORCEGLOBAL)
+		$g_bRunState = False
+		$g_iBotAction = $eBotStop
+		RunControlWriteStatus(True)
+	EndIf
+	Return SetError(7, 0, False)
+EndFunc   ;==>NoPremiumActionBlocked
+
+; Lowest-level pre-input gate shared by the window-control and ADB click transports. A fresh frame is
+; mandatory. The recursion latch converts any capture-time attempt to issue input into a terminal
+; unknown-recognition failure instead of permitting a nested bypass.
+Func NoPremiumPreInputGate($sTransport, $iActualX = Default, $iActualY = Default)
+        If Not $NO_PREMIUM_POLICY_ENABLED Then Return NoPremiumActionBlocked("source policy invariant is unavailable")
+        If $g_bNoPremiumPolicyTripped Then Return SetError(7, 1, False)
+	Local $sPermitAction = $g_sNoPremiumInputPermitAction
+	Local $iExpectedX = $g_iNoPremiumInputPermitX
+	Local $iExpectedY = $g_iNoPremiumInputPermitY
+	Local $hPermitTimer = $g_hNoPremiumInputPermitTimer
+	If $sPermitAction = "" Or $hPermitTimer = 0 Then Return NoPremiumActionBlocked("no exact reviewed action permit before " & $sTransport & " input")
+	If StringLower(String($sTransport)) <> "window-control" And StringLower(String($sTransport)) <> "adb-minitouch-click" Then _
+		Return NoPremiumActionBlocked("point permit cannot authorize " & $sTransport & " input")
+	If Not NoPremiumPermitAgeValid(TimerDiff($hPermitTimer)) Then _
+		Return NoPremiumActionBlocked("reviewed action permit expired before " & $sTransport & " input")
+	If Not NoPremiumPermitPointMatches($iExpectedX, $iExpectedY, $iActualX, $iActualY) Then _
+		Return NoPremiumActionBlocked("reviewed action target changed before " & $sTransport & " input")
+        Static $bEvaluating = False
+	If $bEvaluating Then Return NoPremiumActionBlocked("premium-surface recognition re-entered through " & $sTransport)
+	; Consume before the second capture. Capture-time re-entry, retry, reuse, and every
+	; multi-egress helper therefore encounter an empty permit and terminate fail closed.
+	NoPremiumClearInputPermit()
+	$bEvaluating = True
+	Local $hCaptured = OpenHomeCollectorsCapture()
+	Local $sReason = ""
+	Local $iState = $NO_PREMIUM_SURFACE_UNKNOWN
+	If $hCaptured <> 0 And $g_hBitmap <> 0 And NoPremiumPermitAgeValid(TimerDiff($hPermitTimer)) Then _
+		$iState = NoPremiumSurfaceState($sReason, $sPermitAction, $iExpectedX, $iExpectedY)
+	$bEvaluating = False
+	If $g_bNoPremiumPolicyTripped Then Return SetError(7, 2, False)
+	If $hCaptured = 0 Or $g_hBitmap = 0 Then _
+		Return NoPremiumActionBlocked("premium-surface capture failed before " & $sTransport & " input")
+	If Not NoPremiumPermitAgeValid(TimerDiff($hPermitTimer)) Then _
+		Return NoPremiumActionBlocked("reviewed action permit expired during final recognition before " & $sTransport & " input")
+	If $iState <> $NO_PREMIUM_SURFACE_SAFE Then Return NoPremiumActionBlocked($sReason & " before " & $sTransport & " input")
+	Return True
+EndFunc   ;==>NoPremiumPreInputGate
+
+; Reviewed one-point routes use this instead of Click(). Pacing occurs before either
+; recognition capture, while randomization and legacy problem-cleanup callbacks are absent.
+; The permit is minted once, consumed once at the selected low-level transport, and cleared
+; again on every return path in case the transport failed before reaching its gate.
+Func NoPremiumPointClick($sAction, $iX, $iY, $iSpeed = 120, $sDebugText = "", $bForceControl = False)
+	If TestCapture() Then Return False
+	If Not NoPremiumPermitActionKnown($sAction) Or Not NoPremiumPermitTargetValid($sAction, $iX, $iY) Then _
+		Return NoPremiumActionBlocked("unreviewed point-click action or target requested: " & $sAction)
+	If RunPacingGateAction() Then Return False
+	If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
+	Local $bIssued = False, $iIssueError = 0, $iIssueExtended = 0
+	If $g_bAndroidAdbClick = True And Not $bForceControl Then
+		If Not NoPremiumGrantInputPermit($sAction, $iX, $iY) Then Return False
+		If RunControlStopRequested() Or Not $g_bRunState Then
+			NoPremiumClearInputPermit()
+			Return SetError(2, 0, False)
+		EndIf
+		$bIssued = AndroidClick(Int($iX), Int($iY), 1, $iSpeed, False)
+		$iIssueError = @error
+		$iIssueExtended = @extended
+	Else
+		Local $iSuspendMode = ResumeAndroid()
+		MoveMouseOutBS()
+		If Not NoPremiumGrantInputPermit($sAction, $iX, $iY) Then
+			SuspendAndroid($iSuspendMode)
+			Return False
+		EndIf
+		If RunControlStopRequested() Or Not $g_bRunState Then
+			NoPremiumClearInputPermit()
+			SuspendAndroid($iSuspendMode)
+			Return SetError(2, 0, False)
+		EndIf
+		$bIssued = (_ControlClick(Int($iX), Int($iY)) <> 0)
+		$iIssueError = @error
+		$iIssueExtended = @extended
+		SuspendAndroid($iSuspendMode)
+	EndIf
+	NoPremiumClearInputPermit()
+	If $g_bDebugClick Then SetDebugLog("Reviewed point click " & $sAction & " at " & Int($iX) & "," & Int($iY) & " " & $sDebugText)
+	RunPacingSettle()
+	Return SetError($iIssueError, $iIssueExtended, $bIssued)
+EndFunc   ;==>NoPremiumPointClick
 
 Func Click($x, $y, $times = 1, $speed = 120, $debugtxt = "", $bForceControl = False)
 	Local $txt = "", $aPrevCoor[2] = [$x, $y], $bIssued = False
@@ -34,7 +267,9 @@ Func Click($x, $y, $times = 1, $speed = 120, $debugtxt = "", $bForceControl = Fa
 		EndIf
 	EndIf
 
-	If TestCapture() Then Return False
+        If TestCapture() Then Return False
+	If $times < 1 Then Return False
+	If $times > 1 Then Return NoPremiumActionBlocked("multi-click window/ADB request requires one positive route permit per egress")
 
 	; Holds this action back until the run's configured gap has passed. Returns immediately when no run has installed
 	; pacing, which is every bot that has not started a plan, so the untouched path costs one IsObj.
@@ -79,6 +314,10 @@ Func Click($x, $y, $times = 1, $speed = 120, $debugtxt = "", $bForceControl = Fa
 EndFunc   ;==>Click
 
 Func _ControlClick($x, $y)
+	If TestCapture() Then Return False
+	Local $bPremiumReady = NoPremiumPreInputGate("window-control", $x, $y)
+	Local $iPremiumError = @error, $iPremiumExtended = @extended
+	If Not $bPremiumReady Then Return SetError($iPremiumError, $iPremiumExtended, 0)
 	;Local $hWin = ($g_bAndroidEmbedded = False ? $g_hAndroidWindow : $g_aiAndroidEmbeddedCtrlTarget[1])
 	Local $useHWnD = $g_iAndroidControlClickWindow = 1 And $g_bAndroidEmbedded = False
 	Local $hWin = (($useHWnD) ? ($g_hAndroidWindow) : ($g_hAndroidControl))
@@ -148,7 +387,9 @@ Func PureClick($x, $y, $times = 1, $speed = 120, $debugtxt = "")
 		EndIf
 	EndIf
 
-	If TestCapture() Then Return
+        If TestCapture() Then Return
+	If $times < 1 Then Return False
+	If $times > 1 Then Return NoPremiumActionBlocked("multi-click PureClick request requires one positive route permit per egress")
 
 	If $g_bAndroidAdbClick = True Then
 		For $i = 1 To $times
@@ -193,7 +434,9 @@ Func PureClickTrain($x, $y, $times = 1, $speed = 165, $debugtxt = "")
 		EndIf
 	EndIf
 
-	If TestCapture() Then Return
+        If TestCapture() Then Return
+	If $times < 1 Then Return False
+	If $times > 1 Then Return NoPremiumActionBlocked("multi-click training request requires one positive route permit per egress")
 
 	If $g_bAndroidAdbClick = True Then
 		For $i = 1 To $times
@@ -217,75 +460,8 @@ Func PureClickTrain($x, $y, $times = 1, $speed = 165, $debugtxt = "")
 EndFunc   ;==>PureClickTrain
 
 Func GemClick($x, $y, $times = 1, $speed = 120, $debugtxt = "")
-	Local $txt = "", $aPrevCoor[2] = [$x, $y]
-	If $g_bUseRandomClick Then
-		$x = Random($x - 5, $x + 5, 1)
-		$y = Random($y - 5, $y + 5, 1)
-		$speed = Random($speed - $speed * 0.15, $speed + $speed * 0.15, 1)
-		If $g_bDebugClick Then
-			$txt = _DecodeDebug($debugtxt)
-			SetLog("Random GemClick X: " & $aPrevCoor[0] & " To " & $x & ", Y: " & $aPrevCoor[1] & " To " & $y & ", Times: " & $times & ", Speed: " & $speed & " " & $debugtxt & $txt, $COLOR_ACTION, "Verdana", "7.5", 0)
-		EndIf
-	Else
-		If $g_bDebugClick Then
-			Local $txt = _DecodeDebug($debugtxt)
-			SetLog("GemClick " & $x & "," & $y & "," & $times & "," & $speed & " " & $debugtxt & $txt, $COLOR_ACTION, "Verdana", "7.5", 0)
-		EndIf
-	EndIf
-
-	If TestCapture() Then Return
-
-	If $g_bAndroidAdbClick = True Then
-		If isGemOpen(True) Then
-			Return False
-		EndIf
-		AndroidClick($x, $y, $times, $speed)
-	EndIf
-	If $g_bAndroidAdbClick = True Then
-		Return
-	EndIf
-
-	Local $SuspendMode = ResumeAndroid()
-	Local $i
-	If $times <> 1 Then
-		For $i = 0 To ($times - 1)
-			If isGemOpen(True) Then
-				SuspendAndroid($SuspendMode)
-				Return False
-			EndIf
-			If isProblemAffectBeforeClick($i) Then
-				If $g_bDebugClick Then SetLog("VOIDED GemClick " & $x & "," & $y & "," & $times & "," & $speed & " " & $debugtxt & $txt, $COLOR_ERROR, "Verdana", "7.5", 0)
-				checkMainScreen(False)
-				SuspendAndroid($SuspendMode)
-				Return ; if need to clear screen do not click
-			EndIf
-			MoveMouseOutBS()
-			_ControlClick($x, $y)
-			If isGemOpen(True) Then
-				SuspendAndroid($SuspendMode)
-				Return False
-			EndIf
-			If _Sleep($speed, False) Then ExitLoop
-		Next
-	Else
-		If isGemOpen(True) Then
-			SuspendAndroid($SuspendMode)
-			Return False
-		EndIf
-		If isProblemAffectBeforeClick() Then
-			If $g_bDebugClick Then SetLog("VOIDED GemClick " & $x & "," & $y & "," & $times & "," & $speed & " " & $debugtxt & $txt, $COLOR_ERROR, "Verdana", "7.5", 0)
-			checkMainScreen(False)
-			SuspendAndroid($SuspendMode)
-			Return ; if need to clear screen do not click
-		EndIf
-		MoveMouseOutBS()
-		_ControlClick($x, $y)
-		If isGemOpen(True) Then
-			SuspendAndroid($SuspendMode)
-			Return False
-		EndIf
-	EndIf
-	SuspendAndroid($SuspendMode)
+	If TestCapture() Then Return False
+	Return NoPremiumActionBlocked("GemClick is permanently unavailable")
 EndFunc   ;==>GemClick
 
 ; GemClickP : takes an array[2] (or array[4]) as a parameter [x,y]
@@ -564,14 +740,18 @@ Func _DecodeDebug($message)
 EndFunc   ;==>_DecodeDebug
 
 Func SendText($sText)
-	Local $result = 1
+        Local $result = 1
 	Local $error = 0
 	If $g_bAndroidAdbInput = True Then
 		AndroidSendText($sText)
 		$error = @error
-	EndIf
-	If $g_bAndroidAdbInput = False Or $error <> 0 Then
-		Local $SuspendMode = ResumeAndroid()
+        EndIf
+        If $g_bAndroidAdbInput = False Or $error <> 0 Then
+		If TestCapture() Then Return 0
+		Local $bPremiumReady = NoPremiumPreInputGate("window-text")
+		Local $iPremiumError = @error, $iPremiumExtended = @extended
+		If Not $bPremiumReady Then Return SetError($iPremiumError, $iPremiumExtended, 0)
+                Local $SuspendMode = ResumeAndroid()
 		;$Result = ControlSend($g_hAndroidWindow, "", "", $sText, 0)
 		Local $ascText = ""
 		Local $r, $i, $vk, $shiftBits, $char

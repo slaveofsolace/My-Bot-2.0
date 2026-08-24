@@ -564,7 +564,8 @@ Func ReadConfig_600_6()
 	IniReadS($g_bChkCollectAchievements, $g_sProfileConfigPath, "other", "ChkCollectAchievements", False, "Bool")
 	IniReadS($g_bChkCollectFreeMagicItems, $g_sProfileConfigPath, "other", "ChkCollectFreeMagicItems", False, "Bool")
 	IniReadS($g_bChkCollectRewards, $g_sProfileConfigPath, "other", "ChkCollectRewards", False, "Bool")
-	IniReadS($g_bChkSellRewards, $g_sProfileConfigPath, "other", "ChkSellRewards", False, "Bool")
+	; Legacy profiles may contain ChkSellRewards=1. Never import that premium-action selector.
+	$g_bChkSellRewards = False
 	IniReadS($g_bChkTreasuryCollect, $g_sProfileConfigPath, "other", "ChkTreasuryCollect", False, "Bool")
 	IniReadS($g_iTxtTreasuryGold, $g_sProfileConfigPath, "other", "minTreasurygold", 0, "int")
 	IniReadS($g_iTxtTreasuryElixir, $g_sProfileConfigPath, "other", "minTreasuryelixir", 0, "int")
@@ -886,8 +887,17 @@ Func ReadConfig_600_22()
 	For $i = 0 To $iMaxSupersTroop - 1
 		$g_iCmbSuperTroops[$i] = Int(IniRead($g_sProfileConfigPath, "SuperTroopsBoost", "SuperTroopsIndex" & $i, 0))
 	Next
-	; Note: These global variables are not stored to the ini file, to prevent automatic boosting (and spending of gems) when the bot is started:
-	; $g_iCmbBoostBarracks, $g_iCmbBoostSpellFactory, $g_iCmbBoostWorkshop, $g_iCmbBoostBarbarianKing, $g_iCmbBoostArcherQueen, $g_iCmbBoostWarden
+	; Premium boost selectors are a source-level no-premium policy, not session preferences. Reset
+	; every selector on each profile read so a profile swap cannot retain a previously armed value.
+	$g_iCmbBoostBarracks = 0
+	$g_iCmbBoostSpellFactory = 0
+	$g_iCmbBoostWorkshop = 0
+	$g_iCmbBoostBarbarianKing = 0
+	$g_iCmbBoostArcherQueen = 0
+	$g_iCmbBoostMinionPrince = 0
+	$g_iCmbBoostWarden = 0
+	$g_iCmbBoostChampion = 0
+	$g_iCmbBoostEverything = 0
 EndFunc   ;==>ReadConfig_600_22
 
 Func ReadConfig_600_26()

@@ -118,16 +118,25 @@ class EngineProbeLifecycleTests(unittest.TestCase):
 
     def test_bluestacks5_exact_adb_surface_keeps_managed_player_binding_detached(self) -> None:
         binding = function_body(self.parent, "setAndroidPID")
+        verifier = function_body(self.parent, "_MBRFuncExactDetachedAdbSurfaceAvailable")
         for required in (
             '$g_sAndroidEmulator = "BlueStacks5"',
             "$g_bAndroidAdbScreencap",
             "$g_bAndroidAdbClick",
-            "$bDetachedAdbBinding And $g_bLibMyBotInitialized",
+            "_MBRFuncExactDetachedAdbSurfaceAvailable()",
+            '$g_sMBRFuncAndroidBindingMode = "detached-adb"',
+            "The exact detached ADB transport changed after managed initialization",
             "$pid = 0",
             "exact ADB surface owns player PID",
         ):
             self.assertIn(required, binding)
         self.assertLess(binding.index("$pid = 0"), binding.index('DllCall($g_hLibMyBot, "str", "setAndroidPID"'))
+        self.assertLess(binding.index('Case "detached-adb"'), binding.index('DllCall($g_hLibMyBot, "str", "setAndroidPID"'))
+        self.assertIn('"GetBlueStacks5ModernAdbSurface" & "Position"', verifier)
+        self.assertIn("Call($sSurfaceVerifier)", verifier)
+        self.assertIn("Local $iCallError = @error", verifier)
+        self.assertNotIn("IsFunc(", verifier)
+        self.assertNotIn("GetBlueStacks5ModernAdbSurfacePosition()", self.parent)
 
     def test_receipt_is_fixed_atomic_flushed_and_identity_bound(self) -> None:
         self.assertIn(
@@ -179,7 +188,7 @@ class EngineProbeLifecycleTests(unittest.TestCase):
     def test_start_launches_exact_game_before_managed_attachment(self) -> None:
         start = function_body(self.action, "BotStart")
         probe = start.index("MBRFuncProbeEngine(")
-        launch = start.index("If Not _BotOpenHomeEnsureExactBlueStacks(", probe)
+        launch = start.index("If Not _BotEnsureConfiguredAndroidAndGame(", probe)
         initialize = start.index("MBRFuncInitialize()", launch)
         authorization = start.index("ForumAuthentication()", initialize)
         resume = start.index("ResumeAndroid()", authorization)
@@ -188,7 +197,7 @@ class EngineProbeLifecycleTests(unittest.TestCase):
             sorted((probe, launch, initialize, authorization, resume)),
         )
         pre_init = start[launch:initialize]
-        self.assertIn("If Not _BotOpenHomeEnsureExactBlueStacks($sStartError) Then", pre_init)
+        self.assertIn("If Not _BotEnsureConfiguredAndroidAndGame($sStartError) Then", pre_init)
         self.assertIn("Return FuncReturn(_BotStartReject($sStartError))", pre_init)
 
     def test_start_request_id_callback_fails_closed_and_initialization_requires_it(self) -> None:

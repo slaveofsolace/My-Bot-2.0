@@ -231,10 +231,8 @@ Func _checkObstacles($bBuilderBase = False, $bRecursive = False) ;Checks if some
 		; Offers Received from SuperCell Store
 		Local $aiSCOffer = decodeSingleCoord(FindImageInPlace2("SCOffers", $g_sImgOkayBlue, 360, 400 + $g_iMidOffsetY, 510, 500 + $g_iMidOffsetY, True))
 		If IsArray($aiSCOffer) And UBound($aiSCOffer) = 2 Then
-			ClickP($aiSCOffer)
-			If _Sleep($DELAYCHECKOBSTACLES1) Then Return
-			$g_bMinorObstacle = True
-			Return False
+			NoPremiumActionBlocked("store offer surface recognized by checkObstacles")
+			Return True
 		EndIf
 		; Clan Capital Result
 		If UBound(decodeSingleCoord(FindImageInPlace2("CCResults", $g_sImgClanCapitalResults, 210, 130 + $g_iMidOffsetY, 320, 240 + $g_iMidOffsetY, True))) > 1 Then
@@ -310,10 +308,8 @@ Func _checkObstacles($bBuilderBase = False, $bRecursive = False) ;Checks if some
 		; Offers Received from SuperCell Store
 		Local $aiSCOffer = decodeSingleCoord(FindImageInPlace2("SCOffers", $g_sImgOkayBlue, 360, 400 + $g_iMidOffsetY, 510, 500 + $g_iMidOffsetY, True))
 		If IsArray($aiSCOffer) And UBound($aiSCOffer) = 2 Then
-			ClickP($aiSCOffer)
-			If _Sleep($DELAYCHECKOBSTACLES1) Then Return
-			$g_bMinorObstacle = True
-			Return False
+			NoPremiumActionBlocked("store offer surface recognized by checkObstacles")
+			Return True
 		EndIf
 		; Clan Capital Result
 		If UBound(decodeSingleCoord(FindImageInPlace2("CCResults", $g_sImgClanCapitalResults, 210, 130 + $g_iMidOffsetY, 320, 240 + $g_iMidOffsetY, True))) > 1 Then

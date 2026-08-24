@@ -44,6 +44,7 @@ ENTRY_POINTS = (
     "tests/autoit/RunVillageReadinessTest.au3",
     "tests/autoit/PassiveCurrentArmyReadinessTest.au3",
     "tests/autoit/ManualViewportMappingTest.au3",
+    "tests/autoit/CleanRoomRecognitionBridgeTest.au3",
 )
 
 # Small standalone scripts that define local stubs of AutoIt standard UDFs (they do not include the standard

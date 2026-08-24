@@ -39,6 +39,7 @@ Global $g_hFrmBot = 0 ; The main GUI window
 #include "COCBot\functions\Config\ImageDirectories.au3"
 #include "COCBot\functions\Other\ExtMsgBox.au3"
 #include "COCBot\functions\Other\MBRFunc.au3"
+#include "COCBot\functions\Run\CleanRoomRecognitionBridge.au3"
 #include "COCBot\functions\Run\CollectorBubbleRecognizer.au3"
 #include "COCBot\functions\Android\Android.au3"
 #include "COCBot\functions\Android\Distributors.au3"
@@ -50,6 +51,7 @@ Global $g_hFrmBot = 0 ; The main GUI window
 ; entry points do not include the Android core these adapters call into.
 #include "COCBot\functions\Other\CurrentClientCompat.au3"
 #include "COCBot\functions\Run\RunExecution.au3"
+#include "COCBot\functions\Run\LocalInheritedRuntime.au3"
 #include "COCBot\functions\Run\OpenHomeCollectors.au3"
 #include "COCBot\functions\Run\OpenHomeTreasury.au3"
 #include "COCBot\functions\Run\OpenClanRequest.au3"
@@ -75,6 +77,21 @@ InitializeConfiguredEmulatorSelection()
 
 ; Hand over control to main loop
 MainLoop(CheckPrerequisites())
+
+Func _ReserveConfiguredAndroidInstanceForProcess()
+	Local $sReason = ""
+	If ReserveConfiguredAndroidInstanceLock($g_sAndroidEmulator, $g_sAndroidInstance, $sReason) Then Return True
+	If $sReason = "" Then $sReason = "The configured emulator instance is already owned by another native controller"
+	SetLog("Cannot reserve emulator instance: " & $sReason, $COLOR_ERROR)
+	MsgBox($MB_ICONERROR, $g_sProductName, $sReason & @CRLF & @CRLF & _
+			"Stop the other controller or choose a different emulator instance, then relaunch.", 15, $g_hFrmBot)
+	Return False
+EndFunc   ;==>_ReserveConfiguredAndroidInstanceForProcess
+
+Func _ReleaseConfiguredAndroidInstanceForProcess()
+	ReleaseExactAndroidInstanceLock()
+	ReleaseConfiguredAndroidInstanceLock()
+EndFunc   ;==>_ReleaseConfiguredAndroidInstanceForProcess
 
 Func UpdateBotTitle()
 	Local $sTitle = $g_sProductName & " " & $g_sProductVersion
@@ -141,6 +158,12 @@ Func InitializeBot()
 	If $bConfigRead Or FileExists($g_sProfileBuildingPath) Then
 		readConfig()
 	EndIf
+
+	; Profile loading is the first point where the exact configured instance is authoritative.
+	; Reserve it before native initialization exposes GUI callbacks, docking, emulator discovery,
+	; watchdog work, or any other path that could observe or control an Android surface.
+	If Not _ReserveConfiguredAndroidInstanceForProcess() Then Exit 13
+	OnAutoItExitRegister("_ReleaseConfiguredAndroidInstanceForProcess")
 
 	Local $sAndroidInfo = ""
 	; Disabled process priority tampering as not best practice

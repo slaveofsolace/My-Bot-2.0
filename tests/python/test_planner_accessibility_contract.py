@@ -17,7 +17,8 @@ class PlannerAccessibilityContract(unittest.TestCase):
 
     def test_boot_is_fail_closed_and_has_a_retry_shell(self):
         for control_id in (
-            "controlStart", "controlPause", "controlStop", "viewRunButton",
+            "controlStart", "controlPause", "controlStop", "controlNativeMode",
+            "controlSafeHomeRoute", "viewRunButton",
             "viewPlanButton", "viewDiagnosticsButton", "apply", "reset",
             "filter", "presetSelect", "exportDiagnostics",
         ):
@@ -28,6 +29,22 @@ class PlannerAccessibilityContract(unittest.TestCase):
         self.assertIn("function showBootFailure(error)", JS)
         self.assertIn("No plan or command was sent.", JS)
         self.assertIn("const [metadataPayload, plan, health] = await Promise.all([", JS)
+
+    def test_full_profile_and_safe_home_actions_are_separate_and_explained(self):
+        self.assertIn(
+            'id="controlNativeMode" type="button" aria-describedby="controlNativeModeReason" disabled',
+            HTML,
+        )
+        self.assertIn(
+            'id="controlSafeHomeRoute" type="button" aria-describedby="controlSafeHomeRouteHelp" disabled',
+            HTML,
+        )
+        self.assertIn("$('controlNativeMode').onclick = activateNativeProfileMode;", JS)
+        self.assertIn("$('controlSafeHomeRoute').onclick = prepareVerifiedHomeRoute;", JS)
+        self.assertIn("|| !recognitionAvailable || NATIVE_PROFILE_MODE", JS)
+        self.assertNotIn("$('controlNativeMode').onclick = () => {", JS)
+        self.assertIn("control-ack notice warning", JS)
+        self.assertNotIn("control-ack notice warn'", JS)
 
     def test_revert_is_outside_the_label_and_redraw_restores_focus(self):
         self.assertIn("titleLine.append(label);", JS)

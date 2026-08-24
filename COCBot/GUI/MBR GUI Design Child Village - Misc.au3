@@ -344,7 +344,9 @@ Func CreateMiscNormalVillageSubTab()
 
 	$y += 21
 	$g_hChkSellRewards = GUICtrlCreateCheckbox(GetTranslatedFileIni("MBR GUI Design Child Village - Misc", "ChkSellRewards", "Sell Extras"), $x + 295, $y + 4, -1, -1)
-	_GUICtrlSetTip(-1, GetTranslatedFileIni("MBR GUI Design Child Village - Misc", "ChkSellExtra_Info_01", "Check to automatically sell all extra magic item rewards for gems."))
+	GUICtrlSetData($g_hChkSellRewards, "Sell Extras (premium action unavailable)")
+	GUICtrlSetState($g_hChkSellRewards, BitOR($GUI_UNCHECKED, $GUI_DISABLE))
+	_GUICtrlSetTip(-1, "Unavailable: this build never converts rewards into premium currency.")
 
 	GUICtrlCreateGroup("", -99, -99, 1, 1)
 

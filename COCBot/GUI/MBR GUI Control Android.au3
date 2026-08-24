@@ -133,9 +133,18 @@ Func cmbAndroidEmulator()
 	getAllEmulatorsInstances()
 	Local $Emulator = GUICtrlRead($g_hCmbAndroidEmulator)
 	If MsgBox($MB_YESNO, "Emulator Selection", $Emulator & ", Is correct?" & @CRLF & "Any mistake and your profile will be not useful!" & @CRLF & "If 'yes' and your instance is OK, is necessary " & @CRLF & "REBOOT the 'bot'.", 10) = $IDYES Then
+		Local $sInstance = GUICtrlRead($g_hCmbAndroidInstance)
+		If Not UpdateAndroidConfig($sInstance, $Emulator) Then
+			If $g_sAndroidEmulator = $Emulator And $g_sAndroidInstance = $sInstance Then
+				SetLog("The selected instance is reserved, but its Android transport is unavailable. Restart the bot before using Android controls.", $COLOR_ERROR)
+			Else
+				SetLog("Cannot select emulator instance; the previous instance remains reserved.", $COLOR_ERROR)
+			EndIf
+			_GUICtrlComboBox_SelectString($g_hCmbAndroidEmulator, $g_sAndroidEmulator)
+			getAllEmulatorsInstances()
+			Return
+		EndIf
 		SetLog("Emulator " & $Emulator & " Selected. Please select an Instance.")
-		$g_sAndroidEmulator = $Emulator
-		$g_sAndroidInstance = GUICtrlRead($g_hCmbAndroidInstance)
 		BtnSaveprofile()
 	Else
 		_GUICtrlComboBox_SelectString($g_hCmbAndroidEmulator, $g_sAndroidEmulator)
@@ -146,8 +155,16 @@ EndFunc   ;==>cmbAndroidEmulator
 Func cmbAndroidInstance()
 	Local $Instance = GUICtrlRead($g_hCmbAndroidInstance)
 	If MsgBox($MB_YESNO, "Instance Selection", $Instance & ", Is correct?" & @CRLF & "If 'yes' is necessary REBOOT the 'bot'.", 10) = $IDYES Then
+		If Not UpdateAndroidConfig($Instance, $g_sAndroidEmulator) Then
+			If $g_sAndroidInstance = $Instance Then
+				SetLog("The selected instance is reserved, but its Android transport is unavailable. Restart the bot before using Android controls.", $COLOR_ERROR)
+			Else
+				SetLog("Cannot select emulator instance; the previous instance remains reserved.", $COLOR_ERROR)
+			EndIf
+			getAllEmulatorsInstances()
+			Return
+		EndIf
 		SetLog("Instance " & $Instance & " Selected.")
-		$g_sAndroidInstance = $Instance
 		BtnSaveprofile()
 	Else
 		getAllEmulatorsInstances()

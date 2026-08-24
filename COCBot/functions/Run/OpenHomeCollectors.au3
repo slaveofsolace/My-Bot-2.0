@@ -84,6 +84,21 @@ Func OpenHomeCollectorsDetect(ByRef $aFound, $hBitmap = Default, $iRequiredMask 
 	Return $iFound
 EndFunc   ;==>OpenHomeCollectorsDetect
 
+; Frame-only revalidation for one detected collector bubble. This is called by the
+; no-premium gate on each of its two independent captures and never captures or clicks.
+Func OpenHomeCollectorTargetReady($iType, $iX, $iY)
+	If $g_hBitmap = 0 Or $iType < $OPEN_HOME_COLLECTOR_GOLD Or $iType > $OPEN_HOME_COLLECTOR_DARK Or _
+			$iX < 70 Or $iX > 790 Or $iY < 100 Or $iY > 600 Or Not _CheckPixel($aIsMain, False) Then Return False
+	Local $iCenter = _OpenHomeCollectorBitmapPixel($g_hBitmap, $iX, $iY)
+	Local $iUpperLeft = _OpenHomeCollectorBitmapPixel($g_hBitmap, $iX - 4, $iY - 4)
+	If OpenHomeCollectorClassify($iCenter, $iUpperLeft) <> $iType Then Return False
+	Return OpenHomeCollectorGeometryScore( _
+			_OpenHomeCollectorBitmapPixel($g_hBitmap, $iX - 8, $iY - 8), _
+			_OpenHomeCollectorBitmapPixel($g_hBitmap, $iX + 8, $iY - 8), _
+			_OpenHomeCollectorBitmapPixel($g_hBitmap, $iX + 8, $iY), _
+			_OpenHomeCollectorBitmapPixel($g_hBitmap, $iX + 8, $iY + 8)) >= 0
+EndFunc   ;==>OpenHomeCollectorTargetReady
+
 ; Capture directly through the already-proven ADB channel. This deliberately avoids _CaptureRegion's
 ; legacy CheckAndroidRunning(auto-start/reboot) side effect: a missing exact emulator is a hard failure.
 Func OpenHomeCollectorsCapture()
@@ -148,7 +163,16 @@ Func OpenHomeCollectorsCollectOnePass()
 		If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, $iClicks, False)
 		If Not _CheckPixel($aIsMain, False) Then Return SetError(3, $iClicks, False)
 		If Not OpenHomeNoGemInputReady() Then Return SetError(6, $iClicks, False)
-		If Not Click($aFound[$iType][1], $aFound[$iType][2], 1, 120, "#OpenHomeCollector", True) Then
+		Local $sCollectorAction = ""
+		Switch $iType
+			Case $OPEN_HOME_COLLECTOR_GOLD
+				$sCollectorAction = $NO_PREMIUM_ACTION_COLLECTOR_GOLD
+			Case $OPEN_HOME_COLLECTOR_ELIXIR
+				$sCollectorAction = $NO_PREMIUM_ACTION_COLLECTOR_ELIXIR
+			Case $OPEN_HOME_COLLECTOR_DARK
+				$sCollectorAction = $NO_PREMIUM_ACTION_COLLECTOR_DARK
+		EndSwitch
+		If Not NoPremiumPointClick($sCollectorAction, $aFound[$iType][1], $aFound[$iType][2], 120, "#OpenHomeCollector", True) Then
 			If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, $iClicks, False)
 			Return SetError(4, $iClicks, False)
 		EndIf
@@ -246,6 +270,18 @@ Func OpenHomeDailyRewardCaptureClaim(ByRef $aClaim)
 	Return OpenHomeDailyRewardFindClaim($aClaim)
 EndFunc   ;==>OpenHomeDailyRewardCaptureClaim
 
+Func OpenHomeDailyRewardClaimPointReady($iX, $iY)
+	If $g_hBitmap = 0 Or Not NoPremiumPermitTargetValid($NO_PREMIUM_ACTION_DAILY_REWARD_CLAIM, $iX, $iY) Then Return False
+	Local $aClaim[2]
+	Local $iClaims = OpenHomeDailyRewardFindClaim($aClaim)
+	Return $iClaims = 1 And $aClaim[0] = Int($iX) And $aClaim[1] = Int($iY)
+EndFunc   ;==>OpenHomeDailyRewardClaimPointReady
+
+Func OpenHomeDailyRewardClosePointReady($iX, $iY)
+	If Not NoPremiumPermitTargetValid($NO_PREMIUM_ACTION_DAILY_REWARD_CLOSE, $iX, $iY) Then Return False
+	Return OpenHomeDailyRewardOverlayReady() Or OpenHomeDailyRewardClaimedOverlayReady()
+EndFunc   ;==>OpenHomeDailyRewardClosePointReady
+
 ; Re-capture and re-resolve immediately before the irreversible Claim input. A changed/moved/ambiguous
 ; button is rejected, and the one attempt is never retried.
 Func OpenHomeDailyRewardIssueClaim($iExpectedX, $iExpectedY)
@@ -258,7 +294,7 @@ Func OpenHomeDailyRewardIssueClaim($iExpectedX, $iExpectedY)
 	If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
 	; This route is admitted only when the exact ADB/minitouch input channel is ready.
 	; Do not force a window ControlClick: PostMessage acceptance is not game delivery.
-	Return Click($iExpectedX, $iExpectedY, 1, 120, "#OpenHomeDailyRewardClaim", False)
+	Return NoPremiumPointClick($NO_PREMIUM_ACTION_DAILY_REWARD_CLAIM, $iExpectedX, $iExpectedY, 120, "#OpenHomeDailyRewardClaim", False)
 EndFunc   ;==>OpenHomeDailyRewardIssueClaim
 
 ; After Claim, never accept an Okay/Confirm/sell/gem-conversion action. If the exact Daily Reward panel
@@ -272,7 +308,8 @@ Func OpenHomeDailyRewardCloseAndProveHome(ByRef $bCloseIssued)
 		If $iAttempt = 1 And (OpenHomeDailyRewardOverlayReady() Or OpenHomeDailyRewardClaimedOverlayReady()) Then
 			If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
 			If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, False)
-			If Not Click(759, 173, 1, 120, "#OpenHomeDailyRewardClose", False) Then Return SetError(3, 0, False)
+			If Not NoPremiumPointClick($NO_PREMIUM_ACTION_DAILY_REWARD_CLOSE, 759, 173, 120, "#OpenHomeDailyRewardClose", False) Then _
+				Return SetError(3, 0, False)
 			$bCloseIssued = True
 		EndIf
 		If $iAttempt < 8 And _Sleep(250, True, True, False) Then Return SetError(2, 0, False)
@@ -308,6 +345,12 @@ Func _OpenHomeLootCartScanRegion($iLeft, $iTop, $iRight, $iBottom)
 	Return LootCartObservationCreate($LOOT_CART_STATE_ABSENT)
 EndFunc   ;==>_OpenHomeLootCartScanRegion
 
+Func OpenHomeLootCartOpenPointReady($iX, $iY)
+	If $g_hBitmap = 0 Or Not _CheckPixel($aIsMain, False) Or _
+			Not NoPremiumPermitTargetValid($NO_PREMIUM_ACTION_LOOT_CART_OPEN, $iX, $iY) Then Return False
+	Return _OpenHomeLootCartCueAt(Int($iX) - 15, Int($iY) - 26)
+EndFunc   ;==>OpenHomeLootCartOpenPointReady
+
 Func OpenHomeLootCartDetectCue()
 	If Not OpenHomeCollectorsProveHome() Then Return SetError(1, 0, 0)
 	Local $oCue = _OpenHomeLootCartScanRegion(0, 80, 150, 515)
@@ -319,8 +362,8 @@ EndFunc   ;==>OpenHomeLootCartDetectCue
 
 ; Fixed selected-object action card. These anchors cover the title, white card, dark border, and
 ; Collect glyph; all eight were absent before selection and after the verified live collection.
-Func OpenHomeLootCartCollectPanelReady()
-	If Not OpenHomeCollectorsCapture() Then Return False
+Func _OpenHomeLootCartCollectPanelFrameReady()
+	If $g_hBitmap = 0 Then Return False
 	Return _OpenHomePixelNear(395, 580, 0xFFFADA, 36) And _
 			_OpenHomePixelNear(470, 580, 0xFFFFFF, 36) And _
 			_OpenHomePixelNear(430, 570, 0xF6F2DB, 36) And _
@@ -329,7 +372,17 @@ Func OpenHomeLootCartCollectPanelReady()
 			_OpenHomePixelNear(461, 628, 0x9FA879, 36) And _
 			_OpenHomePixelNear(410, 550, 0xFFFFB7, 36) And _
 			_OpenHomePixelNear(390, 600, 0x5C5C5A, 36)
+EndFunc   ;==>_OpenHomeLootCartCollectPanelFrameReady
+
+Func OpenHomeLootCartCollectPanelReady()
+	If Not OpenHomeCollectorsCapture() Then Return False
+	Return _OpenHomeLootCartCollectPanelFrameReady()
 EndFunc   ;==>OpenHomeLootCartCollectPanelReady
+
+Func OpenHomeLootCartCollectPointReady($iX, $iY)
+	Return NoPremiumPermitTargetValid($NO_PREMIUM_ACTION_LOOT_CART_COLLECT, $iX, $iY) And _
+			_OpenHomeLootCartCollectPanelFrameReady()
+EndFunc   ;==>OpenHomeLootCartCollectPointReady
 
 Func OpenHomeLootCartDetectCollect()
 	For $iAttempt = 1 To 6
@@ -344,7 +397,7 @@ Func OpenHomeLootCartIssueOpen($iX, $iY)
 	If RunControlStopRequested() Or Not $g_bRunState Or Not OpenHomeCollectorsProveHome() Then Return False
 	If Not _CheckPixel($aIsMain, False) Then Return False
 	If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, False)
-	Local $bIssued = Click(Int($iX), Int($iY), 1, 120, "#OpenHomeLootCart", True)
+	Local $bIssued = NoPremiumPointClick($NO_PREMIUM_ACTION_LOOT_CART_OPEN, Int($iX), Int($iY), 120, "#OpenHomeLootCart", True)
 	If $bIssued Then RunEventLogMaintenanceLootCartOpenIssued(1)
 	Return $bIssued
 EndFunc   ;==>OpenHomeLootCartIssueOpen
@@ -352,7 +405,7 @@ EndFunc   ;==>OpenHomeLootCartIssueOpen
 Func OpenHomeLootCartIssueCollect($iX, $iY)
 	If RunControlStopRequested() Or Not $g_bRunState Or Not OpenHomeLootCartCollectPanelReady() Then Return False
 	If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, False)
-	Local $bIssued = Click(Int($iX), Int($iY), 1, 120, "#OpenHomeLootCartCollect", True)
+	Local $bIssued = NoPremiumPointClick($NO_PREMIUM_ACTION_LOOT_CART_COLLECT, Int($iX), Int($iY), 120, "#OpenHomeLootCartCollect", True)
 	If $bIssued Then RunEventLogMaintenanceLootCartCollectIssued(1)
 	Return $bIssued
 EndFunc   ;==>OpenHomeLootCartIssueCollect

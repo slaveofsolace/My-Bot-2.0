@@ -16,7 +16,13 @@
 Func _BotStartReject($sReason)
 	If $sReason = "" Then $sReason = "Start cancelled"
 	RunExecutionCancelPrepared($sReason)
+	; A general Start owns the shared bot slot before emulator or managed-engine work. Release it at
+	; the rejection linearization point instead of waiting for the later Stop action to be dispatched.
+	; Terminal one-shot routes hold the same slot in their wrapper, so this is also a harmless no-op
+	; after that wrapper has already released it.
+	LockBotSlot(False)
 	If $g_iBotAction <> $eBotClose Then btnStop()
+	ReleaseExactAndroidInstanceLock()
 	RunControlReportStartOutcome(False, $sReason)
 	Return False
 EndFunc   ;==>_BotStartReject
@@ -90,6 +96,135 @@ Func _BotOpenHomeEnsureExactBlueStacks(ByRef $sReason)
 	RunEventLogGameLaunchPassed($sReason)
 	Return True
 EndFunc   ;==>_BotOpenHomeEnsureExactBlueStacks
+
+; Bootstrap the configured emulator and the Clash activity before managed Android binding. BlueStacks
+; keeps its stronger exact-instance/passive-Home adapter. Other planner-supported emulators use their
+; existing configured Open adapter, then one bounded ADB activity launch: no Home-button input,
+; shared-preference push, restart/retry loop, recognition, or gameplay actuator is entered here.
+Func _BotEnsureConfiguredAndroidAndGame(ByRef $sReason)
+	$sReason = ""
+	If $g_sAndroidEmulator = "BlueStacks5" Then Return _BotOpenHomeEnsureExactBlueStacks($sReason)
+
+	Switch $g_sAndroidEmulator
+		Case "MEmu", "LDPlayer9", "Mumu"
+		Case Else
+			$sReason = "The configured emulator " & $g_sAndroidEmulator & " has no bounded cold-start adapter"
+			Return False
+	EndSwitch
+	If RunControlStopRequested() Or Not $g_bRunState Then
+		$sReason = $g_sAndroidEmulator & " and Clash of Clans launch cancelled before initialization"
+		Return False
+	EndIf
+	If Not InitAndroid() Then
+		$sReason = "The configured " & $g_sAndroidEmulator & " adapter could not be initialized"
+		Return False
+	EndIf
+
+	Local $bStartedEmulator = False
+	If WinGetAndroidHandle() = 0 Then
+		If Not OpenAndroid(False, True) Then
+			$sReason = "The configured " & $g_sAndroidEmulator & " instance did not accept the bounded launch request"
+			Return False
+		EndIf
+		$bStartedEmulator = True
+	EndIf
+	If RunControlStopRequested() Or Not $g_bRunState Then
+		$sReason = $g_sAndroidEmulator & " and Clash of Clans launch cancelled before the game activity"
+		Return False
+	EndIf
+	If WinGetAndroidHandle() = 0 Or Not AndroidControlAvailable() Then
+		$sReason = "The configured " & $g_sAndroidEmulator & " instance has no owned window/control surface"
+		Return False
+	EndIf
+	If Not StringRegExp($g_sAndroidGamePackage, "^[A-Za-z0-9._]+$") Or _
+			Not StringRegExp($g_sAndroidGameClass, "^[A-Za-z0-9._]+$") Then
+		$sReason = "The configured Clash of Clans activity identity is unsafe"
+		Return False
+	EndIf
+	If Not ConnectAndroidAdb(False, True, 15000) Then
+		$sReason = "ADB did not bind to the configured " & $g_sAndroidEmulator & " instance"
+		Return False
+	EndIf
+	AndroidAdbLaunchShellInstance($g_bRunState, False)
+	If @error Then
+		$sReason = "ADB shell ownership could not be established for the configured " & $g_sAndroidEmulator & " instance"
+		Return False
+	EndIf
+
+	Local $sLaunchOutput = AndroidAdbSendShellCommand("am start -n " & $g_sAndroidGamePackage & "/" & _
+			$g_sAndroidGameClass, 15000, $g_bRunState, False)
+	If @error Or StringInStr($sLaunchOutput, "Error:") Or StringInStr($sLaunchOutput, "Exception") Then
+		$sReason = "Clash of Clans did not accept the one bounded Android activity launch"
+		Return False
+	EndIf
+
+	Local $hGameTimer = __TimerInit()
+	While __TimerDiff($hGameTimer) <= 90000
+		If RunControlStopRequested() Or Not $g_bRunState Then
+			$sReason = $g_sAndroidEmulator & " and Clash of Clans launch cancelled while waiting for the game process"
+			Return False
+		EndIf
+		; The inherited generic game-PID observer increments a miss counter and eventually restarts the bot.
+		; This cold-start observer must be side-effect free: read the exact validated package PID from
+		; the already-owned ADB shell and accept only a numeric pidof response.
+		Local $sGamePids = AndroidAdbSendShellCommand("pidof " & $g_sAndroidGamePackage, 3000, $g_bRunState, False)
+		Local $iPidReadError = @error
+		$sGamePids = StringStripWS($sGamePids, $STR_STRIPLEADING + $STR_STRIPTRAILING)
+		If $iPidReadError = 0 And StringRegExp($sGamePids, "^[0-9]+([ \t]+[0-9]+)*$") Then
+			$sReason = $g_sAndroidEmulator & " and Clash of Clans launched; emulator_started=" & _
+					($bStartedEmulator ? "true" : "false")
+			Return True
+		EndIf
+		If _Sleep(1000) Then
+			$sReason = $g_sAndroidEmulator & " and Clash of Clans launch cancelled while waiting for the game process"
+			Return False
+		EndIf
+	WEnd
+	$sReason = "Clash of Clans did not expose its process before the bounded deadline on " & $g_sAndroidEmulator
+	Return False
+EndFunc   ;==>_BotEnsureConfiguredAndroidAndGame
+
+; Every terminal Home route can issue account-mutating input. Serialize the whole prepared route on
+; the same cross-process ActiveBot slot as a general run, but keep invalid/non-route rejection outside
+; the lock. Route functions return to this wrapper rather than returning from BotStart directly, so
+; the slot is released after every completed, failed, cancelled, or unavailable terminal outcome.
+Func _BotStartRunOneShot($iRoute, ByRef $sStartError)
+	If RunControlStopRequested() Then Return _BotOpenCollectorsReject("Terminal Home route cancelled before waiting for the bot slot", "cancelled")
+	$g_bRunState = True
+	$g_bTogglePauseAllowed = False
+	LockBotSlot(True)
+	If Not $g_bRunState Or (Not $g_bBotLaunchOption_NoBotSlot And Not LockBotSlot(Default)) Then
+		LockBotSlot(False)
+		Return _BotOpenCollectorsReject("Terminal Home route cancelled while waiting for the bot slot", "cancelled")
+	EndIf
+	If Not RunExecutionApplyPreparedTransport($sStartError) Then
+		LockBotSlot(False)
+		Return _BotOpenCollectorsReject($sStartError)
+	EndIf
+	If Not AcquireExactAndroidInstanceLock($g_sAndroidEmulator, $g_sAndroidInstance, $sStartError) Then
+		LockBotSlot(False)
+		Return _BotOpenCollectorsReject($sStartError, $g_bRunState ? "rejected" : "cancelled")
+	EndIf
+
+	Local $bResult = False
+	Switch $iRoute
+		Case 1
+			$bResult = _BotStartOpenHomeCollectors($sStartError)
+		Case 2
+			$bResult = _BotStartOpenHomeLootCart($sStartError)
+		Case 3
+			$bResult = _BotStartOpenDailyReward($sStartError)
+		Case 4
+			$bResult = _BotStartOpenHomeTreasury($sStartError)
+		Case 5
+			$bResult = _BotStartOpenClanRequest($sStartError)
+		Case Else
+			$bResult = _BotOpenCollectorsReject("Terminal Home route selection changed before execution")
+	EndSwitch
+	ReleaseExactAndroidInstanceLock()
+	LockBotSlot(False)
+	Return $bResult
+EndFunc   ;==>_BotStartRunOneShot
 
 ; Run one collectors-only pass without loading the restricted managed image engine. Start launches
 ; the exact plan-bound BlueStacks 5 instance and Clash of Clans when absent; the route never reboots,
@@ -517,6 +652,7 @@ Func _BotGameLaunchFinish($bPassed, $sMessage)
 	; As with check-engine, native terminalization is the linearization point. A Stop accepted before
 	; this call wins; a later Stop sees an idle backend and is a truthful no-op.
 	Local $sOutcome = RunControlReportGameLaunchOutcome($bPassed, $sMessage)
+	ReleaseExactAndroidInstanceLock()
 	Switch $sOutcome
 		Case "passed"
 			RunEventLogGameLaunchPassed($sMessage)
@@ -529,7 +665,7 @@ Func _BotGameLaunchFinish($bPassed, $sMessage)
 EndFunc   ;==>_BotGameLaunchFinish
 
 ; Start only the exact BlueStacks 5 instance and CoC activity, passively prove Home or a verified
-; startup overlay, then return idle. This diagnostic intentionally runs before plan preparation and
+; startup overlay, then return idle. This command intentionally runs before plan preparation and
 ; managed-engine initialization and never dismisses the recognized overlay.
 Func _BotLaunchGameOnly()
 	Local $sReason = ""
@@ -537,6 +673,8 @@ Func _BotLaunchGameOnly()
 	If RunControlStopRequested() Then Return _BotGameLaunchFinish(False, "BlueStacks and Clash of Clans launch cancelled before initialization")
 	$g_bRunState = True
 	$g_bTogglePauseAllowed = False
+	If Not AcquireExactAndroidInstanceLock($g_sAndroidEmulator, $g_sAndroidInstance, $sReason) Then _
+		Return _BotGameLaunchFinish(False, $sReason)
 	If Not LaunchBlueStacks5CoCOnly($sReason) Then
 		If $sReason = "" Then $sReason = "BlueStacks and Clash of Clans launch failed"
 		Return _BotGameLaunchFinish(False, $sReason)
@@ -559,12 +697,27 @@ Func BotStart($bAutostartDelay = 0)
 	Local $oPreparedIntent = RunExecutionPreparedIntent()
 	Local $iOpenCollectorsMode = OpenHomeCollectorsPreparedMode($oPreparedIntent, $sStartError)
 	; OpenHomeCollectorsPreparedMode contract: 1=collectors, 2=Loot Cart, 3=Daily Reward, 4=Treasury, -1=invalid Home selection.
-	If $iOpenCollectorsMode = 1 Then Return FuncReturn(_BotStartOpenHomeCollectors($sStartError))
-	If $iOpenCollectorsMode = 2 Then Return FuncReturn(_BotStartOpenHomeLootCart($sStartError))
-	If $iOpenCollectorsMode = 3 Then Return FuncReturn(_BotStartOpenDailyReward($sStartError))
-	If $iOpenCollectorsMode = 4 Then Return FuncReturn(_BotStartOpenHomeTreasury($sStartError))
+	If $iOpenCollectorsMode >= 1 And $iOpenCollectorsMode <= 4 Then _
+		Return FuncReturn(_BotStartRunOneShot($iOpenCollectorsMode, $sStartError))
 	If $iOpenCollectorsMode = -1 Then Return FuncReturn(_BotOpenCollectorsReject($sStartError))
-	If ClanRequestRouteSelected($oPreparedIntent) Then Return FuncReturn(_BotStartOpenClanRequest($sStartError))
+	If ClanRequestRouteSelected($oPreparedIntent) Then Return FuncReturn(_BotStartRunOneShot(5, $sStartError))
+	; Readiness belongs to this Start attempt. A previous run may have left the
+	; main-screen flag true even though the current emulator view has changed.
+	$g_bMainWindowOk = False
+	If RunControlStopRequested() Then Return FuncReturn(_BotStartReject("Start cancelled before waiting for the bot slot"))
+	$g_bRunState = True
+	$g_bTogglePauseAllowed = False
+	LockBotSlot(True)
+	If Not $g_bRunState Or (Not $g_bBotLaunchOption_NoBotSlot And Not LockBotSlot(Default)) Then _
+		Return FuncReturn(_BotStartReject("Start cancelled while waiting for the bot slot"))
+	If Not RunExecutionApplyPreparedTransport($sStartError) Then
+		SetLog("Run Planner cannot bind the configured emulator: " & $sStartError, $COLOR_ERROR)
+		Return FuncReturn(_BotStartReject($sStartError))
+	EndIf
+	If Not AcquireExactAndroidInstanceLock($g_sAndroidEmulator, $g_sAndroidInstance, $sStartError) Then
+		SetLog("Cannot reserve the configured emulator instance: " & $sStartError, $COLOR_ERROR)
+		Return FuncReturn(_BotStartReject($sStartError))
+	EndIf
 
 	If Not MBRFuncProbeEngine($sStartError) Then
 		SetLog("Engine unavailable: " & $sStartError, $COLOR_ERROR)
@@ -572,12 +725,11 @@ Func BotStart($bAutostartDelay = 0)
 		Return FuncReturn(_BotStartReject($sStartError))
 	EndIf
 
-	; The managed engine binds to the configured Android process during initialization.
-	; Prove the exact BlueStacks instance and Clash Home surface first so that required
-	; native attachment never receives PID 0. This helper launches only the configured
-	; emulator/game and performs passive readiness checks; it issues no gameplay input.
-	If Not _BotOpenHomeEnsureExactBlueStacks($sStartError) Then
-		If $sStartError = "" Then $sStartError = "Unable to launch the configured BlueStacks instance and Clash of Clans."
+	; The managed engine binds to the configured Android process during initialization. Bootstrap the
+	; immutable plan-selected emulator and one exact game activity first so native attachment never
+	; receives PID 0. No gameplay input is issued by this helper.
+	If Not _BotEnsureConfiguredAndroidAndGame($sStartError) Then
+		If $sStartError = "" Then $sStartError = "Unable to launch the configured emulator and Clash of Clans."
 		SetLog($sStartError, $COLOR_ERROR)
 		Return FuncReturn(_BotStartReject($sStartError))
 	EndIf
@@ -614,9 +766,6 @@ Func BotStart($bAutostartDelay = 0)
 	;CalCostSiege()
 	sldAdditionalClickDelay(True)
 
-	; Readiness belongs to this Start attempt. A previous run may have left the
-	; main-screen flag true even though the current emulator view has changed.
-	$g_bMainWindowOk = False
 	$g_bRunState = True
 	$g_bTogglePauseAllowed = True
 	$g_bSkipFirstZoomout = False
@@ -638,6 +787,10 @@ Func BotStart($bAutostartDelay = 0)
 	SaveConfig()
 	readConfig()
 	applyConfig(False) ; bot window redraw stays disabled!
+	If Not RunExecutionReassertPreparedTransport($sStartError) Then
+		SetLog("Run Planner cannot reassert the configured emulator after profile reload: " & $sStartError, $COLOR_ERROR)
+		Return FuncReturn(_BotStartReject($sStartError))
+	EndIf
 	If Not RunExecutionApplyPrepared($sStartError) Then
 		SetLog("Run Planner cannot apply: " & $sStartError, $COLOR_ERROR)
 		Return FuncReturn(_BotStartReject($sStartError))
@@ -714,10 +867,6 @@ Func BotStart($bAutostartDelay = 0)
 	Next
 
 	CleanSuperchargeTemplates()
-
-	; wait for slot
-	LockBotSlot(True)
-	If $g_bRunState = False Then Return FuncReturn(_BotStartReject("Start cancelled while waiting for the bot slot"))
 
 	Local $Result = False
 	If WinGetAndroidHandle() = 0 Then
@@ -803,6 +952,7 @@ Func BotStop()
 	; Keep an explicit one-run emulator selected until its stop/shield callbacks have completed,
 	; then restore the exact captured profile fields.
 	RunExecutionComplete("stopped")
+	ReleaseExactAndroidInstanceLock()
 
 	EnableControls($g_hFrmBotBottom, Default, $g_aFrmBotBottomCtrlState)
 

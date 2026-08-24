@@ -21,6 +21,7 @@ Global $g_iRunExecutionGoldBaseline = 0
 Global $g_iRunExecutionElixirBaseline = 0
 Global $g_iRunExecutionDarkBaseline = 0
 Global $g_sRunExecutionMessage = "Legacy profile mode"
+Global $g_sRunExecutionRestoreError = ""
 Global $g_sRunExecutionDailyRewardState = "not-seen"
 Global $g_sRunExecutionDailyRewardDetail = ""
 Global $g_iRunExecutionDailyRewardAttempts = 0
@@ -35,6 +36,8 @@ Global $g_iRunExecutionDeployableAfter = -1
 Global $g_bRunExecutionManageTraining = True
 Global $g_bRunExecutionProfileSnapshotCaptured = False
 Global $g_bRunExecutionEmulatorChanged = False
+Global $g_bRunExecutionTransportApplied = False
+Global $g_bRunExecutionGameplayApplied = False
 Global $g_iRunExecutionSnapshotAndroidConfig = 0
 Global $g_sRunExecutionSnapshotAndroidEmulator = ""
 Global $g_sRunExecutionSnapshotAndroidInstance = ""
@@ -896,16 +899,16 @@ Func _RunExecutionCaptureProfileSnapshot()
 	$g_bRunExecutionSnapshotChkCollectAchievements = $g_bChkCollectAchievements
 	$g_bRunExecutionSnapshotChkCollectFreeMagicItems = $g_bChkCollectFreeMagicItems
 	$g_bRunExecutionSnapshotChkCollectRewards = $g_bChkCollectRewards
-	$g_bRunExecutionSnapshotChkSellRewards = $g_bChkSellRewards
-	$g_iRunExecutionSnapshotCmbBoostBarracks = $g_iCmbBoostBarracks
-	$g_iRunExecutionSnapshotCmbBoostSpellFactory = $g_iCmbBoostSpellFactory
-	$g_iRunExecutionSnapshotCmbBoostWorkshop = $g_iCmbBoostWorkshop
-	$g_iRunExecutionSnapshotCmbBoostBarbarianKing = $g_iCmbBoostBarbarianKing
-	$g_iRunExecutionSnapshotCmbBoostArcherQueen = $g_iCmbBoostArcherQueen
-	$g_iRunExecutionSnapshotCmbBoostMinionPrince = $g_iCmbBoostMinionPrince
-	$g_iRunExecutionSnapshotCmbBoostWarden = $g_iCmbBoostWarden
-	$g_iRunExecutionSnapshotCmbBoostChampion = $g_iCmbBoostChampion
-	$g_iRunExecutionSnapshotCmbBoostEverything = $g_iCmbBoostEverything
+	$g_bRunExecutionSnapshotChkSellRewards = False
+	$g_iRunExecutionSnapshotCmbBoostBarracks = 0
+	$g_iRunExecutionSnapshotCmbBoostSpellFactory = 0
+	$g_iRunExecutionSnapshotCmbBoostWorkshop = 0
+	$g_iRunExecutionSnapshotCmbBoostBarbarianKing = 0
+	$g_iRunExecutionSnapshotCmbBoostArcherQueen = 0
+	$g_iRunExecutionSnapshotCmbBoostMinionPrince = 0
+	$g_iRunExecutionSnapshotCmbBoostWarden = 0
+	$g_iRunExecutionSnapshotCmbBoostChampion = 0
+	$g_iRunExecutionSnapshotCmbBoostEverything = 0
 	$g_bRunExecutionSnapshotAutoLabUpgradeEnable = $g_bAutoLabUpgradeEnable
 	$g_bRunExecutionSnapshotAutoUpgradeWallsEnable = $g_bAutoUpgradeWallsEnable
 	$g_bRunExecutionSnapshotAutoUpgradeEnabled = $g_bAutoUpgradeEnabled
@@ -918,12 +921,40 @@ Func _RunExecutionCaptureProfileSnapshot()
 			$g_bRunExecutionSnapshotDonateLikeCrazy)
 EndFunc   ;==>_RunExecutionCaptureProfileSnapshot
 
+Func _RunExecutionPlanFileToken($sPath)
+	If $sPath = "" Or Not FileExists($sPath) Then Return ""
+	Local $vHash = _Crypt_HashFile($sPath, $CALG_SHA_256)
+	If @error Or Not IsBinary($vHash) Then Return ""
+	Local $sHash = StringLower(StringTrimLeft(String($vHash), 2))
+	If Not StringRegExp($sHash, "^[0-9a-f]{64}$") Then Return ""
+	Return "sha256:" & $sHash
+EndFunc   ;==>_RunExecutionPlanFileToken
+
+Func _RunExecutionRequirePlanToken($sPath, $sExpectedToken, ByRef $sError)
+	Local $sCurrentToken = _RunExecutionPlanFileToken($sPath)
+	If $sCurrentToken = "" Then
+		$sError = "The applied plan could not be hashed before execution"
+		Return False
+	EndIf
+	If $sCurrentToken <> $sExpectedToken Then
+		$sError = "The applied plan changed after Start was accepted; Start was refused"
+		Return False
+	EndIf
+	Return True
+EndFunc   ;==>_RunExecutionRequirePlanToken
+
 Func RunExecutionPrepareStart(ByRef $sError)
 	$sError = ""
-	_RunExecutionRestoreProfile()
+	If Not _RunExecutionRestoreProfile() Then
+		$sError = $g_sRunExecutionRestoreError
+		If $sError = "" Then $sError = "The previous run's exact emulator reservation could not be restored"
+		Return SetError(1, 5, False)
+	EndIf
 	RunExecutionResetDeploymentProof()
 	$g_bRunExecutionPrepared = False
 	$g_bRunExecutionActive = False
+	$g_bRunExecutionTransportApplied = False
+	$g_bRunExecutionGameplayApplied = False
 	$g_oRunExecutionIntent = 0
 	$g_oRunExecutionSession = 0
 	$g_bRunExecutionManageTraining = True
@@ -936,7 +967,16 @@ Func RunExecutionPrepareStart(ByRef $sError)
 	Local $oIntent = 0
 	Local $sPlanPath = RunPlanFileDefaultPath()
 	Local $sRequestedMode = RunControlCurrentStartMode()
+	Local $sRequestedPlanToken = RunControlCurrentStartPlanToken()
 	If $sRequestedMode = "native-profile" Then
+		If $sRequestedPlanToken <> "absent" Or FileExists($sPlanPath) Then
+			$sError = "The applied plan changed after Full profile Start was accepted; Start was refused"
+			Return SetError(1, 4, False)
+		EndIf
+		If Not MBRFuncRecognitionAvailable() Then
+			$sError = MBRFuncRecognitionError()
+			Return SetError(1, 3, False)
+		EndIf
 		; The web command is the Start linearization point. A removed plan file alone is not enough:
 		; this long-lived process can still retain $g_oRunPlannerIntent from the preceding run.
 		$g_bRunExecutionFullProfileSafetyPending = True
@@ -948,11 +988,25 @@ Func RunExecutionPrepareStart(ByRef $sError)
 		Return SetError(1, 2, False)
 	EndIf
 	If FileExists($sPlanPath) Then
+		If $sRequestedMode = "planned" Then
+			If Not StringRegExp($sRequestedPlanToken, "^sha256:[0-9a-f]{64}$") Then
+				$sError = "The Start command did not carry a valid applied-plan identity"
+				Return SetError(1, 5, False)
+			EndIf
+			If Not _RunExecutionRequirePlanToken($sPlanPath, $sRequestedPlanToken, $sError) Then Return SetError(1, 6, False)
+		EndIf
 		$oIntent = RunPlanFileLoadIntent($sPlanPath, $sError)
 		If Not IsObj($oIntent) Then Return SetError(1, 0, False)
+		; Hash again after parsing. An atomic replacement between the first hash and the loader must
+		; discard the prepared intent rather than execute a document the operator did not start.
+		If $sRequestedMode = "planned" And Not _RunExecutionRequirePlanToken($sPlanPath, $sRequestedPlanToken, $sError) Then Return SetError(1, 7, False)
 	ElseIf $sRequestedMode = "" And IsObj($g_oRunPlannerIntent) Then
 		$oIntent = $g_oRunPlannerIntent
 	Else
+		If Not MBRFuncRecognitionAvailable() Then
+			$sError = MBRFuncRecognitionError()
+			Return SetError(1, 3, False)
+		EndIf
 		; The native GUI reloads its controls after this preparation step. Arm the safety overlay here,
 		; then capture and apply it in RunExecutionApplyPrepared() after that reload so a visible
 		; session-only gem boost selection cannot be restored between the guard and the inherited loop.
@@ -990,13 +1044,12 @@ Func RunExecutionPrepareStart(ByRef $sError)
 	Return True
 EndFunc   ;==>RunExecutionPrepareStart
 
-Func _RunExecutionApplyIntent(ByRef $sError)
+Func _RunExecutionApplyTransportIntent(ByRef $sError)
 	$sError = ""
 	If Not $g_bRunExecutionPrepared Or Not IsObj($g_oRunExecutionIntent) Then Return True
 	If Not RunExecutionContractValidate($g_oRunExecutionIntent, $sError) Then Return False
 
 	Local $oPlan = $g_oRunExecutionIntent.Item("plan")
-	$g_bRunExecutionManageTraining = RunIntentManagesTraining($g_oRunExecutionIntent)
 	Local $sEmulator = StringLower(String($oPlan.Item("emulator")))
 	If $sEmulator <> "auto" Then
 		Local $sResolvedEmulator = _RunExecutionEmulatorName($sEmulator)
@@ -1012,6 +1065,17 @@ Func _RunExecutionApplyIntent(ByRef $sError)
 			Return False
 		EndIf
 	EndIf
+	$g_bRunExecutionTransportApplied = True
+	Return True
+EndFunc   ;==>_RunExecutionApplyTransportIntent
+
+Func _RunExecutionApplyIntent(ByRef $sError)
+	$sError = ""
+	If Not $g_bRunExecutionPrepared Or Not IsObj($g_oRunExecutionIntent) Then Return True
+	If Not RunExecutionContractValidate($g_oRunExecutionIntent, $sError) Then Return False
+
+	Local $oPlan = $g_oRunExecutionIntent.Item("plan")
+	$g_bRunExecutionManageTraining = RunIntentManagesTraining($g_oRunExecutionIntent)
 
 	Local $sStrategy = StringLower(String($oPlan.Item("strategy")))
 	; A reviewed plan is closed-world. Reward and collection actuators that are not represented in the
@@ -1037,6 +1101,7 @@ Func _RunExecutionApplyIntent(ByRef $sError)
 		$g_bAutoLabUpgradeEnable = False
 		$g_bAutoUpgradeWallsEnable = False
 		$g_bAutoUpgradeEnabled = False
+		$g_bRunExecutionGameplayApplied = True
 		Return True
 	EndIf
 	If $sStrategy = $CLAN_REQUEST_ROUTE_STRATEGY Then
@@ -1051,6 +1116,7 @@ Func _RunExecutionApplyIntent(ByRef $sError)
 		$g_bAutoLabUpgradeEnable = False
 		$g_bAutoUpgradeWallsEnable = False
 		$g_bAutoUpgradeEnabled = False
+		$g_bRunExecutionGameplayApplied = True
 		Return True
 	EndIf
 	Local $iAlgorithm = ($sStrategy = "legacy.csv") ? 1 : 0
@@ -1139,8 +1205,39 @@ Func _RunExecutionApplyIntent(ByRef $sError)
 	$g_bAutoLabUpgradeEnable = False
 	$g_bAutoUpgradeWallsEnable = (StringLower(String($oPlan.Item("upgrade_policy"))) = "walls")
 	$g_bAutoUpgradeEnabled = False
+	$g_bRunExecutionGameplayApplied = True
 	Return True
 EndFunc   ;==>_RunExecutionApplyIntent
+
+; Bind the immutable plan-selected emulator and instance before any emulator window, ADB device,
+; game activity, or managed Android PID is touched. The complete profile snapshot is captured first
+; so every rejection path can restore the previous native selectors without saving the one-run plan.
+Func RunExecutionApplyPreparedTransport(ByRef $sError)
+	$sError = ""
+	If Not $g_bRunExecutionPrepared Then Return True
+	If $g_bRunExecutionTransportApplied Then Return True
+	If Not $g_bRunExecutionProfileSnapshotCaptured And Not _RunExecutionCaptureProfileSnapshot() Then
+		$sError = "Run Planner could not capture the active profile before emulator binding"
+		Return SetError(1, 0, False)
+	EndIf
+	If Not _RunExecutionApplyTransportIntent($sError) Then Return SetError(2, 0, False)
+	Return True
+EndFunc   ;==>RunExecutionApplyPreparedTransport
+
+; readConfig/applyConfig reloads the persistent profile after the immutable plan transport was first
+; bound. Reassert that exact prepared emulator and instance without replacing the pre-plan snapshot:
+; Stop must still restore the selectors that existed before this one-run override.
+Func RunExecutionReassertPreparedTransport(ByRef $sError)
+	$sError = ""
+	If Not $g_bRunExecutionPrepared Then Return True
+	If Not $g_bRunExecutionProfileSnapshotCaptured Then
+		$sError = "Run Planner cannot reassert transport without the original profile snapshot"
+		Return SetError(1, 0, False)
+	EndIf
+	$g_bRunExecutionTransportApplied = False
+	If Not _RunExecutionApplyTransportIntent($sError) Then Return SetError(2, 0, False)
+	Return True
+EndFunc   ;==>RunExecutionReassertPreparedTransport
 
 Func _RunExecutionApplyFullProfileSafety(ByRef $sError)
 	$sError = ""
@@ -1173,13 +1270,14 @@ EndFunc   ;==>_RunExecutionApplyFullProfileSafety
 Func RunExecutionApplyPrepared(ByRef $sError)
 	$sError = ""
 	If Not $g_bRunExecutionPrepared Then Return _RunExecutionApplyFullProfileSafety($sError)
-	If $g_bRunExecutionOverridesApplied Then Return True
+	If $g_bRunExecutionGameplayApplied Then Return True
 	; Capture every planner-owned field before applying. The write guard begins here so a partial
 	; emulator/config failure is also restored by RunExecutionCancelPrepared().
-	If Not _RunExecutionCaptureProfileSnapshot() Then
+	If Not $g_bRunExecutionProfileSnapshotCaptured And Not _RunExecutionCaptureProfileSnapshot() Then
 		$sError = "Run Planner could not capture the active profile settings"
 		Return SetError(1, 0, False)
 	EndIf
+	If Not RunExecutionApplyPreparedTransport($sError) Then Return SetError(1, 1, False)
 	If Not _RunExecutionApplyIntent($sError) Then Return SetError(1, 0, False)
 
 	$g_sRunExecutionMessage = "Starting " & $g_oRunExecutionIntent.Item("surface_label")
@@ -1189,7 +1287,7 @@ EndFunc   ;==>RunExecutionApplyPrepared
 Func RunExecutionBegin(ByRef $sError)
 	$sError = ""
 	If Not $g_bRunExecutionPrepared Then Return True
-	If Not $g_bRunExecutionOverridesApplied Then
+	If Not $g_bRunExecutionOverridesApplied Or Not $g_bRunExecutionTransportApplied Or Not $g_bRunExecutionGameplayApplied Then
 		$sError = "Prepared run settings were not applied"
 		Return SetError(1, 0, False)
 	EndIf
@@ -1219,23 +1317,31 @@ Func RunExecutionBegin(ByRef $sError)
 EndFunc   ;==>RunExecutionBegin
 
 Func _RunExecutionRestoreProfile()
+	$g_sRunExecutionRestoreError = ""
 	If Not $g_bRunExecutionProfileSnapshotCaptured Then
 		$g_bRunExecutionManageTraining = True
+		$g_bRunExecutionTransportApplied = False
+		$g_bRunExecutionGameplayApplied = False
 		$g_bRunExecutionFullProfileSafetyPending = False
 		RunProfileOverrideEnd()
-		Return
+		Return True
 	EndIf
+	Local $bTransportRestored = True
 
 	; An explicit emulator/instance plan reinitializes emulator-specific paths and capabilities.
 	; Restore that configuration through the same adapter, then assign the exact captured selectors.
 	If $g_bRunExecutionEmulatorChanged Then
 		UpdateHWnD(0, False)
-		If Not UpdateAndroidConfig($g_sRunExecutionSnapshotAndroidInstance, $g_sRunExecutionSnapshotAndroidEmulator) Then _
-			SetDebugLog("Run Planner: could not reinitialize the captured emulator configuration", $COLOR_ERROR)
+		If Not UpdateAndroidConfig($g_sRunExecutionSnapshotAndroidInstance, $g_sRunExecutionSnapshotAndroidEmulator) Then
+			$bTransportRestored = False
+			$g_sRunExecutionRestoreError = "The captured emulator instance is owned by another controller; the current exact reservation was retained"
+		EndIf
 	EndIf
-	$g_iAndroidConfig = $g_iRunExecutionSnapshotAndroidConfig
-	$g_sAndroidEmulator = $g_sRunExecutionSnapshotAndroidEmulator
-	$g_sAndroidInstance = $g_sRunExecutionSnapshotAndroidInstance
+	If $bTransportRestored Then
+		$g_iAndroidConfig = $g_iRunExecutionSnapshotAndroidConfig
+		$g_sAndroidEmulator = $g_sRunExecutionSnapshotAndroidEmulator
+		$g_sAndroidInstance = $g_sRunExecutionSnapshotAndroidInstance
+	EndIf
 
 	For $iMode = 0 To $g_iModeCount - 1
 		$g_sAttackScrScriptName[$iMode] = $g_asRunExecutionSnapshotAttackScript[$iMode]
@@ -1279,16 +1385,16 @@ Func _RunExecutionRestoreProfile()
 	$g_bChkCollectAchievements = $g_bRunExecutionSnapshotChkCollectAchievements
 	$g_bChkCollectFreeMagicItems = $g_bRunExecutionSnapshotChkCollectFreeMagicItems
 	$g_bChkCollectRewards = $g_bRunExecutionSnapshotChkCollectRewards
-	$g_bChkSellRewards = $g_bRunExecutionSnapshotChkSellRewards
-	$g_iCmbBoostBarracks = $g_iRunExecutionSnapshotCmbBoostBarracks
-	$g_iCmbBoostSpellFactory = $g_iRunExecutionSnapshotCmbBoostSpellFactory
-	$g_iCmbBoostWorkshop = $g_iRunExecutionSnapshotCmbBoostWorkshop
-	$g_iCmbBoostBarbarianKing = $g_iRunExecutionSnapshotCmbBoostBarbarianKing
-	$g_iCmbBoostArcherQueen = $g_iRunExecutionSnapshotCmbBoostArcherQueen
-	$g_iCmbBoostMinionPrince = $g_iRunExecutionSnapshotCmbBoostMinionPrince
-	$g_iCmbBoostWarden = $g_iRunExecutionSnapshotCmbBoostWarden
-	$g_iCmbBoostChampion = $g_iRunExecutionSnapshotCmbBoostChampion
-	$g_iCmbBoostEverything = $g_iRunExecutionSnapshotCmbBoostEverything
+	$g_bChkSellRewards = False
+	$g_iCmbBoostBarracks = 0
+	$g_iCmbBoostSpellFactory = 0
+	$g_iCmbBoostWorkshop = 0
+	$g_iCmbBoostBarbarianKing = 0
+	$g_iCmbBoostArcherQueen = 0
+	$g_iCmbBoostMinionPrince = 0
+	$g_iCmbBoostWarden = 0
+	$g_iCmbBoostChampion = 0
+	$g_iCmbBoostEverything = 0
 	$g_bAutoLabUpgradeEnable = $g_bRunExecutionSnapshotAutoLabUpgradeEnable
 	$g_bAutoUpgradeWallsEnable = $g_bRunExecutionSnapshotAutoUpgradeWallsEnable
 	$g_bAutoUpgradeEnabled = $g_bRunExecutionSnapshotAutoUpgradeEnabled
@@ -1296,11 +1402,22 @@ Func _RunExecutionRestoreProfile()
 	$g_bPlannedDropCCHoursEnable = $g_bRunExecutionSnapshotPlannedDropCCHoursEnable
 	$g_bUseCCBalanced = $g_bRunExecutionSnapshotUseCCBalanced
 	$g_bRunExecutionManageTraining = True
-	$g_bRunExecutionEmulatorChanged = False
+	$g_bRunExecutionTransportApplied = False
+	$g_bRunExecutionGameplayApplied = False
 	$g_bRunExecutionFullProfileSafetyPending = False
-	$g_bRunExecutionProfileSnapshotCaptured = False
 	RunProfileOverrideEnd()
-	SetDebugLog("Run Planner: restored the captured profile fields after one-run overrides")
+	If $bTransportRestored Then
+		$g_bRunExecutionEmulatorChanged = False
+		$g_bRunExecutionProfileSnapshotCaptured = False
+		SetDebugLog("Run Planner: restored the captured profile fields after one-run overrides")
+	Else
+		; Never publish snapshot selectors while retaining a different kernel reservation. Leave the
+		; snapshot available for a later retry, stop the run, and keep the actually owned configuration.
+		$g_bRunState = False
+		$g_sRunExecutionMessage = $g_sRunExecutionRestoreError
+		SetLog("Run Planner: " & $g_sRunExecutionRestoreError, $COLOR_ERROR)
+	EndIf
+	Return $bTransportRestored
 EndFunc   ;==>_RunExecutionRestoreProfile
 
 Func _RunExecutionSyncSession()
@@ -1360,7 +1477,7 @@ Func RunExecutionCancelPrepared($sReason)
 		If $oPlan.Item("notify_on_error") Then SetLog("Run notification: " & $sReason, $COLOR_ERROR)
 	EndIf
 	If $g_bRunExecutionActive And IsObj($g_oRunExecutionSession) Then RunSessionFail($g_oRunExecutionSession, $sReason)
-	_RunExecutionRestoreProfile()
+	Local $bProfileRestored = _RunExecutionRestoreProfile()
 	$g_bRunExecutionPrepared = False
 	$g_bRunExecutionActive = False
 	$g_oRunExecutionSession = 0
@@ -1369,13 +1486,13 @@ Func RunExecutionCancelPrepared($sReason)
 	RunPacingDeactivate()
 	RunExecutionResetDeploymentProof()
 	$g_sRunExecutionMessage = $sReason
+	If Not $bProfileRestored Then $g_sRunExecutionMessage &= "; " & $g_sRunExecutionRestoreError
 EndFunc   ;==>RunExecutionCancelPrepared
 
 Func _RunExecutionCompleteFullProfile()
 	; There is no planner session to close, but the full-profile no-gem overlay still owns a captured
 	; snapshot. Restore is idempotent, so repeated Stop/close cleanup remains harmless.
-	_RunExecutionRestoreProfile()
-	Return True
+	Return _RunExecutionRestoreProfile()
 EndFunc   ;==>_RunExecutionCompleteFullProfile
 
 Func RunExecutionComplete($sFallbackReason = "stopped")
@@ -1403,11 +1520,12 @@ Func RunExecutionComplete($sFallbackReason = "stopped")
 		EndIf
 	EndIf
 	If $sCompletedSessionId <> "" Then RunEventLogReleaseSession($sCompletedSessionId)
-	_RunExecutionRestoreProfile()
+	Local $bProfileRestored = _RunExecutionRestoreProfile()
 	$g_bRunExecutionPrepared = False
 	$g_bRunExecutionActive = False
 	$g_oRunExecutionSession = 0
 	$g_oRunExecutionIntent = 0
 	RunPacingDeactivate()
 	RunExecutionResetDeploymentProof()
+	If Not $bProfileRestored Then $g_sRunExecutionMessage = $g_sRunExecutionRestoreError
 EndFunc   ;==>RunExecutionComplete

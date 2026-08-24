@@ -309,133 +309,43 @@ Func GUIControl_WM_MOUSE($hWin, $iMsg, $wParam, $lParam)
 		SetCriticalMessageProcessing($wasCritical)
 		Return $GUI_RUNDEFMSG
 	EndIf
-
-	Switch $iMsg
-		Case $WM_LBUTTONDOWN, $WM_LBUTTONUP, $WM_RBUTTONDOWN, $WM_RBUTTONUP, $WM_LBUTTONDBLCLK
-			; ensure text box still has focus
-			Local $hInput = GUICtrlGetHandle($g_hFrmBotEmbeddedShieldInput)
-			_WinAPI_SetFocus($hInput)
-	EndSwitch
-
 	Local $x = BitAND($lParam, 0xFFFF)
 	Local $y = BitAND($lParam, 0xFFFF0000) / 0x10000
-	Switch $iMsg
-		Case $WM_MOUSEMOVE
-			If $g_bDebugClick And AndroidShieldHasFocus() Then
-				Local $c = GetPixelFromWindow($x, $y, $g_hAndroidControl)
-				_GUICtrlStatusBar_SetText($g_hStatusBar, StringFormat("Mouse %03i,%03i Color %s", $x, $y, $c))
-			EndIf
-		Case $WM_LBUTTONDOWN
-			If $g_bDebugClick And AndroidShieldHasFocus() Then
-				Local $c = GetPixelFromWindow($x, $y, $g_hAndroidControl)
-				SetLog(StringFormat("Mouse LBUTTONDOWN %03i,%03i Color %s", $x, $y, $c), $COLOR_DEBUG)
-			EndIf
-		Case $WM_LBUTTONDBLCLK
-			If $g_bDebugClick And AndroidShieldHasFocus() Then
-				Local $c = GetPixelFromWindow($x, $y, $g_hAndroidControl)
-				SetLog(StringFormat("Mouse LBUTTONDBLCLK %03i,%03i Color %s", $x, $y, $c), $COLOR_DEBUG)
-			EndIf
-		Case $WM_LBUTTONUP, $WM_RBUTTONUP
-			If $g_iDebugWindowMessages Then
-				SetDebugLog("GUIControl_WM_MOUSE: " & ($iMsg = $WM_LBUTTONUP ? "$WM_LBUTTONUP" : "$WM_RBUTTONUP") & " $hWin=" & $hWin & ",$iMsg=" & $iMsg & ",$wParam=" & $wParam & ",$lParam=" & $lParam & ", X=" & $x & ", Y=" & $y, Default, True)
-			EndIf
-			If AndroidShieldHasFocus() = False Then
-				; set focus to text box
-				Local $hInput = GUICtrlGetHandle($g_hFrmBotEmbeddedShieldInput)
-				_WinAPI_SetFocus($hInput)
-				AndroidShield("GUIControl_WM_MOUSE", Default, False, 0, True)
-				$g_bTogglePauseAllowed = $wasAllowed
-				SetCriticalMessageProcessing($wasCritical)
-				Return $GUI_RUNDEFMSG
-			EndIf
-			#cs
-				Case $WM_LBUTTONDOWN, $WM_RBUTTONDOWN
-				If AndroidShieldHasFocus() = True Then
-				Local $hCtrlTarget = $g_aiAndroidEmbeddedCtrlTarget[0]
-				_SendMessage($hCtrlTarget, $iMsg, $wParam, $lParam)
-				EndIf
-			#ce
-	EndSwitch
-	;#cs
-	If AndroidShieldHasFocus() = False Then
+
+	; Hover remains a local diagnostic only. It must never move a pending Android touch or forward a
+	; Windows message to the embedded emulator surface.
+	If $iMsg = $WM_MOUSEMOVE Then
+		If $g_bDebugClick And AndroidShieldHasFocus() Then
+			Local $c = GetPixelFromWindow($x, $y, $g_hAndroidControl)
+			_GUICtrlStatusBar_SetText($g_hStatusBar, StringFormat("Mouse %03i,%03i Color %s", $x, $y, $c))
+		EndIf
 		$g_bTogglePauseAllowed = $wasAllowed
 		SetCriticalMessageProcessing($wasCritical)
 		Return $GUI_RUNDEFMSG
 	EndIf
 
-	Local $bMinitouch = True
-	If $bMinitouch Then
-		Static $s_x, $s_y
-		Local $iBytesSent = 0
-		Switch $iMsg
-			Case $WM_MOUSEMOVE
-				If $s_x <> $x Or $s_y <> $y Then
-					$iBytesSent = Minitouch($x, $y, 0)
-				EndIf
-			Case $WM_LBUTTONDOWN, $WM_LBUTTONDBLCLK
-				$iBytesSent = Minitouch($x, $y, 1)
-			Case $WM_LBUTTONUP
-				$iBytesSent = Minitouch($x, $y, 2)
-		EndSwitch
-		$bMinitouch = ($iBytesSent > 0)
-		$s_x = $x
-		$s_y = $y
+	; TestCapture consumes its own diagnostic click and does not send input to the emulator.
+	If ($iMsg = $WM_LBUTTONDOWN Or $iMsg = $WM_LBUTTONDBLCLK Or $iMsg = $WM_RBUTTONDOWN) And TestCapture() Then
+		$g_bTogglePauseAllowed = $wasAllowed
+		SetCriticalMessageProcessing($wasCritical)
+		Return $GUI_RUNDEFMSG
 	EndIf
 
-	If Not $bMinitouch And ($iMsg <> $WM_MOUSEMOVE Or $g_iAndroidEmbedMode <> 0) Then
-		; not all message got thru here, so disabled
-		;$x += $g_aiMouseOffset[0]
-		;$y += $g_aiMouseOffset[1]
-		$lParam = $y * 0x10000 + $x
-		;Nox 6.2.0.0 docked clicks didn't work anymore, so copied window handle code from _ControlClick function
-		Local $useHWnD = $g_iAndroidControlClickWindow = 1 And $g_bAndroidEmbedded = False
-		Local $hCtrlTarget = (($useHWnD) ? ($g_hAndroidWindow) : ($g_hAndroidControl))
-		;Local $hCtrlTarget = $g_aiAndroidEmbeddedCtrlTarget[0]
-		;Local $Result = _WinAPI_PostMessage($hCtrlTarget, $iMsg, $wParam, $lParam)
-		Local $Result = _SendMessage($hCtrlTarget, $iMsg, $wParam, $lParam)
-	EndIf
-	;Local $Result = _SendMessage($hCtrlTarget, $iMsg, $wParam, $lParam)
-	;#ce
+	; Docked mouse, wheel, and alternate-button messages have no exact route/action/point receipt.
+	; Fail closed instead of forwarding them through Minitouch or raw window messages.
+	NoPremiumActionBlocked("embedded mouse, wheel, and alternate-button game input is unavailable; use a reviewed bot route control")
 	$g_bTogglePauseAllowed = $wasAllowed
 	SetCriticalMessageProcessing($wasCritical)
 	Return $GUI_RUNDEFMSG
 EndFunc   ;==>GUIControl_WM_MOUSE
 
 Func GUIControl_AndroidEmbedded($hWin, $iMsg, $wParam, $lParam)
-	Static $GUIControl_AndroidEmbedded_Call = [0, 0, 0, 0]
-
-	If $g_bAndroidEmbedded = False Or $g_avAndroidShieldStatus[0] = True Then
-		Return $GUI_RUNDEFMSG
-	EndIf
-	Local $wasCritical = SetCriticalMessageProcessing(True)
-	Local $wasAllowed = $g_bTogglePauseAllowed
-	$g_bTogglePauseAllowed = False
-	Switch $iMsg
-		Case $WM_KEYDOWN, $WM_KEYUP, $WM_SYSKEYDOWN, $WM_SYSKEYUP, $WM_MOUSEWHEEL ; $WM_KEYFIRST To $WM_KEYLAST
-			If $iMsg = $WM_KEYUP And $wParam = 27 Then
-				; send ESC as ADB back
-				Local $wasSilentSetLog = $g_bSilentSetLog
-				$g_bSilentSetLog = True
-				AndroidBackButton(False)
-				$g_bSilentSetLog = $wasSilentSetLog
-				;_WinAPI_SetFocus(GUICtrlGetHandle($g_hFrmBotEmbeddedShieldInput))
-				;If $g_bDebugAndroidEmbedded Then AndroidShield("GUIControl_AndroidEmbedded WM_SETFOCUS", Default, False, 0, True)
-				;AndroidShield(Default, False, 10, AndroidShieldHasFocus())
-			Else
-				Local $hCtrlTarget = $g_aiAndroidEmbeddedCtrlTarget[0]
-				If $GUIControl_AndroidEmbedded_Call[0] <> $hCtrlTarget Or $GUIControl_AndroidEmbedded_Call[1] <> $iMsg Or $GUIControl_AndroidEmbedded_Call[2] <> $wParam Or $GUIControl_AndroidEmbedded_Call[3] <> $lParam Then
-					; protect against strange infinite loops with BS1/2 when using Ctrl-MouseWheel
-					If $g_bDebugAndroidEmbedded Then SetDebugLog("GUIControl_AndroidEmbedded: FORWARD $hWin=" & $hWin & ", $iMsg=" & Hex($iMsg) & ", $wParam=" & $wParam & ", $lParam=" & $lParam & ", $hCtrlTarget=" & $hCtrlTarget, Default, True)
-					_WinAPI_PostMessage($hCtrlTarget, $iMsg, $wParam, $lParam)
-					$GUIControl_AndroidEmbedded_Call[0] = $hCtrlTarget
-					$GUIControl_AndroidEmbedded_Call[1] = $iMsg
-					$GUIControl_AndroidEmbedded_Call[2] = $wParam
-					$GUIControl_AndroidEmbedded_Call[3] = $lParam
-				EndIf
-			EndIf
-	EndSwitch
-	$g_bTogglePauseAllowed = $wasAllowed
-	SetCriticalMessageProcessing($wasCritical)
+	#forceref $hWin, $iMsg, $wParam, $lParam
+	If TestCapture() Then Return $GUI_RUNDEFMSG
+	; The embedded edit-control WNDPROC receives arbitrary keyboard, system-key, and wheel messages.
+	; None has an exact action/coordinate receipt, and Enter/Space can activate a game confirmation.
+	; Do not translate ESC to ADB Back or forward any raw message to the Android child window.
+	NoPremiumActionBlocked("embedded keyboard, system-key, and wheel game input is unavailable; use a reviewed bot route control")
 	Return $GUI_RUNDEFMSG
 EndFunc   ;==>GUIControl_AndroidEmbedded
 

@@ -181,27 +181,65 @@ EndFunc   ;==>GetSecureFilename
 ; Calls "Update" & $g_sAndroidEmulator & "Config()"
 Func UpdateAndroidConfig($instance = Default, $emulator = Default)
 	FuncEnter(UpdateAndroidConfig)
+	Local $iPreviousAndroidConfig = $g_iAndroidConfig
+	Local $sPreviousAndroidEmulator = $g_sAndroidEmulator
+	Local $sPreviousAndroidInstance = $g_sAndroidInstance
+	Local $iRequestedAndroidConfig = $g_iAndroidConfig
 	If $emulator <> Default Then
-		; Update $g_iAndroidConfig
+		; Resolve the requested adapter without publishing it yet.  The old window and ADB
+		; transport must be torn down while the process still owns the old instance mutex.
 		For $i = 0 To UBound($g_avAndroidAppConfig) - 1
 			If $g_avAndroidAppConfig[$i][0] = $emulator Then
-				If $g_iAndroidConfig <> $i Then
-					$g_iAndroidConfig = $i
-					$g_sAndroidEmulator = $g_avAndroidAppConfig[$g_iAndroidConfig][0]
-					SetLog("Android Emulator " & $g_sAndroidEmulator)
-				EndIf
+				$iRequestedAndroidConfig = $i
 				$emulator = Default
 				ExitLoop
 			EndIf
 		Next
 	EndIf
-	If $emulator <> Default Then SetLog("Unknown Android Emulator " & $emulator, $COLOR_RED)
+	If $emulator <> Default Then
+		SetLog("Unknown Android Emulator " & $emulator, $COLOR_RED)
+		Return FuncReturn(False)
+	EndIf
 	If $instance = "" Then $instance = Default
-	If $instance = Default Then $instance = $g_avAndroidAppConfig[$g_iAndroidConfig][1]
+	If $instance = Default Then $instance = $g_avAndroidAppConfig[$iRequestedAndroidConfig][1]
+	Local $sRequestedAndroidEmulator = $g_avAndroidAppConfig[$iRequestedAndroidConfig][0]
 	SetDebugLog("UpdateAndroidConfig(""" & $instance & """)")
 
+	If $sRequestedAndroidEmulator = $sPreviousAndroidEmulator And $instance = $sPreviousAndroidInstance And _
+		Not $g_bInitAndroid And $g_bAndroidInitialized Then
+		; A prepared plan commonly reapplies the already-active selector. Preserve its clone-specific
+		; HWND/ADB transport instead of resetting it to the adapter table default.
+		Local $sUnchangedLockError = ""
+		If Not RebindConfiguredAndroidInstanceLock($sRequestedAndroidEmulator, $instance, $sUnchangedLockError) Then
+			SetLog("Cannot retain emulator instance reservation: " & $sUnchangedLockError, $COLOR_ERROR)
+			Return FuncReturn(False)
+		EndIf
+		Return FuncReturn(True)
+	EndIf
+
+	; Close every input-capable transport before releasing the old instance reservation. If the new
+	; reservation fails, the old reservation is retained but its transport stays invalidated until
+	; the caller deliberately initializes it again.
+	AndroidAdbTerminateShellInstance()
+	UpdateHWnD(0, False)
+	$g_bInitAndroid = True
+	$g_bAndroidInitialized = False
+
+	$g_iAndroidConfig = $iRequestedAndroidConfig
 	InitAndroidConfig(False)
 	$g_sAndroidInstance = $instance ; Clone or instance of emulator or "" if not supported/default instance
+	If $g_sAndroidEmulator <> $sPreviousAndroidEmulator Then SetLog("Android Emulator " & $g_sAndroidEmulator)
+	Local $sInstanceLockError = ""
+	If Not RebindConfiguredAndroidInstanceLock($g_sAndroidEmulator, $g_sAndroidInstance, $sInstanceLockError) Then
+		$g_iAndroidConfig = $iPreviousAndroidConfig
+		$g_sAndroidEmulator = $sPreviousAndroidEmulator
+		InitAndroidConfig(False)
+		; InitAndroidConfig restores adapter fields but also selects its default instance. Reapply the
+		; exact previous instance last so globals continue matching the reservation we retained.
+		$g_sAndroidInstance = $sPreviousAndroidInstance
+		SetLog("Cannot select emulator instance: " & $sInstanceLockError, $COLOR_ERROR)
+		Return FuncReturn(False)
+	EndIf
 
 	; update secure setting
 	If BitAND($g_iAndroidSecureFlags, 1) = 1 Then
@@ -212,6 +250,8 @@ Func UpdateAndroidConfig($instance = Default, $emulator = Default)
 
 	; validate install and initialize Android variables
 	Local $Result = InitAndroid(False, False)
+	If Not $Result Then SetLog("Android instance " & $g_sAndroidEmulator & "/" & $g_sAndroidInstance & _
+		" remains reserved, but its transport could not be initialized. Restart the bot before using Android controls.", $COLOR_ERROR)
 
 	SetDebugLog("UpdateAndroidConfig(""" & $instance & """) END")
 	Return FuncReturn($Result)
@@ -3052,6 +3092,8 @@ Func AndroidZoomOut($loopCount = 0, $timeout = Default, $bMinitouch = Default, $
 EndFunc   ;==>AndroidZoomOut
 
 Func AndroidAdbScript($scriptTag, $variablesArray = Default, $timeout = Default, $bMinitouch = Default, $wasRunState = Default)
+	If TestCapture() Then Return False
+	Return NoPremiumActionBlocked("multi-egress ADB script transport is unavailable under the no-premium policy")
 	If $bMinitouch = Default Then $bMinitouch = True
 	If $wasRunState = Default Then $wasRunState = $g_bRunState
 	ResumeAndroid()
@@ -3092,6 +3134,10 @@ Func AndroidClickDrag($x1, $y1, $x2, $y2, $wasRunState = Default, $bSCIDSwitch =
 EndFunc   ;==>AndroidClickDrag
 
 Func AndroidMinitouchClickDrag($x1, $y1, $x2, $y2, $wasRunState = Default, $bSCIDSwitch = False)
+	If TestCapture() Then Return False
+	Local $bPremiumReady = NoPremiumPreInputGate("adb-drag")
+	Local $iPremiumError = @error, $iPremiumExtended = @extended
+	If Not $bPremiumReady Then Return SetError($iPremiumError, $iPremiumExtended, False)
 	AndroidAdbLaunchShellInstance($wasRunState)
 	If $g_iAndroidAdbMinitouchMode = 0 Then
 		If $g_bAndroidAdbMinitouchSocket < 1 Then
@@ -3219,15 +3265,23 @@ Func AndroidAdbClickSupported()
 EndFunc   ;==>AndroidAdbClickSupported
 
 Func AndroidClick($x, $y, $times = 1, $speed = 150, $checkProblemAffect = True)
+	If TestCapture() Then Return False
+	Local $iPermitGameX = $x, $iPermitGameY = $y
 	If Not ($x = Default) Then $x = Int($x) + $g_aiMouseOffset[0]
 	If Not ($x = Default) Then $y = Int($y) + $g_aiMouseOffset[1]
 	ForceCaptureRegion()
 	;AndroidSlowClick($x, $y, $times, $speed)
 	;AndroidFastClick($x, $y, $times, $speed, $checkProblemAffect)
-	Return AndroidMinitouchClick($x, $y, $times, $speed, $checkProblemAffect)
+	Return AndroidMinitouchClick($x, $y, $times, $speed, $checkProblemAffect, 0, $iPermitGameX, $iPermitGameY)
 EndFunc   ;==>AndroidClick
 
 Func AndroidSlowClick($x, $y, $times = 1, $speed = 0)
+	If TestCapture() Then Return False
+	If $times < 1 Then Return False
+	If $times > 1 Or $x = Default Or $y = Default Then Return NoPremiumActionBlocked("queued or multi-egress slow ADB click is unavailable")
+	Local $bPremiumReady = NoPremiumPreInputGate("adb-slow-click")
+	Local $iPremiumError = @error, $iPremiumExtended = @extended
+	If Not $bPremiumReady Then Return SetError($iPremiumError, $iPremiumExtended, False)
 	Local $wasRunState = $g_bRunState
 	Local $cmd = ""
 	Local $i = 0
@@ -3301,6 +3355,12 @@ Func AndroidMoveMouseAnywhere()
 EndFunc   ;==>AndroidMoveMouseAnywhere
 
 Func AndroidFastClick($x, $y, $times = 1, $speed = 0, $checkProblemAffect = True, $iRetryCount = 0)
+	If TestCapture() Then Return False
+	If $times < 1 Then Return False
+	If $times > 1 Or $x = Default Or $y = Default Then Return NoPremiumActionBlocked("queued or multi-egress fast ADB click is unavailable")
+	Local $bPremiumReady = NoPremiumPreInputGate("adb-fast-click")
+	Local $iPremiumError = @error, $iPremiumExtended = @extended
+	If Not $bPremiumReady Then Return SetError($iPremiumError, $iPremiumExtended, False)
 	Local $wasAllowed = $g_bTogglePauseAllowed
 	$g_bTogglePauseAllowed = False
 	Local $Result = _AndroidFastClick($x, $y, $times, $speed, $checkProblemAffect, $iRetryCount)
@@ -3602,6 +3662,14 @@ EndFunc   ;==>_AndroidFastClick
 ; User for docked mouse touches, $iaAction: 0 = move, 1 = down, 2 = up
 ; return bytes sent
 Func Minitouch($x, $y, $iAction = 0, $iDelay = 1)
+	; Mouse movement and release cannot activate a surface. Validate the frame immediately before
+	; every new manual/embedded touch-down so this lower transport cannot bypass the click gate.
+	If $iAction = 1 Then
+		If TestCapture() Then Return 0
+		Local $bPremiumReady = NoPremiumPreInputGate("embedded-minitouch")
+		Local $iPremiumError = @error, $iPremiumExtended = @extended
+		If Not $bPremiumReady Then Return SetError($iPremiumError, $iPremiumExtended, 0)
+	EndIf
 	If $g_iAndroidAdbMinitouchMode = 0 Then
 		If $g_bAndroidAdbMinitouchSocket < 1 Then Return -1
 	EndIf
@@ -3674,7 +3742,12 @@ Func Minitouch($x, $y, $iAction = 0, $iDelay = 1)
 	Return $iBytes
 EndFunc   ;==>Minitouch
 
-Func AndroidMinitouchClick($x, $y, $times = 1, $speed = 150, $checkProblemAffect = True, $iRetryCount = 0)
+Func AndroidMinitouchClick($x, $y, $times = 1, $speed = 150, $checkProblemAffect = True, $iRetryCount = 0, _
+		$iPermitGameX = Default, $iPermitGameY = Default)
+	If TestCapture() Then Return False
+	If $times < 1 Then Return False
+	If $times > 1 Or $x = Default Or $y = Default Then Return NoPremiumActionBlocked("queued or multi-egress minitouch click is unavailable")
+	If $g_aiAndroidAdbClicks[0] > -1 Then Return NoPremiumActionBlocked("queued minitouch click cannot consume a one-shot action permit")
 	Local $minSleep = GetClickDownDelay()
 	Local $iDelay = GetClickUpDelay()
 	Local $_SilentSetLog = $g_bSilentSetLog
@@ -3736,7 +3809,7 @@ Func AndroidMinitouchClick($x, $y, $times = 1, $speed = 150, $checkProblemAffect
 			If $iRetryCount < 1 Then
 				; restart adb session that hopefully fixes the tcp issues
 				AndroidAdbTerminateShellInstance()
-				Return AndroidMinitouchClick($x, $y, $times, $speed, $checkProblemAffect, $iRetryCount + 1)
+				Return AndroidMinitouchClick($x, $y, $times, $speed, $checkProblemAffect, $iRetryCount + 1, $iPermitGameX, $iPermitGameY)
 			EndIf
 			Return SetError(1, 0, False)
 		EndIf
@@ -3746,7 +3819,7 @@ Func AndroidMinitouchClick($x, $y, $times = 1, $speed = 150, $checkProblemAffect
 	Local $ReleaseClicksCheck = ($x = Default And $y = Default And $g_aiAndroidAdbClicks[0] > 0)
 	If $ReleaseClicks <> $ReleaseClicksCheck Then
 		SetDebugLog("AndroidMinitouchClick: Release clicks condition changed from " & $ReleaseClicks & " to " & $ReleaseClicksCheck)
-		Return AndroidMinitouchClick($x, $y, $times, $speed, $checkProblemAffect, $iRetryCount)
+		Return AndroidMinitouchClick($x, $y, $times, $speed, $checkProblemAffect, $iRetryCount, $iPermitGameX, $iPermitGameY)
 	EndIf
 
 	$x = Int($x)
@@ -3785,6 +3858,11 @@ Func AndroidMinitouchClick($x, $y, $times = 1, $speed = 150, $checkProblemAffect
 				EndIf
 			EndIf
 		EndIf
+		; Transport setup and its one bounded reconnect complete before the permit is consumed.
+		; The second fresh framebuffer predicate now sits directly beside the sole coordinate egress.
+		Local $bPremiumReady = NoPremiumPreInputGate("adb-minitouch-click", $iPermitGameX, $iPermitGameY)
+		Local $iPremiumError = @error, $iPremiumExtended = @extended
+		If Not $bPremiumReady Then Return SetError($iPremiumError, $iPremiumExtended, False)
 		If $i = $loops And $remaining > 0 Then ; last block with less clicks, create new file
 			$recordsClicks = $remaining
 		ElseIf $ReleaseClicks = True Then
@@ -3932,6 +4010,10 @@ Func AndroidMinitouchClick($x, $y, $times = 1, $speed = 150, $checkProblemAffect
 EndFunc   ;==>AndroidMinitouchClick
 
 Func AndroidSendText($sText, $SymbolFix = False, $wasRunState = $g_bRunState)
+	If TestCapture() Then Return False
+	Local $bPremiumReady = NoPremiumPreInputGate("adb-text")
+	Local $iPremiumError = @error, $iPremiumExtended = @extended
+	If Not $bPremiumReady Then Return SetError($iPremiumError, $iPremiumExtended, False)
 	AndroidAdbLaunchShellInstance($wasRunState)
 	Local $error = @error
 	If $error = 0 Then
@@ -3981,6 +4063,8 @@ Func AndroidSendText($sText, $SymbolFix = False, $wasRunState = $g_bRunState)
 EndFunc   ;==>AndroidSendText
 
 Func AndroidSwipeNotWorking($x1, $y1, $x2, $y2, $wasRunState = $g_bRunState) ; This swipe is not working... but might in future with same fixing...
+	If TestCapture() Then Return False
+	Return NoPremiumActionBlocked("queued multi-egress ADB swipe is unavailable under the no-premium policy")
 	$x1 = Int($x1)
 	$y1 = Int($y1)
 	$x2 = Int($x2)
@@ -4013,9 +4097,13 @@ Func AndroidSwipeNotWorking($x1, $y1, $x2, $y2, $wasRunState = $g_bRunState) ; T
 EndFunc   ;==>AndroidSwipeNotWorking
 
 Func AndroidInputSwipe($x1, $y1, $x2, $y2, $wasRunState = $g_bRunState) ; Only used for BlueStacks/BlueStacks2
+	If TestCapture() Then Return False
+	Local $bPremiumReady = NoPremiumPreInputGate("adb-shell-swipe")
+	Local $iPremiumError = @error, $iPremiumExtended = @extended
+	If Not $bPremiumReady Then Return SetError($iPremiumError, $iPremiumExtended, False)
 	AndroidAdbLaunchShellInstance($wasRunState)
 	If @error = 0 Then
-		AndroidAdbSendShellCommand("input swipe " & $x1 & " " & $y1 & " " & $x2 & " " & $y2 & ";input tap " & $x2 & " " & $y2, 6000, $wasRunState) ; use 6 secs for additional timeout
+		AndroidAdbSendShellCommand("input swipe " & $x1 & " " & $y1 & " " & $x2 & " " & $y2, 6000, $wasRunState) ; one authorized gesture, no trailing tap
 		SetError(0, 0)
 	Else
 		Local $error = @error

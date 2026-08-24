@@ -35,6 +35,19 @@ Func OpenHomeTreasurySelectedReady()
 	Return _CheckPixel($aIsMain, False) And _OpenHomeTreasurySelectedFrameReady()
 EndFunc   ;==>OpenHomeTreasurySelectedReady
 
+Func OpenHomeTreasuryCastlePointReady($iX, $iY)
+	If $g_hBitmap = 0 Or Not _CheckPixel($aIsMain, False) Or _OpenHomeTreasurySelectedFrameReady() Then Return False
+	If Not NoPremiumPermitTargetValid($NO_PREMIUM_ACTION_TREASURY_CASTLE, $iX, $iY) Or _
+			Not IsArray($g_aiClanCastlePos) Or UBound($g_aiClanCastlePos) < 2 Then Return False
+	If Int($g_aiClanCastlePos[0]) <> Int($iX) Or Int($g_aiClanCastlePos[1]) <> Int($iY) Then Return False
+	Return Int($iX) >= 0 And Int($iY) >= 0 And isInsideDiamond($g_aiClanCastlePos)
+EndFunc   ;==>OpenHomeTreasuryCastlePointReady
+
+Func OpenHomeTreasuryEntryPointReady($iX, $iY)
+	Return NoPremiumPermitTargetValid($NO_PREMIUM_ACTION_TREASURY_ENTRY, $iX, $iY) And _
+			_CheckPixel($aIsMain, False) And _OpenHomeTreasurySelectedFrameReady()
+EndFunc   ;==>OpenHomeTreasuryEntryPointReady
+
 ; Current-client 860x732 Treasury panel. The red close control, neutral header/content frame, and all
 ; three resource tracks must agree before the panel is treated as owned.
 Func _OpenHomeTreasuryWindowFrameReady()
@@ -53,6 +66,11 @@ Func OpenHomeTreasuryWindowReady()
 	If Not OpenHomeCollectorsCapture() Then Return False
 	Return _OpenHomeTreasuryWindowFrameReady()
 EndFunc   ;==>OpenHomeTreasuryWindowReady
+
+Func OpenHomeTreasuryClosePointReady($iX, $iY)
+	Return NoPremiumPermitTargetValid($NO_PREMIUM_ACTION_TREASURY_CLOSE, $iX, $iY) And _
+			_OpenHomeTreasuryWindowFrameReady()
+EndFunc   ;==>OpenHomeTreasuryClosePointReady
 
 ; A full bar reaches the right edge with a green fill. All three gray endpoints prove that this
 ; Treasury is not full under the route's conservative full-only transfer policy.
@@ -80,7 +98,7 @@ Func OpenHomeTreasuryIssueCastle($iX, $iY)
 	If _OpenHomeTreasuryStopRequested() Or Not OpenHomeCollectorsProveHome() Then Return False
 	If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, False)
 	If _OpenHomeTreasuryStopRequested() Then Return False
-	Local $bIssued = Click(Int($iX), Int($iY), 1, 120, "#OpenHomeTreasuryCastle", True)
+	Local $bIssued = NoPremiumPointClick($NO_PREMIUM_ACTION_TREASURY_CASTLE, Int($iX), Int($iY), 120, "#OpenHomeTreasuryCastle", True)
 	If $bIssued Then RunEventLogMaintenanceTreasuryCastleIssued()
 	Return $bIssued
 EndFunc   ;==>OpenHomeTreasuryIssueCastle
@@ -100,7 +118,7 @@ Func OpenHomeTreasuryIssueEntry($iX, $iY)
 	If Int($iX) <> $OPEN_HOME_TREASURY_ENTRY_X Or Int($iY) <> $OPEN_HOME_TREASURY_ENTRY_Y Then Return False
 	If Not OpenHomeTreasurySelectedReady() Or _OpenHomeTreasuryStopRequested() Then Return False
 	If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, False)
-	Local $bIssued = Click(Int($iX), Int($iY), 1, 120, "#OpenHomeTreasuryEntry", True)
+	Local $bIssued = NoPremiumPointClick($NO_PREMIUM_ACTION_TREASURY_ENTRY, Int($iX), Int($iY), 120, "#OpenHomeTreasuryEntry", True)
 	If $bIssued Then RunEventLogMaintenanceTreasuryEntryIssued()
 	Return $bIssued
 EndFunc   ;==>OpenHomeTreasuryIssueEntry
@@ -138,7 +156,7 @@ Func OpenHomeTreasuryCleanup()
 	If Not OpenHomeTreasuryWindowReady() Then Return TreasuryCleanupCreate(0, False, False)
 	If _OpenHomeTreasuryStopRequested() Then Return TreasuryCleanupCreate(0, False, False)
 	If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, TreasuryCleanupCreate(0, False, False))
-	If Not Click($OPEN_HOME_TREASURY_CLOSE_X, $OPEN_HOME_TREASURY_CLOSE_Y, 1, 120, "#OpenHomeTreasuryClose", True) Then _
+	If Not NoPremiumPointClick($NO_PREMIUM_ACTION_TREASURY_CLOSE, $OPEN_HOME_TREASURY_CLOSE_X, $OPEN_HOME_TREASURY_CLOSE_Y, 120, "#OpenHomeTreasuryClose", True) Then _
 		Return TreasuryCleanupCreate(1, False, False)
 	If _Sleep(350, True, True, False) Then Return TreasuryCleanupCreate(1, True, False)
 	If _OpenHomeTreasuryStopRequested() Then Return TreasuryCleanupCreate(1, True, False)

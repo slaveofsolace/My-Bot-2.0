@@ -28,6 +28,8 @@ Func BoostTrainBuilding($sName, $iCmbBoost, $iCmbBoostCtrl)
 	Local $bBoosted = False
 
 	If Not $g_bTrainEnabled Or $iCmbBoost <= 0 Then Return $bBoosted
+	SetLog("Gem-based " & $sName & " boosting is unavailable in this build", $COLOR_WARNING)
+	Return NoPremiumActionBlocked("BoostTrainBuilding gem confirmation is permanently unavailable")
 
 	Local $aHours = StringSplit(_NowTime(4), ":", $STR_NOCOUNT)
 	If Not $g_abBoostBarracksHours[$aHours[0]] Then
@@ -59,7 +61,7 @@ Func BoostTrainBuilding($sName, $iCmbBoost, $iCmbBoostCtrl)
 			If _Sleep($DELAYBOOSTBARRACKS1) Then Return
 			Local $aGemWindowBtn = findButton("GEM")
 			If IsArray($aGemWindowBtn) Then
-				ClickP($aGemWindowBtn)
+				Return NoPremiumActionBlocked("BoostTrainBuilding reached a gem confirmation surface")
 				If _Sleep($DELAYBOOSTBARRACKS2) Then Return
 				If IsArray(findButton("EnterShop")) Then
 					SetLog("Not enough gems to boost " & $sName, $COLOR_ERROR)
