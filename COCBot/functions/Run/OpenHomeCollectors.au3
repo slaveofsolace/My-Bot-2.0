@@ -137,12 +137,16 @@ Func OpenHomeNoGemInputReady()
 	Return Not $bGemSurface
 EndFunc   ;==>OpenHomeNoGemInputReady
 
-; Issue at most one accepted click per resource type. Every decision uses a fresh frame; Home and Stop
-; are rechecked before every click and Home is re-proved after the last input. @extended is accepted clicks.
-Func OpenHomeCollectorsCollectOnePass()
-	Local $aIssued[4] = [False, False, False, False]
-	Local $iClicks = 0
-	For $iAction = 1 To 3
+; Issue at most $iMaxClicks accepted clicks total, and never more than one accepted click per resource type.
+; Every decision uses a fresh frame; Home and Stop are rechecked before every click and Home is re-proved
+; after the last input. @extended is accepted clicks.
+Func OpenHomeCollectorsCollectOnePass($iMaxClicks = 3)
+        Local $iClickLimit = Int($iMaxClicks)
+        If $iClickLimit < 1 Then $iClickLimit = 1
+        If $iClickLimit > 3 Then $iClickLimit = 3
+        Local $aIssued[4] = [False, False, False, False]
+        Local $iClicks = 0
+        For $iAction = 1 To $iClickLimit
 		If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, $iClicks, False)
 		If Not OpenHomeCollectorsProveHome() Then Return SetError(3, $iClicks, False)
 		Local $aFound[4][4]

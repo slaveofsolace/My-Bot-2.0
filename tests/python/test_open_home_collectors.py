@@ -143,7 +143,11 @@ class OpenHomeCollectorsTest(unittest.TestCase):
         self.assertLess(collect.rindex("RunControlStopRequested()", 0, click), click)
         self.assertLess(collect.rindex("_CheckPixel($aIsMain, False)", 0, click), click)
         self.assertIn("OpenHomeCollectorsProveHome()", collect[click:])
-        self.assertIn("For $iAction = 1 To 3", collect)
+        self.assertIn("Func OpenHomeCollectorsCollectOnePass($iMaxClicks = 3)", collect)
+        self.assertIn("Local $iClickLimit = Int($iMaxClicks)", collect)
+        self.assertIn("If $iClickLimit < 1 Then $iClickLimit = 1", collect)
+        self.assertIn("If $iClickLimit > 3 Then $iClickLimit = 3", collect)
+        self.assertIn("For $iAction = 1 To $iClickLimit", collect)
         self.assertIn("$aIssued[$iType] = True", collect)
         self.assertIn("$iRequiredMask", collect)
 
@@ -323,6 +327,7 @@ class OpenHomeCollectorsTest(unittest.TestCase):
             "btnStop",
         ):
             self.assertNotIn(forbidden, runner)
+        self.assertIn("OpenHomeCollectorsCollectOnePass(1)", runner)
 
         loot_runner = autoit_function(action, "_BotStartOpenHomeLootCart")
         for proof in (

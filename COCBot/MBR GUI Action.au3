@@ -250,7 +250,7 @@ Func _BotStartOpenHomeCollectors(ByRef $sStartError)
 	RunControlReportStartOutcome(True, "Template-free Home collectors started")
 	RunEventLogMaintenanceCollectorsStarted()
 
-	Local $bCollected = OpenHomeCollectorsCollectOnePass()
+	Local $bCollected = OpenHomeCollectorsCollectOnePass(1)
 	Local $iCollectError = @error
 	Local $iCollectorClicks = @extended
 	If Not $bCollected Then

@@ -700,8 +700,8 @@ Func _RunPlannerMetadataInit()
 	$g_aRunPlannerSettings[36][$eRunPlannerSettingSectionId] = "events"
 	$g_aRunPlannerSettings[36][$eRunPlannerSettingType] = "boolean"
 	$g_aRunPlannerSettings[36][$eRunPlannerSettingLabel] = "Collect collectors"
-	$g_aRunPlannerSettings[36][$eRunPlannerSettingSummary] = "Empty mines and collectors each pass."
-	$g_aRunPlannerSettings[36][$eRunPlannerSettingDescription] = "This is executed only by Home maintenance. The route skips full storages, Loot Cart, Treasury, matchmaking, donations, upgrades, Laboratory, and Clan Games."
+	$g_aRunPlannerSettings[36][$eRunPlannerSettingSummary] = "One mine/collector click."
+	$g_aRunPlannerSettings[36][$eRunPlannerSettingDescription] = "This is executed only by Home maintenance. The live-facing route issues at most one freshly recognized collector or mine click, then re-proves Home. It skips full storages, Loot Cart, Treasury, matchmaking, donations, upgrades, Laboratory, and Clan Games."
 	$g_aRunPlannerSettings[36][$eRunPlannerSettingDefault] = False
 	$g_aRunPlannerSettings[36][$eRunPlannerSettingRequired] = False
 	$g_aRunPlannerSettings[36][$eRunPlannerSettingBinding] = "RunPlan.events_collect_resources"
@@ -1014,7 +1014,7 @@ Func _RunPlannerMetadataInit()
 	$g_aRunPlannerOptions[10][$eRunPlannerOptionValue] = "home.collectors"
 	$g_aRunPlannerOptions[10][$eRunPlannerOptionLabel] = "Home maintenance"
 	$g_aRunPlannerOptions[10][$eRunPlannerOptionSummary] = "Run selected one-shot Home Village collection tasks without matchmaking."
-	$g_aRunPlannerOptions[10][$eRunPlannerOptionDescription] = "Runs a bounded Home pass for collectors, the Loot Cart, a Treasury not-full check, and, when explicitly enabled, the startup Daily Reward. It re-proves Home and stops. It cannot search, attack, train, donate, upgrade, enter the Laboratory, run Clan Games, or rotate accounts."
+	$g_aRunPlannerOptions[10][$eRunPlannerOptionDescription] = "Runs a bounded Home pass for collectors, the Loot Cart, a Treasury not-full check, and, when explicitly enabled, the startup Daily Reward. Collector mode permits at most one recognized mine/collector click, then re-proves Home and stops. It cannot search, attack, train, donate, upgrade, enter the Laboratory, run Clan Games, or rotate accounts."
 	$g_aRunPlannerOptions[10][$eRunPlannerOptionAvailability] = "gated"
 	$g_aRunPlannerOptions[10][$eRunPlannerOptionDisabledReason] = "The current reviewed package proves engine readiness and bot-owned game launch, but it has no exact-current collection completion receipt. Verified recognition fixtures exist for collectors, Loot Cart, and Daily Reward; Treasury still lacks its full/actionable fixture."
 	$g_aRunPlannerOptions[10][$eRunPlannerOptionPrerequisites] = "At least one Home task enabled|A supervised diagnostic operator"
