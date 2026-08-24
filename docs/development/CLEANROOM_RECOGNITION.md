@@ -12,8 +12,9 @@ are separately reviewed.
 The first tranche implements:
 
 - `FindTile` for one manifest-owned, verified current-client Daily Reward fixture asset. The source
-  fixture and privacy metadata are SHA-256 pinned; only seven manifest-owned candidate rectangles
-  are compared with Pillow, with a one-result cap. This is a fixed-coordinate fixture-replay
+  fixture and privacy metadata are SHA-256 pinned; text metadata is newline-normalized before hashing
+  so its identity remains stable across Git checkout platforms. Only seven manifest-owned candidate
+  rectangles are compared with Pillow, with a one-result cap. This is a fixed-coordinate fixture-replay
   primitive only: live capture tolerance, performance, and current-screen acceptance are unproven.
 - `GetOffSetRedline` as a bounded pure coordinate transform over caller-supplied integer points.
 - `GetDeployableNextTo` as a bounded pure nearest-redline coordinate transform.

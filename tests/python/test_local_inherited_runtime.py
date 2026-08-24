@@ -27,13 +27,16 @@ proof_profiles = load_tool("mybot_local_inherited_proof_profile", "tools/prepare
 
 class LocalInheritedRuntimeProvisionerTests(unittest.TestCase):
     def test_fixed_island_and_exact_pinned_source_tuple(self) -> None:
-        root = provisioner.fixed_island_root({"LOCALAPPDATA": r"C:\Owner\AppData\Local"})
+        local_app_data = r"C:\Owner\AppData\Local"
+        root = provisioner.fixed_island_root({"LOCALAPPDATA": local_app_data})
         self.assertEqual(
             root,
-            Path(
-                r"C:\Owner\AppData\Local\My Bot 2.0\LocalInheritedRuntime\pinned-"
-                + provisioner.PINNED_COMMIT
-            ).resolve(strict=False),
+            (
+                Path(local_app_data)
+                / "My Bot 2.0"
+                / "LocalInheritedRuntime"
+                / f"pinned-{provisioner.PINNED_COMMIT}"
+            ).absolute(),
         )
         source = provisioner.verify_local_git_source(ROOT)
         self.assertEqual("8ad6e5a552347acc2fcb8048d30262e2735a0c33", source["commit"])

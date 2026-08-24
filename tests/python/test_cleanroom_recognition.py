@@ -19,6 +19,7 @@ from tools.cleanroom_recognition import (
     RecognitionRequest,
     RecognitionStatus,
     ROOT_MARKER_NAME,
+    _sha256_normalized_text_file,
 )
 
 
@@ -93,6 +94,21 @@ class CleanRoomRecognitionTest(unittest.TestCase):
         self.assertEqual(17, len(set(names)))
         self.assertEqual({item.value for item in RecognitionExport}, set(names))
         self.assertEqual(3, sum(item["clean_room_status"] == "implemented" for item in exports))
+
+    def test_metadata_hash_is_checkout_newline_invariant(self) -> None:
+        lf_path = self.capture_root / "metadata-lf.json"
+        crlf_path = self.capture_root / "metadata-crlf.json"
+        lf_path.write_bytes(b'{"fixture_id":"sample"}\n')
+        crlf_path.write_bytes(b'{"fixture_id":"sample"}\r\n')
+        self.assertEqual(
+            _sha256_normalized_text_file(lf_path, 1024),
+            _sha256_normalized_text_file(crlf_path, 1024),
+        )
+        crlf_path.write_bytes(b'{"fixture_id":"changed"}\r\n')
+        self.assertNotEqual(
+            _sha256_normalized_text_file(lf_path, 1024),
+            _sha256_normalized_text_file(crlf_path, 1024),
+        )
 
     def test_find_tile_matches_verified_current_client_fixture(self) -> None:
         relative = self._fixture_capture()

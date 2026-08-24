@@ -168,7 +168,7 @@
       "image_path": "tests/fixtures/current-client/images/home.daily-reward.png",
       "image_sha256": "33a759cb71627aa48a7f032966e50ceb540b9c736d125ca98bd532347c5429c9",
       "metadata_path": "tests/fixtures/current-client/metadata/home.daily-reward.json",
-      "metadata_sha256": "c7fa7ff9f383c3df7d15fe686a5de89094d200a30bdfce8ff5871e3630c3adc7",
+      "metadata_sha256": "a4a5f6279a5d00c28e603bff0930055b956f112224c4d921e9668a90b4251fec",
       "required_screenshot_size": [860, 732],
       "template_box": [239, 305, 356, 345],
       "candidate_boxes": [

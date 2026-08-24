@@ -136,6 +136,15 @@ def _sha256_file(path: Path, maximum_bytes: int) -> str:
     return digest.hexdigest()
 
 
+def _sha256_normalized_text_file(path: Path, maximum_bytes: int) -> str:
+    """Hash tracked text independently of Git checkout newline conversion."""
+    raw = path.read_bytes()
+    if len(raw) > maximum_bytes:
+        raise RecognitionPolicyError("FILE_TOO_LARGE", f"File exceeds the {maximum_bytes}-byte bound")
+    normalized = raw.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    return hashlib.sha256(normalized).hexdigest()
+
+
 def _load_bounded_json(path: Path, maximum_bytes: int = 262_144) -> dict[str, Any]:
     if not path.is_file() or path.is_symlink():
         raise RecognitionPolicyError("MISSING_METADATA", f"Required metadata is missing: {path.name}")
@@ -401,7 +410,7 @@ class CleanRoomRecognitionAdapter:
             raise RecognitionPolicyError("INVALID_ASSET", "Manifest asset metadata hash is invalid")
         if _sha256_file(image_path, self._limits["max_file_bytes"]) != image_sha:
             raise RecognitionPolicyError("ASSET_HASH_MISMATCH", "Manifest-owned image asset changed")
-        if _sha256_file(metadata_path, 262_144) != metadata_sha:
+        if _sha256_normalized_text_file(metadata_path, 262_144) != metadata_sha:
             raise RecognitionPolicyError("ASSET_HASH_MISMATCH", "Manifest-owned fixture metadata changed")
         fixture_manifest = _load_bounded_json(FIXTURE_MANIFEST_PATH)
         fixture = next(
