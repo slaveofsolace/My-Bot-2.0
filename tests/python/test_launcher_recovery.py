@@ -150,6 +150,50 @@ class LauncherRecoveryContractTests(unittest.TestCase):
         self.assertNotIn("BlueStacks", body)
         self.assertNotIn("HD-Player", body)
 
+    def test_recovery_closes_only_receipt_bound_launch_only_bluestacks(self):
+        recovery = autoit_function(LAUNCHER, "_RecoverBotStack")
+        controller_exit = autoit_function(LAUNCHER, "_RecoverExitedOwnedControllerStack")
+        close = autoit_function(LAUNCHER, "_CloseOwnedLaunchOnlyEmulator")
+        finder = autoit_function(LAUNCHER, "_FindLaunchOnlyBlueStacksWindow")
+
+        self.assertIn('Global Const $g_sLaunchOnlyEmulatorOwnershipSchema = "my-bot-launch-only-emulator-owner-v1"', LAUNCHER)
+        self.assertIn("_CloseOwnedLaunchOnlyEmulator(False)", recovery)
+        self.assertIn("_CloseOwnedLaunchOnlyEmulator(True)", controller_exit)
+        self.assertLess(recovery.index("_CloseVerifiedAdbChildren"), recovery.index("_CloseOwnedLaunchOnlyEmulator(False)"))
+        self.assertLess(controller_exit.index("_CloseVerifiedAdbChildren"), controller_exit.index("_CloseOwnedLaunchOnlyEmulator(True)"))
+
+        for required in (
+            '_PlannerReceiptString($sReceipt, "schema")',
+            '_PlannerReceiptInt($sReceipt, "player_pid")',
+            '_PlannerReceiptString($sReceipt, "player_created")',
+            '_LauncherReceiptIdentifier($sReceipt, "instance")',
+            "_ProcessCreationId($iPlayerPid) <> $sPlayerCreated",
+            'StringRegExp(StringLower(_ProcessImagePath($iPlayerPid)), "\\\\hd-player\\.exe$")',
+            "_ProcessCommandLine($iPlayerPid)",
+            'StringInStr($sCommand, "--instance")',
+            "_FindLaunchOnlyBlueStacksWindow($iPlayerPid, $sInstance)",
+            "_ReadLaunchOnlyEmulatorOwnershipReceipt() <> $sReceipt",
+            "taskkill.exe",
+            '" -f -t -pid " & $iPlayerPid',
+            "FileDelete($g_sLaunchOnlyEmulatorOwnershipReceipt)",
+        ):
+            self.assertIn(required, close)
+        for forbidden in (
+            '_CloseExactPathProcesses("HD-Player.exe"',
+            'ProcessList("HD-Player.exe")',
+            "ProcessClose($iPlayerPid)",
+            "kill-server",
+        ):
+            self.assertNotIn(forbidden, close)
+        for required in (
+            'Local $sTitle = "BlueStacks5-" & $sInstance',
+            "WinList($sTitle)",
+            "WinGetProcess($hWindow) <> $iPlayerPid",
+            'StringRegExp(_WindowClassName($hWindow), "^Qt[0-9]+QWindowIcon$")',
+            'StringRegExp(StringLower(_ProcessImagePath($iPlayerPid)), "\\\\hd-player\\.exe$")',
+        ):
+            self.assertIn(required, finder)
+
     def test_recovery_closes_only_a_verified_checkout_planner_service(self):
         self.assertIn('Global Const $g_sPlannerServiceName = "my-bot-control-center"', LAUNCHER)
         start = LAUNCHER.index("Func _CloseOwnedPlannerService(")

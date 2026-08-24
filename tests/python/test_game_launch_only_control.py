@@ -112,6 +112,38 @@ class GameLaunchOnlyControlTests(unittest.TestCase):
         for forbidden in ("Click(", "AndroidAdbSendShellCommand", "_Capture", "GetScreen"):
             self.assertNotIn(forbidden, settle)
 
+    def test_launch_only_records_exact_emulator_owner_when_product_starts_it(self) -> None:
+        adapter = function_body(self.android, "LaunchBlueStacks5CoCOnly")
+        for required in (
+            "Local $bHadExactWindow = WinGetAndroidHandle() <> 0",
+            "If Not $bHadExactWindow And WinGetAndroidHandle() <> 0 Then $bStartedEmulator = True",
+            "If $bStartedEmulator Then",
+            "_BlueStacks5ConfiguredAdbOwnerPid()",
+            "_BlueStacks5WriteLaunchOnlyOwnerReceipt($iOwnedPlayerPid)",
+            "BlueStacks launched but exact product ownership could not be recorded for cleanup",
+        ):
+            self.assertIn(required, adapter)
+        self.assertLess(adapter.index("ConnectAndroidAdb(False, 3000)"), adapter.index("_BlueStacks5WriteLaunchOnlyOwnerReceipt"))
+        self.assertLess(adapter.index("_BlueStacks5WriteLaunchOnlyOwnerReceipt"), adapter.index('AndroidAdbSendShellCommand("am start -n "'))
+
+        receipt = function_body(self.android, "_BlueStacks5WriteLaunchOnlyOwnerReceipt")
+        for required in (
+            "$g_sBlueStacks5LaunchOnlyOwnerSchema",
+            "$g_sBlueStacks5LaunchOnlyOwnerReceipt",
+            "$g_bMBRFuncEngineSupervisorValid",
+            "_MBRFuncProcessCreationId($iPlayerPid)",
+            "_MBRFuncProcessCreationId(@AutoItPID)",
+            "_MBRFuncParentPid(@AutoItPID)",
+            '"player_pid":',
+            '"player_created":"',
+            '"instance":"',
+            'FileMove($sTemporary, $g_sBlueStacks5LaunchOnlyOwnerReceipt, 1)',
+            "FileRead($g_sBlueStacks5LaunchOnlyOwnerReceipt) = $sReceipt",
+        ):
+            self.assertIn(required, receipt)
+        for forbidden in ("ShellExecute", "taskkill", "ProcessClose"):
+            self.assertNotIn(forbidden, receipt)
+
     def test_native_bridge_owns_launch_request_and_returns_idle(self) -> None:
         consume = function_body(self.bridge, "_RunControlConsumeCommand")
         case = consume.split('Case "launch-game"', 1)[1].split('Case "stop"', 1)[0]

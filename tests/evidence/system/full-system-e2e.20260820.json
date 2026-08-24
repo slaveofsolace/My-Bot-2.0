@@ -5770,6 +5770,16 @@
         "verdict": "PASS"
       },
       {
+        "id": "My Bot 2.0.au3::_CloseOwnedLaunchOnlyEmulator",
+        "policy": "infrastructure",
+        "mapping": "infra.launcher",
+        "capability_ids": [
+          "runtime.recovery",
+          "orchestration.engine-initialization"
+        ],
+        "verdict": "PASS"
+      },
+      {
         "id": "My Bot 2.0.au3::_CloseOwnedPlannerService",
         "policy": "infrastructure",
         "mapping": "infra.launcher",
@@ -6058,11 +6068,11 @@
     "compile_targets": 6,
     "control_actions": 6,
     "infrastructure_routes": 8,
-    "actuator_owners": 464,
-    "actuator_sites": 1178,
+    "actuator_owners": 465,
+    "actuator_sites": 1179,
     "pass_capabilities": 2,
     "deferred_capabilities": 59,
-    "pass_actuator_owners": 434,
+    "pass_actuator_owners": 435,
     "deferred_actuator_owners": 30
   }
 }
