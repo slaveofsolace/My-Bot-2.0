@@ -182,6 +182,8 @@ class GameLaunchOnlyControlTests(unittest.TestCase):
         self.assertIn("CONTROL.last_command !== 'launch-game'", self.javascript)
         self.assertIn("CONTROL.last_outcome !== 'passed'", self.javascript)
         self.assertIn("'daily reward', 'welcome back', 'inactivity', 'startup overlay'", self.javascript)
+        self.assertIn("Launch-only never clicks game UI", self.javascript)
+        self.assertIn("Claim Daily Reward for the bounded no-gem route", self.javascript)
         self.assertIn("Home readiness is waiting on a known startup surface", self.javascript)
         self.assertIn("if (launchSurfaceMessage) emulatorText = 'Startup surface';", self.javascript)
 
