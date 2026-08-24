@@ -6,6 +6,7 @@ let PLAN_WRITTEN = false;
 let NATIVE_PROFILE_MODE = false;
 let BOOT_READY = false;
 let ACTIVE_VIEW = 'run';
+let ACTIVE_SURFACE = 'overview';
 const VIEW_IDS = ['run', 'plan', 'village', 'activity', 'diagnostics'];
 let ACTIVE_GROUP = 'match';
 let SELECTED_PRESET = 'custom';
@@ -125,6 +126,87 @@ const PLAN_GROUPS = [
   },
 ];
 
+const SURFACE_DEFINITIONS = [
+  {
+    id: 'overview',
+    view: 'run',
+    title: 'Overview',
+    description: 'Current run state, selected profile, emulator binding, last command, and the next safe action.',
+  },
+  {
+    id: 'planner',
+    view: 'plan',
+    title: 'Run Planner',
+    description: 'All planner settings. Applying saves the visible values; starting remains separate.',
+  },
+  {
+    id: 'farming',
+    view: 'plan',
+    group: 'targets',
+    title: 'Farming',
+    description: 'Search filters, run limits, and resource targets for the next bounded run.',
+    sectionIds: ['search', 'limits', 'resources'],
+  },
+  {
+    id: 'builder',
+    view: 'plan',
+    group: 'match',
+    title: 'Builder Base',
+    description: 'Builder Base is visible here only as a blocked route until current-client adapters exist.',
+    settingIds: ['run.surface', 'run.strategy'],
+    blocked: true,
+  },
+  {
+    id: 'upgrades',
+    view: 'plan',
+    group: 'between',
+    title: 'Upgrades',
+    description: 'Upgrade and research switches that remain bound to the no-gem and evidence gates.',
+    settingIds: ['upgrade.policy', 'events.laboratory'],
+  },
+  {
+    id: 'accounts',
+    view: 'plan',
+    group: 'between',
+    title: 'Accounts',
+    description: 'Account queue control and the active profile identity shown in the header.',
+    settingIds: ['account.queue'],
+  },
+  {
+    id: 'activity',
+    view: 'activity',
+    title: 'Activity',
+    description: 'Issued commands and confirmed outcomes from the bounded event stream.',
+  },
+  {
+    id: 'settings',
+    view: 'plan',
+    group: 'runtime',
+    title: 'Settings',
+    description: 'Runtime binding, notification preferences, and the visible theme selector.',
+    settingIds: ['runtime.emulator', 'runtime.instance', 'notify.on_stop', 'notify.on_error', 'notify.channel'],
+  },
+  {
+    id: 'about',
+    view: 'diagnostics',
+    title: 'About',
+    description: 'Connection health, proof language, source lineage, and raw diagnostics.',
+  },
+  {
+    id: 'village',
+    view: 'village',
+    title: 'Village',
+    description: 'Legacy capability boundary view retained for existing #village links.',
+    legacy: true,
+  },
+];
+
+const SURFACE_ALIASES = {
+  run: 'overview',
+  plan: 'planner',
+  diagnostics: 'about',
+};
+
 const CAPABILITY_GROUPS = [
   {
     label: 'Farming and battles',
@@ -161,6 +243,19 @@ const isUnsaved = setting => !same(PLAN[setting.id], SAVED[setting.id]);
 const presetItems = () => META?.presets?.items || [];
 const presetById = id => presetItems().find(preset => preset.id === id);
 const clone = value => structuredClone(value);
+const surfaceById = id => SURFACE_DEFINITIONS.find(surface => surface.id === id);
+const activeSurface = () => surfaceById(ACTIVE_SURFACE) || surfaceById('overview');
+
+function resolveSurface(token) {
+  const id = SURFACE_ALIASES[token] || token || 'overview';
+  return surfaceById(id) || surfaceById('overview');
+}
+
+function hashForSurface(surface = activeSurface()) {
+  if (surface.id === 'planner') return `#planner/${ACTIVE_GROUP}`;
+  if (surface.legacy) return `#${surface.id}`;
+  return `#${surface.id}`;
+}
 
 function readThemeChoice() {
   try {
@@ -202,22 +297,35 @@ function matchingPresetForPlan(plan = PLAN) {
   return presetItems().find(preset => presetMatchesPlan(preset, plan));
 }
 
-function setView(view, { updateHash = false, focusHeading = false } = {}) {
-  if (!VIEW_IDS.includes(view)) view = 'run';
-  ACTIVE_VIEW = view;
-  for (const name of VIEW_IDS) {
-    const panel = $(`view${name[0].toUpperCase()}${name.slice(1)}`);
-    const button = $(`view${name[0].toUpperCase()}${name.slice(1)}Button`);
-    panel.hidden = name !== view;
-    if (name === view) button.setAttribute('aria-current', 'page');
+function updateSurfaceNav() {
+  for (const button of viewButtons) {
+    if (button.dataset.view === ACTIVE_SURFACE) button.setAttribute('aria-current', 'page');
     else button.removeAttribute('aria-current');
   }
+}
+
+function setView(view, { updateHash = false, focusHeading = false } = {}) {
+  const surface = resolveSurface(view);
+  ACTIVE_SURFACE = surface.id;
+  ACTIVE_VIEW = surface.view;
+  if (surface.view === 'plan' && surface.group) {
+    ACTIVE_GROUP = surface.group;
+    FILTER = '';
+    $('filter').value = '';
+  }
+  for (const name of VIEW_IDS) {
+    const panel = $(`view${name[0].toUpperCase()}${name.slice(1)}`);
+    panel.hidden = name !== ACTIVE_VIEW;
+  }
+  updateSurfaceNav();
+  if (BOOT_READY && ACTIVE_VIEW === 'plan') drawPlanPanel();
+  else renderPlanSurfaceChrome(surface);
   if (updateHash) {
-    const next = view === 'plan' ? `#plan/${ACTIVE_GROUP}` : `#${view}`;
+    const next = hashForSurface(surface);
     if (location.hash !== next) location.hash = next;
   }
   if (focusHeading && BOOT_READY) {
-    const heading = $(`${view}Title`);
+    const heading = $(`${ACTIVE_VIEW}Title`);
     heading?.focus();
   }
 }
@@ -225,6 +333,11 @@ function setView(view, { updateHash = false, focusHeading = false } = {}) {
 function setGroup(groupId, { updateHash = false, focusGroup = false } = {}) {
   if (!PLAN_GROUPS.some(group => group.id === groupId)) groupId = 'match';
   ACTIVE_GROUP = groupId;
+  const surface = activeSurface();
+  if (surface.view === 'plan' && surface.group && surface.group !== groupId) {
+    ACTIVE_SURFACE = 'planner';
+    updateSurfaceNav();
+  }
   updatePlanGroupNav();
   if (FILTER) {
     const target = $(`searchGroup_${groupId}`);
@@ -235,18 +348,20 @@ function setGroup(groupId, { updateHash = false, focusGroup = false } = {}) {
   } else {
     drawPlanPanel();
   }
+  renderPlanSurfaceChrome();
   if (updateHash) {
-    const next = `#plan/${ACTIVE_GROUP}`;
+    const next = hashForSurface();
     if (location.hash !== next) location.hash = next;
   }
 }
 
 function applyLocation() {
   const [viewToken, groupToken] = location.hash.replace(/^#/, '').split('/');
-  const view = VIEW_IDS.includes(viewToken) ? viewToken : 'run';
+  const surface = resolveSurface(viewToken);
   if (groupToken && PLAN_GROUPS.some(group => group.id === groupToken)) ACTIVE_GROUP = groupToken;
-  setView(view);
-  if (BOOT_READY && view === 'plan') setGroup(ACTIVE_GROUP);
+  else if (surface.view === 'plan' && surface.group) ACTIVE_GROUP = surface.group;
+  setView(surface.id);
+  if (BOOT_READY && surface.view === 'plan') setGroup(ACTIVE_GROUP);
 }
 
 function handleRovingKeys(event, buttons) {
@@ -555,10 +670,67 @@ function createEditorHeading(title, description, id = '') {
   return heading;
 }
 
+function planSurfaceSections(surface) {
+  if (!META || surface.view !== 'plan') return null;
+  if (surface.settingIds) {
+    const ids = new Set(surface.settingIds);
+    return (META.sections || [])
+      .map(section => ({ section, settings: settingsOf(section).filter(setting => ids.has(setting.id)) }))
+      .filter(item => item.settings.length);
+  }
+  if (surface.sectionIds) {
+    const ids = new Set(surface.sectionIds);
+    return (META.sections || [])
+      .filter(section => ids.has(section.id))
+      .map(section => ({ section, settings: settingsOf(section) }))
+      .filter(item => item.settings.length);
+  }
+  return null;
+}
+
+function builderBaseUnavailableReason() {
+  const surface = optionOf(findSetting('run.surface'), 'builder');
+  const strategy = optionOf(findSetting('run.strategy'), 'builder.baby-dragon');
+  const reasons = [surface?.disabled_reason, strategy?.disabled_reason].filter(Boolean);
+  return reasons.length
+    ? reasons.join(' ')
+    : 'Builder Base routes are planned, but the current native execution contract does not expose a current-client adapter.';
+}
+
+function renderPlanSurfaceChrome(surface = activeSurface()) {
+  if (!$('planTitle')) return;
+  const planSurface = surface.view === 'plan' ? surface : surfaceById('planner');
+  $('planTitle').textContent = planSurface.title;
+  const copy = document.querySelector('.plan-surface-copy');
+  if (copy) copy.textContent = planSurface.description;
+  const workbench = document.querySelector('.preset-workbench');
+  if (workbench) workbench.hidden = planSurface.id !== 'planner';
+  const groupNav = $('planGroupNav');
+  if (groupNav) groupNav.hidden = !!planSurface.settingIds || !!planSurface.sectionIds;
+
+  const context = document.querySelector('.surface-context');
+  if (!context) return;
+  if (planSurface.id === 'planner') {
+    context.hidden = true;
+    context.className = 'surface-context';
+    return;
+  }
+  const title = context.querySelector('strong');
+  const text = context.querySelector('p');
+  title.textContent = planSurface.blocked ? 'Unavailable in this build' : `${planSurface.title} surface`;
+  text.textContent = planSurface.id === 'builder'
+    ? `${builderBaseUnavailableReason()} The controls below are shown for review only; Start remains blocked.`
+    : `${planSurface.description} These controls use the same persisted planner values as Run Planner.`;
+  context.className = `surface-context${planSurface.blocked ? ' is-blocked' : ''}`;
+  context.hidden = false;
+}
+
 function drawPlanPanel() {
   const panel = $('panel');
   panel.replaceChildren();
   if (!META) return;
+  const surface = activeSurface();
+  renderPlanSurfaceChrome(surface);
 
   if (FILTER) {
     const heading = createEditorHeading('Search results', `Matches for “${$('filter').value.trim()}” across all five plan groups.`);
@@ -590,11 +762,23 @@ function drawPlanPanel() {
       panel.append(empty);
     }
   } else {
-    const group = PLAN_GROUPS.find(item => item.id === ACTIVE_GROUP) || PLAN_GROUPS[0];
-    panel.append(createEditorHeading(group.label, group.description, 'activeGroupHeading'));
-    for (const sectionId of group.sections) {
-      const section = (META.sections || []).find(item => item.id === sectionId);
-      if (section) panel.append(renderMetadataSection(section, settingsOf(section)));
+    const sections = planSurfaceSections(surface);
+    if (sections) {
+      panel.append(createEditorHeading(surface.title, surface.description, 'activeGroupHeading'));
+      for (const item of sections) panel.append(renderMetadataSection(item.section, item.settings));
+      if (!sections.length) {
+        const empty = document.createElement('p');
+        empty.className = 'empty-state';
+        empty.textContent = 'No planner setting is mapped to this surface.';
+        panel.append(empty);
+      }
+    } else {
+      const group = PLAN_GROUPS.find(item => item.id === ACTIVE_GROUP) || PLAN_GROUPS[0];
+      panel.append(createEditorHeading(group.label, group.description, 'activeGroupHeading'));
+      for (const sectionId of group.sections) {
+        const section = (META.sections || []).find(item => item.id === sectionId);
+        if (section) panel.append(renderMetadataSection(section, settingsOf(section)));
+      }
     }
   }
   updatePlanGroupNav();
@@ -1099,7 +1283,7 @@ function focusSetting(settingId) {
   FILTER = '';
   $('filter').value = '';
   ACTIVE_GROUP = groupForSetting(settingId);
-  setView('plan', { updateHash: true });
+  setView('planner', { updateHash: true });
   drawPlanPanel();
   updatePlanGroupNav();
   const setting = findSetting(settingId);
@@ -1247,10 +1431,10 @@ function renderPlanReceipts() {
     : 'The applied plan, engine binding, and next safe action.';
   $('routeModeKicker').textContent = nativeCopy ? 'Full profile automation' : 'Safe run route';
   $('routeOverviewTitle').textContent = nativeCopy
-    ? 'Full profile. Launch the complete stack.'
-    : 'Plan first. Prove every boundary.';
+    ? 'Native profile guarded start'
+    : 'Operational overview';
   $('routeOverviewCopy').textContent = nativeCopy
-    ? 'Start uses the selected native profile through the current recognition and no-premium gates.'
+    ? 'Start uses the selected native profile only while current recognition and no-premium gates remain available.'
     : 'Start advances only after the saved plan, managed engine, emulator identity, and village state pass their own checks.';
   $('routeStepOneTitle').textContent = nativeCopy ? 'Profile' : 'Plan';
   $('routeStepOneCopy').textContent = nativeCopy ? 'Use active native settings' : 'Apply exact work';
@@ -1480,6 +1664,36 @@ function renderControl() {
   $('controlStop').disabled = !BOOT_READY || (!connected && !managedInitCanBeStopped) || (busy && !managedInitCanBeStopped)
     || (!managedInitCanBeStopped && !['starting', 'running', 'paused'].includes(state));
   $('controlPause').textContent = state === 'paused' ? 'Resume' : 'Pause';
+  const engineReadiness = !connected
+    ? 'Not connected'
+    : engineAvailable === false
+      ? 'Unavailable'
+      : CONTROL.engine_probe_state === 'passed' ? 'Ready' : 'Not checked';
+  const lastCommand = CONTROL.last_command
+    ? `${CONTROL.last_outcome || 'pending'} / ${CONTROL.last_command}`
+    : 'None';
+  let nextAction = 'Start run is available';
+  if (!BOOT_READY) nextAction = 'Wait for load';
+  else if (busy) nextAction = `Wait for ${CONTROL_PENDING.action}`;
+  else if (!connected) nextAction = 'Wait for native heartbeat';
+  else if (state !== 'idle') nextAction = 'Use Pause or Stop';
+  else if (!engineAvailable) nextAction = 'Resolve engine availability';
+  else if (nativeProfileBlocked) nextAction = 'Use a bounded route';
+  else if (hasUnsavedPlan) nextAction = NATIVE_PROFILE_MODE ? 'Check recognition gate' : 'Apply the visible plan';
+  for (const [selector, text] of [
+    ['.route-readiness-profile', profileIdentity],
+    ['.route-readiness-instance', emulatorIdentity],
+    ['.route-readiness-engine', engineReadiness],
+    ['.route-readiness-command', lastCommand],
+    ['.route-readiness-next', nextAction],
+  ]) {
+    const element = document.querySelector(selector);
+    if (element) element.textContent = text;
+  }
+  const routeMode = document.querySelector('.route-readout-mode');
+  if (routeMode) routeMode.textContent = NATIVE_PROFILE_MODE ? 'ROUTE / PROFILE' : 'ROUTE / PLAN';
+  const routeState = document.querySelector('.route-readout-state');
+  if (routeState) routeState.textContent = String(state || 'offline').toLocaleUpperCase();
   if (planLocked) {
     $('apply').disabled = true;
     $('apply').title = 'The applied plan is immutable while a run is active';
@@ -1719,7 +1933,7 @@ function prepareVerifiedHomeRoute() {
     setControlNotice('The bounded Home route could not be loaded.', 'error');
     return;
   }
-  setView('plan', { updateHash: true, focusHeading: true });
+  setView('planner', { updateHash: true, focusHeading: true });
   setGroup('between', { updateHash: true, focusGroup: true });
   setControlNotice('Collectors-only safety settings are visible for review. Apply plan, then Start remains a separate action.', 'info');
   renderControl();
@@ -2086,6 +2300,10 @@ $('reset').onclick = () => {
 
 $('filter').oninput = event => {
   FILTER = event.target.value.trim().toLocaleLowerCase();
+  if (FILTER) {
+    ACTIVE_SURFACE = 'planner';
+    updateSurfaceNav();
+  }
   drawPlanPanel();
   updatePlanGroupNav();
 };

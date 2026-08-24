@@ -64,11 +64,15 @@
 
 <div class="app-shell">
 <nav class="view-nav" aria-label="Control center views">
-  <button id="viewRunButton" type="button" data-view="run" aria-current="page" disabled>Run</button>
-  <button id="viewPlanButton" type="button" data-view="plan" disabled>Strategy</button>
-  <button id="viewVillageButton" type="button" data-view="village" disabled>Village</button>
-  <button id="viewActivityButton" type="button" data-view="activity" disabled>Evidence</button>
-  <button id="viewDiagnosticsButton" type="button" data-view="diagnostics" disabled>System</button>
+  <button id="viewRunButton" type="button" data-view="overview" aria-current="page" disabled>Overview</button>
+  <button id="viewPlanButton" type="button" data-view="planner" disabled>Run Planner</button>
+  <button id="viewVillageButton" type="button" data-view="farming" disabled>Farming</button>
+  <button type="button" data-view="builder" disabled>Builder Base</button>
+  <button type="button" data-view="upgrades" disabled>Upgrades</button>
+  <button type="button" data-view="accounts" disabled>Accounts</button>
+  <button id="viewActivityButton" type="button" data-view="activity" disabled>Activity</button>
+  <button type="button" data-view="settings" disabled>Settings</button>
+  <button id="viewDiagnosticsButton" type="button" data-view="about" disabled>About</button>
 </nav>
 
 <div class="app-stage">
@@ -85,7 +89,7 @@
   <section class="view-panel" id="viewRun" aria-labelledby="runTitle">
     <header class="view-heading">
       <div>
-        <h2 id="runTitle" tabindex="-1">Run</h2>
+        <h2 id="runTitle" tabindex="-1">Overview</h2>
         <p id="runIntro">The applied plan, engine binding, and next safe action.</p>
       </div>
       <button id="editPlan" type="button" disabled>Edit plan</button>
@@ -94,8 +98,15 @@
     <section class="route-overview" aria-labelledby="routeOverviewTitle">
       <div class="route-copy">
         <span class="route-kicker" id="routeModeKicker">Safe run route</span>
-        <h3 id="routeOverviewTitle">Plan first. Prove every boundary.</h3>
+        <h3 id="routeOverviewTitle">Operational overview</h3>
         <p id="routeOverviewCopy">Start advances only after the saved plan, managed engine, emulator identity, and village state pass their own checks.</p>
+        <dl class="route-readiness" aria-label="Current run readiness">
+          <div><dt>Profile</dt><dd class="route-readiness-profile">Not loaded</dd></div>
+          <div><dt>Instance</dt><dd class="route-readiness-instance">Not loaded</dd></div>
+          <div><dt>Engine</dt><dd class="route-readiness-engine">Loading</dd></div>
+          <div><dt>Last command</dt><dd class="route-readiness-command">None</dd></div>
+          <div><dt>Next safe action</dt><dd class="route-readiness-next">Wait for load</dd></div>
+        </dl>
         <ul class="safety-rail" aria-label="Run safety contract">
           <li><span aria-hidden="true">◇</span><strong>No gems</strong><small>Hard stop on gem surfaces</small></li>
           <li><span aria-hidden="true">⌖</span><strong>Exact instance</strong><small>Profile and emulator bound</small></li>
@@ -126,8 +137,8 @@
         <rect class="route-grid" width="520" height="240" fill="url(#routeGrid)"/>
         <path class="route-contour" d="M307 22c53 7 80 31 100 62 20 32 50 47 102 44M282 39c47 9 70 31 88 59 19 31 48 48 108 51M30 85c49-20 92-20 126 0 26 15 55 18 86 7"/>
         <g class="route-readout" aria-hidden="true">
-          <text x="25" y="25">ROUTE / HOME-01</text>
-          <text x="398" y="25">INPUT GATED</text>
+          <text class="route-readout-mode" x="25" y="25">ROUTE / HOME-01</text>
+          <text class="route-readout-state" x="398" y="25">INPUT GATED</text>
         </g>
         <path class="route-terrain" d="M19 205c61-35 93-14 139-39 39-21 57-65 107-58 53 8 76 78 127 68 35-7 51-42 105-45"/>
         <path class="route-path" d="M63 178c86 0 92-67 173-67 75 0 92 65 169 65"/>
@@ -190,7 +201,7 @@
     <header class="view-heading plan-heading">
       <div>
         <h2 id="planTitle" tabindex="-1">Strategy</h2>
-        <p>Choose the exact work for one run. Applying saves it; starting remains separate.</p>
+        <p class="plan-surface-copy">Choose the exact work for one run. Applying saves it; starting remains separate.</p>
       </div>
       <label class="search-control" for="filter">
         <span>Find a setting</span>
@@ -210,6 +221,11 @@
         <span>The visible settings remain unchanged until the control center finishes loading.</span>
       </div>
       <span class="sr-only" id="presetAnnouncement" aria-live="polite" aria-atomic="true"></span>
+    </section>
+
+    <section class="surface-context" aria-live="polite" hidden>
+      <strong>Run Planner</strong>
+      <p>The complete planner is visible.</p>
     </section>
 
     <section class="maintenance-route-preview" id="maintenanceRoutePreview" aria-labelledby="maintenanceRouteTitle" hidden>
@@ -356,7 +372,7 @@
   <section class="view-panel" id="viewActivity" aria-labelledby="activityTitle" hidden>
     <header class="view-heading">
       <div>
-        <h2 id="activityTitle" tabindex="-1">Evidence</h2>
+        <h2 id="activityTitle" tabindex="-1">Activity</h2>
         <p>Issued commands and confirmed outcomes from the bounded event stream.</p>
       </div>
     </header>
@@ -397,7 +413,7 @@
   <section class="view-panel" id="viewDiagnostics" aria-labelledby="diagnosticsTitle" hidden>
     <header class="view-heading">
       <div>
-        <h2 id="diagnosticsTitle" tabindex="-1">System</h2>
+        <h2 id="diagnosticsTitle" tabindex="-1">About</h2>
         <p>Connection health, proof boundaries, source lineage, and raw diagnostics.</p>
       </div>
       <button id="exportDiagnostics" type="button" disabled>Export diagnostics</button>

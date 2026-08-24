@@ -12,9 +12,17 @@ METADATA = json.loads((ROOT / "config" / "ui" / "run-planner.settings.json").rea
 
 
 class PlannerWorkbenchContract(unittest.TestCase):
-    def test_five_views_and_five_plan_groups_are_stable(self):
-        self.assertEqual(re.findall(r'data-view="([^"]+)"', HTML), ["run", "plan", "village", "activity", "diagnostics"])
+    def test_nine_operator_surfaces_and_five_physical_panels_are_stable(self):
+        self.assertEqual(
+            re.findall(r'data-view="([^"]+)"', HTML),
+            ["overview", "planner", "farming", "builder", "upgrades", "accounts", "activity", "settings", "about"],
+        )
         self.assertIn("const VIEW_IDS = ['run', 'plan', 'village', 'activity', 'diagnostics'];", JS)
+        self.assertIn("const SURFACE_DEFINITIONS = [", JS)
+        for surface in ("overview", "planner", "farming", "builder", "upgrades", "accounts", "activity", "settings", "about"):
+            self.assertIn(f"id: '{surface}'", JS)
+        for legacy, current in (("run", "overview"), ("plan", "planner"), ("diagnostics", "about")):
+            self.assertIn(f"{legacy}: '{current}'", JS)
         self.assertIn("renderCapabilities();", JS)
         prefix = JS.split("const $ =", 1)[0]
         plan_groups = JS.split("const PLAN_GROUPS = [", 1)[1].split("];", 1)[0]
@@ -75,6 +83,8 @@ class PlannerWorkbenchContract(unittest.TestCase):
         for token in (
             '<span class="beacon-eyebrow">Run state</span>',
             'class="safety-rail" aria-label="Run safety contract"',
+            'class="route-readiness" aria-label="Current run readiness"',
+            "Operational overview",
             "Hard stop on gem surfaces",
             "Profile and emulator bound",
             "Issued is not confirmed",
@@ -85,7 +95,9 @@ class PlannerWorkbenchContract(unittest.TestCase):
             self.assertIn(token, HTML)
         self.assertIn(".engine-summary:has(.status-lamp[data-state=\"error\"])", CSS)
         self.assertIn(".safety-rail {", CSS)
+        self.assertIn(".route-readiness {", CSS)
         self.assertIn("$('routeMap').dataset.state = state;", JS)
+        self.assertIn("'.route-readiness-next', nextAction", JS)
         self.assertIn('.route-map:is([data-state="starting"], [data-state="running"]) .route-signal', CSS)
         self.assertNotIn("route-radar", CSS)
         self.assertNotIn("route-scan", CSS)
@@ -141,9 +153,22 @@ class PlannerWorkbenchContract(unittest.TestCase):
         self.assertIn("fetch('/api/plan/native'", send)
         self.assertIn("NATIVE_PROFILE_MODE = false", JS.split("async function savePlan()", 1)[1])
         self.assertIn(".engine-actions #controlNativeMode { grid-column: 1 / -1; }", CSS)
-        self.assertIn("Full profile. Launch the complete stack.", JS)
+        self.assertIn("Native profile guarded start", JS)
         self.assertIn("Apply this draft to leave full profile automation.", JS)
         self.assertIn("$('runValidation').hidden = nativeCopy", JS)
+
+    def test_targeted_surfaces_are_filtered_aliases_not_copied_controls(self):
+        self.assertIn("settingIds: ['run.surface', 'run.strategy']", JS)
+        self.assertIn("Builder Base is visible here only as a blocked route", JS)
+        self.assertIn("builderBaseUnavailableReason()", JS)
+        self.assertIn("The controls below are shown for review only; Start remains blocked.", JS)
+        self.assertIn("sectionIds: ['search', 'limits', 'resources']", JS)
+        self.assertIn("settingIds: ['upgrade.policy', 'events.laboratory']", JS)
+        self.assertIn("settingIds: ['account.queue']", JS)
+        self.assertIn("settingIds: ['runtime.emulator', 'runtime.instance', 'notify.on_stop', 'notify.on_error', 'notify.channel']", JS)
+        self.assertIn("These controls use the same persisted planner values as Run Planner.", JS)
+        self.assertIn("groupNav.hidden = !!planSurface.settingIds || !!planSurface.sectionIds;", JS)
+        self.assertNotIn("id=\"viewBuilder", HTML)
 
     def test_safe_home_starting_point_does_not_impersonate_native_profile_mode(self):
         render = JS.split("function renderControl()", 1)[1].split("function recoverControlPending", 1)[0]
