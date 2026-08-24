@@ -155,6 +155,7 @@ class LauncherRecoveryContractTests(unittest.TestCase):
         controller_exit = autoit_function(LAUNCHER, "_RecoverExitedOwnedControllerStack")
         close = autoit_function(LAUNCHER, "_CloseOwnedLaunchOnlyEmulator")
         finder = autoit_function(LAUNCHER, "_FindLaunchOnlyBlueStacksWindow")
+        consumed = autoit_function(LAUNCHER, "_LaunchOnlyEmulatorReceiptConsumedSafely")
 
         self.assertIn('Global Const $g_sLaunchOnlyEmulatorOwnershipSchema = "my-bot-launch-only-emulator-owner-v1"', LAUNCHER)
         self.assertIn("_CloseOwnedLaunchOnlyEmulator(False)", recovery)
@@ -172,12 +173,24 @@ class LauncherRecoveryContractTests(unittest.TestCase):
             "_ProcessCommandLine($iPlayerPid)",
             'StringInStr($sCommand, "--instance")',
             "_FindLaunchOnlyBlueStacksWindow($iPlayerPid, $sInstance)",
-            "_ReadLaunchOnlyEmulatorOwnershipReceipt() <> $sReceipt",
+            "Local $sCurrentReceipt = _ReadLaunchOnlyEmulatorOwnershipReceipt()",
+            "_LaunchOnlyEmulatorReceiptConsumedSafely($sCurrentReceipt, $iPlayerPid)",
+            "Local $sFinalReceipt = _ReadLaunchOnlyEmulatorOwnershipReceipt()",
+            "_LaunchOnlyEmulatorReceiptConsumedSafely($sFinalReceipt, $iPlayerPid)",
             "taskkill.exe",
             '" -f -t -pid " & $iPlayerPid',
             "FileDelete($g_sLaunchOnlyEmulatorOwnershipReceipt)",
         ):
             self.assertIn(required, close)
+        self.assertIn('$sCurrentReceipt = "" And $iPlayerPid > 0 And Not ProcessExists($iPlayerPid)', consumed)
+        self.assertLess(
+            close.index("Local $sCurrentReceipt = _ReadLaunchOnlyEmulatorOwnershipReceipt()"),
+            close.index("taskkill.exe"),
+        )
+        self.assertGreater(
+            close.index("Local $sFinalReceipt = _ReadLaunchOnlyEmulatorOwnershipReceipt()"),
+            close.index("If ProcessExists($iPlayerPid) Then"),
+        )
         for forbidden in (
             '_CloseExactPathProcesses("HD-Player.exe"',
             'ProcessList("HD-Player.exe")',

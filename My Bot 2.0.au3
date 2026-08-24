@@ -586,6 +586,10 @@ Func _FindLaunchOnlyBlueStacksWindow($iPlayerPid, $sInstance)
 	Return $hFound
 EndFunc   ;==>_FindLaunchOnlyBlueStacksWindow
 
+Func _LaunchOnlyEmulatorReceiptConsumedSafely($sCurrentReceipt, $iPlayerPid)
+	Return $sCurrentReceipt = "" And $iPlayerPid > 0 And Not ProcessExists($iPlayerPid)
+EndFunc   ;==>_LaunchOnlyEmulatorReceiptConsumedSafely
+
 Func _CloseOwnedLaunchOnlyEmulator($bRequireCurrentLauncher)
 	Local $sReceipt = _ReadLaunchOnlyEmulatorOwnershipReceipt()
 	If $sReceipt = "" Then Return True
@@ -625,7 +629,19 @@ Func _CloseOwnedLaunchOnlyEmulator($bRequireCurrentLauncher)
 		_RecoveryLog("refused launch-only emulator: no exact instance window or command line proof; pid=" & $iPlayerPid & "; instance=" & $sInstance)
 		Return False
 	EndIf
-	If _ReadLaunchOnlyEmulatorOwnershipReceipt() <> $sReceipt Or _ProcessCreationId($iPlayerPid) <> $sPlayerCreated Then Return False
+	Local $sCurrentReceipt = _ReadLaunchOnlyEmulatorOwnershipReceipt()
+	If $sCurrentReceipt <> $sReceipt Then
+		If _LaunchOnlyEmulatorReceiptConsumedSafely($sCurrentReceipt, $iPlayerPid) Then
+			_RecoveryLog("launch-only owned BlueStacks player already closed by concurrent recovery; pid=" & $iPlayerPid & "; instance=" & $sInstance)
+			Return True
+		EndIf
+		Return False
+	EndIf
+	If Not ProcessExists($iPlayerPid) Then
+		_RecoveryLog("removing stale launch-only emulator receipt after concurrent close; pid=" & $iPlayerPid)
+		Return FileDelete($g_sLaunchOnlyEmulatorOwnershipReceipt) = 1 Or Not FileExists($g_sLaunchOnlyEmulatorOwnershipReceipt)
+	EndIf
+	If _ProcessCreationId($iPlayerPid) <> $sPlayerCreated Then Return False
 	_RecoveryLog("closing launch-only owned BlueStacks player; pid=" & $iPlayerPid & "; instance=" & $sInstance)
 	ShellExecute(@WindowsDir & "\System32\taskkill.exe", " -f -t -pid " & $iPlayerPid, "", Default, @SW_HIDE)
 	For $i = 1 To 40
@@ -636,7 +652,12 @@ Func _CloseOwnedLaunchOnlyEmulator($bRequireCurrentLauncher)
 		_RecoveryLog("launch-only owned BlueStacks player remained alive; pid=" & $iPlayerPid)
 		Return False
 	EndIf
-	If _ReadLaunchOnlyEmulatorOwnershipReceipt() <> $sReceipt Or Not _LaunchOnlyEmulatorReceiptPathSafe(True) Then Return False
+	Local $sFinalReceipt = _ReadLaunchOnlyEmulatorOwnershipReceipt()
+	If $sFinalReceipt <> $sReceipt Then
+		If _LaunchOnlyEmulatorReceiptConsumedSafely($sFinalReceipt, $iPlayerPid) Then Return True
+		Return False
+	EndIf
+	If Not _LaunchOnlyEmulatorReceiptPathSafe(True) Then Return False
 	Return FileDelete($g_sLaunchOnlyEmulatorOwnershipReceipt) = 1 Or Not FileExists($g_sLaunchOnlyEmulatorOwnershipReceipt)
 EndFunc   ;==>_CloseOwnedLaunchOnlyEmulator
 
