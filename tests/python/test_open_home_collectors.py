@@ -134,7 +134,7 @@ class OpenHomeCollectorsTest(unittest.TestCase):
         self.assertNotIn("$g_sImg", route)
         self.assertLess(route.index("ForceCaptureRegion()"), route.index("AndroidScreencap("))
         self.assertIn("AndroidScreencap(", route)
-        self.assertEqual(route.count("NoPremiumPointClick("), 5)
+        self.assertEqual(route.count("NoPremiumPointClick("), 6)
 
     def test_every_click_is_bounded_by_stop_and_home_proof(self):
         route = source("COCBot/functions/Run/OpenHomeCollectors.au3")
@@ -239,6 +239,19 @@ class OpenHomeCollectorsTest(unittest.TestCase):
         self.assertIn("[592, 485]", find_source)
         self.assertNotIn("[149, 477]", find_source)
         self.assertNotIn("ImgLoc", overlay_source + claim_source + find_source)
+
+    def test_inactivity_reload_dialog_uses_clean_room_anchors_and_exact_point(self):
+        route = source("COCBot/functions/Run/OpenHomeCollectors.au3")
+        predicate = autoit_function(route, "OpenHomeInactivityReloadDialogReady")
+        issue = autoit_function(route, "OpenHomeInactivityReloadIssue")
+        for color in (0x424242, 0x689591, 0x67938F):
+            self.assertIn(f"0x{color:06X}", predicate)
+        self.assertIn("$NO_PREMIUM_ACTION_RECOVERY_RELOAD_GAME", issue)
+        self.assertIn("281, 418", issue)
+        self.assertIn("OpenHomeNoGemInputReady()", issue)
+        self.assertNotIn("ImgLoc", predicate + issue)
+        for forbidden in ("Click(", "PureClick(", "GemClick("):
+            self.assertNotIn(forbidden, issue.replace("NoPremiumPointClick(", ""))
 
     def test_daily_reward_inputs_are_fresh_bounded_and_never_confirm(self):
         route = source("COCBot/functions/Run/OpenHomeCollectors.au3")
@@ -412,14 +425,20 @@ class OpenHomeCollectorsTest(unittest.TestCase):
                 line
                 for line in source(relative).splitlines()
                 if "NoPremiumPointClick(" in line and "#OpenHomeDailyReward" not in line
+                and "#OpenHomeInactivityReload" not in line
             ]
             self.assertEqual(expected_count, len(click_lines), relative)
             self.assertTrue(all(", True)" in line for line in click_lines), click_lines)
 
         daily = source("COCBot/functions/Run/OpenHomeCollectors.au3")
-        daily_lines = [line for line in daily.splitlines() if "#OpenHomeDailyReward" in line and "NoPremiumPointClick(" in line]
-        self.assertEqual(2, len(daily_lines))
-        self.assertTrue(all(", False)" in line for line in daily_lines), daily_lines)
+        direct_adb_lines = [
+            line
+            for line in daily.splitlines()
+            if ("#OpenHomeDailyReward" in line or "#OpenHomeInactivityReload" in line)
+            and "NoPremiumPointClick(" in line
+        ]
+        self.assertEqual(3, len(direct_adb_lines))
+        self.assertTrue(all(", False)" in line for line in direct_adb_lines), direct_adb_lines)
 
         click = autoit_function(source("COCBot/functions/Other/Click.au3"), "Click")
         self.assertIn("$bForceControl = False", source("COCBot/functions/Other/Click.au3"))

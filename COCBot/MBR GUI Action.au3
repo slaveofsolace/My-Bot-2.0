@@ -64,7 +64,8 @@ Func _BotOpenHomeEnsureExactBlueStacks(ByRef $sReason)
 		; A BlueStacks window alone does not prove that Clash is running. Avoid relaunching a game that
 		; is already at Home or a reviewed startup overlay; otherwise issue the one bounded activity start.
 		If OpenHomeCollectorsProveHome() Or OpenHomeDailyRewardOverlayReady() Or _
-				OpenHomeDailyRewardClaimedOverlayReady() Or OpenHomeWelcomeBackOverlayReady() Then Return True
+				OpenHomeDailyRewardClaimedOverlayReady() Or OpenHomeInactivityReloadDialogReady() Or _
+				OpenHomeWelcomeBackOverlayReady() Then Return True
 	ElseIf $sReason <> "The exact BlueStacks 5 instance is not already running" Then
 		Return False
 	EndIf
@@ -448,17 +449,38 @@ Func _BotStartOpenDailyReward(ByRef $sStartError)
 			Not IsArray(GetBlueStacks5ModernAdbSurfacePosition()) Then _
 		Return _BotOpenCollectorsReject("The exact BlueStacks 5 framebuffer/ADB input surface is not available")
 
-	Local $aClaim[2]
-	Local $iClaimButtons = OpenHomeDailyRewardCaptureClaim($aClaim)
-	If @error Then Return _BotOpenCollectorsReject("The Daily Reward framebuffer could not be captured")
-	Local $bOverlayReady = OpenHomeDailyRewardOverlayReady()
-	If RunControlStopRequested() Then Return _BotOpenCollectorsReject("Template-free Daily Reward cancelled before execution", "cancelled")
-
 	$g_bRunState = True
 	$g_bTogglePauseAllowed = False
 	If Not RunExecutionBegin($sStartError) Then Return _BotOpenCollectorsReject($sStartError)
 	RunControlReportStartOutcome(True, "Template-free Daily Reward pass started")
 	RunEventLogMaintenanceDailyRewardStarted()
+
+	Local $bReloadIssued = OpenHomeInactivityReloadIssue()
+	Local $iReloadError = @error
+	If $bReloadIssued Then
+		SetLog("Run Planner: Daily Reward inactivity dialog recognized; reload issued before Claim recognition", $COLOR_INFO)
+		If Not OpenHomeStartupRecoveryWait() Then
+			$sStartError = "Daily Reward reload recovery did not reach Home or a reviewed startup overlay; error=" & @error
+			RunExecutionRecordDailyReward("reload-unconfirmed", 0, False, $sStartError)
+			RunEventLogMaintenanceDailyRewardUnconfirmed(False, $sStartError)
+			RunEventLogRunFailed("regular", $RUN_VERIFICATION_DIAGNOSTIC, $sStartError)
+			Return _BotOpenDailyRewardFail($sStartError)
+		EndIf
+	ElseIf $iReloadError <> 0 Then
+		$sStartError = $iReloadError = 6 ? _
+				"Passive no-gem guard recognized a gem surface before Daily Reward reload; no input was issued" : _
+				"Daily Reward inactivity reload recovery was rejected; error=" & $iReloadError
+		RunExecutionRecordDailyReward("reload-rejected", 0, False, $sStartError)
+		RunEventLogMaintenanceDailyRewardUnconfirmed(False, $sStartError)
+		RunEventLogRunFailed("regular", $RUN_VERIFICATION_DIAGNOSTIC, $sStartError)
+		Return _BotOpenDailyRewardFail($sStartError)
+	EndIf
+
+	Local $aClaim[2]
+	Local $iClaimButtons = OpenHomeDailyRewardCaptureClaim($aClaim)
+	If @error Then Return _BotOpenDailyRewardFail("The Daily Reward framebuffer could not be captured")
+	Local $bOverlayReady = OpenHomeDailyRewardOverlayReady()
+	If RunControlStopRequested() Then Return _BotOpenDailyRewardFail("Template-free Daily Reward cancelled before execution")
 
 	If Not $bOverlayReady Then
 		RunExecutionRecordDailyReward("not-seen", 0, False, "The startup Daily Reward overlay was not present")

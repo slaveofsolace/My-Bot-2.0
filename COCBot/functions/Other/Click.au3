@@ -98,6 +98,8 @@ Func NoPremiumSurfaceState(ByRef $sReason, $sPermitAction = "", $iExpectedX = De
 			$bRouteReady = OpenHomeDailyRewardClaimPointReady(Int($iExpectedX), Int($iExpectedY))
 		Case $NO_PREMIUM_ACTION_DAILY_REWARD_CLOSE
 			$bRouteReady = OpenHomeDailyRewardClosePointReady(Int($iExpectedX), Int($iExpectedY))
+		Case $NO_PREMIUM_ACTION_RECOVERY_RELOAD_GAME
+			$bRouteReady = OpenHomeInactivityReloadPointReady(Int($iExpectedX), Int($iExpectedY))
 		Case $NO_PREMIUM_ACTION_TREASURY_CASTLE
 			$bRouteReady = OpenHomeTreasuryCastlePointReady(Int($iExpectedX), Int($iExpectedY))
 		Case $NO_PREMIUM_ACTION_TREASURY_ENTRY

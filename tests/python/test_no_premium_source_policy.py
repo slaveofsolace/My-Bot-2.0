@@ -225,6 +225,7 @@ class NoPremiumSourcePolicyTests(unittest.TestCase):
         self.assertEqual(
             {
                 "OpenHomeCollectorsCollectOnePass",
+                "OpenHomeInactivityReloadIssue",
                 "OpenHomeDailyRewardIssueClaim",
                 "OpenHomeDailyRewardCloseAndProveHome",
                 "OpenHomeLootCartIssueOpen",
@@ -267,12 +268,13 @@ class NoPremiumSourcePolicyTests(unittest.TestCase):
         target = autoit_function(self.policy, "NoPremiumPermitTargetValid")
         point = autoit_function(self.policy, "NoPremiumPermitPointMatches")
         age = autoit_function(self.policy, "NoPremiumPermitAgeValid")
-        self.assertEqual(15, len(re.findall(r'^Global Const \$NO_PREMIUM_ACTION_', self.policy, re.MULTILINE)))
+        self.assertEqual(16, len(re.findall(r'^Global Const \$NO_PREMIUM_ACTION_', self.policy, re.MULTILINE)))
         for forbidden in ('"home"', '"builder-home"', '"full-profile"', '"confirm"'):
             self.assertNotIn(forbidden, known)
         for exact in (
             "$iX = 431 And $iY = 608",
             "$iX = 759 And $iY = 173",
+            "$iX = 281 And $iY = 418",
             "$iX = 574 And $iY = 608",
             "$iX = 699 And $iY = 182",
             "$iX = 39 And $iY = 585",

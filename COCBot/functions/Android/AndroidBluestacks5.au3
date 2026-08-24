@@ -312,6 +312,9 @@ Func LaunchBlueStacks5CoCOnly(ByRef $sReason)
 			If OpenHomeDailyRewardOverlayReady() Or OpenHomeDailyRewardClaimedOverlayReady() Then
 				Return _LaunchBlueStacks5FinalizePassiveProof($sReason, "verified Daily Reward overlay passively recognized; Home is blocked until the operator handles the overlay", $bStartedEmulator)
 			EndIf
+			If OpenHomeInactivityReloadDialogReady() Then
+				Return _LaunchBlueStacks5FinalizePassiveProof($sReason, "verified inactivity reload dialog passively recognized; Home is blocked until the operator reloads the game", $bStartedEmulator)
+			EndIf
 			If OpenHomeWelcomeBackOverlayReady() Then
 				Return _LaunchBlueStacks5FinalizePassiveProof($sReason, "verified Welcome Back overlay passively recognized; Home is blocked until the operator handles the overlay", $bStartedEmulator)
 			EndIf
