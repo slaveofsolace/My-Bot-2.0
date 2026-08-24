@@ -368,8 +368,19 @@ Func LaunchBlueStacks5CoCOnly(ByRef $sReason)
 			If OpenHomeCollectorsProveHome() Then
 				Return _LaunchBlueStacks5FinalizePassiveProof($sReason, "Home Village passively proven", $bStartedEmulator)
 			EndIf
-			If OpenHomeDailyRewardOverlayReady() Or OpenHomeDailyRewardClaimedOverlayReady() Then
-				Return _LaunchBlueStacks5FinalizePassiveProof($sReason, "verified Daily Reward overlay passively recognized; Home is blocked until the operator handles the overlay", $bStartedEmulator)
+			If OpenHomeDailyRewardOverlayReady() Then
+				Local $aDailyRewardClaim[2]
+				Local $iDailyRewardClaims = OpenHomeDailyRewardFindClaim($aDailyRewardClaim)
+				If $iDailyRewardClaims = 1 Then
+					Return _LaunchBlueStacks5FinalizePassiveProof($sReason, "verified Daily Reward overlay and one Claim candidate passively recognized at (" & $aDailyRewardClaim[0] & "," & $aDailyRewardClaim[1] & "); Home is blocked until the operator handles the overlay", $bStartedEmulator)
+				EndIf
+				If $iDailyRewardClaims = 0 Then
+					Return _LaunchBlueStacks5FinalizePassiveProof($sReason, "verified Daily Reward overlay passively recognized with no actionable Claim candidate; Home is blocked until the operator handles the overlay", $bStartedEmulator)
+				EndIf
+				Return _LaunchBlueStacks5FinalizePassiveProof($sReason, "verified Daily Reward overlay passively recognized with ambiguous Claim candidates=" & $iDailyRewardClaims & "; no input is permitted; Home is blocked until the operator handles the overlay", $bStartedEmulator)
+			EndIf
+			If OpenHomeDailyRewardClaimedOverlayReady() Then
+				Return _LaunchBlueStacks5FinalizePassiveProof($sReason, "verified post-claim Daily Reward overlay passively recognized; Home is blocked until the operator closes the overlay", $bStartedEmulator)
 			EndIf
 			If OpenHomeInactivityReloadDialogReady() Then
 				Return _LaunchBlueStacks5FinalizePassiveProof($sReason, "verified inactivity reload dialog passively recognized; Home is blocked until the operator reloads the game", $bStartedEmulator)
