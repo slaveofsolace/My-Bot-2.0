@@ -539,6 +539,10 @@ Func GetBlueStacks5BackgroundMode()
 			Case "gl"
 				; OpenGL
 				Return $g_iAndroidBackgroundModeOpenGL
+			Case "vlcn"
+				; Current BlueStacks Vulkan renderer still uses the proven ADB screencap transport.
+				SetDebugLog("BlueStacks5 Vulkan render mode uses ADB screencap for Background Mode")
+				Return $g_iAndroidBackgroundModeOpenGL
 			Case Else
 				SetLog($g_sAndroidEmulator & " unsupported render mode " & $GlRenderMode, $COLOR_WARNING)
 				Return 0
