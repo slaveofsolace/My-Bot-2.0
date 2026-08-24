@@ -177,6 +177,14 @@ class GameLaunchOnlyControlTests(unittest.TestCase):
         self.assertIn("(!connected && !managedInitCanBeStopped)", self.javascript)
         self.assertIn("expected_start_request_id: previousPending.request_id", self.javascript)
 
+    def test_launch_only_surface_message_distinguishes_known_startup_overlays(self) -> None:
+        self.assertIn("function launchGameSurfaceMessage(adbReady, gameReady)", self.javascript)
+        self.assertIn("CONTROL.last_command !== 'launch-game'", self.javascript)
+        self.assertIn("CONTROL.last_outcome !== 'passed'", self.javascript)
+        self.assertIn("'daily reward', 'welcome back', 'inactivity', 'startup overlay'", self.javascript)
+        self.assertIn("Home readiness is waiting on a known startup surface", self.javascript)
+        self.assertIn("if (launchSurfaceMessage) emulatorText = 'Startup surface';", self.javascript)
+
     def test_launch_receipts_are_schema_bound_and_capability_owned(self) -> None:
         event_types = self.event_schema["properties"]["type"]["enum"]
         for event_type in (

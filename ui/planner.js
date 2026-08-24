@@ -1559,13 +1559,23 @@ function setHealth(id, state, label) {
   item.querySelector('strong').textContent = label;
 }
 
+function launchGameSurfaceMessage(adbReady, gameReady) {
+  if (!adbReady || gameReady) return '';
+  if (CONTROL.last_command !== 'launch-game' || CONTROL.last_outcome !== 'passed') return '';
+  const detail = CONTROL.last_command_message || CONTROL.message || '';
+  const lowered = String(detail).toLowerCase();
+  const recognizedOverlay = ['daily reward', 'welcome back', 'inactivity', 'startup overlay']
+    .some((token) => lowered.includes(token));
+  if (recognizedOverlay && detail) return detail;
+  return 'Launch succeeded and Clash is attached; Home readiness is waiting on a known startup surface.';
+}
+
 function renderControl() {
   const connected = BOOT_READY && !!CONTROL.connected;
   const state = connected ? (CONTROL.state || 'idle') : 'offline';
   $('engineLamp').dataset.state = state;
   $('routeMap').dataset.state = state;
   $('engineState').textContent = readableState(state);
-  $('engineMessage').textContent = CONTROL.message || (connected ? 'Native engine connected.' : 'Launch My Bot 2.0 to enable run controls.');
   const profileIdentity = connected ? (CONTROL.profile || 'Default') : 'Not connected';
   const emulatorIdentity = connected
     ? ([CONTROL.emulator, CONTROL.instance].filter(Boolean).join(' / ') || 'Not selected')
@@ -1593,10 +1603,15 @@ function renderControl() {
   const windowAttached = connected && (hasNativeWindowState ? CONTROL.window_attached === true : CONTROL.emulator_attached === true);
   const adbReady = windowAttached && CONTROL.adb_ready === true;
   const gameReady = adbReady && CONTROL.game_ready === true;
+  const launchSurfaceMessage = connected ? launchGameSurfaceMessage(adbReady, gameReady) : '';
+  $('engineMessage').textContent = launchSurfaceMessage
+    || CONTROL.message
+    || (connected ? 'Native engine connected.' : 'Launch My Bot 2.0 to enable run controls.');
   let emulatorState = connected ? 'warning' : 'waiting';
   let emulatorText = connected ? (emulator ? 'Not attached' : 'Not selected') : 'Waiting';
   if (windowAttached) emulatorText = 'Window found';
   if (adbReady) emulatorText = 'ADB ready';
+  if (launchSurfaceMessage) emulatorText = 'Startup surface';
   if (gameReady) {
     emulatorState = 'ready';
     emulatorText = emulator ? `${emulator} / game ready` : 'Game ready';
