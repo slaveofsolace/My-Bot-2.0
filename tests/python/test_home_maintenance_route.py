@@ -212,6 +212,9 @@ class HomeMaintenanceRouteTest(unittest.TestCase):
             if setting["id"] == "events.collect_resources"
         )
         self.assertFalse(collectors["runtime_verified"])
+        self.assertIn("one mine/collector click", collectors["summary"].lower())
+        self.assertIn("at most one", collectors["description"].lower())
+        self.assertIn("one-click collector route", collectors["warning"].lower())
         self.assertIn("historical packaged-binary receipt", collectors["disabled_reason"].lower())
         self.assertIn("no exact-current collector completion receipt", collectors["disabled_reason"].lower())
         self.assertIn("zero gem change", collectors["disabled_reason"].lower())

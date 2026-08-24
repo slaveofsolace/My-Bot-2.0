@@ -338,7 +338,8 @@ def main() -> int:
                              option("home.collectors", "Home maintenance",
                                     "Run selected one-shot Home Village collection tasks without matchmaking.",
                                     "Runs a bounded Home pass for collectors, the Loot Cart, a Treasury not-full check, and, when explicitly "
-                                    "enabled, the startup Daily Reward. It re-proves Home and stops. It cannot search, attack, "
+                                    "enabled, the startup Daily Reward. Collector mode permits at most one recognized mine/collector click, "
+                                    "then re-proves Home and stops. It cannot search, attack, "
                                     "train, donate, upgrade, enter the Laboratory, run Clan Games, or rotate accounts.",
                                     "gated", ["village.collectors", "village.loot-cart", "village.treasury", "events.daily-reward"], ["At least one Home task enabled", "A supervised diagnostic operator"],
                                     disabled_reason="The current reviewed package proves engine readiness and bot-owned game launch, but it has no exact-current collection completion receipt. Verified recognition fixtures exist for collectors, Loot Cart, and Daily Reward; Treasury still lacks its full/actionable fixture.",
@@ -1097,9 +1098,10 @@ def main() -> int:
                         "id": "events.collect_resources",
                         "type": "boolean",
                         "label": "Collect collectors",
-                        "summary": "Empty mines and collectors each pass.",
+                        "summary": "One mine/collector click.",
                         "description": (
-                            "This is executed only by Home maintenance. The route skips full "
+                            "This is executed only by Home maintenance. The live-facing route issues at most one "
+                            "freshly recognized collector or mine click, then re-proves Home. It skips full "
                             "storages, Loot Cart, Treasury, matchmaking, donations, upgrades, Laboratory, and Clan Games."
                         ),
                         "default": False,
@@ -1110,7 +1112,7 @@ def main() -> int:
                         "capability_ids": ["village.collectors"],
                         "prerequisites": ["Current home-village collector recognition"],
                         "disabled_reason": "A historical packaged-binary receipt records three accepted collector clicks, Gold/Elixir/Dark Elixir increases, Home re-proof, and zero gem change. The current package has engine and self-launch proof but no exact-current collector completion receipt, so the real account action remains gated.",
-                        "warning": "The verified collector fixture and historical receipt are not current account proof. Exact-current validation still requires the bound profile and emulator, supervised consent, a bounded collector-only route, and an unchanged gem balance.",
+                        "warning": "The verified collector fixture and historical receipt are not current account proof. Exact-current validation still requires the bound profile and emulator, supervised consent, the one-click collector route, and an unchanged gem balance.",
                     },
                     {
                         "id": "events.collect_daily_reward",
