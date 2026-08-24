@@ -724,7 +724,7 @@ Func FinalInitialization(Const $sAI)
 	If RunControlInitialize() Then
 		If _RunPlannerStartService($sControlCenterError) Then
 			SetLog("My Bot 2.0 control center ready at " & $RUN_PLANNER_URL, $COLOR_SUCCESS)
-			ShellExecute($RUN_PLANNER_URL)
+			If EnvGet("MYBOT_CONTROL_CENTER_NO_BROWSER") <> "1" Then ShellExecute($RUN_PLANNER_URL)
 		Else
 			SetLog("Control center unavailable: " & $sControlCenterError, $COLOR_WARNING)
 		EndIf

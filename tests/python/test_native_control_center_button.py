@@ -16,7 +16,18 @@ class NativeControlCenterButtonTests(unittest.TestCase):
     def test_click_handler_opens_only_local_control_center(self):
         source = (ROOT / "MyBot.run.MiniGui.au3").read_text(encoding="utf-8-sig")
         self.assertIn('ShellExecute("http://127.0.0.1:8765/")', source)
+        self.assertIn('EnvGet("MYBOT_CONTROL_CENTER_NO_BROWSER") <> "1"', source)
         self.assertIn('$g_hFrmBot_URL_PIC, $g_hFrmBot_URL_PIC2', source)
+
+    def test_acceptance_can_suppress_default_browser_opens(self):
+        launcher = (ROOT / "My Bot 2.0.au3").read_text(encoding="utf-8-sig")
+        native = (ROOT / "MyBot.run.au3").read_text(encoding="utf-8-sig")
+        run_planner = (ROOT / "COCBot" / "GUI" / "MBR GUI Control Run Planner.au3").read_text(encoding="utf-8-sig")
+        for source in (launcher, native, run_planner):
+            self.assertIn('MYBOT_CONTROL_CENTER_NO_BROWSER', source)
+        self.assertIn('control center browser open suppressed by environment', launcher)
+        self.assertIn('If EnvGet("MYBOT_CONTROL_CENTER_NO_BROWSER") <> "1" Then ShellExecute($RUN_PLANNER_URL)', native)
+        self.assertIn('If EnvGet("MYBOT_CONTROL_CENTER_NO_BROWSER") <> "1" Then ShellExecute($RUN_PLANNER_URL)', run_planner)
 
     def test_reviewed_controller_is_locked_to_local_build_provenance(self):
         source = (ROOT / "MyBot.run.MiniGui.au3").read_text(encoding="utf-8-sig")

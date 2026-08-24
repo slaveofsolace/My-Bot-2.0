@@ -785,7 +785,11 @@ Func GUIControl_WM_COMMAND($hWind, $iMsg, $wParam, $lParam)
 			; Clean up resources
 			BotCloseRequest()
 		Case $g_hFrmBot_URL_PIC, $g_hFrmBot_URL_PIC2
-			ShellExecute("http://127.0.0.1:8765/")
+			If EnvGet("MYBOT_CONTROL_CENTER_NO_BROWSER") <> "1" Then
+				ShellExecute("http://127.0.0.1:8765/")
+			Else
+				SetDebugLog("Control Center browser open suppressed by environment")
+			EndIf
 		Case $g_hLblDonate
 			; Donate URL is not in text nor tooltip
 			ShellExecute("https://mybot.run/forums/index.php?/donate/make-donation/")
