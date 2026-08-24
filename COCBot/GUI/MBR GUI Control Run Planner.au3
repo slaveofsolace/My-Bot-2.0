@@ -987,7 +987,7 @@ Func btnRunPlannerOpen()
 		btnRunPlannerRefresh()
 		Return
 	EndIf
-	ShellExecute($RUN_PLANNER_URL)
+	If EnvGet("MYBOT_CONTROL_CENTER_NO_BROWSER") <> "1" Then ShellExecute($RUN_PLANNER_URL)
 	GUICtrlSetData($g_hRunPlannerStatus, "Control center opened")
 	btnRunPlannerRefresh()
 EndFunc   ;==>btnRunPlannerOpen

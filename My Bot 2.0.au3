@@ -1751,6 +1751,10 @@ Func _DockControlStrip($hController)
 EndFunc   ;==>_DockControlStrip
 
 Func _OpenControlCenter()
+	If EnvGet("MYBOT_CONTROL_CENTER_NO_BROWSER") = "1" Then
+		_RecoveryLog("control center browser open suppressed by environment; url=" & $g_sControlCenterUrl)
+		Return True
+	EndIf
 	Local $iBrowserPid = ShellExecute($g_sControlCenterUrl)
 	If @error Or $iBrowserPid <= 0 Then
 		_ShowError("My Bot 2.0 is running, but its Control Center could not be opened." & @CRLF & @CRLF & $g_sControlCenterUrl)
