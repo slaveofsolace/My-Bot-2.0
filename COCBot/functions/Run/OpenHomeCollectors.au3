@@ -237,6 +237,42 @@ Func OpenHomeWelcomeBackOverlayReady()
 			_OpenHomePixelNear(440, 558, 0x64AD32, 44)
 EndFunc   ;==>OpenHomeWelcomeBackOverlayReady
 
+; Clash can place a foreground "Anyone there?" inactivity dialog over an otherwise valid startup
+; Daily Reward panel. The dialog is recoverable and non-premium, but it must be handled before any
+; reward Claim recognition because the Claim button is visually blocked and dimmed underneath.
+Func OpenHomeInactivityReloadDialogReady()
+	If $g_hBitmap = 0 Then Return False
+	Return _OpenHomePixelNear(232, 319, 0x424242, 18) And _
+			_OpenHomePixelNear(420, 288, 0x424242, 18) And _
+			_OpenHomePixelNear(430, 366, 0x424242, 18) And _
+			_OpenHomePixelNear(500, 418, 0x424242, 18) And _
+			_OpenHomePixelNear(260, 418, 0x689591, 42) And _
+			_OpenHomePixelNear(300, 418, 0x67938F, 42)
+EndFunc   ;==>OpenHomeInactivityReloadDialogReady
+
+Func OpenHomeInactivityReloadPointReady($iX, $iY)
+	If Not NoPremiumPermitTargetValid($NO_PREMIUM_ACTION_RECOVERY_RELOAD_GAME, $iX, $iY) Then Return False
+	Return OpenHomeInactivityReloadDialogReady()
+EndFunc   ;==>OpenHomeInactivityReloadPointReady
+
+Func OpenHomeInactivityReloadIssue()
+	If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
+	If Not OpenHomeCollectorsCapture() Then Return SetError(1, 0, False)
+	If Not OpenHomeInactivityReloadDialogReady() Then Return SetError(0, 0, False)
+	If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, False)
+	Return NoPremiumPointClick($NO_PREMIUM_ACTION_RECOVERY_RELOAD_GAME, 281, 418, 120, "#OpenHomeInactivityReload", False)
+EndFunc   ;==>OpenHomeInactivityReloadIssue
+
+Func OpenHomeStartupRecoveryWait()
+	For $iAttempt = 1 To 60
+		If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
+		If OpenHomeCollectorsProveHome() Or OpenHomeDailyRewardOverlayReady() Or _
+				OpenHomeDailyRewardClaimedOverlayReady() Or OpenHomeWelcomeBackOverlayReady() Then Return True
+		If _Sleep(1000, True, True, False) Then Return SetError(2, 0, False)
+	Next
+	Return SetError(4, 0, False)
+EndFunc   ;==>OpenHomeStartupRecoveryWait
+
 ; A Claim button is a 117x40 green control. Sampling four interior edges avoids its localized white
 ; label while rejecting the small green claimed check and the gray/brown inactive day controls.
 Func _OpenHomeDailyRewardClaimCandidateReady($iX, $iY)

@@ -13,6 +13,7 @@ EndFunc   ;==>AssertEqual
 
 AssertEqual(True, NoPremiumPermitActionKnown($NO_PREMIUM_ACTION_COLLECTOR_GOLD), "reviewed collector action is known")
 AssertEqual(True, NoPremiumPermitActionKnown($NO_PREMIUM_ACTION_DAILY_REWARD_CLAIM), "reviewed reward action is known")
+AssertEqual(True, NoPremiumPermitActionKnown($NO_PREMIUM_ACTION_RECOVERY_RELOAD_GAME), "reviewed inactivity reload action is known")
 AssertEqual(True, NoPremiumPermitActionKnown($NO_PREMIUM_ACTION_CLAN_REQUEST_ARMY), "reviewed Clan Request Army action is known")
 AssertEqual(True, NoPremiumPermitActionKnown($NO_PREMIUM_ACTION_CLAN_REQUEST_REQUEST), "reviewed Clan Request button action is known")
 AssertEqual(True, NoPremiumPermitActionKnown($NO_PREMIUM_ACTION_CLAN_REQUEST_SEND), "reviewed Clan Request Send action is known")
@@ -34,6 +35,8 @@ AssertEqual(True, NoPremiumPermitTargetValid($NO_PREMIUM_ACTION_LOOT_CART_COLLEC
 AssertEqual(False, NoPremiumPermitTargetValid($NO_PREMIUM_ACTION_LOOT_CART_COLLECT, 432, 608), "wrong Loot Cart Collect x is rejected")
 AssertEqual(True, NoPremiumPermitTargetValid($NO_PREMIUM_ACTION_DAILY_REWARD_CLAIM, 592, 485), "reviewed Daily Reward candidate is admitted")
 AssertEqual(False, NoPremiumPermitTargetValid($NO_PREMIUM_ACTION_DAILY_REWARD_CLAIM, 593, 485), "wrong Daily Reward candidate is rejected")
+AssertEqual(True, NoPremiumPermitTargetValid($NO_PREMIUM_ACTION_RECOVERY_RELOAD_GAME, 281, 418), "exact inactivity Reload Game point is admitted")
+AssertEqual(False, NoPremiumPermitTargetValid($NO_PREMIUM_ACTION_RECOVERY_RELOAD_GAME, 282, 418), "wrong inactivity Reload Game x is rejected")
 AssertEqual(True, NoPremiumPermitTargetValid($NO_PREMIUM_ACTION_TREASURY_CLOSE, 699, 182), "exact Treasury close point is admitted")
 AssertEqual(False, NoPremiumPermitTargetValid($NO_PREMIUM_ACTION_TREASURY_CLOSE, 699, 183), "wrong Treasury close point is rejected")
 AssertEqual(True, NoPremiumPermitTargetValid($NO_PREMIUM_ACTION_CLAN_REQUEST_ARMY, 39, 585), "exact Clan Request Army point is admitted")

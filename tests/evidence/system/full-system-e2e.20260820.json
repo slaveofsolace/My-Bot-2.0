@@ -4214,6 +4214,17 @@
         "verdict": "DEFERRED"
       },
       {
+        "id": "COCBot/functions/Run/OpenHomeCollectors.au3::OpenHomeInactivityReloadIssue",
+        "policy": "capability",
+        "mapping": "capability.home-collection",
+        "capability_ids": [
+          "village.collectors",
+          "village.loot-cart",
+          "events.daily-reward"
+        ],
+        "verdict": "DEFERRED"
+      },
+      {
         "id": "COCBot/functions/Run/OpenHomeCollectors.au3::OpenHomeLootCartIssueCollect",
         "policy": "capability",
         "mapping": "capability.home-collection",

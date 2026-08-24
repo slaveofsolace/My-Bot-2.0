@@ -449,6 +449,7 @@ class NativeProfileAutoLaunchTests(unittest.TestCase):
         self.assertIn("OpenHomeCollectorsProveHome()", ensure)
         self.assertIn("OpenHomeDailyRewardOverlayReady()", ensure)
         self.assertIn("OpenHomeDailyRewardClaimedOverlayReady()", ensure)
+        self.assertIn("OpenHomeInactivityReloadDialogReady()", ensure)
         self.assertIn('ElseIf $sReason <> "The exact BlueStacks 5 instance is not already running" Then', ensure)
         self.assertIn("LaunchBlueStacks5CoCOnly($sLaunchReason)", ensure)
         self.assertIn("RunControlStopRequested()", ensure)
@@ -474,6 +475,19 @@ class NativeProfileAutoLaunchTests(unittest.TestCase):
                 body.index("_BotOpenHomeEnsureExactBlueStacks($sAttachmentError)"),
                 function_name,
             )
+
+    def test_daily_reward_recovers_inactivity_popup_before_claim(self):
+        action = (ROOT / "COCBot" / "MBR GUI Action.au3").read_text(encoding="utf-8-sig")
+        body = action[
+            action.index("Func _BotStartOpenDailyReward("):
+            action.index("EndFunc", action.index("Func _BotStartOpenDailyReward("))
+        ]
+        self.assertIn("OpenHomeInactivityReloadIssue()", body)
+        self.assertIn("OpenHomeStartupRecoveryWait()", body)
+        self.assertIn("OpenHomeDailyRewardCaptureClaim($aClaim)", body)
+        self.assertLess(body.index("OpenHomeInactivityReloadIssue()"), body.index("OpenHomeDailyRewardCaptureClaim($aClaim)"))
+        self.assertIn("reload-rejected", body)
+        self.assertIn("reload-unconfirmed", body)
 
     def test_full_profile_start_applies_and_restores_narrow_no_gem_overlay(self):
         execution = (ROOT / "COCBot" / "functions" / "Run" / "RunExecution.au3").read_text(

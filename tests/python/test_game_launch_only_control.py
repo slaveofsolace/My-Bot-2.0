@@ -71,6 +71,7 @@ class GameLaunchOnlyControlTests(unittest.TestCase):
             "OpenHomeCollectorsProveHome()",
             "OpenHomeDailyRewardOverlayReady()",
             "OpenHomeDailyRewardClaimedOverlayReady()",
+            "OpenHomeInactivityReloadDialogReady()",
             "OpenHomeWelcomeBackOverlayReady()",
             "_LaunchBlueStacks5FinalizePassiveProof(",
             "RunControlStopRequested()",
