@@ -96,7 +96,7 @@ class RuntimeBoundaryRegressionTests(unittest.TestCase):
             )
         ]
         self.assertIn("applyStrategySafetyPatch('home.collectors')", safe_cta)
-        self.assertIn("setView('plan'", safe_cta)
+        self.assertIn("setView('planner'", safe_cta)
         self.assertIn("Apply plan, then Start remains a separate action.", safe_cta)
         for forbidden in ("fetch(", "sendControl(", "activateNativeProfileMode("):
             self.assertNotIn(forbidden, safe_cta)
