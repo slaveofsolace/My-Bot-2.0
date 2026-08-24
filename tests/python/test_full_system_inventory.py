@@ -24,6 +24,13 @@ class FullSystemInventoryTests(unittest.TestCase):
                 "actuator_owners": 464,
                 "actuator_sites": 1178,
                 "exact_current_capabilities_ready": 0,
+                "capability_truth_statuses": {"BLOCKED_EXTERNAL": 53, "FIXTURE_PROVEN": 8},
+                "fixture_truth_statuses": {"BLOCKED_EXTERNAL": 49, "FIXTURE_PROVEN": 8},
+                "actuator_truth_statuses": {
+                    "BLOCKED_EXTERNAL": 30,
+                    "NOT_APPLICABLE": 181,
+                    "UNSUPPORTED": 253,
+                },
                 "og_parity_sources": 339,
                 "og_gui_sources": 65,
                 "og_function_sources": 273,
@@ -86,9 +93,35 @@ class FullSystemInventoryTests(unittest.TestCase):
 
     def test_missing_live_proof_is_never_promoted(self) -> None:
         report = self.report
-        self.assertTrue(all(item["final_status"] == "DEFERRED" for item in report["capabilities"]))
-        self.assertTrue(all(item["runtime_status"] == "DEFERRED" for item in report["control_actions"]))
-        self.assertTrue(all(item["installed_runtime_status"] == "DEFERRED" for item in report["compile_targets"]))
+        self.assertEqual(2, report["schema_version"])
+        self.assertEqual(
+            {"BLOCKED_EXTERNAL": 53, "FIXTURE_PROVEN": 8},
+            report["counts"]["capability_truth_statuses"],
+        )
+        self.assertEqual(
+            {"BLOCKED_EXTERNAL": 49, "FIXTURE_PROVEN": 8},
+            report["counts"]["fixture_truth_statuses"],
+        )
+        self.assertEqual(
+            {"BLOCKED_EXTERNAL": 30, "NOT_APPLICABLE": 181, "UNSUPPORTED": 253},
+            report["counts"]["actuator_truth_statuses"],
+        )
+        self.assertTrue(all(item["truth_status"] != "DEFERRED" for item in report["capabilities"]))
+        self.assertTrue(all(item["truth_status"] != "DEFERRED" for item in report["fixtures"]))
+        self.assertTrue(all(item["truth_status"] != "DEFERRED" for item in report["control_actions"]))
+        self.assertTrue(all(item["truth_status"] != "DEFERRED" for item in report["compile_targets"]))
+        self.assertTrue(all(item["truth_status"] != "DEFERRED" for item in report["infrastructure_routes"]))
+
+        capability_status = {item["id"]: item["truth_status"] for item in report["capabilities"]}
+        self.assertEqual("BLOCKED_EXTERNAL", capability_status["events.daily-reward"])
+        self.assertEqual("FIXTURE_PROVEN", capability_status["village.collectors"])
+        self.assertEqual("BLOCKED_EXTERNAL", capability_status["village.treasury"])
+        self.assertEqual("BLOCKED_EXTERNAL", capability_status["safety.no-gem-guard"])
+        fixture_status = {item["id"]: item["truth_status"] for item in report["fixtures"]}
+        self.assertEqual("FIXTURE_PROVEN", fixture_status["home.daily-reward"])
+        self.assertEqual("BLOCKED_EXTERNAL", fixture_status["safety.gem-window"])
+        self.assertTrue(all(item["runtime_status"] == "BLOCKED_EXTERNAL" for item in report["control_actions"]))
+        self.assertTrue(all(item["installed_runtime_status"] == "BLOCKED_EXTERNAL" for item in report["compile_targets"]))
 
     def test_pinned_og_gui_settings_and_function_graph_is_complete(self) -> None:
         report = self.report
@@ -109,6 +142,9 @@ class FullSystemInventoryTests(unittest.TestCase):
             self.assertTrue(all(dimension in item for dimension in dimensions), item["path"])
             self.assertTrue(all(item[dimension]["status"] in allowed for dimension in dimensions), item["path"])
             self.assertEqual(item["source_contract"], item["composite_status"], item["path"])
+            self.assertEqual("BLOCKED_EXTERNAL", item["exact_current_runtime_status"], item["path"])
+            self.assertEqual("BLOCKED_EXTERNAL", item["truth_status"], item["path"])
+            self.assertIn("exact-current installed runtime evidence", item["truth_reason"], item["path"])
         self.assertTrue(all(item["source_presence"]["status"] == "PASS" for item in report["og_parity"]))
         self.assertFalse(any(item["source_contract"] == "FAIL" for item in report["og_parity"]))
         self.assertTrue(any(item["source_contract"] == "DEFERRED" for item in report["og_parity"]))
@@ -126,7 +162,6 @@ class FullSystemInventoryTests(unittest.TestCase):
                 if item["dispatch_reachability"]["status"] == "PASS"
             )
         )
-        self.assertTrue(all(item["exact_current_runtime_status"] == "DEFERRED" for item in report["og_parity"]))
         self.assertEqual(len(report["og_parity"]), len({item["path"] for item in report["og_parity"]}))
 
         by_path = {item["path"]: item for item in report["og_parity"]}

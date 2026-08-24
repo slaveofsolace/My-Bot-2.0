@@ -314,6 +314,94 @@ INFRASTRUCTURE = (
     },
 )
 
+TRUTH_STATUSES = {
+    "LIVE_PROVEN",
+    "INSTALLED_MECHANISM_PROVEN",
+    "FIXTURE_PROVEN",
+    "BLOCKED_EXTERNAL",
+    "UNSUPPORTED",
+    "NOT_APPLICABLE",
+}
+
+
+def _assert_truth_status(status: str) -> str:
+    if status not in TRUTH_STATUSES:
+        raise ValueError(f"unknown truth status: {status}")
+    return status
+
+
+def _blocker_class(blockers: list[str]) -> str:
+    if any("rights" in item.casefold() or "imgloc" in item.casefold() for item in blockers):
+        return "RIGHTS"
+    if any("fixture" in item.casefold() for item in blockers):
+        return "FIXTURE"
+    if any("exact-current" in item.casefold() or "runtime" in item.casefold() for item in blockers):
+        return "RUNTIME"
+    return "EXTERNAL" if blockers else "NONE"
+
+
+def _capability_truth_status(readiness_row: dict[str, Any]) -> dict[str, Any]:
+    blockers = list(readiness_row.get("current_binary_blockers") or [])
+    if readiness_row.get("current_binary_ready"):
+        return {
+            "truth_status": _assert_truth_status("INSTALLED_MECHANISM_PROVEN"),
+            "truth_blocker_class": "NONE",
+            "truth_reason": "exact-current binary evidence satisfies the capability policy",
+        }
+    if readiness_row.get("ready_for_support_review"):
+        return {
+            "truth_status": _assert_truth_status("FIXTURE_PROVEN"),
+            "truth_blocker_class": _blocker_class(blockers),
+            "truth_reason": "source, fixture, or historical runtime evidence exists, but exact-current installed proof is still missing",
+        }
+    return {
+        "truth_status": _assert_truth_status("BLOCKED_EXTERNAL"),
+        "truth_blocker_class": _blocker_class(blockers),
+        "truth_reason": "required fixture, runtime, or exact-current evidence is missing; the route must remain fail-closed",
+    }
+
+
+def _fixture_truth_status(status: str | None) -> dict[str, Any]:
+    if status in {"verified", "redacted"}:
+        return {
+            "truth_status": _assert_truth_status("FIXTURE_PROVEN"),
+            "truth_blocker_class": "NONE",
+            "truth_reason": "privacy-safe fixture bytes and metadata are present",
+        }
+    return {
+        "truth_status": _assert_truth_status("BLOCKED_EXTERNAL"),
+        "truth_blocker_class": "FIXTURE",
+        "truth_reason": "required current-client fixture capture is not present",
+    }
+
+
+def _pending_runtime_truth(reason: str) -> dict[str, Any]:
+    return {
+        "truth_status": _assert_truth_status("BLOCKED_EXTERNAL"),
+        "truth_blocker_class": "RUNTIME",
+        "truth_reason": reason,
+    }
+
+
+def _actuator_truth_status(policy: str) -> dict[str, Any]:
+    if policy == "blocked":
+        return {
+            "truth_status": _assert_truth_status("UNSUPPORTED"),
+            "truth_blocker_class": "POLICY",
+            "truth_reason": "actuator is intentionally blocked by registry policy",
+        }
+    if policy in {"infrastructure", "test-only"}:
+        return {
+            "truth_status": _assert_truth_status("NOT_APPLICABLE"),
+            "truth_blocker_class": "NONE",
+            "truth_reason": f"actuator is classified as {policy}, not a user-facing capability",
+        }
+    return {
+        "truth_status": _assert_truth_status("BLOCKED_EXTERNAL"),
+        "truth_blocker_class": "RUNTIME",
+        "truth_reason": "capability-owned actuator still requires exact-current route evidence",
+    }
+
 
 def _load(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8-sig"))
@@ -602,7 +690,10 @@ def _og_parity_rows(actuator_report: dict[str, Any]) -> tuple[str, list[dict[str
                 "deterministic_test": deterministic_test,
                 "source_contract": composite_status,
                 "composite_status": composite_status,
-                "exact_current_runtime_status": "DEFERRED",
+                "exact_current_runtime_status": "BLOCKED_EXTERNAL",
+                "truth_status": "BLOCKED_EXTERNAL",
+                "truth_blocker_class": "RUNTIME",
+                "truth_reason": "pinned OG source parity is source-level only until exact-current installed runtime evidence proves the route",
             }
         )
         if not current_exists:
@@ -922,7 +1013,10 @@ def _planner_settings(document: dict[str, Any]) -> list[dict[str, Any]]:
                     "source_owner": "config/ui/run-planner.settings.json",
                     "automated_tests": list(automated_tests),
                     "source_contract": "PASS",
-                    "runtime_status": "DEFERRED",
+                    "runtime_status": "BLOCKED_EXTERNAL",
+                    **_pending_runtime_truth(
+                        "planner setting persistence is source-tested; exact installed execution depends on the selected route and live/state evidence"
+                    ),
                 }
             )
     return result
@@ -968,7 +1062,8 @@ def build_report(root: Path = ROOT) -> dict[str, Any]:
             "capability_ids": mapped,
             "image_path": fixture.get("image_path"),
             "metadata_path": fixture.get("metadata_path"),
-            "final_status": "PASS" if fixture.get("status") == "verified" else "DEFERRED",
+            "final_status": _fixture_truth_status(fixture.get("status")).get("truth_status"),
+            **_fixture_truth_status(fixture.get("status")),
         }
         fixture_rows.append(row)
         for capability_id in mapped:
@@ -985,6 +1080,7 @@ def build_report(root: Path = ROOT) -> dict[str, Any]:
         required_tests = policy.get("required_tests", []) if isinstance(policy, dict) else []
         implementation = capability.get("implementation")
         automatic = _mapped_tests(CAPABILITY_TESTS, capability_id, context="capability")
+        truth = _capability_truth_status(readiness_row)
         capability_rows.append(
             {
                 "id": capability_id,
@@ -997,7 +1093,8 @@ def build_report(root: Path = ROOT) -> dict[str, Any]:
                 "historical_ready": readiness_row["ready_for_support_review"],
                 "exact_current_ready": readiness_row["current_binary_ready"],
                 "blockers": readiness_row["current_binary_blockers"],
-                "final_status": "PASS" if readiness_row["current_binary_ready"] else "DEFERRED",
+                "final_status": truth["truth_status"],
+                **truth,
             }
         )
 
@@ -1010,7 +1107,10 @@ def build_report(root: Path = ROOT) -> dict[str, Any]:
             "source_owner": "tools/planner_ui.py",
             "automated_tests": _mapped_tests(CONTROL_ACTION_TESTS, action, context="control action"),
             "source_contract": "PASS",
-            "runtime_status": "DEFERRED",
+            "runtime_status": "BLOCKED_EXTERNAL",
+            **_pending_runtime_truth(
+                "control action has source-level tests, but exact installed UI/runtime evidence is tracked outside the source inventory"
+            ),
         }
         for action in control_actions
     ]
@@ -1032,7 +1132,10 @@ def build_report(root: Path = ROOT) -> dict[str, Any]:
                 context="compile target",
             ),
             "source_contract": "PASS",
-            "installed_runtime_status": "DEFERRED",
+            "installed_runtime_status": "BLOCKED_EXTERNAL",
+            **_pending_runtime_truth(
+                "compile target is source-tested; installed binary provenance and launch evidence are package-specific"
+            ),
         }
         for target in compile_targets
     ]
@@ -1050,7 +1153,10 @@ def build_report(root: Path = ROOT) -> dict[str, Any]:
                 context="infrastructure route",
             ),
             "source_contract": "PASS",
-            "runtime_status": "DEFERRED",
+            "runtime_status": "BLOCKED_EXTERNAL",
+            **_pending_runtime_truth(
+                "infrastructure route is source-tested; exact installed runtime evidence is package-specific"
+            ),
         }
         for item in INFRASTRUCTURE
     ]
@@ -1060,7 +1166,8 @@ def build_report(root: Path = ROOT) -> dict[str, Any]:
         {
             "owner": owner,
             **classification,
-            "final_status": "PASS" if classification["policy"] in {"blocked", "infrastructure", "test-only"} else "DEFERRED",
+            "final_status": _actuator_truth_status(str(classification["policy"]))["truth_status"],
+            **_actuator_truth_status(str(classification["policy"])),
         }
         for owner, classification in sorted(actuators["classifications"].items())
     ]
@@ -1073,7 +1180,7 @@ def build_report(root: Path = ROOT) -> dict[str, Any]:
         errors.append("actuator owner cardinality mismatch")
 
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "scope_rule": "Capabilities are canonical; every other collection is a non-additive system facet.",
         "counts": {
             "capabilities": len(capability_rows),
@@ -1084,7 +1191,10 @@ def build_report(root: Path = ROOT) -> dict[str, Any]:
             "infrastructure_routes": len(infrastructure_rows),
             "actuator_owners": len(actuator_rows),
             "actuator_sites": actuators["sites"],
-            "exact_current_capabilities_ready": sum(item["final_status"] == "PASS" for item in capability_rows),
+            "exact_current_capabilities_ready": sum(item["exact_current_ready"] for item in capability_rows),
+            "capability_truth_statuses": dict(Counter(item["truth_status"] for item in capability_rows)),
+            "fixture_truth_statuses": dict(Counter(item["truth_status"] for item in fixture_rows)),
+            "actuator_truth_statuses": dict(Counter(item["truth_status"] for item in actuator_rows)),
             "og_parity_sources": len(og_parity),
             "og_gui_sources": sum(item["role"] == "user-visible-configuration" for item in og_parity),
             "og_function_sources": sum(item["path"].startswith("COCBot/functions/") for item in og_parity),
