@@ -20,6 +20,56 @@ Func GetBlueStacks5ProgramParameter($bAlternative = False)
 	Return DoubleQuote("--instance") & " " & DoubleQuote($g_sAndroidInstance)
 EndFunc   ;==>GetBlueStacks5ProgramParameter
 
+Global Const $g_sBlueStacks5LaunchOnlyOwnerSchema = "my-bot-launch-only-emulator-owner-v1"
+Global Const $g_sBlueStacks5LaunchOnlyOwnerReceipt = $g_sMBRFuncRuntimeLocalAppData & "\My Bot 2.0\launch-only-emulator-owner-v1.json"
+
+Func _BlueStacks5LaunchOnlyReceiptPathSafe($bRequireReceipt = False)
+	Local $sParent = $g_sMBRFuncRuntimeLocalAppData & "\My Bot 2.0"
+	Local $aParent = DllCall("kernel32.dll", "dword", "GetFileAttributesW", "wstr", $sParent)
+	If @error Or Not IsArray($aParent) Or $aParent[0] = 0xFFFFFFFF Then Return False
+	If BitAND($aParent[0], 0x10) = 0 Or BitAND($aParent[0], 0x400) <> 0 Then Return False
+	If Not FileExists($g_sBlueStacks5LaunchOnlyOwnerReceipt) Then Return Not $bRequireReceipt
+	Local $aReceipt = DllCall("kernel32.dll", "dword", "GetFileAttributesW", "wstr", $g_sBlueStacks5LaunchOnlyOwnerReceipt)
+	If @error Or Not IsArray($aReceipt) Or $aReceipt[0] = 0xFFFFFFFF Then Return False
+	Return BitAND($aReceipt[0], 0x10) = 0 And BitAND($aReceipt[0], 0x400) = 0
+EndFunc   ;==>_BlueStacks5LaunchOnlyReceiptPathSafe
+
+Func _BlueStacks5WriteLaunchOnlyOwnerReceipt($iPlayerPid)
+	If $iPlayerPid <= 0 Or ProcessExists2($iPlayerPid) <> $iPlayerPid Then Return False
+	If Not StringRegExp($g_sAndroidInstance, "^[A-Za-z0-9._-]{1,64}$") Then Return False
+	If Not $g_bMBRFuncEngineSupervisorValid Then Return False
+	Local $iLauncherPid = Int($g_sMBRFuncEngineLauncherPidText)
+	Local $iControllerPid = _MBRFuncParentPid(@AutoItPID)
+	Local $sLauncherCreated = _MBRFuncProcessCreationId($iLauncherPid)
+	Local $sControllerCreated = _MBRFuncProcessCreationId($iControllerPid)
+	Local $sBackendCreated = _MBRFuncProcessCreationId(@AutoItPID)
+	Local $sPlayerCreated = _MBRFuncProcessCreationId($iPlayerPid)
+	If $iLauncherPid <= 0 Or Not ProcessExists($iLauncherPid) Or $iControllerPid <= 0 Or _
+			$sLauncherCreated <> $g_sMBRFuncEngineLauncherCreated Or $sControllerCreated = "" Or _
+			$sBackendCreated = "" Or $sPlayerCreated = "" Then Return False
+	DirCreate($g_sMBRFuncRuntimeLocalAppData & "\My Bot 2.0")
+	If Not _BlueStacks5LaunchOnlyReceiptPathSafe(False) Then Return False
+	Local $sReceipt = '{"schema":"' & $g_sBlueStacks5LaunchOnlyOwnerSchema & '","launcher_pid":' & $iLauncherPid & _
+		',"launcher_created":"' & $sLauncherCreated & '","controller_pid":' & $iControllerPid & _
+		',"controller_created":"' & $sControllerCreated & '","backend_pid":' & @AutoItPID & _
+		',"backend_created":"' & $sBackendCreated & '","player_pid":' & $iPlayerPid & _
+		',"player_created":"' & $sPlayerCreated & '","emulator":"BlueStacks5","instance":"' & $g_sAndroidInstance & '"}'
+	Local $sTemporary = $g_sBlueStacks5LaunchOnlyOwnerReceipt & ".tmp." & @AutoItPID
+	If FileExists($sTemporary) Then FileDelete($sTemporary)
+	If FileExists($sTemporary) Then Return False
+	Local $hReceipt = FileOpen($sTemporary, 10)
+	If $hReceipt = -1 Then Return False
+	Local $bWritten = FileWrite($hReceipt, $sReceipt) = 1
+	Local $bFlushed = FileFlush($hReceipt)
+	FileClose($hReceipt)
+	If Not $bWritten Or Not $bFlushed Or Not FileMove($sTemporary, $g_sBlueStacks5LaunchOnlyOwnerReceipt, 1) Then
+		FileDelete($sTemporary)
+		Return False
+	EndIf
+	If Not _BlueStacks5LaunchOnlyReceiptPathSafe(True) Then Return False
+	Return FileRead($g_sBlueStacks5LaunchOnlyOwnerReceipt) = $sReceipt
+EndFunc   ;==>_BlueStacks5WriteLaunchOnlyOwnerReceipt
+
 ; Return the one HD-Player process that owns the configured instance's loopback ADB listener. Newer
 ; BlueStacks builds can withhold both CommandLine and ExecutablePath from WMI and can publish an empty
 ; Qt window title. The configured per-instance ADB port remains an OS-owned identity boundary: require
@@ -240,6 +290,7 @@ Func LaunchBlueStacks5CoCOnly(ByRef $sReason)
 	EndIf
 
 	Local $bStartedEmulator = False
+	Local $bHadExactWindow = WinGetAndroidHandle() <> 0
 	Local $iLaunchPid = 0
 	Local $bProcessKilled = False
 	Local $hLaunchTimer = __TimerInit()
@@ -271,6 +322,7 @@ Func LaunchBlueStacks5CoCOnly(ByRef $sReason)
 			Return False
 		EndIf
 	WEnd
+	If Not $bHadExactWindow And WinGetAndroidHandle() <> 0 Then $bStartedEmulator = True
 
 	If Not ConnectAndroidAdb(False, 3000) Then
 		$sReason = "ADB did not bind to the exact BlueStacks 5 instance"
@@ -285,6 +337,13 @@ Func LaunchBlueStacks5CoCOnly(ByRef $sReason)
 	If RunControlStopRequested() Or Not $g_bRunState Then
 		$sReason = "BlueStacks and Clash of Clans launch cancelled before the game activity"
 		Return False
+	EndIf
+	If $bStartedEmulator Then
+		Local $iOwnedPlayerPid = _BlueStacks5ConfiguredAdbOwnerPid()
+		If $iOwnedPlayerPid <= 0 Or Not _BlueStacks5WriteLaunchOnlyOwnerReceipt($iOwnedPlayerPid) Then
+			$sReason = "BlueStacks launched but exact product ownership could not be recorded for cleanup"
+			Return False
+		EndIf
 	EndIf
 
 	; Deliberately bypass the legacy game restart helper, which can push account shared preferences,

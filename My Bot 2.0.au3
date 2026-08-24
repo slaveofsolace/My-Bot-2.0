@@ -52,6 +52,8 @@ Global Const $g_sEngineInitCancelPath = @ScriptDir & "\config\engine-init-cancel
 Global Const $g_sEngineSupervisorTokenEnv = "MYBOT_ENGINE_INIT_TOKEN"
 Global Const $g_sEngineSupervisorLauncherPidEnv = "MYBOT_ENGINE_INIT_LAUNCHER_PID"
 Global Const $g_sEngineSupervisorLauncherCreatedEnv = "MYBOT_ENGINE_INIT_LAUNCHER_CREATED"
+Global Const $g_sLaunchOnlyEmulatorOwnershipSchema = "my-bot-launch-only-emulator-owner-v1"
+Global Const $g_sLaunchOnlyEmulatorOwnershipReceipt = $g_sUserDataRoot & "\launch-only-emulator-owner-v1.json"
 Global Const $g_iEngineInitEnterTimeoutMs = 10000
 Global Const $g_iEngineInitPoolStallTimeoutMs = 90000
 Global Const $g_iEngineInitPostReturnTimeoutMs = 15000
@@ -296,13 +298,14 @@ Func _RecoverBotStack()
 	_CloseExactPathProcesses("MyBot.run.MiniGui.exe", $g_sControllerPath)
 	_CloseExactPathProcesses("MyBot.run.exe", $g_sHostPath)
 	Local $bAdbChildrenClosed = _CloseVerifiedAdbChildren($aOwnedAdbChildren)
+	Local $bLaunchOnlyEmulatorClosed = _CloseOwnedLaunchOnlyEmulator(False)
 	_CloseExactPathProcesses("My Bot 2.0.exe", @ScriptFullPath, @AutoItPID)
 
 	Local $hController = _FindControllerWindow()
 	Local $bControllerClosed = Not $hController
 	Local $bBackendClosed = _CountExactPathProcesses("MyBot.run.exe", $g_sHostPath) = 0
-	Local $bRecovered = $bControllerClosed And $bBackendClosed And $bPlannerClosed And $bAdbChildrenClosed
-	_RecoveryLog("recovery completed; controller_closed=" & $bControllerClosed & "; backend_closed=" & $bBackendClosed & "; planner_closed=" & $bPlannerClosed & "; adb_children_closed=" & $bAdbChildrenClosed)
+	Local $bRecovered = $bControllerClosed And $bBackendClosed And $bPlannerClosed And $bAdbChildrenClosed And $bLaunchOnlyEmulatorClosed
+	_RecoveryLog("recovery completed; controller_closed=" & $bControllerClosed & "; backend_closed=" & $bBackendClosed & "; planner_closed=" & $bPlannerClosed & "; adb_children_closed=" & $bAdbChildrenClosed & "; launch_only_emulator_closed=" & $bLaunchOnlyEmulatorClosed)
 	Return $bRecovered
 EndFunc   ;==>_RecoverBotStack
 
@@ -511,8 +514,9 @@ Func _RecoverExitedOwnedControllerStack($iControllerPid, $sControllerCreated, $i
 		If _HasUncapturedAdbChildForRecordedBackend($iBackendPid) Then $bUncapturedAdbChild = True
 	EndIf
 	Local $bAdbChildrenClosed = _CloseVerifiedAdbChildren($aOwnedAdbChildren)
-	Local $bRecovered = $bPlannerClosed And $bBackendClosed And $bAdbChildrenClosed And Not $bUncapturedAdbChild
-	_RecoveryLog("owned controller-exit recovery completed; backend_closed=" & $bBackendClosed & "; planner_closed=" & $bPlannerClosed & "; adb_children_closed=" & $bAdbChildrenClosed & "; uncaptured_adb_child=" & $bUncapturedAdbChild)
+	Local $bLaunchOnlyEmulatorClosed = _CloseOwnedLaunchOnlyEmulator(True)
+	Local $bRecovered = $bPlannerClosed And $bBackendClosed And $bAdbChildrenClosed And $bLaunchOnlyEmulatorClosed And Not $bUncapturedAdbChild
+	_RecoveryLog("owned controller-exit recovery completed; backend_closed=" & $bBackendClosed & "; planner_closed=" & $bPlannerClosed & "; adb_children_closed=" & $bAdbChildrenClosed & "; launch_only_emulator_closed=" & $bLaunchOnlyEmulatorClosed & "; uncaptured_adb_child=" & $bUncapturedAdbChild)
 	Return $bRecovered
 EndFunc   ;==>_RecoverExitedOwnedControllerStack
 
@@ -547,6 +551,116 @@ Func _CloseVerifiedAdbChildren(ByRef $aChildren)
 	Return $bAllClosed
 EndFunc   ;==>_CloseVerifiedAdbChildren
 
+Func _ReadLaunchOnlyEmulatorOwnershipReceipt()
+	If Not FileExists($g_sLaunchOnlyEmulatorOwnershipReceipt) Then Return ""
+	If Not _LaunchOnlyEmulatorReceiptPathSafe(True) Then Return ""
+	Local $sReceipt = FileRead($g_sLaunchOnlyEmulatorOwnershipReceipt)
+	If @error Or StringLen($sReceipt) > 4096 Then Return ""
+	Return $sReceipt
+EndFunc   ;==>_ReadLaunchOnlyEmulatorOwnershipReceipt
+
+Func _LaunchOnlyEmulatorReceiptPathSafe($bRequireReceipt = False)
+	Local $aParent = DllCall("kernel32.dll", "dword", "GetFileAttributesW", "wstr", $g_sUserDataRoot)
+	If @error Or Not IsArray($aParent) Or $aParent[0] = 0xFFFFFFFF Then Return False
+	If BitAND($aParent[0], 0x10) = 0 Or BitAND($aParent[0], 0x400) <> 0 Then Return False
+	If Not FileExists($g_sLaunchOnlyEmulatorOwnershipReceipt) Then Return Not $bRequireReceipt
+	Local $aReceipt = DllCall("kernel32.dll", "dword", "GetFileAttributesW", "wstr", $g_sLaunchOnlyEmulatorOwnershipReceipt)
+	If @error Or Not IsArray($aReceipt) Or $aReceipt[0] = 0xFFFFFFFF Then Return False
+	Return BitAND($aReceipt[0], 0x10) = 0 And BitAND($aReceipt[0], 0x400) = 0
+EndFunc   ;==>_LaunchOnlyEmulatorReceiptPathSafe
+
+Func _FindLaunchOnlyBlueStacksWindow($iPlayerPid, $sInstance)
+	If $iPlayerPid <= 0 Or Not StringRegExp($sInstance, "^[A-Za-z0-9._-]{1,64}$") Then Return 0
+	Local $sTitle = "BlueStacks5-" & $sInstance
+	Local $aWindows = WinList($sTitle)
+	Local $hFound = 0
+	For $i = 1 To $aWindows[0][0]
+		If $aWindows[$i][0] <> $sTitle Then ContinueLoop
+		Local $hWindow = $aWindows[$i][1]
+		If WinGetProcess($hWindow) <> $iPlayerPid Then ContinueLoop
+		If Not StringRegExp(_WindowClassName($hWindow), "^Qt[0-9]+QWindowIcon$") Then ContinueLoop
+		If Not StringRegExp(StringLower(_ProcessImagePath($iPlayerPid)), "\\hd-player\.exe$") Then ContinueLoop
+		If $hFound Then Return SetError(2, 0, 0)
+		$hFound = $hWindow
+	Next
+	Return $hFound
+EndFunc   ;==>_FindLaunchOnlyBlueStacksWindow
+
+Func _LaunchOnlyEmulatorReceiptConsumedSafely($sCurrentReceipt, $iPlayerPid)
+	Return $sCurrentReceipt = "" And $iPlayerPid > 0 And Not ProcessExists($iPlayerPid)
+EndFunc   ;==>_LaunchOnlyEmulatorReceiptConsumedSafely
+
+Func _CloseOwnedLaunchOnlyEmulator($bRequireCurrentLauncher)
+	Local $sReceipt = _ReadLaunchOnlyEmulatorOwnershipReceipt()
+	If $sReceipt = "" Then Return True
+	If _PlannerReceiptString($sReceipt, "schema") <> $g_sLaunchOnlyEmulatorOwnershipSchema Then
+		_RecoveryLog("refused launch-only emulator: invalid ownership receipt schema")
+		Return False
+	EndIf
+	Local $iPlayerPid = _PlannerReceiptInt($sReceipt, "player_pid")
+	Local $sPlayerCreated = _PlannerReceiptString($sReceipt, "player_created")
+	Local $sInstance = _LauncherReceiptIdentifier($sReceipt, "instance")
+	If $iPlayerPid <= 0 Or Not StringRegExp($sPlayerCreated, "^[0-9a-f]{16}$") Or _
+			Not StringRegExp($sInstance, "^[A-Za-z0-9._-]{1,64}$") Then
+		_RecoveryLog("refused launch-only emulator: malformed ownership receipt")
+		Return False
+	EndIf
+	If $bRequireCurrentLauncher Then
+		Local $iLauncherPid = _PlannerReceiptInt($sReceipt, "launcher_pid")
+		Local $sLauncherCreated = _PlannerReceiptString($sReceipt, "launcher_created")
+		If $iLauncherPid <> @AutoItPID Or $sLauncherCreated <> _ProcessCreationId(@AutoItPID) Then
+			_RecoveryLog("refused launch-only emulator: receipt belongs to another launcher generation")
+			Return False
+		EndIf
+	EndIf
+	If Not ProcessExists($iPlayerPid) Then
+		_RecoveryLog("removing stale launch-only emulator receipt; pid=" & $iPlayerPid)
+		Return FileDelete($g_sLaunchOnlyEmulatorOwnershipReceipt) = 1 Or Not FileExists($g_sLaunchOnlyEmulatorOwnershipReceipt)
+	EndIf
+	If _ProcessCreationId($iPlayerPid) <> $sPlayerCreated Or _
+			Not StringRegExp(StringLower(_ProcessImagePath($iPlayerPid)), "\\hd-player\.exe$") Then
+		_RecoveryLog("refused launch-only emulator: player identity changed; pid=" & $iPlayerPid)
+		Return False
+	EndIf
+	Local $sCommand = _ProcessCommandLine($iPlayerPid)
+	Local $bCommandMatches = $sCommand <> "" And StringInStr($sCommand, "--instance") > 0 And StringInStr($sCommand, $sInstance) > 0
+	Local $hWindow = _FindLaunchOnlyBlueStacksWindow($iPlayerPid, $sInstance)
+	If @error = 2 Or (Not $hWindow And Not $bCommandMatches) Then
+		_RecoveryLog("refused launch-only emulator: no exact instance window or command line proof; pid=" & $iPlayerPid & "; instance=" & $sInstance)
+		Return False
+	EndIf
+	Local $sCurrentReceipt = _ReadLaunchOnlyEmulatorOwnershipReceipt()
+	If $sCurrentReceipt <> $sReceipt Then
+		If _LaunchOnlyEmulatorReceiptConsumedSafely($sCurrentReceipt, $iPlayerPid) Then
+			_RecoveryLog("launch-only owned BlueStacks player already closed by concurrent recovery; pid=" & $iPlayerPid & "; instance=" & $sInstance)
+			Return True
+		EndIf
+		Return False
+	EndIf
+	If Not ProcessExists($iPlayerPid) Then
+		_RecoveryLog("removing stale launch-only emulator receipt after concurrent close; pid=" & $iPlayerPid)
+		Return FileDelete($g_sLaunchOnlyEmulatorOwnershipReceipt) = 1 Or Not FileExists($g_sLaunchOnlyEmulatorOwnershipReceipt)
+	EndIf
+	If _ProcessCreationId($iPlayerPid) <> $sPlayerCreated Then Return False
+	_RecoveryLog("closing launch-only owned BlueStacks player; pid=" & $iPlayerPid & "; instance=" & $sInstance)
+	ShellExecute(@WindowsDir & "\System32\taskkill.exe", " -f -t -pid " & $iPlayerPid, "", Default, @SW_HIDE)
+	For $i = 1 To 40
+		If Not ProcessExists($iPlayerPid) Then ExitLoop
+		Sleep(250)
+	Next
+	If ProcessExists($iPlayerPid) Then
+		_RecoveryLog("launch-only owned BlueStacks player remained alive; pid=" & $iPlayerPid)
+		Return False
+	EndIf
+	Local $sFinalReceipt = _ReadLaunchOnlyEmulatorOwnershipReceipt()
+	If $sFinalReceipt <> $sReceipt Then
+		If _LaunchOnlyEmulatorReceiptConsumedSafely($sFinalReceipt, $iPlayerPid) Then Return True
+		Return False
+	EndIf
+	If Not _LaunchOnlyEmulatorReceiptPathSafe(True) Then Return False
+	Return FileDelete($g_sLaunchOnlyEmulatorOwnershipReceipt) = 1 Or Not FileExists($g_sLaunchOnlyEmulatorOwnershipReceipt)
+EndFunc   ;==>_CloseOwnedLaunchOnlyEmulator
+
 Func _PlannerReceiptString($sReceipt, $sName)
 	Local $aValue = StringRegExp($sReceipt, '"' & $sName & '"\s*:\s*"([A-Za-z0-9_-]+)"', $STR_REGEXPARRAYMATCH)
 	If @error Or Not IsArray($aValue) Or UBound($aValue) <> 1 Then Return ""
@@ -558,6 +672,12 @@ Func _PlannerReceiptInt($sReceipt, $sName)
 	If @error Or Not IsArray($aValue) Or UBound($aValue) <> 1 Then Return 0
 	Return Int($aValue[0])
 EndFunc   ;==>_PlannerReceiptInt
+
+Func _LauncherReceiptIdentifier($sReceipt, $sName)
+	Local $aValue = StringRegExp($sReceipt, '"' & $sName & '"\s*:\s*"([A-Za-z0-9._-]{1,128})"', $STR_REGEXPARRAYMATCH)
+	If @error Or Not IsArray($aValue) Or UBound($aValue) <> 1 Then Return ""
+	Return $aValue[0]
+EndFunc   ;==>_LauncherReceiptIdentifier
 
 Func _EngineSupervisorRequestId($sJson, $sName)
 	Local $aValue = StringRegExp($sJson, '"' & $sName & '"\s*:\s*"([A-Za-z0-9._-]{1,80})"', $STR_REGEXPARRAYMATCH)
