@@ -1566,6 +1566,9 @@ function launchGameSurfaceMessage(adbReady, gameReady) {
   const lowered = String(detail).toLowerCase();
   const recognizedOverlay = ['daily reward', 'welcome back', 'inactivity', 'startup overlay']
     .some((token) => lowered.includes(token));
+  if (recognizedOverlay && lowered.includes('daily reward')) {
+    return 'Daily Reward is open after launch. Launch-only never clicks game UI; use Run Planner → Home maintenance → Claim Daily Reward for the bounded no-gem route, or close it manually.';
+  }
   if (recognizedOverlay && detail) return detail;
   return 'Launch succeeded and Clash is attached; Home readiness is waiting on a known startup surface.';
 }
