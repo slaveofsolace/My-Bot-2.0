@@ -70,6 +70,7 @@ class GameLaunchOnlyControlTests(unittest.TestCase):
             "GetAndroidProcessPID(Default, False)",
             "OpenHomeCollectorsProveHome()",
             "OpenHomeDailyRewardOverlayReady()",
+            "OpenHomeDailyRewardFindClaim($aDailyRewardClaim)",
             "OpenHomeDailyRewardClaimedOverlayReady()",
             "OpenHomeInactivityReloadDialogReady()",
             "OpenHomeWelcomeBackOverlayReady()",
@@ -94,6 +95,30 @@ class GameLaunchOnlyControlTests(unittest.TestCase):
             "train",
             "Donate",
             "Attack",
+            "OpenHomeDailyRewardIssueClaim",
+            "OpenHomeDailyRewardCloseAndProveHome",
+            "NoPremiumPointClick",
+        ):
+            self.assertNotIn(forbidden, adapter)
+
+    def test_launch_only_reports_daily_reward_claim_candidate_without_clicking(self) -> None:
+        adapter = function_body(self.android, "LaunchBlueStacks5CoCOnly")
+        for required in (
+            "Local $aDailyRewardClaim[2]",
+            "OpenHomeDailyRewardFindClaim($aDailyRewardClaim)",
+            "one Claim candidate passively recognized",
+            "no actionable Claim candidate",
+            "ambiguous Claim candidates",
+            "no input is permitted",
+            "post-claim Daily Reward overlay passively recognized",
+        ):
+            self.assertIn(required, adapter)
+        self.assertLess(adapter.index("OpenHomeDailyRewardOverlayReady()"), adapter.index("OpenHomeDailyRewardFindClaim($aDailyRewardClaim)"))
+        self.assertLess(adapter.index("OpenHomeDailyRewardFindClaim($aDailyRewardClaim)"), adapter.index("OpenHomeDailyRewardClaimedOverlayReady()"))
+        for forbidden in (
+            "OpenHomeDailyRewardIssueClaim",
+            "OpenHomeDailyRewardCloseAndProveHome",
+            "NoPremiumPointClick",
         ):
             self.assertNotIn(forbidden, adapter)
 
