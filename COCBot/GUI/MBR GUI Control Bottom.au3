@@ -62,9 +62,18 @@ Func Initiate(ByRef $sStartError)
 ;~ 		If $g_bNotifyDeleteAllPushesOnStart Then _DeletePush()
 
 		AndroidShield("Initiate", True)
-		If Not checkMainScreen() Then
-			$sStartError = "Clash of Clans main screen could not be detected"
-			Return False
+		Local $bBuilderTerminalPreflight = BuilderMaintenanceRoutePrepared()
+		If $bBuilderTerminalPreflight Then
+			If Not OpenBuilderBaseProveMain() Then
+				$sStartError = "Builder Base main screen could not be detected"
+				Return False
+			EndIf
+			SetLog("Run Planner: Builder Base route-ready screen detected", $COLOR_INFO)
+		Else
+			If Not checkMainScreen() Then
+				$sStartError = "Clash of Clans main screen could not be detected"
+				Return False
+			EndIf
 		EndIf
 		$g_bMainWindowOk = True
 		If Not $g_bRunState Then
@@ -74,7 +83,7 @@ Func Initiate(ByRef $sStartError)
 
 		; A planned session is not "started" until the inherited detector has established which own
 		; village it would automate. Legacy profile starts retain their existing sequence below.
-		Local $bPlannedVillagePreflight = RunExecutionSessionId() <> ""
+		Local $bPlannedVillagePreflight = RunExecutionSessionId() <> "" And Not $bBuilderTerminalPreflight
 		If $bPlannedVillagePreflight Then
 			If Not RunExecutionSkipVillageZoomCalibration() Then
 				ZoomOut()
@@ -149,13 +158,13 @@ Func Initiate(ByRef $sStartError)
 		EndIf
 		If Not $g_bRunState Then Return True
 
-		If Not $bPlannedVillagePreflight Then
+		If Not $bPlannedVillagePreflight And Not $bBuilderTerminalPreflight Then
 			ZoomOut()
 			If Not $g_bRunState Then Return True
 		EndIf
 
 		If Not $g_bSearchMode Then
-			If Not $bPlannedVillagePreflight Then
+			If Not $bPlannedVillagePreflight And Not $bBuilderTerminalPreflight Then
 				BotDetectFirstTime()
 				If Not $g_bRunState Then Return True
 			EndIf
