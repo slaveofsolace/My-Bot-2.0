@@ -289,6 +289,16 @@ Func OpenHomeStartupRecoveryWait($bRequireRunState = True)
 	Return SetError(4, 0, False)
 EndFunc   ;==>OpenHomeStartupRecoveryWait
 
+Func OpenHomeOrBuilderStartupRecoveryWait()
+	For $iAttempt = 1 To 60
+		If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
+		If OpenHomeCollectorsProveHome() Or OpenBuilderBaseProveMain() Or OpenHomeDailyRewardOverlayReady() Or _
+				OpenHomeDailyRewardClaimedOverlayReady() Or OpenHomeWelcomeBackOverlayReady() Then Return True
+		If _Sleep(1000, True, True, False) Then Return SetError(2, 0, False)
+	Next
+	Return SetError(4, 0, False)
+EndFunc   ;==>OpenHomeOrBuilderStartupRecoveryWait
+
 ; A Claim button is a 117x40 green control. Sampling four interior edges avoids its localized white
 ; label while rejecting the small green claimed check and the gray/brown inactive day controls.
 Func _OpenHomeDailyRewardClaimCandidateReady($iX, $iY)

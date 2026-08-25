@@ -64,6 +64,20 @@ Func Initiate(ByRef $sStartError)
 		AndroidShield("Initiate", True)
 		Local $bBuilderTerminalPreflight = BuilderMaintenanceRoutePrepared()
 		If $bBuilderTerminalPreflight Then
+			Local $bBuilderReloadIssued = OpenHomeInactivityReloadIssue()
+			Local $iBuilderReloadError = @error
+			If $bBuilderReloadIssued Then
+				SetLog("Run Planner: Builder startup inactivity dialog recognized; reload issued before Builder route recognition", $COLOR_INFO)
+				If Not OpenHomeOrBuilderStartupRecoveryWait() Then
+					$sStartError = "Builder startup reload recovery did not reach Home, Builder Base, or a reviewed startup overlay; error=" & @error
+					Return False
+				EndIf
+			ElseIf $iBuilderReloadError <> 0 Then
+				$sStartError = $iBuilderReloadError = 6 ? _
+						"Passive no-gem guard recognized a gem surface before Builder startup reload; no input was issued" : _
+						"Builder startup inactivity reload recovery was rejected; error=" & $iBuilderReloadError
+				Return False
+			EndIf
 			If OpenBuilderBaseProveMain() Then
 				SetLog("Run Planner: Builder Base route-ready screen detected", $COLOR_INFO)
 			ElseIf OpenHomeCollectorsProveHome() Then
