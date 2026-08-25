@@ -436,15 +436,23 @@ class LauncherRecoveryContractTests(unittest.TestCase):
         ):
             self.assertIn(proof, adopter)
 
-    def test_native_start_publishes_trusted_local_appdata_before_python_child(self):
+    def test_native_start_publishes_trusted_runtime_environment_before_python_child(self):
         start = PLANNER_CONTROL[
             PLANNER_CONTROL.index("Func _RunPlannerStartService"):
             PLANNER_CONTROL.index("EndFunc   ;==>_RunPlannerStartService")
         ]
         publish = 'EnvSet("LOCALAPPDATA", $g_sMBRFuncRuntimeLocalAppData)'
+        no_bytecode = 'EnvSet("PYTHONDONTWRITEBYTECODE", "1")'
+        no_user_site = 'EnvSet("PYTHONNOUSERSITE", "1")'
         self.assertIn(publish, start)
+        self.assertIn(no_bytecode, start)
+        self.assertIn(no_user_site, start)
         self.assertLess(start.index(publish), start.index("Local $iPid = Run("))
+        self.assertLess(start.index(no_bytecode), start.index("Local $iPid = Run("))
+        self.assertLess(start.index(no_user_site), start.index("Local $iPid = Run("))
         self.assertIn("Trusted Local AppData could not be published", start)
+        self.assertIn("Python no-bytecode mode could not be published", start)
+        self.assertIn("Python user-site isolation could not be published", start)
 
     def test_launcher_errors_are_logged_and_bounded_without_topmost_focus(self):
         start = LAUNCHER.index("Func _ShowError($sMessage)")
