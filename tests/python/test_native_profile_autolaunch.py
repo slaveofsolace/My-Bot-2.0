@@ -140,6 +140,10 @@ class NativeProfileAutoLaunchTests(unittest.TestCase):
                 "connected": True,
                 "state": "idle",
                 "engine_available": True,
+                "emulator_attached": True,
+                "window_attached": True,
+                "adb_ready": True,
+                "game_ready": True,
                 "recognition_available": False,
                 "recognition_error": "clean-room recognizer required",
             }
@@ -151,6 +155,30 @@ class NativeProfileAutoLaunchTests(unittest.TestCase):
             self.assertFalse(payload["ok"])
             self.assertIn("clean-room recognizer required", payload["problems"])
             self.assertFalse(command_path.exists())
+
+    def test_web_start_allows_native_profile_cold_bootstrap_before_recognition_exists(self):
+        with tempfile.TemporaryDirectory() as folder:
+            command_path = Path(folder) / "control-command.local.json"
+            native_status = {
+                "connected": True,
+                "state": "idle",
+                "engine_available": True,
+                "emulator_attached": False,
+                "window_attached": False,
+                "adb_ready": False,
+                "game_ready": False,
+                "recognition_available": False,
+                "recognition_error": "no frame available yet",
+            }
+            with mock.patch.object(planner_ui, "PLAN_PATH", Path(folder) / "missing-plan.json"), \
+                    mock.patch.object(planner_ui, "CONTROL_COMMAND_PATH", command_path), \
+                    mock.patch.object(planner_ui, "control_status", return_value=native_status):
+                payload, code = planner_ui.queue_control_command("start")
+            self.assertEqual(code, 202)
+            self.assertTrue(payload["accepted"])
+            native_command = json.loads(command_path.read_text(encoding="utf-8"))
+            self.assertEqual(native_command["run_mode"], "native-profile")
+            self.assertEqual(native_command["plan_token"], planner_ui.PLAN_ABSENCE_TOKEN)
 
     def test_planned_transport_is_applied_before_any_emulator_or_managed_binding(self):
         execution = (ROOT / "COCBot" / "functions" / "Run" / "RunExecution.au3").read_text(
@@ -213,7 +241,10 @@ class NativeProfileAutoLaunchTests(unittest.TestCase):
         self.assertEqual([slot, transport, probe, bootstrap, initialize], sorted((slot, transport, probe, bootstrap, initialize)))
         self.assertIn("Not $g_bBotLaunchOption_NoBotSlot And Not LockBotSlot(Default)", start)
         self.assertIn("LockBotSlot(False)", reject)
-        self.assertLess(reject.index("LockBotSlot(False)"), reject.index("btnStop()"))
+        self.assertLess(
+            reject.index("LockBotSlot(False)"),
+            reject.index("If $g_iBotAction <> $eBotClose Then btnStop()"),
+        )
 
     def test_general_cold_bootstrap_dispatches_supported_configured_emulators_safely(self):
         action = (ROOT / "COCBot" / "MBR GUI Action.au3").read_text(encoding="utf-8-sig")

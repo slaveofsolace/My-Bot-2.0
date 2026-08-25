@@ -992,7 +992,17 @@ def queue_control_command(action: str, expected_start_request_id: str = "") -> t
                         "problems": preflight,
                         "status": status,
                     }, 409
-            if run_mode == "native-profile" and status.get("recognition_available") is not True:
+            native_profile_cold_bootstrap = (
+                status.get("emulator_attached") is not True
+                and status.get("window_attached") is not True
+                and status.get("adb_ready") is not True
+                and status.get("game_ready") is not True
+            )
+            if (
+                run_mode == "native-profile"
+                and status.get("recognition_available") is not True
+                and not native_profile_cold_bootstrap
+            ):
                 return {
                     "ok": False,
                     "problems": [
