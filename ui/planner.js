@@ -1678,16 +1678,19 @@ function renderControl() {
   const engineAvailable = CONTROL.engine_available !== false;
   const recognitionAvailable = CONTROL.recognition_available === true;
   const nativeProfileBlocked = NATIVE_PROFILE_MODE && !recognitionAvailable;
+  const primaryLaunchOnly = nativeProfileBlocked;
   const recognitionError = CONTROL.recognition_error
     || 'Full profile automation requires licensed inherited recognition or a clean-room replacement.';
-  $('controlStart').title = nativeProfileBlocked
-    ? recognitionError
+  $('controlStart').textContent = primaryLaunchOnly ? 'Launch game safely' : 'Start run';
+  $('controlStart').title = primaryLaunchOnly
+    ? `${recognitionError} Launch-only starts the exact emulator/game, proves a startup surface, and returns idle without bot actions.`
     : NATIVE_PROFILE_MODE
       ? 'Start the active native profile; BlueStacks and Clash of Clans will be launched if needed'
     : savedProblems.length
       ? 'Resolve and apply the saved plan issues before starting'
       : hasUnsavedPlan ? 'Apply the visible plan before starting' : 'Start the applied plan';
-  $('controlStart').disabled = !BOOT_READY || busy || hasUnsavedPlan || !connected || !engineAvailable || nativeProfileBlocked || state !== 'idle';
+  $('controlStart').disabled = !BOOT_READY || busy || hasUnsavedPlan || !connected
+    || (!primaryLaunchOnly && !engineAvailable) || state !== 'idle';
   $('controlNativeMode').textContent = NATIVE_PROFILE_MODE ? 'Full profile automation active' : 'Use full profile automation';
   $('controlNativeMode').title = !recognitionAvailable
     ? recognitionError
@@ -1741,8 +1744,8 @@ function renderControl() {
   else if (busy) nextAction = `Wait for ${CONTROL_PENDING.action}`;
   else if (!connected) nextAction = 'Wait for native heartbeat';
   else if (state !== 'idle') nextAction = 'Use Pause or Stop';
+  else if (nativeProfileBlocked) nextAction = 'Launch game safely or use a bounded route';
   else if (!engineAvailable) nextAction = 'Resolve engine availability';
-  else if (nativeProfileBlocked) nextAction = 'Use a bounded route';
   else if (hasUnsavedPlan) nextAction = NATIVE_PROFILE_MODE ? 'Check recognition gate' : 'Apply the visible plan';
   for (const [selector, text] of [
     ['.route-readiness-profile', profileIdentity],
@@ -1783,7 +1786,7 @@ function renderControl() {
     $('controlAck').textContent = 'Managed engine initialization is active. Stop remains available through launcher supervision.';
     $('controlAck').className = 'control-ack pending';
   } else if (nativeProfileBlocked && connected) {
-    $('controlAck').textContent = `${recognitionError} Apply a verified bounded route to run safely.`;
+    $('controlAck').textContent = `${recognitionError} The primary action is launch-only; apply a verified bounded route before bot actions.`;
     $('controlAck').className = 'control-ack notice warning';
   } else if (NATIVE_PROFILE_MODE && connected) {
     $('controlAck').textContent = 'Full profile automation is active. Start uses the selected native profile through current recognition and no-premium gates, and launches BlueStacks and Clash of Clans if needed.';
@@ -1981,6 +1984,10 @@ async function activateNativeProfileMode() {
   }
 }
 
+function primaryControlAction() {
+  return NATIVE_PROFILE_MODE && CONTROL.recognition_available !== true ? 'launch-game' : 'start';
+}
+
 function prepareVerifiedHomeRoute() {
   if (!BOOT_READY) return;
   if (CONTROL_PENDING) {
@@ -2003,7 +2010,7 @@ function prepareVerifiedHomeRoute() {
   renderControl();
 }
 
-$('controlStart').onclick = () => sendControl('start');
+$('controlStart').onclick = () => sendControl(primaryControlAction());
 $('controlEngineCheck').onclick = () => sendControl('check-engine');
 $('controlGameLaunch').onclick = () => sendControl('launch-game');
 $('controlPause').onclick = () => sendControl(CONTROL.state === 'paused' ? 'resume' : 'pause');
