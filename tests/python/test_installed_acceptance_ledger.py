@@ -56,13 +56,16 @@ class InstalledAcceptanceLedgerTests(unittest.TestCase):
         )
         self.receipt.write_text("receipt\n", encoding="utf-8")
         self.readiness = {
-            "capabilities": 8,
-            "ready": 2,
+            "capabilities": 11,
+            "ready": 5,
             "not_ready": 6,
             "current_binary_ready": 0,
-            "current_binary_not_ready": 8,
+            "current_binary_not_ready": 11,
             "results": [
                 self.row("emulator.bluestacks5", current_blockers=["missing exact-current-binary test types: emulator-smoke"]),
+                self.row("model.current-game", current_blockers=["missing exact-current-binary test types: game-surface-recognition"]),
+                self.row("model.screen-state-registry", current_blockers=["missing exact-current-binary test types: game-surface-recognition"]),
+                self.row("orchestration.engine-initialization", current_blockers=["missing exact-current-binary test types: end-to-end"]),
                 self.row("events.daily-reward", blockers=["missing trusted test types: end-to-end"]),
                 self.row("village.collectors", passing=["collectors.historical"]),
                 self.row("safety.no-gem-guard", blockers=["unverified fixtures: safety.gem-window"]),
@@ -119,6 +122,9 @@ class InstalledAcceptanceLedgerTests(unittest.TestCase):
         ledger = self.build()
         statuses = {item["capability_id"]: item["status"] for item in ledger["capabilities"]}
         self.assertEqual("RUNTIME_PASS", statuses["emulator.bluestacks5"])
+        self.assertEqual("RUNTIME_PASS", statuses["model.current-game"])
+        self.assertEqual("RUNTIME_PASS", statuses["model.screen-state-registry"])
+        self.assertEqual("RUNTIME_PASS", statuses["orchestration.engine-initialization"])
         self.assertEqual("RUNTIME_PASS", statuses["events.daily-reward"])
         self.assertEqual("DETERMINISTIC_PASS", statuses["village.collectors"])
         self.assertEqual("DETERMINISTIC_PASS", statuses["safety.no-gem-guard"])
@@ -137,6 +143,32 @@ class InstalledAcceptanceLedgerTests(unittest.TestCase):
         self.assertEqual(digest(self.passive_proof), proofs["passive_installed_launch_game"]["sha256"])
         self.assertEqual("18.400.22", proofs["passive_installed_launch_game"]["game_version"])
         self.assertIn("Daily Reward", proofs["actual_web_ui_launch_game"]["message"])
+        self.assertEqual("daily-reward", proofs["actual_web_ui_launch_game"]["launch_surface"])
+
+    def test_home_launch_evaluation_shape_proves_startup_runtime_without_daily_reward_claim(self) -> None:
+        self.ui_proof.write_text(
+            json.dumps(
+                {
+                    "first_passed_sample": {
+                        "payload": {
+                            "last_command": "launch-game",
+                            "last_outcome": "passed",
+                            "last_command_message": "BlueStacks and Clash of Clans launched; Home Village passively proven; emulator_started=true",
+                        }
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+        ledger = self.build()
+        statuses = {item["capability_id"]: item["status"] for item in ledger["capabilities"]}
+        self.assertEqual("RUNTIME_PASS", statuses["emulator.bluestacks5"])
+        self.assertEqual("RUNTIME_PASS", statuses["model.current-game"])
+        self.assertEqual("RUNTIME_PASS", statuses["model.screen-state-registry"])
+        self.assertEqual("RUNTIME_PASS", statuses["orchestration.engine-initialization"])
+        self.assertEqual("STATE_BLOCKED", statuses["events.daily-reward"])
+        self.assertEqual("home", ledger["proofs"]["actual_web_ui_launch_game"]["launch_surface"])
+        self.assertNotIn("LIVE_PASS", set(statuses.values()))
 
     def test_validator_rejects_missing_or_live_claiming_ledgers(self) -> None:
         ledger = self.build()

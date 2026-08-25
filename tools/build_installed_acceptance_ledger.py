@@ -25,13 +25,13 @@ VALID_STATUSES = {
     "UNSAFE_BLOCKED",
 }
 
-RUNTIME_PROVEN_IDS = {
+BASE_LAUNCH_RUNTIME_PROVEN_IDS = {
     "emulator.bluestacks5",
-    "events.daily-reward",
     "model.current-game",
     "model.screen-state-registry",
     "orchestration.engine-initialization",
 }
+DAILY_REWARD_RUNTIME_PROVEN_ID = "events.daily-reward"
 
 DETERMINISTIC_PROVEN_IDS = {
     "orchestration.run-event",
@@ -84,24 +84,34 @@ def _proof_document(proof: dict[str, Any]) -> dict[str, Any]:
         document = final.get("document")
         if isinstance(document, dict):
             return document
+    first_passed = proof.get("first_passed_sample")
+    if isinstance(first_passed, dict):
+        payload = first_passed.get("payload")
+        if isinstance(payload, dict):
+            return payload
     return {}
 
 
-def installed_launch_proved(ui_proof: dict[str, Any] | None) -> bool:
+def installed_launch_surface(ui_proof: dict[str, Any] | None) -> str:
     if not isinstance(ui_proof, dict):
-        return False
+        return ""
     document = _proof_document(ui_proof)
-    return (
-        document.get("last_command") == "launch-game"
-        and document.get("last_outcome") == "passed"
-        and "Daily Reward" in str(document.get("last_command_message", ""))
-    )
+    if document.get("last_command") != "launch-game" or document.get("last_outcome") != "passed":
+        return ""
+    message = str(document.get("last_command_message", "")).casefold()
+    if "daily reward" in message:
+        return "daily-reward"
+    if "home village passively proven" in message or "home" in message:
+        return "home"
+    if "welcome back" in message or "startup overlay" in message:
+        return "startup-overlay"
+    return "launch-game"
 
 
 def classify_capability(
     row: dict[str, Any],
     *,
-    installed_runtime_proved: bool,
+    installed_launch_surface_name: str,
 ) -> tuple[str, str]:
     capability_id = str(row.get("id", ""))
     blockers = row.get("blockers") if isinstance(row.get("blockers"), list) else []
@@ -114,15 +124,16 @@ def classify_capability(
     fixtures = row.get("verified_fixtures") if isinstance(row.get("verified_fixtures"), list) else []
     declared_status = row.get("declared_status")
 
-    if installed_runtime_proved and capability_id in RUNTIME_PROVEN_IDS:
-        if capability_id == "events.daily-reward":
-            return (
-                "RUNTIME_PASS",
-                "Exact installed UI launch proof passively recognized the Daily Reward overlay and one Claim candidate; the claim click remains live-action gated.",
-            )
+    if installed_launch_surface_name and capability_id in BASE_LAUNCH_RUNTIME_PROVEN_IDS:
         return (
             "RUNTIME_PASS",
-            "Exact installed UI launch proof covered the mechanism/recognition path; no live account mutation is claimed.",
+            "Exact installed launch proof covered the installed mechanism and startup recognition path; no live account mutation is claimed.",
+        )
+
+    if installed_launch_surface_name == "daily-reward" and capability_id == DAILY_REWARD_RUNTIME_PROVEN_ID:
+        return (
+            "RUNTIME_PASS",
+            "Exact installed UI launch proof passively recognized the Daily Reward overlay and one Claim candidate; the claim click remains live-action gated.",
         )
 
     if capability_id in RIGHTS_BLOCKED_IDS:
@@ -180,11 +191,11 @@ def build_ledger(
     proof_paths: dict[str, Path],
     now: datetime | None = None,
 ) -> dict[str, Any]:
-    installed_runtime_proved = installed_launch_proved(ui_proof)
+    installed_launch_surface_name = installed_launch_surface(ui_proof)
     capabilities: list[dict[str, Any]] = []
     counts: dict[str, int] = {}
     for row in readiness.get("results", []):
-        status, note = classify_capability(row, installed_runtime_proved=installed_runtime_proved)
+        status, note = classify_capability(row, installed_launch_surface_name=installed_launch_surface_name)
         counts[status] = counts.get(status, 0) + 1
         capabilities.append(
             {
@@ -212,6 +223,7 @@ def build_ledger(
             "last_command": ui_doc.get("last_command"),
             "last_outcome": ui_doc.get("last_outcome"),
             "message": ui_doc.get("last_command_message"),
+            "launch_surface": installed_launch_surface_name or None,
         }
     )
     proof_records["passive_installed_launch_game"].update(
