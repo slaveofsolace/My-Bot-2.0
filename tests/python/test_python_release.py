@@ -470,6 +470,9 @@ class PythonReleaseContractTests(unittest.TestCase):
             cache = runtime / "Lib" / "__pycache__"
             cache.mkdir(parents=True)
             write(cache, "ignored.cpython-312.pyc", b"BYTECODE")
+            third_party = runtime / "Lib" / "site-packages" / "vendor"
+            third_party.mkdir(parents=True)
+            write(third_party, "package.json", b'{"name":"not-runtime"}')
 
             zip_path = release.package_reviewed(
                 fixture.repo,
@@ -485,6 +488,7 @@ class PythonReleaseContractTests(unittest.TestCase):
                 self.assertIn("MyBot-2.0.0-win-x86/runtime/python/pythonw.exe", names)
                 self.assertIn("MyBot-2.0.0-win-x86/runtime/python/python312.dll", names)
                 self.assertFalse(any("__pycache__" in name or name.endswith(".pyc") for name in names))
+                self.assertFalse(any("site-packages" in name for name in names))
                 manifest = json.loads(
                     archive.read("MyBot-2.0.0-win-x86/release-manifest.json")
                 )

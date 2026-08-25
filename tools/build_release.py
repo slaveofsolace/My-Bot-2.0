@@ -151,6 +151,9 @@ COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 VERSION_RE = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$")
 PYTHON_RUNTIME_PREFIX = "runtime/python/"
 PYTHON_RUNTIME_REQUIRED_FILES = frozenset({"python.exe", "pythonw.exe", "LICENSE.txt"})
+PYTHON_RUNTIME_EXCLUDED_DIRECTORIES = frozenset(
+    {"__pycache__", "include", "libs", "scripts", "site-packages", "test", "tests"}
+)
 SAFE_MANIFEST_KEYS = frozenset(
     {
         "schema_version",
@@ -1052,7 +1055,7 @@ def _copy_local_python_runtime(source: Path, payload: Path) -> list[dict[str, ob
             child = current / name
             if _is_reparse_point(child):
                 raise ReleaseError(f"Python runtime contains a reparse-point directory: {child}")
-            if name.casefold() == "__pycache__":
+            if name.casefold() in PYTHON_RUNTIME_EXCLUDED_DIRECTORIES:
                 names.remove(name)
         relative_dir = current.relative_to(source)
         target_dir = destination / relative_dir
