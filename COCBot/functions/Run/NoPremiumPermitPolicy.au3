@@ -23,6 +23,7 @@ Global Const $NO_PREMIUM_ACTION_BUILDER_SWITCH = "builder-base.switch"
 Global Const $NO_PREMIUM_ACTION_BUILDER_COLLECT_GOLD = "builder-base.collect-gold"
 Global Const $NO_PREMIUM_ACTION_BUILDER_COLLECT_ELIXIR = "builder-base.collect-elixir"
 Global Const $NO_PREMIUM_ACTION_BUILDER_RETURN_HOME = "builder-base.return-home"
+Global Const $NO_PREMIUM_ACTION_HOME_CLEAR_SCREEN = "home.clear-screen"
 
 Global Const $NO_PREMIUM_INPUT_PERMIT_MAX_AGE_MS = 1000
 
@@ -37,7 +38,8 @@ Func NoPremiumPermitActionKnown($sAction)
 					$NO_PREMIUM_ACTION_CLAN_REQUEST_SEND, $NO_PREMIUM_ACTION_CLAN_REQUEST_CANCEL, $NO_PREMIUM_ACTION_CLAN_REQUEST_CLOSE, _
 					$NO_PREMIUM_ACTION_EXACT_TRAINING_ARMY, _
 					$NO_PREMIUM_ACTION_BUILDER_SWITCH, $NO_PREMIUM_ACTION_BUILDER_COLLECT_GOLD, _
-					$NO_PREMIUM_ACTION_BUILDER_COLLECT_ELIXIR, $NO_PREMIUM_ACTION_BUILDER_RETURN_HOME
+					$NO_PREMIUM_ACTION_BUILDER_COLLECT_ELIXIR, $NO_PREMIUM_ACTION_BUILDER_RETURN_HOME, _
+					$NO_PREMIUM_ACTION_HOME_CLEAR_SCREEN
 					Return True
 	EndSwitch
 	Return False
@@ -98,6 +100,9 @@ Func NoPremiumPermitTargetValid($sAction, $iX, $iY)
 			Return $iX >= 320 And $iX <= 350 And $iY >= 395 And $iY <= 420
                 Case $NO_PREMIUM_ACTION_BUILDER_RETURN_HOME
                         Return $iX = 821 And $iY = 465
+		Case $NO_PREMIUM_ACTION_HOME_CLEAR_SCREEN
+			Return ($iX >= 235 And $iX <= 245 And $iY >= 10 And $iY <= 30) Or _
+					($iX >= 640 And $iX <= 650 And $iY >= 10 And $iY <= 30)
 	EndSwitch
 	Return False
 EndFunc   ;==>NoPremiumPermitTargetValid

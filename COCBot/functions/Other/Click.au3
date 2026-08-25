@@ -126,6 +126,8 @@ Func NoPremiumSurfaceState(ByRef $sReason, $sPermitAction = "", $iExpectedX = De
 			$bRouteReady = OpenBuilderBaseResourceTargetReady(2, Int($iExpectedX), Int($iExpectedY))
 		Case $NO_PREMIUM_ACTION_BUILDER_RETURN_HOME
 			$bRouteReady = OpenBuilderBaseReturnBoatPointReady(Int($iExpectedX), Int($iExpectedY))
+		Case $NO_PREMIUM_ACTION_HOME_CLEAR_SCREEN
+			$bRouteReady = IsMainPage(1)
 	EndSwitch
 	If $bRouteReady Then Return $NO_PREMIUM_SURFACE_SAFE
 	$sReason = "positive current-client surface was not recognized for action " & $sPermitAction
@@ -526,6 +528,18 @@ Func ClickAway($Region = Default )
 	If $g_bDebugClick Then SetDebugLog("ClickAway(): on X:" & $aiSpot[0] & ", Y:" & $aiSpot[1], $COLOR_DEBUG)
 	ClickP($aiSpot, 1, 180, "#0000")
 EndFunc   ;==>ClickAway
+
+Func NoPremiumClickAway($Region = Default)
+	Local $aiRegionToUse = $aiClickAwayRegionLeft
+	If $Region = "Right" Then
+		$aiRegionToUse = $aiClickAwayRegionRight
+	EndIf
+
+	Local $iX = Int(($aiRegionToUse[0] + $aiRegionToUse[2]) / 2)
+	Local $iY = Int(($aiRegionToUse[1] + $aiRegionToUse[3]) / 2)
+	If $g_bDebugClick Then SetDebugLog("NoPremiumClickAway(): on X:" & $iX & ", Y:" & $iY, $COLOR_DEBUG)
+	Return NoPremiumPointClick($NO_PREMIUM_ACTION_HOME_CLEAR_SCREEN, $iX, $iY, 180, "#0000")
+EndFunc   ;==>NoPremiumClickAway
 
 Func ClickAway2()
 	Local $aiRegionToUse = Random(0, 1, 1) > 0 ? $aiClickAwayRegionLeft2 : $aiClickAwayRegionRight2

@@ -168,6 +168,7 @@ class NoPremiumSourcePolicyTests(unittest.TestCase):
             "$NO_PREMIUM_ACTION_DAILY_REWARD_CLAIM",
             "$NO_PREMIUM_ACTION_TREASURY_CLOSE",
             "$NO_PREMIUM_ACTION_CLAN_REQUEST_SEND",
+            "$NO_PREMIUM_ACTION_HOME_CLEAR_SCREEN",
             "no exact reviewed action and target permit",
         ):
             self.assertIn(token, recognizer)
@@ -273,12 +274,18 @@ class NoPremiumSourcePolicyTests(unittest.TestCase):
             all_callers,
         )
 
+        clear = autoit_function(self.click, "NoPremiumClickAway")
+        self.assertIn("$NO_PREMIUM_ACTION_HOME_CLEAR_SCREEN", clear)
+        self.assertIn("NoPremiumPointClick(", clear)
+        self.assertNotIn("Random(", clear)
+        self.assertNotRegex(autoit_function(source("COCBot/functions/Image Search/IsWindowOpen.au3"), "ClearScreen"), r"(?<![A-Za-z_])ClickAway\(")
+
     def test_action_contract_is_exact_point_bound_and_rejects_generic_routes(self) -> None:
         known = autoit_function(self.policy, "NoPremiumPermitActionKnown")
         target = autoit_function(self.policy, "NoPremiumPermitTargetValid")
         point = autoit_function(self.policy, "NoPremiumPermitPointMatches")
         age = autoit_function(self.policy, "NoPremiumPermitAgeValid")
-        self.assertEqual(21, len(re.findall(r'^Global Const \$NO_PREMIUM_ACTION_', self.policy, re.MULTILINE)))
+        self.assertEqual(22, len(re.findall(r'^Global Const \$NO_PREMIUM_ACTION_', self.policy, re.MULTILINE)))
         for forbidden in ('"home"', '"builder-home"', '"full-profile"', '"confirm"'):
             self.assertNotIn(forbidden, known)
         for exact in (
@@ -296,6 +303,8 @@ class NoPremiumSourcePolicyTests(unittest.TestCase):
             "$iX >= 500 And $iX <= 530 And $iY >= 405 And $iY <= 435",
             "$iX >= 320 And $iX <= 350 And $iY >= 395 And $iY <= 420",
             "$iX = 821 And $iY = 465",
+            "$iX >= 235 And $iX <= 245 And $iY >= 10 And $iY <= 30",
+            "$iX >= 640 And $iX <= 650 And $iY >= 10 And $iY <= 30",
         ):
             self.assertIn(exact, target)
         self.assertIn("$NO_PREMIUM_ACTION_EXACT_TRAINING_ARMY", known)
@@ -308,6 +317,7 @@ class NoPremiumSourcePolicyTests(unittest.TestCase):
         self.assertIn("Case $NO_PREMIUM_ACTION_BUILDER_COLLECT_GOLD", target)
         self.assertIn("Case $NO_PREMIUM_ACTION_BUILDER_COLLECT_ELIXIR", target)
         self.assertIn("Case $NO_PREMIUM_ACTION_BUILDER_RETURN_HOME", target)
+        self.assertIn("Case $NO_PREMIUM_ACTION_HOME_CLEAR_SCREEN", target)
         self.assertIn("Int($iExpectedX) = Int($iActualX)", point)
         self.assertIn("Int($iExpectedY) = Int($iActualY)", point)
         self.assertIn("$iAgeMs >= 0", age)
