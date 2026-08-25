@@ -267,11 +267,23 @@ Func OpenHomeInactivityReloadIssue($bRequireRunState = True)
         Return NoPremiumPointClick($NO_PREMIUM_ACTION_RECOVERY_RELOAD_GAME, 281, 418, 120, "#OpenHomeInactivityReload", False)
 EndFunc   ;==>OpenHomeInactivityReloadIssue
 
+Func OpenHomeStartupRecoveryLaunchGame()
+	If RunControlStopRequested() Then Return SetError(2, 0, False)
+	Local $sLaunchOutput = AndroidAdbSendShellCommand("am start -n " & $g_sAndroidGamePackage & "/" & $g_sAndroidGameClass, 15000)
+	If @error Or StringInStr($sLaunchOutput, "Error:") Or StringInStr($sLaunchOutput, "Exception") Then Return SetError(1, 0, False)
+	Return True
+EndFunc   ;==>OpenHomeStartupRecoveryLaunchGame
+
 Func OpenHomeStartupRecoveryWait($bRequireRunState = True)
+	Local $bLaunchIssued = False
         For $iAttempt = 1 To 60
                 If RunControlStopRequested() Or ($bRequireRunState And Not $g_bRunState) Then Return SetError(2, 0, False)
                 If OpenHomeCollectorsProveHome() Or OpenHomeDailyRewardOverlayReady() Or _
                                 OpenHomeDailyRewardClaimedOverlayReady() Or OpenHomeWelcomeBackOverlayReady() Then Return True
+		If Not $bLaunchIssued And $iAttempt >= 3 Then
+			If Not OpenHomeStartupRecoveryLaunchGame() Then Return SetError(5, 0, False)
+			$bLaunchIssued = True
+		EndIf
 		If _Sleep(1000, True, True, False) Then Return SetError(2, 0, False)
 	Next
 	Return SetError(4, 0, False)

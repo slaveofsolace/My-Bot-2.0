@@ -256,6 +256,9 @@ class OpenHomeCollectorsTest(unittest.TestCase):
         self.assertIn("$bRequireRunState = True", wait)
         self.assertIn("281, 418", issue)
         self.assertIn("OpenHomeNoGemInputReady()", issue)
+        self.assertIn("OpenHomeStartupRecoveryLaunchGame()", wait)
+        self.assertIn('AndroidAdbSendShellCommand("am start -n "', route)
+        self.assertNotIn("AndroidHomeButton", route)
         self.assertNotIn("ImgLoc", predicate + issue)
         for forbidden in ("Click(", "PureClick(", "GemClick("):
             self.assertNotIn(forbidden, issue.replace("NoPremiumPointClick(", ""))
