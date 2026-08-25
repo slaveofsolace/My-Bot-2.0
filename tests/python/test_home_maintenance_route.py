@@ -72,6 +72,23 @@ class HomeMaintenanceRouteTest(unittest.TestCase):
     def test_truthful_collectors_plan_passes_server_preflight(self):
         self.assertEqual(planner_ui.engine_preflight(collectors_plan()), [])
 
+    def test_switching_from_exact_recipe_clears_hidden_recipe_fields(self):
+        stale = collectors_plan()
+        stale["army.recipe_name"] = "probe"
+        stale["army.recipe_digest"] = "0" * 64
+        stale["army.max_queue_units"] = 1
+
+        clean, adjustments, rejected = planner_ui.validate_plan(stale)
+
+        self.assertEqual([], rejected)
+        self.assertEqual("", clean["army.recipe_name"])
+        self.assertEqual("", clean["army.recipe_digest"])
+        self.assertEqual(0, clean["army.max_queue_units"])
+        self.assertTrue(any("army.recipe_name" in item for item in adjustments))
+        self.assertTrue(any("army.recipe_digest" in item for item in adjustments))
+        self.assertTrue(any("army.max_queue_units" in item for item in adjustments))
+        self.assertEqual([], planner_ui.engine_preflight(clean))
+
     def test_collectors_require_an_exact_safe_emulator_instance(self):
         ambiguous = collectors_plan()
         ambiguous["runtime.emulator"] = "auto"

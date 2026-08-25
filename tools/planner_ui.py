@@ -397,6 +397,15 @@ def validate_plan(submitted: dict) -> tuple[dict, list[str], list[str]]:
 
     for key, setting in known.items():
         clean.setdefault(key, normalized_default(setting))
+    strategy = str(clean.get("run.strategy", "")).strip().lower()
+    if strategy != "army.exact-recipe":
+        for stale_key in ("army.recipe_name", "army.recipe_digest"):
+            if clean.get(stale_key):
+                adjustments.append(f"{stale_key}: cleared because the selected strategy does not use exact saved recipes")
+            clean[stale_key] = ""
+        if int(clean.get("army.max_queue_units", 0) or 0) != 0:
+            adjustments.append("army.max_queue_units: cleared because the selected strategy does not use exact saved recipes")
+        clean["army.max_queue_units"] = 0
     return clean, adjustments, rejected
 
 
@@ -915,6 +924,14 @@ def queue_control_command(action: str, expected_start_request_id: str = "") -> t
                 return {"ok": False, "problems": ["the selected run mode is invalid"]}, 409
             if run_mode == "planned" and current_plan.get("state") != "saved":
                 return {"ok": False, "problems": ["the applied plan is not readable"]}, 409
+            if run_mode == "planned":
+                preflight = engine_preflight(read_plan())
+                if preflight:
+                    return {
+                        "ok": False,
+                        "problems": preflight,
+                        "status": status,
+                    }, 409
             if run_mode == "native-profile" and status.get("recognition_available") is not True:
                 return {
                     "ok": False,

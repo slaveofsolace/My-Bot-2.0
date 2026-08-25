@@ -15,6 +15,58 @@ sys.path.insert(0, str(ROOT / "tools"))
 import planner_ui  # noqa: E402
 
 
+def valid_home_plan(**overrides) -> dict:
+    plan = planner_ui.default_plan()
+    plan.update(
+        {
+            "run.surface": "regular",
+            "run.strategy": "home.collectors",
+            "run.attack_script": "profile-current",
+            "run.duration_minutes": 0,
+            "run.max_battles": 0,
+            "run.stop_on_star_bonus": False,
+            "run.max_failures": 0,
+            "run.heroes": [],
+            "run.diagnostic_mode": True,
+            "target.gold": 0,
+            "target.elixir": 0,
+            "target.dark_elixir": 0,
+            "army.source": "recipe",
+            "army.recipe_name": "",
+            "army.recipe_digest": "",
+            "army.max_queue_units": 0,
+            "army.manage_training": False,
+            "army.wait_for_full": False,
+            "army.train_spells": False,
+            "army.train_sieges": False,
+            "search.min_gold": 0,
+            "search.min_elixir": 0,
+            "search.min_dark": 0,
+            "search.max_seconds": 0,
+            "search.town_hall_filter": "any",
+            "donate.mode": "off",
+            "donate.keep_army": True,
+            "donate.max_per_run": 0,
+            "donate.request_when_short": False,
+            "events.clan_games": False,
+            "events.clan_games_point_cap": 0,
+            "events.laboratory": "off",
+            "events.collect_resources": True,
+            "events.collect_daily_reward": False,
+            "events.collect_loot_cart": False,
+            "events.collect_treasury": False,
+            "upgrade.policy": "disabled",
+            "account.queue": "",
+            "notify.channel": "log-only",
+            "runtime.emulator": "bluestacks5",
+            "runtime.instance": "Pie64",
+            "pacing.retry_attempts": 0,
+        }
+    )
+    plan.update(overrides)
+    return plan
+
+
 class NativeProfileAutoLaunchTests(unittest.TestCase):
     def test_absent_plan_is_explicit_native_profile_mode(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -71,7 +123,7 @@ class NativeProfileAutoLaunchTests(unittest.TestCase):
                 self.assertEqual(native_command["plan_token"], planner_ui.PLAN_ABSENCE_TOKEN)
 
                 command_path.unlink()
-                plan_path.write_text(json.dumps({"run.strategy": "home.collectors"}), encoding="utf-8")
+                plan_path.write_text(json.dumps(valid_home_plan()), encoding="utf-8")
                 payload, code = planner_ui.queue_control_command("start")
                 self.assertEqual(code, 202)
                 planned_command = json.loads(command_path.read_text(encoding="utf-8"))
@@ -381,8 +433,19 @@ class NativeProfileAutoLaunchTests(unittest.TestCase):
             root = Path(folder)
             plan_path = root / "run-plan.local.json"
             command_path = root / "control-command.local.json"
-            original = b'{"run.strategy":"home.collectors"}\n'
-            replacement = b'{"run.strategy":"home.loot-cart"}\n'
+            original = json.dumps(valid_home_plan(), sort_keys=True).encode("utf-8") + b"\n"
+            replacement = (
+                json.dumps(
+                    valid_home_plan(
+                        **{
+                            "events.collect_resources": False,
+                            "events.collect_loot_cart": True,
+                        }
+                    ),
+                    sort_keys=True,
+                ).encode("utf-8")
+                + b"\n"
+            )
             plan_path.write_bytes(original)
             native_status = {
                 "connected": True,

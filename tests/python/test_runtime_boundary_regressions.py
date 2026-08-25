@@ -165,7 +165,54 @@ class RuntimeBoundaryRegressionTests(unittest.TestCase):
             root = Path(folder)
             plan_path = root / "run-plan.local.json"
             command_path = root / "control-command.local.json"
-            plan_path.write_text(json.dumps({"run.strategy": "home.collectors"}), encoding="utf-8")
+            clean_room_plan = planner_ui.default_plan()
+            clean_room_plan.update(
+                {
+                    "run.surface": "regular",
+                    "run.strategy": "home.collectors",
+                    "run.attack_script": "profile-current",
+                    "run.duration_minutes": 0,
+                    "run.max_battles": 0,
+                    "run.stop_on_star_bonus": False,
+                    "run.max_failures": 0,
+                    "run.heroes": [],
+                    "run.diagnostic_mode": True,
+                    "target.gold": 0,
+                    "target.elixir": 0,
+                    "target.dark_elixir": 0,
+                    "army.source": "recipe",
+                    "army.recipe_name": "",
+                    "army.recipe_digest": "",
+                    "army.max_queue_units": 0,
+                    "army.manage_training": False,
+                    "army.wait_for_full": False,
+                    "army.train_spells": False,
+                    "army.train_sieges": False,
+                    "search.min_gold": 0,
+                    "search.min_elixir": 0,
+                    "search.min_dark": 0,
+                    "search.max_seconds": 0,
+                    "search.town_hall_filter": "any",
+                    "donate.mode": "off",
+                    "donate.keep_army": True,
+                    "donate.max_per_run": 0,
+                    "donate.request_when_short": False,
+                    "events.clan_games": False,
+                    "events.clan_games_point_cap": 0,
+                    "events.laboratory": "off",
+                    "events.collect_resources": True,
+                    "events.collect_daily_reward": False,
+                    "events.collect_loot_cart": False,
+                    "events.collect_treasury": False,
+                    "upgrade.policy": "disabled",
+                    "account.queue": "",
+                    "notify.channel": "log-only",
+                    "runtime.emulator": "bluestacks5",
+                    "runtime.instance": "Pie64",
+                    "pacing.retry_attempts": 0,
+                }
+            )
+            plan_path.write_text(json.dumps(clean_room_plan), encoding="utf-8")
             status = {
                 "connected": True,
                 "state": "idle",
@@ -182,6 +229,41 @@ class RuntimeBoundaryRegressionTests(unittest.TestCase):
             self.assertTrue(payload["accepted"])
             command = json.loads(command_path.read_text(encoding="utf-8"))
             self.assertEqual(command["run_mode"], "planned")
+
+    def test_start_refuses_saved_plan_that_fails_server_preflight(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            plan_path = root / "run-plan.local.json"
+            command_path = root / "control-command.local.json"
+            bad_plan = planner_ui.default_plan()
+            bad_plan.update(
+                {
+                    "run.surface": "builder",
+                    "run.strategy": "legacy.standard",
+                    "run.max_battles": 1,
+                    "army.wait_for_full": True,
+                    "donate.keep_army": True,
+                    "runtime.emulator": "bluestacks5",
+                    "runtime.instance": "Pie64",
+                }
+            )
+            plan_path.write_text(json.dumps(bad_plan), encoding="utf-8")
+            status = {
+                "connected": True,
+                "state": "idle",
+                "engine_available": True,
+                "recognition_available": False,
+                "recognition_error": "full-profile recognition is unavailable",
+            }
+            with mock.patch.object(planner_ui, "PLAN_PATH", plan_path), mock.patch.object(
+                planner_ui, "CONTROL_COMMAND_PATH", command_path
+            ), mock.patch.object(planner_ui, "control_status", return_value=status):
+                payload, code = planner_ui.queue_control_command("start")
+
+            self.assertEqual(code, 409)
+            self.assertFalse(payload["ok"])
+            self.assertTrue(any("Builder Base Battles" in item or "Regular Battles" in item for item in payload["problems"]))
+            self.assertFalse(command_path.exists())
 
     def test_latched_android_binding_loss_fails_closed_before_any_dll_call(self) -> None:
         binding = autoit_function(self.mbr_func, "setAndroidPID")
