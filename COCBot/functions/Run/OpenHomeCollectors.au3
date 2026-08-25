@@ -259,19 +259,19 @@ Func OpenHomeInactivityReloadPointReady($iX, $iY)
 	Return OpenHomeInactivityReloadDialogReady()
 EndFunc   ;==>OpenHomeInactivityReloadPointReady
 
-Func OpenHomeInactivityReloadIssue()
-	If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
-	If Not OpenHomeCollectorsCapture() Then Return SetError(1, 0, False)
-	If Not OpenHomeInactivityReloadDialogReady() Then Return SetError(0, 0, False)
-	If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, False)
-	Return NoPremiumPointClick($NO_PREMIUM_ACTION_RECOVERY_RELOAD_GAME, 281, 418, 120, "#OpenHomeInactivityReload", False)
+Func OpenHomeInactivityReloadIssue($bRequireRunState = True)
+        If RunControlStopRequested() Or ($bRequireRunState And Not $g_bRunState) Then Return SetError(2, 0, False)
+        If Not OpenHomeCollectorsCapture() Then Return SetError(1, 0, False)
+        If Not OpenHomeInactivityReloadDialogReady() Then Return SetError(0, 0, False)
+        If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, False)
+        Return NoPremiumPointClick($NO_PREMIUM_ACTION_RECOVERY_RELOAD_GAME, 281, 418, 120, "#OpenHomeInactivityReload", False)
 EndFunc   ;==>OpenHomeInactivityReloadIssue
 
-Func OpenHomeStartupRecoveryWait()
-	For $iAttempt = 1 To 60
-		If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
-		If OpenHomeCollectorsProveHome() Or OpenHomeDailyRewardOverlayReady() Or _
-				OpenHomeDailyRewardClaimedOverlayReady() Or OpenHomeWelcomeBackOverlayReady() Then Return True
+Func OpenHomeStartupRecoveryWait($bRequireRunState = True)
+        For $iAttempt = 1 To 60
+                If RunControlStopRequested() Or ($bRequireRunState And Not $g_bRunState) Then Return SetError(2, 0, False)
+                If OpenHomeCollectorsProveHome() Or OpenHomeDailyRewardOverlayReady() Or _
+                                OpenHomeDailyRewardClaimedOverlayReady() Or OpenHomeWelcomeBackOverlayReady() Then Return True
 		If _Sleep(1000, True, True, False) Then Return SetError(2, 0, False)
 	Next
 	Return SetError(4, 0, False)

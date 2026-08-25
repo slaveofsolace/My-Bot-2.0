@@ -248,9 +248,12 @@ class OpenHomeCollectorsTest(unittest.TestCase):
         route = source("COCBot/functions/Run/OpenHomeCollectors.au3")
         predicate = autoit_function(route, "OpenHomeInactivityReloadDialogReady")
         issue = autoit_function(route, "OpenHomeInactivityReloadIssue")
+        wait = autoit_function(route, "OpenHomeStartupRecoveryWait")
         for color in (0x424242, 0x689591, 0x67938F):
             self.assertIn(f"0x{color:06X}", predicate)
         self.assertIn("$NO_PREMIUM_ACTION_RECOVERY_RELOAD_GAME", issue)
+        self.assertIn("$bRequireRunState = True", issue)
+        self.assertIn("$bRequireRunState = True", wait)
         self.assertIn("281, 418", issue)
         self.assertIn("OpenHomeNoGemInputReady()", issue)
         self.assertNotIn("ImgLoc", predicate + issue)

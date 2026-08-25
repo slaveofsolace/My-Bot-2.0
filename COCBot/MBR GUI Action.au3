@@ -309,6 +309,10 @@ Func _BotStartOpenBuilderCollectors(ByRef $sStartError)
 	If Not $g_bAndroidAdbScreencap Or Not AndroidControlAvailable() Or _
 			Not IsArray(GetBlueStacks5ModernAdbSurfacePosition()) Then _
 			Return _BotOpenCollectorsReject("The exact BlueStacks 5 framebuffer/control surface is not available")
+	Local $bReloadIssued = OpenHomeInactivityReloadIssue(False)
+	If @error Then Return _BotOpenCollectorsReject("Inactivity reload dialog could not be handled before Builder collection")
+	If $bReloadIssued And Not OpenHomeStartupRecoveryWait(False) Then _
+			Return _BotOpenCollectorsReject("Clash reload did not reach a recognized Home or startup overlay before Builder collection")
 	If Not OpenHomeCollectorsProveHome() And Not OpenBuilderBaseCollectorsProveBuilder() Then _
 			Return _BotOpenCollectorsReject("Neither Home Village nor Builder Base could be proven before Builder collection")
 	If RunControlStopRequested() Then Return _BotOpenCollectorsReject("Template-free Builder Base collectors cancelled before execution", "cancelled")
