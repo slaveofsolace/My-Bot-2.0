@@ -202,11 +202,13 @@ Func RunExecutionContractValidate(ByRef $oIntent, ByRef $sError)
 		Return SetError(16, 0, False)
 	EndIf
 
-	; Exact-current supervised readiness on this fork reached the inherited FindTile export, which
-	; returned its anti-copycat/licensing critical error before matchmaking. Every generic battle
-	; strategy above depends on that recognizer. Keep the detailed plan validation for truthful
-	; diagnostics, but never let diagnostic acknowledgement bypass a rejected runtime dependency.
-	$sError = "Battle routes are unavailable in this fork because the inherited ImgLoc runtime rejected exact-current supervised readiness. Licensed permission or a clean-room recognizer is required; diagnostic mode cannot bypass this gate."
-	Return SetError(17, 0, False)
+	; Battle remains gated until the full bot entry point includes the narrow current-frame clean-room
+	; red-line detector. The detector only reads an already-captured bitmap and produces deployable
+	; geometry; it does not re-enable inherited ImgLoc exports or weaken the no-gem/current-army bounds.
+	Local $bCleanRoomRedlineReady = Call("CleanRoomRedlineDetectorRuntimeReady")
+	If @error Or Not $bCleanRoomRedlineReady Then
+		$sError = "Battle routes require the current-frame clean-room red-line detector; inherited ImgLoc remains disabled."
+		Return SetError(17, 0, False)
+	EndIf
 
 EndFunc   ;==>RunExecutionContractValidate

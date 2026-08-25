@@ -676,6 +676,18 @@ EndFunc   ;==>FindImageInPlace2
 
 Func SearchRedLines($sCocDiamond = $CocDiamondECD)
 	If $g_sImglocRedline <> "" Then Return $g_sImglocRedline
+
+	Local $sCleanRoomRedline = Call("CleanRoomRedlineDetectCurrentFrame", $sCocDiamond)
+	Local $iCleanRoomError = @error
+	Local $iCleanRoomCount = @extended
+	If $iCleanRoomError = 0 And IsString($sCleanRoomRedline) And $sCleanRoomRedline <> "" Then
+		$g_sImglocRedline = $sCleanRoomRedline
+		If $g_bDebugSetLog Then SetDebugLog("SearchRedLines clean-room detector found : " & $iCleanRoomCount & " points")
+		Return $g_sImglocRedline
+	EndIf
+	If $g_bDebugSetLog Then SetDebugLog("SearchRedLines clean-room detector unavailable/error " & $iCleanRoomError & _
+			" with " & $iCleanRoomCount & " candidate points; falling back to disabled legacy path", $COLOR_DEBUG)
+
 	Local $result = DllCallMyBot("SearchRedLines", "handle", $g_hHBitmap2, "str", $sCocDiamond)
 	Local $error = @error ; Store error values as they reset at next function call
 	Local $extError = @extended

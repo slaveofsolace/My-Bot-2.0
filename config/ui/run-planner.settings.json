@@ -1196,13 +1196,15 @@
               "value": "legacy.csv",
               "label": "Scripted (CSV)",
               "summary": "Runs a deployment script from the Strategies folder.",
-              "description": "Uses the CSV deployment scripts that ship with the bot. This is the most predictable option because the deployment order is written down rather than decided from the base layout. The exact-current supervised Start on this fork was rejected by the inherited ImgLoc runtime before matchmaking.",
-              "availability": "unsupported",
+              "description": "Uses the CSV deployment scripts that ship with the bot. This is the most predictable option because the deployment order is written down rather than decided from the base layout. Current-source battle start uses a narrow clean-room red-line detector while inherited ImgLoc exports remain disabled.",
+              "availability": "gated",
               "runtime_verified": false,
-              "disabled_reason": "Battle execution is disabled: inherited ImgLoc rejected this fork. Diagnostic acknowledgement cannot bypass the licensing boundary.",
+              "disabled_reason": "Scripted battle execution is supervised-only until an exact-current live battle receipt proves the route end-to-end.",
               "capability_ids": [],
               "prerequisites": [
-                "Licensed ImgLoc permission or a clean-room recognizer"
+                "Supervised diagnostic operator",
+                "Current trained army",
+                "Clean-room red-line detector"
               ],
               "recommended": false,
               "warning": ""
@@ -1211,13 +1213,15 @@
               "value": "legacy.standard",
               "label": "Standard deployment",
               "summary": "The built-in side and line deployment routine.",
-              "description": "An older-binary supervised run confirmed Standard could issue the trained-army and selected-Hero deployment, observe an empty troop bar, and return home. That single completion confirms the route and actuator, not strategy quality; it did not exercise planned ability or spell actions. The current reviewed local package passed install, repeated exact-current no-input managed-engine checks, and bot-owned BlueStacks and game launch with passive Home proof. Neither those orchestration checks nor current source proves managed Start or current-client battle gameplay.",
-              "availability": "unsupported",
+              "description": "An older-binary supervised run confirmed Standard could issue the trained-army and selected-Hero deployment, observe an empty troop bar, and return home. That single completion confirms the route and actuator, not strategy quality; it did not exercise planned ability or spell actions. Current-source battle start uses a narrow clean-room red-line detector while inherited ImgLoc exports remain disabled. The route is supervised-only until an exact-current live battle receipt proves gameplay.",
+              "availability": "gated",
               "runtime_verified": false,
-              "disabled_reason": "Battle execution is disabled: exact-current supervised readiness reached inherited ImgLoc, which rejected this fork before matchmaking. Diagnostic acknowledgement cannot bypass the licensing boundary.",
+              "disabled_reason": "Standard battle execution is supervised-only until exact-current live battle evidence exists.",
               "capability_ids": [],
               "prerequisites": [
-                "Licensed ImgLoc permission or a clean-room recognizer"
+                "Supervised diagnostic operator",
+                "Current trained army",
+                "Clean-room red-line detector"
               ],
               "recommended": false,
               "warning": "The historical gameplay receipt proves an older build only; the current package proves engine initialization and self-launch, not battle execution."
@@ -1226,13 +1230,15 @@
               "value": "smart.local",
               "label": "Smart Attack (research-guided)",
               "summary": "Concentrates the current army using a Town Hall-aware local policy.",
-              "description": "The deterministic Town Hall policy is versioned in config/game/smart-attack-strategies.json and executed locally. One older-binary bounded supervised TH17 run observed three zoom gestures, 240 red-line points, deterministic BL-side selection, 23-to-zero troop deployment, four selected Hero phase commands, Rage 3-to-zero, one Freeze decrement, and an automatic one-battle stop. The current reviewed local package passed install, repeated exact-current no-input managed-engine checks, and bot-owned BlueStacks and game launch with passive Home proof. Those orchestration checks do not verify managed Start, current-client gameplay, fixtures, live human review, strategy quality, or every Town Hall and army.",
-              "availability": "unsupported",
+              "description": "The deterministic Town Hall policy is versioned in config/game/smart-attack-strategies.json and executed locally. One older-binary bounded supervised TH17 run observed three zoom gestures, 240 red-line points, deterministic BL-side selection, 23-to-zero troop deployment, four selected Hero phase commands, Rage 3-to-zero, one Freeze decrement, and an automatic one-battle stop. The current reviewed local package passed install, repeated exact-current no-input managed-engine checks, and bot-owned BlueStacks and game launch with passive Home proof. Those orchestration checks do not verify every Town Hall, army, strategy quality, or live human review. Current-source battle start uses a narrow clean-room red-line detector while inherited ImgLoc exports remain disabled.",
+              "availability": "gated",
               "runtime_verified": false,
-              "disabled_reason": "Battle execution is disabled: exact-current supervised readiness reached inherited ImgLoc, which rejected this fork before matchmaking. Diagnostic acknowledgement cannot bypass the licensing boundary.",
+              "disabled_reason": "Smart battle execution is supervised-only until exact-current live battle evidence exists.",
               "capability_ids": [],
               "prerequisites": [
-                "Licensed ImgLoc permission or a clean-room recognizer"
+                "Supervised diagnostic operator",
+                "Current trained army",
+                "Clean-room red-line detector"
               ],
               "recommended": false,
               "warning": "Historical TH17 mechanics evidence exists; current exact-package engine and self-launch proof is not gameplay proof."

@@ -450,12 +450,6 @@ def engine_preflight(plan: dict) -> list[str]:
         problems.append("run.surface: the native engine is currently wired only to Regular Battles")
     if strategy not in {"legacy.csv", "legacy.standard", "smart.local", "home.collectors", "builder.collectors", "home.clan-request", "army.exact-recipe"}:
         problems.append(f"run.strategy: {strategy or 'blank'} has no native execution adapter")
-    if strategy in {"legacy.csv", "legacy.standard", "smart.local"}:
-        problems.append(
-            "run.strategy: battle routes are unavailable in this fork because the inherited ImgLoc runtime "
-            "rejected exact-current supervised readiness; licensed permission or a clean-room recognizer is "
-            "required, and diagnostic mode cannot bypass this gate"
-        )
     if strategy != "legacy.csv" and script.lower() != "profile-current":
         problems.append("run.attack_script: a named CSV requires the Scripted strategy")
 
@@ -1433,8 +1427,8 @@ def selftest() -> int:
     diagnostic_plan["run.diagnostic_note"] = "selftest operator acknowledgement"
     diagnostic_problems = engine_preflight(diagnostic_plan)
     check(
-        any("ImgLoc" in problem and "cannot bypass" in problem for problem in diagnostic_problems),
-        "the acknowledged default battle plan remains blocked by the non-bypassable ImgLoc gate",
+        not diagnostic_problems,
+        "the acknowledged default one-battle plan passes planner preflight behind the clean-room red-line gate",
     )
 
     preset_contract = metadata_document().get("presets", {})
@@ -1476,8 +1470,8 @@ def selftest() -> int:
         )
         preset_problems = engine_preflight(candidate)
         check(
-            any("ImgLoc" in problem and "cannot bypass" in problem for problem in preset_problems),
-            f"{preset_id} remains a non-runnable research preset behind the ImgLoc gate",
+            not preset_problems,
+            f"{preset_id} passes planner preflight when the operator preserves diagnostic acknowledgement",
         )
         check(not (set(values) & preserved), f"{preset_id} does not overwrite preserved settings")
 

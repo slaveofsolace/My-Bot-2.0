@@ -40,6 +40,7 @@ Global $g_hFrmBot = 0 ; The main GUI window
 #include "COCBot\functions\Other\ExtMsgBox.au3"
 #include "COCBot\functions\Other\MBRFunc.au3"
 #include "COCBot\functions\Run\CleanRoomRecognitionBridge.au3"
+#include "COCBot\functions\Run\CleanRoomRedlineDetector.au3"
 #include "COCBot\functions\Run\CollectorBubbleRecognizer.au3"
 #include "COCBot\functions\Android\Android.au3"
 #include "COCBot\functions\Android\Distributors.au3"

@@ -304,22 +304,21 @@ def main() -> int:
                             option("legacy.csv", "Scripted (CSV)",
                                    "Runs a deployment script from the Strategies folder.",
                                    "Uses the CSV deployment scripts that ship with the bot. This is the most "
-                                   "predictable option because the deployment order is written down rather than "
-                                   "decided from the base layout. The exact-current supervised Start on this fork "
-                                   "was rejected by the inherited ImgLoc runtime before matchmaking.",
-                                   "unsupported", [], ["Licensed ImgLoc permission or a clean-room recognizer"], recommended=False,
-                                   disabled_reason="Battle execution is disabled: inherited ImgLoc rejected this fork. Diagnostic acknowledgement cannot bypass the licensing boundary."),
+                            "predictable option because the deployment order is written down rather than "
+                            "decided from the base layout. Current-source battle start uses a narrow clean-room "
+                            "red-line detector while inherited ImgLoc exports remain disabled.",
+                                   "gated", [], ["Supervised diagnostic operator", "Current trained army", "Clean-room red-line detector"], recommended=False,
+                                   disabled_reason="Scripted battle execution is supervised-only until an exact-current live battle receipt proves the route end-to-end."),
                             option("legacy.standard", "Standard deployment",
                                    "The built-in side and line deployment routine.",
                                    "An older-binary supervised run confirmed Standard could issue the trained-army and selected-"
                                    "Hero deployment, observe an empty troop bar, and return home. That single "
                                    "completion confirms the route and actuator, not strategy quality; it did not "
-                                   "exercise planned ability or spell actions. The current reviewed local package "
-                                   "passed install, repeated exact-current no-input managed-engine checks, and bot-owned "
-                                   "BlueStacks and game launch with passive Home proof. Neither those orchestration checks "
-                                   "nor current source proves managed Start or current-client battle gameplay.",
-                                   "unsupported", [], ["Licensed ImgLoc permission or a clean-room recognizer"],
-                                   disabled_reason="Battle execution is disabled: exact-current supervised readiness reached inherited ImgLoc, which rejected this fork before matchmaking. Diagnostic acknowledgement cannot bypass the licensing boundary.",
+                                   "exercise planned ability or spell actions. Current-source battle start uses a narrow "
+                                   "clean-room red-line detector while inherited ImgLoc exports remain disabled. The route "
+                                   "is supervised-only until an exact-current live battle receipt proves gameplay.",
+                                   "gated", [], ["Supervised diagnostic operator", "Current trained army", "Clean-room red-line detector"],
+                                   disabled_reason="Standard battle execution is supervised-only until exact-current live battle evidence exists.",
                                     warning="The historical gameplay receipt proves an older build only; the current package proves engine initialization and self-launch, not battle execution."),
                             option("smart.local", "Smart Attack (research-guided)",
                                    "Concentrates the current army using a Town Hall-aware local policy.",
@@ -330,10 +329,10 @@ def main() -> int:
                                    "one Freeze decrement, and an automatic one-battle stop. The current reviewed local "
                                    "package passed install, repeated exact-current no-input managed-engine checks, and "
                                    "bot-owned BlueStacks and game launch with passive Home proof. Those orchestration "
-                                   "checks do not verify managed Start, current-"
-                                   "client gameplay, fixtures, live human review, strategy quality, or every Town Hall and army.",
-                                   "unsupported", [], ["Licensed ImgLoc permission or a clean-room recognizer"],
-                                   disabled_reason="Battle execution is disabled: exact-current supervised readiness reached inherited ImgLoc, which rejected this fork before matchmaking. Diagnostic acknowledgement cannot bypass the licensing boundary.",
+                                   "checks do not verify every Town Hall, army, strategy quality, or live human review. Current-source "
+                                   "battle start uses a narrow clean-room red-line detector while inherited ImgLoc exports remain disabled.",
+                                   "gated", [], ["Supervised diagnostic operator", "Current trained army", "Clean-room red-line detector"],
+                                   disabled_reason="Smart battle execution is supervised-only until exact-current live battle evidence exists.",
                                     warning="Historical TH17 mechanics evidence exists; current exact-package engine and self-launch proof is not gameplay proof."),
                              option("home.collectors", "Home maintenance",
                                     "Run selected one-shot Home Village collection tasks without matchmaking.",

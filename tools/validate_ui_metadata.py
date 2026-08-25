@@ -518,27 +518,30 @@ def main() -> int:
 
     strategy_options = option_map("run.strategy")
     csv_option = strategy_options.get("legacy.csv", {})
-    if csv_option.get("availability") != "unsupported" or csv_option.get("runtime_verified") is not False:
-        errors.append("legacy.csv must remain unavailable after the exact-current ImgLoc rejection")
+    if csv_option.get("availability") != "gated" or csv_option.get("runtime_verified") is not False:
+        errors.append("legacy.csv must remain supervised-only until exact-current battle evidence exists")
     standard_option = strategy_options.get("legacy.standard", {})
-    if standard_option.get("availability") != "unsupported" or standard_option.get("runtime_verified") is not False:
-        errors.append("legacy.standard must remain unavailable after the exact-current ImgLoc rejection")
+    if standard_option.get("availability") != "gated" or standard_option.get("runtime_verified") is not False:
+        errors.append("legacy.standard must remain supervised-only until exact-current battle evidence exists")
     standard_copy = " ".join(str(standard_option.get(field, "")).lower() for field in ("description", "disabled_reason", "warning"))
-    if not all(term in standard_copy for term in ("older-binary", current_package, "exact-current no-input managed-engine", "bot-owned bluestacks", "managed start", "battle gameplay")):
-        errors.append("legacy.standard must distinguish older gameplay from current engine/self-launch proof and missing battle proof")
+    if not all(term in standard_copy for term in ("older-binary", "clean-room red-line detector", "supervised-only", "live battle evidence")):
+        errors.append("legacy.standard must distinguish historical proof, clean-room red-line gating, and missing exact-current battle proof")
     smart_option = strategy_options.get("smart.local", {})
-    if smart_option.get("availability") != "unsupported" or smart_option.get("runtime_verified") is not False:
-        errors.append("smart.local must remain unavailable after the exact-current ImgLoc rejection")
+    if smart_option.get("availability") != "gated" or smart_option.get("runtime_verified") is not False:
+        errors.append("smart.local must remain supervised-only until exact-current battle evidence exists")
     smart_copy = " ".join(
         str(smart_option.get(field, "")).lower()
         for field in ("description", "disabled_reason", "warning")
     )
-    if not all(term in smart_copy for term in ("older-binary bounded supervised th17 run", "strategy quality", current_package, "exact-current no-input managed-engine", "bot-owned bluestacks", "managed start", "current-client gameplay")):
-        errors.append("smart.local must keep historical mechanics narrower than current engine/self-launch proof and missing battle or quality proof")
+    if not all(term in smart_copy for term in ("older-binary bounded supervised th17 run", "strategy quality", "clean-room red-line detector", "live battle evidence")):
+        errors.append("smart.local must keep historical mechanics narrower than current exact-current battle or quality proof")
     for strategy_id in ("legacy.csv", "legacy.standard", "smart.local"):
         blocker_copy = str(strategy_options.get(strategy_id, {}).get("disabled_reason", "")).lower()
-        if not all(term in blocker_copy for term in ("imgloc", "cannot bypass", "licensing boundary")):
-            errors.append(f"{strategy_id}: battle blocker must name ImgLoc and the non-bypassable licensing boundary")
+        description_copy = str(strategy_options.get(strategy_id, {}).get("description", "")).lower()
+        if "supervised-only" not in blocker_copy or "exact-current live battle" not in blocker_copy:
+            errors.append(f"{strategy_id}: battle blocker must name supervised-only exact-current live evidence")
+        if not all(term in description_copy for term in ("clean-room red-line detector", "inherited imgloc exports remain disabled")):
+            errors.append(f"{strategy_id}: battle description must keep the clean-room detector separate from inherited ImgLoc")
     for strategy_id in ("legacy.smart-farm", "builder.baby-dragon"):
         if strategy_options.get(strategy_id, {}).get("availability") not in {"planned", "unsupported"}:
             errors.append(f"{strategy_id}: strategy with no native adapter must not remain selectable")

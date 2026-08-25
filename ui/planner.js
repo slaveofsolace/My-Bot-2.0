@@ -1251,9 +1251,6 @@ function clientProblems(plan = PLAN) {
   if (!['legacy.csv', 'legacy.standard', 'smart.local', 'home.collectors', 'builder.collectors', 'home.clan-request', 'army.exact-recipe'].includes(plan['run.strategy'])) {
     addProblem(problems, 'The selected deployment routine has no native adapter.', 'run.strategy');
   }
-  if (['legacy.csv', 'legacy.standard', 'smart.local'].includes(plan['run.strategy'])) {
-    addProblem(problems, 'Battle routes are unavailable in this fork because the inherited ImgLoc runtime rejected exact-current supervised readiness. Licensed permission or a clean-room recognizer is required; Allow unverified cannot bypass this gate.', 'run.strategy');
-  }
   if (plan['run.strategy'] !== 'legacy.csv' && plan['run.attack_script'] !== 'profile-current') {
     addProblem(problems, 'Standard and Smart deployment require “Use profile selection.”', 'run.attack_script');
   }
