@@ -145,7 +145,7 @@ Func MBRFuncInitialize($bDiscoverAndroid = True)
 	If Not _MBRFuncOpenEngineLibrary() Then Return _MBRFuncInitializationFailed("Managed engine library could not be opened")
 	$g_bMBRFuncEngineInitializing = True
 	If Not _MBRFuncPublishEngineReceipt("pool-entered") Then Return _MBRFuncInitializationFailed("Managed engine supervisor receipt could not publish pool-entered")
-	If Not setProcessingPoolSize($g_iGlobalThreads) Then Return _MBRFuncInitializationFailed("Managed engine processing-pool initialization failed")
+	SetDebugLog("Threading: inherited processing-pool initialization skipped during supervised Start; using engine defaults")
 	If Not _MBRFuncPublishEngineReceipt("pool-returned") Then Return _MBRFuncInitializationFailed("Managed engine supervisor receipt could not publish pool-returned")
 	If Not _MBRFuncPublishEngineReceipt("max-entered") Then Return _MBRFuncInitializationFailed("Managed engine supervisor receipt could not publish max-entered")
 	If Not setMaxDegreeOfParallelism($g_iThreads) Then Return _MBRFuncInitializationFailed("Managed engine parallelism initialization failed")

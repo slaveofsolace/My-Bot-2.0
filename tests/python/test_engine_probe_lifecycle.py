@@ -81,7 +81,7 @@ class EngineProbeLifecycleTests(unittest.TestCase):
         ordered = (
             '_MBRFuncPublishEngineReceipt("prepared")',
             '_MBRFuncPublishEngineReceipt("pool-entered")',
-            "setProcessingPoolSize(",
+            "inherited processing-pool initialization skipped",
             '_MBRFuncPublishEngineReceipt("pool-returned")',
             '_MBRFuncPublishEngineReceipt("max-entered")',
             "setMaxDegreeOfParallelism(",
@@ -95,7 +95,7 @@ class EngineProbeLifecycleTests(unittest.TestCase):
         )
         offsets = [initialize.index(item) for item in ordered]
         self.assertEqual(offsets, sorted(offsets))
-        self.assertEqual(initialize.count("setProcessingPoolSize("), 1)
+        self.assertEqual(initialize.count("setProcessingPoolSize("), 0)
         self.assertLess(initialize.index("MBRFuncValidateEngineMarker("), offsets[0])
         self.assertLess(initialize.index("$g_bMBRFuncEngineSupervisorValid"), offsets[0])
 

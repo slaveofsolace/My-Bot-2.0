@@ -11,7 +11,6 @@ MAIN = ROOT / "MyBot.run.au3"
 MBR_FUNC = ROOT / "COCBot" / "functions" / "Other" / "MBRFunc.au3"
 
 SENSITIVE_WRAPPERS = (
-    "setProcessingPoolSize",
     "setMaxDegreeOfParallelism",
     "setAndroidPID",
     "SetBotGuiPID",
@@ -120,6 +119,15 @@ class ManagedExportSupervisionTests(unittest.TestCase):
                 self.assertEqual(match.group(1).lower(), wrapper.lower())
 
         self.assertEqual(observed_initializer_calls, expected_initializer_calls)
+
+    def test_supervised_initializer_skips_blocking_processing_pool_export(self) -> None:
+        initializer = function_body(self.mbr_func, "MBRFuncInitialize")
+        pool_entered = initializer.index('_MBRFuncPublishEngineReceipt("pool-entered")')
+        skip_notice = initializer.index("inherited processing-pool initialization skipped", pool_entered)
+        pool_returned = initializer.index('_MBRFuncPublishEngineReceipt("pool-returned")', skip_notice)
+        self.assertLess(pool_entered, skip_notice)
+        self.assertLess(skip_notice, pool_returned)
+        self.assertNotIn("setProcessingPoolSize(", initializer)
 
     def test_public_image_call_wrapper_fails_closed_until_initialization_completed(self) -> None:
         public_wrapper = function_body(self.mbr_func, "DllCallMyBot")
