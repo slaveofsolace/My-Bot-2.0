@@ -261,6 +261,22 @@ class RuntimeBoundaryRegressionTests(unittest.TestCase):
         self.assertNotIn("_RememberLauncherOwnedAdbChildren", orphan_detector)
         self.assertNotIn("ProcessClose", orphan_detector)
 
+        validate_installation = autoit_function(self.launcher, "_ValidateInstallation")
+        foreign_backend = autoit_function(self.launcher, "_FindForeignBackendConflict")
+        conflict_error = autoit_function(self.launcher, "_LaunchConflictError")
+        self.assertLess(
+            validate_installation.index("_FindForeignBackendConflict($sForeignBackend)"),
+            validate_installation.index("_InstalledProfilesJunctionMatches()"),
+        )
+        self.assertIn("A different MyBot.run.exe is already running outside this installation.", validate_installation)
+        self.assertIn("Close that old MyBot backend from Task Manager", validate_installation)
+        self.assertIn('ProcessList("MyBot.run.exe")', foreign_backend)
+        self.assertIn("StringLower($sPath) <> StringLower($g_sHostPath)", foreign_backend)
+        self.assertIn("path=<unreadable>", foreign_backend)
+        self.assertIn("foreign backend conflict", foreign_backend)
+        self.assertIn("_ShowError($sMessage)", conflict_error)
+        self.assertNotIn("ProcessClose", foreign_backend)
+
     def test_native_process_and_every_run_start_hold_the_exact_instance_mutex(self) -> None:
         general = autoit_function(self.gui_action, "BotStart")
         one_shot = autoit_function(self.gui_action, "_BotStartRunOneShot")

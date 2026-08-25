@@ -1347,11 +1347,37 @@ Func _ValidateInstallation()
 	If Not FileExists($g_sEngineMarkerPath) Or FileGetSize($g_sEngineMarkerPath) <> 0 Then
 		Return _InstallError("The empty MyBot.run.txt engine marker is missing or invalid.", $g_sEngineMarkerPath)
 	EndIf
+	Local $sForeignBackend = ""
+	If _FindForeignBackendConflict($sForeignBackend) Then
+		Return _LaunchConflictError("A different MyBot.run.exe is already running outside this installation." & @CRLF & @CRLF & _
+			$sForeignBackend & @CRLF & @CRLF & _
+			"Close that old MyBot backend from Task Manager, run My Bot 2.0 Recovery from its own install, or reboot before launching again.")
+	EndIf
 	If Not _InstalledProfilesJunctionMatches() Then
 		Return _InstallError("The installed Profiles junction is missing or targets another directory.", @ScriptDir & "\Profiles")
 	EndIf
 	Return True
 EndFunc   ;==>_ValidateInstallation
+
+Func _FindForeignBackendConflict(ByRef $sConflict)
+	$sConflict = ""
+	Local $aBackends = ProcessList("MyBot.run.exe")
+	For $i = 1 To $aBackends[0][0]
+		Local $iPid = $aBackends[$i][1]
+		Local $sPath = _ProcessImagePath($iPid)
+		If $sPath = "" Then
+			$sConflict = "PID " & $iPid & " could not be inspected, so My Bot 2.0 cannot prove it is safe to start another backend."
+			_RecoveryLog("foreign backend conflict; pid=" & $iPid & "; path=<unreadable>")
+			Return True
+		EndIf
+		If StringLower($sPath) <> StringLower($g_sHostPath) Then
+			$sConflict = "PID " & $iPid & " is running from:" & @CRLF & $sPath
+			_RecoveryLog("foreign backend conflict; pid=" & $iPid & "; path=" & $sPath)
+			Return True
+		EndIf
+	Next
+	Return False
+EndFunc   ;==>_FindForeignBackendConflict
 
 Func _ControllerProvenanceMatches()
 	If Not FileExists($g_sBinaryProvenancePath) Then Return False
@@ -1403,6 +1429,11 @@ Func _InstallError($sMessage, $sPath)
 	_ShowError($sMessage & @CRLF & @CRLF & "Reinstall or restore it beside this launcher:" & @CRLF & $sPath)
 	Return False
 EndFunc   ;==>_InstallError
+
+Func _LaunchConflictError($sMessage)
+	_ShowError($sMessage)
+	Return False
+EndFunc   ;==>_LaunchConflictError
 
 Func _FileSha256($sPath)
 	Local $vHash = _Crypt_HashFile($sPath, $CALG_SHA_256)
