@@ -323,14 +323,14 @@ Func _checkObstacles($bBuilderBase = False, $bRecursive = False) ;Checks if some
 		; Star Bonus Window (After Restart)
 		If QuickMIS("BC1", $g_sImgBBAttackBonus, 360, 450 + $g_iMidOffsetY, 500, 510 + $g_iMidOffsetY) Then
 			SetLog("Congrats Chief, Stars Bonus Awarded", $COLOR_INFO)
-			Click($g_iQuickMISX, $g_iQuickMISY)
+			If Not NoPremiumPointClick($NO_PREMIUM_ACTION_STARTUP_POPUP_CLOSE, Int($g_iQuickMISX), Int($g_iQuickMISY), 120, "#StartupPopupClose", False) Then Return True
 			If _Sleep(2000) Then Return
 			$g_bMinorObstacle = True
 			Return False
 		EndIf
 		Local $aOkayButton = findButton("Okay", Default, 1, True)
 		If IsArray($aOkayButton) And UBound($aOkayButton) = 2 Then
-			ClickP($aOkayButton)
+			If Not NoPremiumPointClick($NO_PREMIUM_ACTION_STARTUP_POPUP_CLOSE, Int($aOkayButton[0]), Int($aOkayButton[1]), 120, "#StartupPopupOkay", False) Then Return True
 			$g_bMinorObstacle = True
 			If _Sleep($DELAYCHECKOBSTACLES1) Then Return
 			Return False
@@ -835,6 +835,13 @@ Func IsMainGrayed()
 	Return False
 
 EndFunc   ;==>IsMainGrayed
+
+Func StartupPopupClosePointReady($iX, $iY)
+	If Not NoPremiumPermitTargetValid($NO_PREMIUM_ACTION_STARTUP_POPUP_CLOSE, $iX, $iY) Then Return False
+	If IsMainGrayed() Then Return True
+	If IsBuilderBaseGrayed() Then Return True
+	Return False
+EndFunc   ;==>StartupPopupClosePointReady
 
 Func IsBuilderBaseGrayed()
 

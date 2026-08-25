@@ -169,6 +169,7 @@ class NoPremiumSourcePolicyTests(unittest.TestCase):
             "$NO_PREMIUM_ACTION_TREASURY_CLOSE",
             "$NO_PREMIUM_ACTION_CLAN_REQUEST_SEND",
             "$NO_PREMIUM_ACTION_HOME_CLEAR_SCREEN",
+            "$NO_PREMIUM_ACTION_STARTUP_POPUP_CLOSE",
             "no exact reviewed action and target permit",
         ):
             self.assertIn(token, recognizer)
@@ -256,6 +257,10 @@ class NoPremiumSourcePolicyTests(unittest.TestCase):
             },
             route_callers["COCBot/functions/Run/OpenBuilderBaseCollectors.au3"],
         )
+        self.assertEqual(
+            {"_checkObstacles"},
+            autoit_callers(source("COCBot/functions/Main Screen/checkObstacles.au3"), "NoPremiumPointClick"),
+        )
         clan_request_active = active_autoit(source("COCBot/functions/Run/OpenClanRequest.au3"))
         self.assertNotRegex(clan_request_active, r"(?<![A-Za-z_])Click\(")
 
@@ -270,6 +275,7 @@ class NoPremiumSourcePolicyTests(unittest.TestCase):
                 "COCBot/functions/Run/OpenHomeTreasury.au3",
                 "COCBot/functions/Run/OpenClanRequest.au3",
                 "COCBot/functions/Run/OpenBuilderBaseCollectors.au3",
+                "COCBot/functions/Main Screen/checkObstacles.au3",
             },
             all_callers,
         )
@@ -285,7 +291,7 @@ class NoPremiumSourcePolicyTests(unittest.TestCase):
         target = autoit_function(self.policy, "NoPremiumPermitTargetValid")
         point = autoit_function(self.policy, "NoPremiumPermitPointMatches")
         age = autoit_function(self.policy, "NoPremiumPermitAgeValid")
-        self.assertEqual(22, len(re.findall(r'^Global Const \$NO_PREMIUM_ACTION_', self.policy, re.MULTILINE)))
+        self.assertEqual(23, len(re.findall(r'^Global Const \$NO_PREMIUM_ACTION_', self.policy, re.MULTILINE)))
         for forbidden in ('"home"', '"builder-home"', '"full-profile"', '"confirm"'):
             self.assertNotIn(forbidden, known)
         for exact in (
@@ -305,6 +311,7 @@ class NoPremiumSourcePolicyTests(unittest.TestCase):
             "$iX = 821 And $iY = 465",
             "$iX >= 235 And $iX <= 245 And $iY >= 10 And $iY <= 30",
             "$iX >= 640 And $iX <= 650 And $iY >= 10 And $iY <= 30",
+            "$iX >= 360 And $iX <= 510 And $iY >= 450 And $iY <= 540",
         ):
             self.assertIn(exact, target)
         self.assertIn("$NO_PREMIUM_ACTION_EXACT_TRAINING_ARMY", known)
@@ -312,12 +319,15 @@ class NoPremiumSourcePolicyTests(unittest.TestCase):
         self.assertIn("$NO_PREMIUM_ACTION_BUILDER_COLLECT_GOLD", known)
         self.assertIn("$NO_PREMIUM_ACTION_BUILDER_COLLECT_ELIXIR", known)
         self.assertIn("$NO_PREMIUM_ACTION_BUILDER_RETURN_HOME", known)
+        self.assertIn("$NO_PREMIUM_ACTION_HOME_CLEAR_SCREEN", known)
+        self.assertIn("$NO_PREMIUM_ACTION_STARTUP_POPUP_CLOSE", known)
         self.assertIn("Case $NO_PREMIUM_ACTION_EXACT_TRAINING_ARMY", target)
         self.assertIn("Case $NO_PREMIUM_ACTION_BUILDER_SWITCH", target)
         self.assertIn("Case $NO_PREMIUM_ACTION_BUILDER_COLLECT_GOLD", target)
         self.assertIn("Case $NO_PREMIUM_ACTION_BUILDER_COLLECT_ELIXIR", target)
         self.assertIn("Case $NO_PREMIUM_ACTION_BUILDER_RETURN_HOME", target)
         self.assertIn("Case $NO_PREMIUM_ACTION_HOME_CLEAR_SCREEN", target)
+        self.assertIn("Case $NO_PREMIUM_ACTION_STARTUP_POPUP_CLOSE", target)
         self.assertIn("Int($iExpectedX) = Int($iActualX)", point)
         self.assertIn("Int($iExpectedY) = Int($iActualY)", point)
         self.assertIn("$iAgeMs >= 0", age)

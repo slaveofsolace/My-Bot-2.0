@@ -128,6 +128,8 @@ Func NoPremiumSurfaceState(ByRef $sReason, $sPermitAction = "", $iExpectedX = De
 			$bRouteReady = OpenBuilderBaseReturnBoatPointReady(Int($iExpectedX), Int($iExpectedY))
 		Case $NO_PREMIUM_ACTION_HOME_CLEAR_SCREEN
 			$bRouteReady = IsMainPage(1)
+		Case $NO_PREMIUM_ACTION_STARTUP_POPUP_CLOSE
+			$bRouteReady = StartupPopupClosePointReady(Int($iExpectedX), Int($iExpectedY))
 	EndSwitch
 	If $bRouteReady Then Return $NO_PREMIUM_SURFACE_SAFE
 	$sReason = "positive current-client surface was not recognized for action " & $sPermitAction
