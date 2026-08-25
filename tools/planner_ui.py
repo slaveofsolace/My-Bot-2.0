@@ -96,6 +96,7 @@ ENGINE_INIT_CANCEL_CONTEXT_POLL_SECONDS = 0.025
 CONTROL_ACTIONS = {"start", "stop", "pause", "resume", "check-engine", "launch-game"}
 CONTROL_LOCK = threading.Lock()
 PLAN_ABSENCE_TOKEN = "absent"
+_LAST_PLAN_REJECTION: dict[str, object] | None = None
 LOCAL_HOSTS = {"127.0.0.1", "localhost"}
 DIAGNOSTIC_ARTIFACTS = {
     "native_app": ROOT / "MyBot.run.exe",
@@ -728,6 +729,20 @@ def plan_start_token(run_mode: str) -> str | None:
     return f"sha256:{hashlib.sha256(raw).hexdigest()}"
 
 
+def remember_plan_rejection(problems: list[str]) -> None:
+    """Latch a failed save so Start cannot replay an older applied plan."""
+    global _LAST_PLAN_REJECTION
+    _LAST_PLAN_REJECTION = {
+        "problems": list(problems),
+        "recorded_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def clear_plan_rejection() -> None:
+    global _LAST_PLAN_REJECTION
+    _LAST_PLAN_REJECTION = None
+
+
 def save_plan(submitted: dict) -> tuple[dict, int]:
     """Validate and replace the applied plan at the shared control linearization point."""
     with CONTROL_LOCK:
@@ -736,10 +751,12 @@ def save_plan(submitted: dict) -> tuple[dict, int]:
         # An unknown setting means the caller and this server disagree about what exists. Saving
         # the rest would silently drop intent, so refuse the whole document and write nothing.
         if rejected:
+            remember_plan_rejection(rejected)
             return {"ok": False, "problems": rejected, "written": None}, 400
 
         preflight = engine_preflight(clean)
         if preflight:
+            remember_plan_rejection(preflight)
             return {
                 "ok": False,
                 "problems": preflight,
@@ -750,7 +767,10 @@ def save_plan(submitted: dict) -> tuple[dict, int]:
         try:
             write_plan_atomic(clean)
         except OSError:
-            return {"ok": False, "problems": ["the plan could not be written atomically"]}, 500
+            problems = ["the plan could not be written atomically"]
+            remember_plan_rejection(problems)
+            return {"ok": False, "problems": problems}, 500
+        clear_plan_rejection()
         return {
             "ok": True,
             "problems": adjustments,
@@ -782,6 +802,7 @@ def activate_native_profile_mode() -> tuple[dict, int]:
             }, 409
 
         if not PLAN_PATH.exists():
+            clear_plan_rejection()
             return {
                 "ok": True,
                 "mode": "native-profile",
@@ -804,6 +825,7 @@ def activate_native_profile_mode() -> tuple[dict, int]:
             os.replace(PLAN_PATH, backup)
         except OSError:
             return {"ok": False, "problems": ["the applied plan could not be backed up atomically"]}, 500
+        clear_plan_rejection()
         return {
             "ok": True,
             "mode": "native-profile",
@@ -947,6 +969,13 @@ def queue_control_command(action: str, expected_start_request_id: str = "") -> t
         # started yet. Once a receipt exists, the separate launcher cancel remains authoritative.
         if command_pending and action != "stop":
             return {"ok": False, "problems": ["another control command is awaiting the native engine"]}, 409
+        if action == "start" and _LAST_PLAN_REJECTION is not None:
+            latched = _LAST_PLAN_REJECTION
+            problems = ["the most recent plan save failed; fix and save a valid plan before Start"]
+            saved_problems = latched.get("problems")
+            if isinstance(saved_problems, list):
+                problems.extend(str(item) for item in saved_problems)
+            return {"ok": False, "problems": problems, "status": status}, 409
         request_id = uuid.uuid4().hex
         command = {
             "schema_version": 1,
@@ -1656,6 +1685,54 @@ def selftest() -> int:
             payload = json.loads(response.read())
             check(response.status == 422 and payload["ok"] is False, "engine-incompatible plan is refused before save")
             check(PLAN_PATH.read_bytes() == saved_before_refusal, "engine preflight refusal preserves the previous plan")
+
+            write_json_atomic({"state": "idle", "message": "Native engine is ready", "bot_pid": 123, "engine_available": True}, CONTROL_STATUS_PATH)
+            connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
+            body = json.dumps({"action": "start"}).encode()
+            connection.request("POST", "/api/control/command", body=body, headers={"Content-Type": "application/json"})
+            response = connection.getresponse()
+            payload = json.loads(response.read())
+            check(
+                response.status == 409
+                and payload["ok"] is False
+                and "most recent plan save failed" in payload["problems"][0]
+                and not CONTROL_COMMAND_PATH.exists(),
+                "Start is refused after a failed plan save instead of replaying the previous plan",
+            )
+
+            connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
+            body = json.dumps({
+                "run.strategy": "home.collectors",
+                "run.town_hall": 0,
+                "run.duration_minutes": 0,
+                "run.max_battles": 0,
+                "run.max_failures": 0,
+                "run.heroes": [],
+                "run.diagnostic_mode": True,
+                "run.diagnostic_note": "selftest safe collectors plan after failed save",
+                "army.manage_training": False,
+                "army.wait_for_full": False,
+                "army.train_spells": False,
+                "army.train_sieges": False,
+                "pacing.retry_attempts": 0,
+                "donate.mode": "off",
+                "donate.request_when_short": False,
+                "events.clan_games": False,
+                "events.collect_resources": True,
+                "events.collect_loot_cart": False,
+                "events.collect_treasury": False,
+                "events.collect_daily_reward": False,
+                "events.laboratory": "off",
+                "upgrade.policy": "disabled",
+                "account.queue": "",
+                "runtime.emulator": "bluestacks5",
+                "runtime.instance": "Pie64",
+            }).encode()
+            connection.request("POST", "/api/plan", body=body, headers={"Content-Type": "application/json"})
+            response = connection.getresponse()
+            payload = json.loads(response.read())
+            check(response.status == 200 and payload["ok"], "a valid plan clears the failed-save Start latch")
+            CONTROL_STATUS_PATH.unlink(missing_ok=True)
 
             connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
             body = json.dumps({"action": "start"}).encode()
