@@ -137,6 +137,28 @@ class ManagedExportSupervisionTests(unittest.TestCase):
         self.assertLess(skip_notice, max_returned)
         self.assertNotIn("setMaxDegreeOfParallelism(", initializer)
 
+    def test_supervised_android_binding_skips_blocking_metadata_export(self) -> None:
+        binding = function_body(self.mbr_func, "setAndroidPID")
+        supervised_gate = binding.index("_MBRFuncSupervisedStartInitializing()")
+        record = binding.index('_MBRFuncRecordAndroidBinding("detached-adb", $iRequestedPid)', supervised_gate)
+        skip_notice = binding.index("managed Android PID export skipped during supervised Start", record)
+        skip_return = binding.index("Return True", skip_notice)
+        managed_call = binding.index('DllCall($g_hLibMyBot, "str", "setAndroidPID"')
+        self.assertLess(supervised_gate, record)
+        self.assertLess(record, skip_notice)
+        self.assertLess(skip_notice, skip_return)
+        self.assertLess(skip_return, managed_call)
+
+    def test_supervised_gui_binding_skips_blocking_metadata_export(self) -> None:
+        binding = function_body(self.mbr_func, "SetBotGuiPID")
+        supervised_gate = binding.index("_MBRFuncSupervisedStartInitializing()")
+        skip_notice = binding.index("Managed GUI PID export skipped during supervised Start", supervised_gate)
+        skip_return = binding.index("Return True", skip_notice)
+        managed_call = binding.index('DllCall($g_hLibMyBot, "str", "SetBotGuiPID"')
+        self.assertLess(supervised_gate, skip_notice)
+        self.assertLess(skip_notice, skip_return)
+        self.assertLess(skip_return, managed_call)
+
     def test_public_image_call_wrapper_fails_closed_until_initialization_completed(self) -> None:
         public_wrapper = function_body(self.mbr_func, "DllCallMyBot")
         guard = public_wrapper.index("$g_bLibMyBotInitialized")

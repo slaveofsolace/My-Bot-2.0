@@ -80,6 +80,17 @@ Func _MBRFuncResetAndroidBinding()
 	$g_iMBRFuncAndroidBindingPid = 0
 EndFunc   ;==>_MBRFuncResetAndroidBinding
 
+Func _MBRFuncRecordAndroidBinding($sMode, $iRequestedPid)
+	$g_sMBRFuncAndroidBindingMode = $sMode
+	$g_sMBRFuncAndroidBindingEmulator = $g_sAndroidEmulator
+	$g_sMBRFuncAndroidBindingInstance = $g_sAndroidInstance
+	$g_iMBRFuncAndroidBindingPid = $iRequestedPid
+EndFunc   ;==>_MBRFuncRecordAndroidBinding
+
+Func _MBRFuncSupervisedStartInitializing()
+	Return $g_bMBRFuncEngineInitializing And $g_bMBRFuncBackendHost And $g_bMBRFuncEngineSupervisorValid
+EndFunc   ;==>_MBRFuncSupervisedStartInitializing
+
 Func MBRFuncManagedLaunchBound()
 	Return $g_bMBRFuncBackendHost And $g_bMBRFuncEngineSupervisorValid
 EndFunc   ;==>MBRFuncManagedLaunchBound
@@ -451,6 +462,11 @@ Func setAndroidPID($pid = GetAndroidPid())
 	; engine in its supported detached state once, then keep the verified ADB adapter authoritative.
 	If $bDetachedAdbBinding Then
 		SetDebugLog("BlueStacks5 exact ADB surface verified; initializing managed Android binding detached from player PID " & $iRequestedPid)
+		If _MBRFuncSupervisedStartInitializing() Then
+			_MBRFuncRecordAndroidBinding("detached-adb", $iRequestedPid)
+			SetDebugLog("BlueStacks5 managed Android PID export skipped during supervised Start; exact ADB surface owns player PID " & $iRequestedPid)
+			Return True
+		EndIf
 		$pid = 0
 	EndIf
 	SetDebugLog("setAndroidPID: $pid=" & $pid)
@@ -466,15 +482,12 @@ Func setAndroidPID($pid = GetAndroidPid())
 			Return False
 		Else
 			If $bDetachedAdbBinding Then
-				$g_sMBRFuncAndroidBindingMode = "detached-adb"
+				_MBRFuncRecordAndroidBinding("detached-adb", $iRequestedPid)
 			ElseIf $iRequestedPid > 0 Then
-				$g_sMBRFuncAndroidBindingMode = "player"
+				_MBRFuncRecordAndroidBinding("player", $iRequestedPid)
 			Else
-				$g_sMBRFuncAndroidBindingMode = "engine-only"
+				_MBRFuncRecordAndroidBinding("engine-only", $iRequestedPid)
 			EndIf
-			$g_sMBRFuncAndroidBindingEmulator = $g_sAndroidEmulator
-			$g_sMBRFuncAndroidBindingInstance = $g_sAndroidInstance
-			$g_iMBRFuncAndroidBindingPid = $iRequestedPid
 			SetDebugLog("Android PID=" & $pid & " initialized: " & $result[0])
 			debugMBRFunctions(0, $g_bDebugRedArea ? 1 : 0, $g_bDebugOcr ? 1 : 0) ; set debug levels
 		EndIf
@@ -488,6 +501,10 @@ EndFunc   ;==>setAndroidPID
 Func SetBotGuiPID($pid = $g_iGuiPID)
 	If Not $g_bLibMyBotInitialized And Not $g_bMBRFuncEngineInitializing Then Return False
 	If $g_hLibMyBot = -1 Then Return False ; Bot didn't finish launch yet
+	If _MBRFuncSupervisedStartInitializing() Then
+		SetDebugLog("Managed GUI PID export skipped during supervised Start; native MiniGui owns controller PID " & $pid)
+		Return True
+	EndIf
 	SetDebugLog("SetBotGuiPID: $pid=" & $pid)
 	Local $result = DllCall($g_hLibMyBot, "str", "SetBotGuiPID", "int", $pid)
 	If @error Then

@@ -128,12 +128,19 @@ class EngineProbeLifecycleTests(unittest.TestCase):
             "$g_bAndroidAdbScreencap",
             "$g_bAndroidAdbClick",
             "_MBRFuncExactDetachedAdbSurfaceAvailable()",
-            '$g_sMBRFuncAndroidBindingMode = "detached-adb"',
+            '_MBRFuncRecordAndroidBinding("detached-adb", $iRequestedPid)',
             "The exact detached ADB transport changed after managed initialization",
+            "managed Android PID export skipped during supervised Start",
             "$pid = 0",
             "exact ADB surface owns player PID",
         ):
             self.assertIn(required, binding)
+        recorder = function_body(self.parent, "_MBRFuncRecordAndroidBinding")
+        self.assertIn("$g_sMBRFuncAndroidBindingMode = $sMode", recorder)
+        self.assertIn("$g_sMBRFuncAndroidBindingEmulator = $g_sAndroidEmulator", recorder)
+        self.assertIn("$g_sMBRFuncAndroidBindingInstance = $g_sAndroidInstance", recorder)
+        self.assertIn("$g_iMBRFuncAndroidBindingPid = $iRequestedPid", recorder)
+        self.assertLess(binding.index("managed Android PID export skipped during supervised Start"), binding.index('DllCall($g_hLibMyBot, "str", "setAndroidPID"'))
         self.assertLess(binding.index("$pid = 0"), binding.index('DllCall($g_hLibMyBot, "str", "setAndroidPID"'))
         self.assertLess(binding.index('Case "detached-adb"'), binding.index('DllCall($g_hLibMyBot, "str", "setAndroidPID"'))
         self.assertIn('"GetBlueStacks5ModernAdbSurface" & "Position"', verifier)
@@ -141,6 +148,15 @@ class EngineProbeLifecycleTests(unittest.TestCase):
         self.assertIn("Local $iCallError = @error", verifier)
         self.assertNotIn("IsFunc(", verifier)
         self.assertNotIn("GetBlueStacks5ModernAdbSurfacePosition()", self.parent)
+
+    def test_supervised_start_skips_blocking_gui_metadata_export(self) -> None:
+        binding = function_body(self.parent, "SetBotGuiPID")
+        self.assertIn("_MBRFuncSupervisedStartInitializing()", binding)
+        self.assertIn("Managed GUI PID export skipped during supervised Start", binding)
+        self.assertLess(
+            binding.index("Managed GUI PID export skipped during supervised Start"),
+            binding.index('DllCall($g_hLibMyBot, "str", "SetBotGuiPID"'),
+        )
 
     def test_receipt_is_fixed_atomic_flushed_and_identity_bound(self) -> None:
         self.assertIn(
