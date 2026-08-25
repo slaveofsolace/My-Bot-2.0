@@ -16,6 +16,9 @@
 Func _BotStartReject($sReason)
 	If $sReason = "" Then $sReason = "Start cancelled"
 	RunExecutionCancelPrepared($sReason)
+	; Publish the terminal Start outcome before btnStop() can tear down the backend/planner process.
+	; Otherwise the web UI can remain stuck on the earlier accepted command after a controlled reject.
+	RunControlReportStartOutcome(False, $sReason)
 	; A general Start owns the shared bot slot before emulator or managed-engine work. Release it at
 	; the rejection linearization point instead of waiting for the later Stop action to be dispatched.
 	; Terminal one-shot routes hold the same slot in their wrapper, so this is also a harmless no-op
@@ -23,7 +26,6 @@ Func _BotStartReject($sReason)
 	LockBotSlot(False)
 	If $g_iBotAction <> $eBotClose Then btnStop()
 	ReleaseExactAndroidInstanceLock()
-	RunControlReportStartOutcome(False, $sReason)
 	Return False
 EndFunc   ;==>_BotStartReject
 

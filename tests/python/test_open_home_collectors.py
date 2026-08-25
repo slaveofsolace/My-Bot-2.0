@@ -257,6 +257,16 @@ class OpenHomeCollectorsTest(unittest.TestCase):
         self.assertLess(start.index("_BotEnsureConfiguredAndroidAndGame"), start.index("OpenHomeStartupResolveDailyRewardBlocker"))
         self.assertLess(start.index("OpenHomeStartupResolveDailyRewardBlocker"), start.index("MBRFuncInitialize"))
 
+    def test_start_reject_reports_terminal_outcome_before_stop_teardown(self):
+        gui = source("COCBot/MBR GUI Action.au3")
+        reject = autoit_function(gui, "_BotStartReject")
+        self.assertIn("RunControlReportStartOutcome(False, $sReason)", reject)
+        self.assertIn("btnStop()", reject)
+        lines = reject.splitlines()
+        outcome_line = next(i for i, line in enumerate(lines) if line.strip() == "RunControlReportStartOutcome(False, $sReason)")
+        stop_line = next(i for i, line in enumerate(lines) if line.strip().startswith("If $g_iBotAction") and "btnStop()" in line)
+        self.assertLess(outcome_line, stop_line)
+
     def test_inactivity_reload_dialog_uses_clean_room_anchors_and_exact_point(self):
         route = source("COCBot/functions/Run/OpenHomeCollectors.au3")
         predicate = autoit_function(route, "OpenHomeInactivityReloadDialogReady")
