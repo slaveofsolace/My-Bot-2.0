@@ -211,4 +211,5 @@ Func RunExecutionContractValidate(ByRef $oIntent, ByRef $sError)
 		Return SetError(17, 0, False)
 	EndIf
 
+	Return True
 EndFunc   ;==>RunExecutionContractValidate
