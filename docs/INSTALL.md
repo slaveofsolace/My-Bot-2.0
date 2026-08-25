@@ -25,7 +25,9 @@ Use a dedicated Windows 10 or Windows 11 test machine or virtual machine with:
 - current graphics drivers
 - Microsoft Visual C++ 2010 Redistributable **x86**
 - .NET Framework 4.5 or later Windows-provided compatibility
-- Python 3.13 with `py.exe` or `python.exe` available for the Control Center and non-CLR installer
+- Python 3.13 with `py.exe` or `python.exe` available for source/development work. Reviewed
+  LocalRuntime packages include a private `runtime\python\pythonw.exe` for the installed Control
+  Center; the command launcher still uses the standard-library installer from the package.
 - AutoIt 3.3.16.x
 - SciTE for AutoIt, recommended for source work
 - one supported Android environment installed separately

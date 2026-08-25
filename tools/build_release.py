@@ -22,6 +22,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import stat
 import subprocess
 import sys
@@ -148,6 +149,11 @@ ZIP_TIMESTAMP = (1980, 1, 1, 0, 0, 0)
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 VERSION_RE = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$")
+PYTHON_RUNTIME_PREFIX = "runtime/python/"
+PYTHON_RUNTIME_REQUIRED_FILES = frozenset({"python.exe", "pythonw.exe", "LICENSE.txt"})
+PYTHON_RUNTIME_EXCLUDED_DIRECTORIES = frozenset(
+    {"__pycache__", "include", "libs", "scripts", "site-packages", "test", "tests"}
+)
 SAFE_MANIFEST_KEYS = frozenset(
     {
         "schema_version",
@@ -1032,12 +1038,57 @@ def _write_deterministic_zip(payload: Path, destination: Path) -> None:
             temporary.unlink()
 
 
+def _copy_local_python_runtime(source: Path, payload: Path) -> list[dict[str, object]]:
+    source = source.resolve()
+    if not source.is_dir() or _is_reparse_point(source):
+        raise ReleaseError(f"Python runtime directory is missing or unsafe: {source}")
+    present = {path.name for path in source.iterdir() if path.is_file()}
+    missing = sorted(PYTHON_RUNTIME_REQUIRED_FILES - present)
+    if missing:
+        raise ReleaseError("Python runtime directory is incomplete: missing " + ", ".join(missing))
+    destination = payload / "runtime" / "python"
+    if destination.exists():
+        raise ReleaseError(f"Python runtime destination already exists: {destination}")
+    for directory, names, filenames in os.walk(source, topdown=True, followlinks=False):
+        current = Path(directory)
+        for name in list(names):
+            child = current / name
+            if _is_reparse_point(child):
+                raise ReleaseError(f"Python runtime contains a reparse-point directory: {child}")
+            if name.casefold() in PYTHON_RUNTIME_EXCLUDED_DIRECTORIES:
+                names.remove(name)
+        relative_dir = current.relative_to(source)
+        target_dir = destination / relative_dir
+        target_dir.mkdir(parents=True, exist_ok=True)
+        for name in filenames:
+            if name.casefold().endswith((".pyc", ".pyo")):
+                continue
+            child = current / name
+            if _is_reparse_point(child) or not child.is_file():
+                raise ReleaseError(f"Python runtime contains an unsafe file: {child}")
+            relative = child.relative_to(source).as_posix()
+            normalize_relative_path(relative)
+            target = target_dir / name
+            if target.exists():
+                raise ReleaseError(f"Python runtime duplicate destination path: {target}")
+            shutil.copy2(child, target)
+    return [
+        {
+            "path": PYTHON_RUNTIME_PREFIX + path.relative_to(destination).as_posix(),
+            "bytes": path.stat().st_size,
+            "sha256": sha256_file(path),
+        }
+        for path in _safe_payload_files(destination)
+    ]
+
+
 def package_reviewed(
     repo: Path,
     candidate_directory: Path,
     version: str,
     output_directory: Path,
     contract: ReleaseContract = DEFAULT_CONTRACT,
+    python_runtime_directory: Path | None = None,
 ) -> Path:
     repo = repository_root(repo)
     assert_clean_source(repo)
@@ -1086,6 +1137,11 @@ def package_reviewed(
         for target in contract.compile_targets:
             write_new(payload / target.output, (candidate / target.output).read_bytes())
 
+        python_runtime_records: list[dict[str, object]] = []
+        if python_runtime_directory is not None:
+            python_runtime_records = _copy_local_python_runtime(python_runtime_directory, payload)
+        python_runtime_index = {str(record["path"]).casefold(): record for record in python_runtime_records}
+
         for path in _safe_payload_files(payload):
             relative = path.relative_to(payload).as_posix()
             if relative.casefold() != "languages/english.ini" and is_excluded_release_path(relative):
@@ -1096,14 +1152,23 @@ def package_reviewed(
             for path in _safe_payload_files(payload)
             if path.suffix.casefold() in {".exe", ".dll", ".sys"}
         ]
+        provenance_native_paths: set[str] = set()
         for path in packaged_native:
             relative = path.relative_to(payload).as_posix()
+            if relative.casefold().startswith(PYTHON_RUNTIME_PREFIX):
+                record = python_runtime_index.get(relative.casefold())
+                if record is None:
+                    raise ReleaseError(f"Packaged Python runtime binary has no runtime record: {relative}")
+                if record["bytes"] != path.stat().st_size or record["sha256"] != sha256_file(path):
+                    raise ReleaseError(f"Packaged Python runtime binary differs from runtime record: {relative}")
+                continue
             record = indexed.get(relative.casefold())
             if record is None:
                 raise ReleaseError(f"Packaged native binary has no provenance record: {relative}")
             if record["bytes"] != path.stat().st_size or record["sha256"] != sha256_file(path):
                 raise ReleaseError(f"Packaged native binary differs from provenance: {relative}")
-        native_paths = {path.relative_to(payload).as_posix().casefold() for path in packaged_native}
+            provenance_native_paths.add(relative.casefold())
+        native_paths = provenance_native_paths
         if set(indexed) != native_paths:
             missing = sorted(native_paths - set(indexed))
             extra = sorted(set(indexed) - native_paths)
@@ -1153,6 +1218,12 @@ def package_reviewed(
             "source_commit": package_commit,
             "source_tree_clean": True,
             "binary_provenance_verified": True,
+            "python_runtime": {
+                "included": python_runtime_directory is not None,
+                "path": "runtime/python" if python_runtime_directory is not None else None,
+                "required": sorted(PYTHON_RUNTIME_REQUIRED_FILES),
+                "files": python_runtime_records,
+            },
             "code_signing_performed": False,
             "signing_claim": "none",
             "imgloc_redistribution_permission_acknowledged": False,
@@ -1181,6 +1252,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--output-directory", type=Path)
     parser.add_argument("--autoit-root", type=Path)
     parser.add_argument("--reviewed-binary-directory", type=Path)
+    parser.add_argument("--python-runtime-directory", type=Path)
     return parser
 
 
@@ -1199,6 +1271,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 raise ReleaseError("--autoit-root is required for compile-for-review.")
             if args.reviewed_binary_directory is not None:
                 raise ReleaseError("--reviewed-binary-directory is not valid for compile-for-review.")
+            if args.python_runtime_directory is not None:
+                raise ReleaseError("--python-runtime-directory is not valid for compile-for-review.")
             result = compile_for_review(args.repository_root, args.autoit_root, args.version, output)
             print(f"Compiled review candidates: {result}")
         else:
@@ -1211,6 +1285,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 args.reviewed_binary_directory,
                 args.version,
                 output,
+                python_runtime_directory=args.python_runtime_directory,
             )
             print(f"Release package: {result}")
             print(f"SHA-256: {sha256_file(result)}")

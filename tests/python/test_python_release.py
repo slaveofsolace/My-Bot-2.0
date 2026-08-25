@@ -458,6 +458,59 @@ class PythonReleaseContractTests(unittest.TestCase):
             )
             self.assertNotIn("release-manifest.json", {record["path"] for record in manifest["files"]})
 
+    def test_package_can_include_local_python_runtime_with_separate_runtime_records(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            fixture = ReleaseFixture(Path(temp))
+            runtime = Path(temp) / "python-runtime"
+            runtime.mkdir()
+            write(runtime, "python.exe", b"PYTHON-EXE")
+            write(runtime, "pythonw.exe", b"PYTHONW-EXE")
+            write(runtime, "python312.dll", b"PYTHON-DLL")
+            write(runtime, "LICENSE.txt", b"PSF license fixture\n")
+            cache = runtime / "Lib" / "__pycache__"
+            cache.mkdir(parents=True)
+            write(cache, "ignored.cpython-312.pyc", b"BYTECODE")
+            third_party = runtime / "Lib" / "site-packages" / "vendor"
+            third_party.mkdir(parents=True)
+            write(third_party, "package.json", b'{"name":"not-runtime"}')
+
+            zip_path = release.package_reviewed(
+                fixture.repo,
+                fixture.candidate,
+                "2.0.0",
+                Path(temp) / "with-python",
+                fixture.contract,
+                python_runtime_directory=runtime,
+            )
+
+            with zipfile.ZipFile(zip_path) as archive:
+                names = set(archive.namelist())
+                self.assertIn("MyBot-2.0.0-win-x86/runtime/python/pythonw.exe", names)
+                self.assertIn("MyBot-2.0.0-win-x86/runtime/python/python312.dll", names)
+                self.assertFalse(any("__pycache__" in name or name.endswith(".pyc") for name in names))
+                self.assertFalse(any("site-packages" in name for name in names))
+                manifest = json.loads(
+                    archive.read("MyBot-2.0.0-win-x86/release-manifest.json")
+                )
+            self.assertIs(manifest["python_runtime"]["included"], True)
+            runtime_paths = {record["path"] for record in manifest["python_runtime"]["files"]}
+            self.assertIn("runtime/python/pythonw.exe", runtime_paths)
+            self.assertIn("runtime/python/python312.dll", runtime_paths)
+
+            missing_runtime = Path(temp) / "missing-pythonw-runtime"
+            missing_runtime.mkdir()
+            write(missing_runtime, "python.exe", b"PYTHON-EXE")
+            write(missing_runtime, "LICENSE.txt", b"PSF license fixture\n")
+            with self.assertRaisesRegex(release.ReleaseError, "missing pythonw.exe"):
+                release.package_reviewed(
+                    fixture.repo,
+                    fixture.candidate,
+                    "2.0.0",
+                    Path(temp) / "missing-pythonw",
+                    fixture.contract,
+                    python_runtime_directory=missing_runtime,
+                )
+
     def test_package_refuses_to_emit_a_manifest_without_the_reviewed_rights_record(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             fixture = ReleaseFixture(Path(temp))

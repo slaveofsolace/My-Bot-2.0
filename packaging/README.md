@@ -66,6 +66,11 @@ exact canonical target before registration. Launcher, reviewed Mini GUI, backend
 use the same tree without unsupported Mini arguments. Rollback, update, and uninstall detach the
 verified junction before recursive removal and never traverse the persistent target.
 
+For installed Control Center startup, pass `--python-runtime-directory <path>` during
+`package-reviewed`; the payload records that runtime separately in `release-manifest.json` under
+`python_runtime`. AutoIt-built binaries still must match `config/binary-provenance.json`; copied
+Python runtime files are runtime dependencies, not reviewed AutoIt outputs.
+
 `LocalRuntime` creates a local-use package only. It is not permission to redistribute the inherited
 ImgLoc component. The Python boundary has no PublicDistribution mode and fails on every other mode.
 Public release remains blocked until actual written ImgLoc permission exists or a clearly licensed
