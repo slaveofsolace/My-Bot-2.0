@@ -64,11 +64,14 @@ Func Initiate(ByRef $sStartError)
 		AndroidShield("Initiate", True)
 		Local $bBuilderTerminalPreflight = BuilderMaintenanceRoutePrepared()
 		If $bBuilderTerminalPreflight Then
-			If Not OpenBuilderBaseProveMain() Then
-				$sStartError = "Builder Base main screen could not be detected"
+			If OpenBuilderBaseProveMain() Then
+				SetLog("Run Planner: Builder Base route-ready screen detected", $COLOR_INFO)
+			ElseIf OpenHomeCollectorsProveHome() Then
+				SetLog("Run Planner: Home Village route-ready screen detected for Builder Base transfer", $COLOR_INFO)
+			Else
+				$sStartError = "Home Village or Builder Base main screen could not be detected"
 				Return False
 			EndIf
-			SetLog("Run Planner: Builder Base route-ready screen detected", $COLOR_INFO)
 		Else
 			If Not checkMainScreen() Then
 				$sStartError = "Clash of Clans main screen could not be detected"
