@@ -82,11 +82,14 @@ class RuntimeBoundaryRegressionTests(unittest.TestCase):
 
         for contract in (
             "const nativeProfileBlocked = NATIVE_PROFILE_MODE && !recognitionAvailable;",
-            "nativeProfileBlocked || state !== 'idle'",
+            "const primaryLaunchOnly = nativeProfileBlocked;",
+            "$('controlStart').textContent = primaryLaunchOnly ? 'Launch game safely' : 'Start run';",
+            "(!primaryLaunchOnly && !engineAvailable)",
+            "Launch game safely or use a bounded route",
             "let safeHomeReason = 'Load Home collection settings for review. Nothing is applied or started.';",
             "$('controlSafeHomeRoute').disabled = !BOOT_READY || busy || !connected || state !== 'idle';",
             "|| !recognitionAvailable || NATIVE_PROFILE_MODE;",
-            "Apply a verified bounded route to run safely.",
+            "The primary action is launch-only; apply a verified bounded route before bot actions.",
         ):
             self.assertIn(contract, self.planner_js)
 
@@ -106,6 +109,9 @@ class RuntimeBoundaryRegressionTests(unittest.TestCase):
                 "function capabilityLabel", self.planner_js.index("$('controlNativeMode').onclick")
             )
         ]
+        self.assertIn("$('controlStart').onclick = () => sendControl(primaryControlAction());", self.planner_js)
+        self.assertIn("function primaryControlAction()", self.planner_js)
+        self.assertIn("return NATIVE_PROFILE_MODE && CONTROL.recognition_available !== true ? 'launch-game' : 'start';", self.planner_js)
         self.assertIn("$('controlNativeMode').onclick = activateNativeProfileMode;", click_handler)
         self.assertIn("$('controlSafeHomeRoute').onclick = prepareVerifiedHomeRoute;", click_handler)
         self.assertNotIn("else prepareVerifiedHomeRoute()", click_handler)
