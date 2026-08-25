@@ -1,0 +1,75 @@
+{
+  "schema_version": 2,
+  "fixture_id": "builder.battle.entry",
+  "captured_at": "2026-08-25T23:31:44Z",
+  "game_version": "ClashOfClans-current-2026-08-25",
+  "source_type": "emulator",
+  "width": 860,
+  "height": 732,
+  "sha256": "c808d03c090b5cf2bc0bb43a9dee324e7d964cd17efe75268d900ff846b59702",
+  "raw_sha256": "fab294ef9636355f797393722c83e339bbf2e74d5a4afa77e899a18fb9e0df4b",
+  "redacted_sha256": "c808d03c090b5cf2bc0bb43a9dee324e7d964cd17efe75268d900ff846b59702",
+  "redacted": true,
+  "redaction_masks": [
+    {
+      "x": 0,
+      "y": 0,
+      "width": 860,
+      "height": 184,
+      "fill_hex": "#203040FF"
+    },
+    {
+      "x": 0,
+      "y": 184,
+      "width": 88,
+      "height": 374,
+      "fill_hex": "#203040FF"
+    },
+    {
+      "x": 772,
+      "y": 184,
+      "width": 88,
+      "height": 374,
+      "fill_hex": "#203040FF"
+    },
+    {
+      "x": 0,
+      "y": 558,
+      "width": 860,
+      "height": 174,
+      "fill_hex": "#203040FF"
+    }
+  ],
+  "redaction_pixel_changes": 373704,
+  "frame_content": {
+    "total_pixels": 629520,
+    "non_black_pixels": 627708,
+    "distinct_visible_colors": 2
+  },
+  "privacy_review_method": "decoded-pixel-diff-v1",
+  "redaction_notes": "redacted-account-resources-and-live-builder-background",
+  "assertions": [
+    "The Builder Base Start Attack panel is visible before any battle search begins.",
+    "The Your Troops area and all-defenses-ready status are visible on the left side of the panel.",
+    "The Find Now button is visible on the right side of the panel and is the only action region identified by this fixture.",
+    "The captured state is pre-search and pre-combat: no Find Now input, opponent search, deployment, battle result, or return-home action has occurred.",
+    "Live account/resource/background context outside the Builder battle-entry panel is masked and must not be used for recognition."
+  ],
+  "replay_contract": {
+    "schema_version": 1,
+    "adapter": "production.builder-battle-entry-v1",
+    "expected_state": "builder.battle.entry",
+    "safe_regions": [
+      {
+        "id": "find-now",
+        "x": 560,
+        "y": 416,
+        "width": 182,
+        "height": 64
+      }
+    ]
+  },
+  "reviewed_by": "operator-review",
+  "reviewed_at": "2026-08-25T23:32:27Z",
+  "notes": "captured-after-product-launch-builder-start-attack-no-find-now-no-combat"
+}

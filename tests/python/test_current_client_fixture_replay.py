@@ -16,6 +16,8 @@ from tools.replay_current_client_fixtures import (
     HOME_DAILY_REWARD_CLAIMED_ADAPTER,
     HOME_INACTIVITY_RELOAD_ADAPTER,
     HOME_WELCOME_BACK_ADAPTER,
+    BATTLE_REGULAR_ENTRY_ADAPTER,
+    BUILDER_BATTLE_ENTRY_ADAPTER,
     HOME_LOOT_CART_ADAPTER,
     HOME_MAIN_ADAPTER,
     RecognitionResult,
@@ -26,6 +28,8 @@ from tools.replay_current_client_fixtures import (
     recognize_home_daily_reward_claimed,
     recognize_home_inactivity_reload,
     recognize_home_welcome_back,
+    recognize_battle_regular_entry,
+    recognize_builder_battle_entry,
     recognize_home_loot_cart,
     recognize_home_main,
     replay_verified_fixtures,
@@ -138,6 +142,8 @@ class CurrentClientFixtureReplayTests(unittest.TestCase):
                 HOME_DAILY_REWARD_CLAIMED_ADAPTER: recognize_home_daily_reward_claimed,
                 HOME_INACTIVITY_RELOAD_ADAPTER: recognize_home_inactivity_reload,
                 HOME_WELCOME_BACK_ADAPTER: recognize_home_welcome_back,
+                BATTLE_REGULAR_ENTRY_ADAPTER: recognize_battle_regular_entry,
+                BUILDER_BATTLE_ENTRY_ADAPTER: recognize_builder_battle_entry,
             },
             require_verified=True,
         )
@@ -149,6 +155,8 @@ class CurrentClientFixtureReplayTests(unittest.TestCase):
         self.assertIn("home.daily-reward.claimed", report.replayed_fixture_ids)
         self.assertIn("home.inactivity-reload", report.replayed_fixture_ids)
         self.assertIn("home.welcome-back", report.replayed_fixture_ids)
+        self.assertIn("battle.regular.entry", report.replayed_fixture_ids)
+        self.assertIn("builder.battle.entry", report.replayed_fixture_ids)
         self.assertEqual(
             set(report.checked_adapters),
             {
@@ -159,9 +167,11 @@ class CurrentClientFixtureReplayTests(unittest.TestCase):
                 HOME_DAILY_REWARD_CLAIMED_ADAPTER,
                 HOME_INACTIVITY_RELOAD_ADAPTER,
                 HOME_WELCOME_BACK_ADAPTER,
+                BATTLE_REGULAR_ENTRY_ADAPTER,
+                BUILDER_BATTLE_ENTRY_ADAPTER,
             },
         )
-        self.assertEqual(report.unknown_checks, 7)
+        self.assertEqual(report.unknown_checks, 9)
 
     def test_verified_fixture_replays_pixels_regions_and_unknown_fail_closed(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

@@ -153,7 +153,7 @@ army to match.
 | Windows compile — Au3Check, both AutoIt versions | Green |
 | Game model through July 2026 | Catalogued from official sources |
 | LDPlayer 9 and MuMu Player 12 adapters | Written, **never run on real hardware** |
-| Screen recognition for the current client | 7 reviewed fixtures replay through production recognizers and one additional training fixture is tracked as redacted; 49 required surfaces remain missing. Package launch evidence does not convert any missing recognition surface into a pass. |
+| Screen recognition for the current client | 9 reviewed fixtures replay through production recognizers and one additional training fixture is tracked as redacted; 47 required surfaces remain missing. Package launch evidence does not convert any missing recognition surface into a pass. |
 | Managed Start and attack execution | The installed Control Center's real **Launch BlueStacks + CoC** control started the exact Pie64 instance and game, passively recognized the Daily Reward overlay and one Claim candidate, reported that Home remained blocked, and returned idle without input. Dismissing that overlay, entering the inherited bot loop, and any attack still require fresh action-specific acceptance. |
 
 **The honest summary:** the 2026-08-23 local acceptance reached the first real game-input boundary
@@ -173,7 +173,7 @@ different executable.
 
 The source inventory currently tracks 61 canonical capabilities, 462 direct actuator owners, and 339
 user-facing or infrastructure surfaces from the pinned upstream behavior baseline. Source contracts
-and deterministic tests keep unverified routes honest, but 49 current-client fixture surfaces remain
+and deterministic tests keep unverified routes honest, but 47 current-client fixture surfaces remain
 missing. Public binary distribution also remains blocked until the inherited ImgLoc redistribution
 rights record is resolved. Neither source coverage nor local package integrity removes those gates.
 
@@ -482,7 +482,7 @@ the actual game. Listing it honestly beats a progress bar.
 <br>
 
 [`tests/fixtures/current-client/manifest.json`](tests/fixtures/current-client/manifest.json) currently
-tracks **57 required captures**: 8 are complete and 49 remain missing. The expanded set includes
+tracks **57 required captures**: 10 are complete and 47 remain missing. The expanded set includes
 battle surfaces, current-army and Builder Base states, Pets, equipment, rewards, chat/request states, and other
 recognition boundaries that cannot be promoted from source presence alone.
 

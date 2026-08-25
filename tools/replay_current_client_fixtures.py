@@ -107,8 +107,12 @@ HOME_DAILY_REWARD_ADAPTER = "production.open-home-daily-reward-v1"
 HOME_DAILY_REWARD_CLAIMED_ADAPTER = "production.open-home-daily-reward-claimed-v1"
 HOME_INACTIVITY_RELOAD_ADAPTER = "production.open-home-inactivity-reload-v1"
 HOME_WELCOME_BACK_ADAPTER = "production.open-home-welcome-back-v1"
+BATTLE_REGULAR_ENTRY_ADAPTER = "production.battle-regular-entry-v1"
+BUILDER_BATTLE_ENTRY_ADAPTER = "production.builder-battle-entry-v1"
 HOME_MAIN_REGION = SafeRegion(id="home-proof", x=378, y=10, width=1, height=1)
 CLAN_REQUEST_SEND_REGION = SafeRegion(id="send", x=455, y=438, width=181, height=83)
+BATTLE_REGULAR_FIND_MATCH_REGION = SafeRegion(id="find-match", x=54, y=461, width=219, height=70)
+BUILDER_BATTLE_FIND_NOW_REGION = SafeRegion(id="find-now", x=560, y=416, width=182, height=64)
 
 
 def _pixel_near(image: DecodedPng, x: int, y: int, expected: int, variation: int) -> bool:
@@ -439,6 +443,55 @@ def recognize_home_welcome_back(
     )
 
 
+def recognize_battle_regular_entry(
+    image: DecodedPng,
+    _sink: "NoOpActionSink",
+) -> RecognitionResult | None:
+    # Current-client regular battle entry: the active Multiplayer tab and the ordinary-resource
+    # Find a Match button are visible. This is a passive pre-search proof only; it never clicks
+    # Find Match and never proves enemy-base search, deployment, results, or return-home.
+    anchors = (
+        (60, 470, 0xFDC34B, 28),
+        (260, 470, 0xFEC34B, 28),
+        (170, 482, 0xFFFDFB, 42),
+        (226, 508, 0xF9AD2C, 36),
+        (40, 205, 0x2C4A98, 45),
+        (266, 205, 0xFFFFFF, 50),
+        (526, 201, 0xFFFFFF, 50),
+        (590, 100, 0x203040, 0),
+        (10, 10, 0x203040, 0),
+    )
+    if not all(_pixel_near(image, *anchor) for anchor in anchors):
+        return None
+    return RecognitionResult("battle.regular.entry", (BATTLE_REGULAR_FIND_MATCH_REGION,))
+
+
+def recognize_builder_battle_entry(
+    image: DecodedPng,
+    _sink: "NoOpActionSink",
+) -> RecognitionResult | None:
+    # Current-client Builder Base battle entry: the Start Attack panel and ordinary
+    # Find Now button are visible. This is a passive pre-search proof only; it never
+    # clicks Find Now and never proves opponent search, deployment, results, or return-home.
+    anchors = (
+        (10, 10, 0x203040, 0),
+        (70, 200, 0x203040, 0),
+        (10, 720, 0x203040, 0),
+        (800, 720, 0x203040, 0),
+        (380, 203, 0xFFFFFF, 50),
+        (535, 250, 0xEFE8DB, 24),
+        (145, 275, 0xFFFFFE, 42),
+        (625, 345, 0xFFFFFF, 50),
+        (610, 430, 0xB9E884, 36),
+        (650, 455, 0x6BA22E, 36),
+        (700, 470, 0x83CA38, 36),
+        (650, 485, 0xEFE8DB, 24),
+    )
+    if not all(_pixel_near(image, *anchor) for anchor in anchors):
+        return None
+    return RecognitionResult("builder.battle.entry", (BUILDER_BATTLE_FIND_NOW_REGION,))
+
+
 class PassiveRecognizer(Protocol):
     def __call__(
         self,
@@ -738,6 +791,8 @@ def main(argv: list[str] | None = None) -> int:
                 HOME_DAILY_REWARD_CLAIMED_ADAPTER: recognize_home_daily_reward_claimed,
                 HOME_INACTIVITY_RELOAD_ADAPTER: recognize_home_inactivity_reload,
                 HOME_WELCOME_BACK_ADAPTER: recognize_home_welcome_back,
+                BATTLE_REGULAR_ENTRY_ADAPTER: recognize_battle_regular_entry,
+                BUILDER_BATTLE_ENTRY_ADAPTER: recognize_builder_battle_entry,
             },
             require_verified=args.require_verified,
         )
