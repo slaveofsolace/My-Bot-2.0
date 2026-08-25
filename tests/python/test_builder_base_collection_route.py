@@ -151,6 +151,17 @@ class BuilderBaseCollectionRouteTest(unittest.TestCase):
         self.assertIn("maintenance.builder-collectors.resource-issued", events)
         self.assertIn("maintenance.builder-collectors.completed", events)
 
+    def test_builder_collection_is_non_battle_and_does_not_require_attack_quota(self):
+        intent = source("COCBot/functions/Run/RunIntent.au3")
+        requires = autoit_function(intent, "RunIntentRequiresBattleQuota")
+        can_start = autoit_function(intent, "RunIntentCanStart")
+
+        self.assertIn('"builder.collectors"', requires)
+        self.assertIn("Return False", requires)
+        self.assertIn("If RunIntentRequiresBattleQuota($oIntent) Then", can_start)
+        self.assertIn("BattleQuotaCanConsume", can_start)
+        self.assertLess(can_start.index("RunIntentRequiresBattleQuota"), can_start.index("BattleQuotaCanConsume"))
+
     def test_ui_and_metadata_expose_builder_collection_without_claiming_battles(self):
         settings = json.loads(source("config/ui/run-planner.settings.json"))
         strategy = next(
