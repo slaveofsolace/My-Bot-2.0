@@ -169,7 +169,7 @@ Func Initiate(ByRef $sStartError)
 				If Not $g_bRunState Then Return True
 			EndIf
 
-			If $g_bCheckGameLanguage Then TestLanguage()
+			If $g_bCheckGameLanguage And Not $bBuilderTerminalPreflight Then TestLanguage()
 			If Not $g_bRunState Then Return True
 
 			runBot()
