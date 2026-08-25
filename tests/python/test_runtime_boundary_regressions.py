@@ -440,11 +440,15 @@ class RuntimeBoundaryRegressionTests(unittest.TestCase):
             self.assertIn("selected instance is reserved, but its Android transport is unavailable", selector)
 
         rebind = autoit_function(self.synchronization, "RebindConfiguredAndroidInstanceLock")
+        reserve = autoit_function(self.synchronization, "ReserveConfiguredAndroidInstanceLock")
         action_acquire = autoit_function(self.synchronization, "AcquireExactAndroidInstanceLock")
         self.assertIn("Local $hNewMutex = CreateMutex($sIdentity)", rebind)
         self.assertNotIn("_AcquireExactAndroidInstanceMutexHandle($sIdentity, 1", rebind)
         self.assertNotIn("$g_hConfiguredAndroidInstanceMutex And", action_acquire)
         self.assertIn("_AcquireExactAndroidInstanceMutexHandle($sIdentity, $iTimeoutMs, $bStopAware)", action_acquire)
+        self.assertIn("_ConfiguredAndroidInstanceMutexName($sEmulator, $sInstance)", reserve)
+        self.assertIn("_ConfiguredAndroidInstanceMutexName($sEmulator, $sInstance)", rebind)
+        self.assertIn("_ExactAndroidInstanceMutexName($sEmulator, $sInstance)", action_acquire)
 
         restore = autoit_function(read_source("COCBot/functions/Run/RunExecution.au3"), "_RunExecutionRestoreProfile")
         failed_rebind = restore[restore.index("If Not UpdateAndroidConfig") :]
@@ -455,12 +459,18 @@ class RuntimeBoundaryRegressionTests(unittest.TestCase):
         self.assertIn("$g_bRunExecutionProfileSnapshotCaptured = False", restore[guarded_selectors:])
 
         mutex_name = autoit_function(self.synchronization, "_ExactAndroidInstanceMutexName")
+        configured_mutex_name = autoit_function(self.synchronization, "_ConfiguredAndroidInstanceMutexName")
         canonical = autoit_function(self.synchronization, "_CanonicalExactAndroidInstanceIdentity")
         self.assertIn('"Global\\MyBot.run.AndroidInstance.v1."', mutex_name)
+        self.assertIn('"Global\\MyBot.run.ConfiguredAndroidReservation.v1."', configured_mutex_name)
         self.assertIn("$sNormalizedEmulator", mutex_name)
         self.assertIn("$sNormalizedInstance", mutex_name)
+        self.assertIn("$sNormalizedEmulator", configured_mutex_name)
+        self.assertIn("$sNormalizedInstance", configured_mutex_name)
         self.assertIn("StringLen($sNormalizedEmulator)", mutex_name)
         self.assertIn("StringLen($sNormalizedInstance)", mutex_name)
+        self.assertIn("StringLen($sNormalizedEmulator)", configured_mutex_name)
+        self.assertIn("StringLen($sNormalizedInstance)", configured_mutex_name)
         self.assertIn('Case "ldplayer9"', canonical)
         self.assertIn('StringReplace($sNormalizedInstance, "leidian", "")', canonical)
         self.assertIn('Case "mumu"', canonical)
@@ -716,6 +726,7 @@ class RuntimeBoundaryRegressionTests(unittest.TestCase):
                 "ReleaseMutex",
                 "_CanonicalExactAndroidInstanceIdentity",
                 "_ExactAndroidInstanceMutexName",
+                "_ConfiguredAndroidInstanceMutexName",
                 "_AcquireExactAndroidInstanceMutexHandle",
                 "ReserveConfiguredAndroidInstanceLock",
                 "RebindConfiguredAndroidInstanceLock",
@@ -751,6 +762,8 @@ class RuntimeBoundaryRegressionTests(unittest.TestCase):
                 '\tIf Not AcquireExactAndroidInstanceLock("BlueStacks5", "Rebind A", $sReason, 1000) Then Exit 6',
                 '\tIf Not RebindConfiguredAndroidInstanceLock("BlueStacks5", "Rebind B", $sReason) Then Exit 5',
                 '\t$bAcquired = True',
+                'ElseIf $CmdLine[1] = "reserve-wait" Then',
+                '\t$bAcquired = ReserveConfiguredAndroidInstanceLock("BlueStacks5", $CmdLine[2], $sReason, 400)',
                 'Else',
                 '\t$bAcquired = AcquireExactAndroidInstanceLock("BlueStacks5", $CmdLine[2], $sReason, 400)',
                 'EndIf',
@@ -787,24 +800,33 @@ class RuntimeBoundaryRegressionTests(unittest.TestCase):
             )
             try:
                 self.assertTrue(wait_for(owner_marker), "rebind owner did not acquire both reservations")
-                for instance in ("Rebind A", "Rebind B"):
-                    marker = root / f"blocked-{instance[-1]}.marker"
-                    blocked = subprocess.run(
-                        [str(AUTOIT), "/ErrorStdOut", str(script), "wait", instance, "0", str(marker)],
-                        capture_output=True,
-                        text=True,
-                        timeout=2,
-                    )
-                    self.assertEqual(8, blocked.returncode, blocked.stdout + blocked.stderr)
-                    self.assertTrue(marker.read_text(encoding="utf-8").startswith("failed:"))
+                blocked_a_marker = root / "blocked-A.marker"
+                blocked_a = subprocess.run(
+                    [str(AUTOIT), "/ErrorStdOut", str(script), "wait", "Rebind A", "0", str(blocked_a_marker)],
+                    capture_output=True,
+                    text=True,
+                    timeout=2,
+                )
+                self.assertEqual(8, blocked_a.returncode, blocked_a.stdout + blocked_a.stderr)
+                self.assertTrue(blocked_a_marker.read_text(encoding="utf-8").startswith("failed:"))
+
+                blocked_b_marker = root / "blocked-B.marker"
+                blocked_b = subprocess.run(
+                    [str(AUTOIT), "/ErrorStdOut", str(script), "reserve-wait", "Rebind B", "0", str(blocked_b_marker)],
+                    capture_output=True,
+                    text=True,
+                    timeout=2,
+                )
+                self.assertEqual(8, blocked_b.returncode, blocked_b.stdout + blocked_b.stderr)
+                self.assertTrue(blocked_b_marker.read_text(encoding="utf-8").startswith("failed:"))
             finally:
                 owner_stdout, owner_stderr = owner.communicate(timeout=5)
             self.assertEqual(0, owner.returncode, owner_stdout + owner_stderr)
 
-            for instance in ("Rebind A", "Rebind B"):
+            for mode, instance in (("wait", "Rebind A"), ("reserve-wait", "Rebind B")):
                 marker = root / f"released-{instance[-1]}.marker"
                 released = subprocess.run(
-                    [str(AUTOIT), "/ErrorStdOut", str(script), "wait", instance, "0", str(marker)],
+                    [str(AUTOIT), "/ErrorStdOut", str(script), mode, instance, "0", str(marker)],
                     capture_output=True,
                     text=True,
                     timeout=2,

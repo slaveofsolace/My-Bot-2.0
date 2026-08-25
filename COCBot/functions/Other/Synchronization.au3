@@ -56,6 +56,20 @@ Func _ExactAndroidInstanceMutexName($sEmulator, $sInstance)
 			$sNormalizedEmulator & "." & StringLen($sNormalizedInstance) & "." & $sNormalizedInstance
 EndFunc   ;==>_ExactAndroidInstanceMutexName
 
+Func _ConfiguredAndroidInstanceMutexName($sEmulator, $sInstance)
+	Local $sCanonical = _CanonicalExactAndroidInstanceIdentity($sEmulator, $sInstance)
+	Local $iSeparator = StringInStr($sCanonical, "|")
+	If $iSeparator <= 1 Then Return ""
+	Local $sNormalizedEmulator = StringLeft($sCanonical, $iSeparator - 1)
+	Local $sNormalizedInstance = StringTrimLeft($sCanonical, $iSeparator)
+	; A running native controller holds this process-lifetime reservation from startup until exit.
+	; Keep it in a separate namespace from action-scoped input locks: installed Start can be
+	; dispatched by a different native event path than startup, and must not wait on its own
+	; controller reservation before it can launch or attach the emulator.
+	Return "Global\MyBot.run.ConfiguredAndroidReservation.v1." & StringLen($sNormalizedEmulator) & "." & _
+			$sNormalizedEmulator & "." & StringLen($sNormalizedInstance) & "." & $sNormalizedInstance
+EndFunc   ;==>_ConfiguredAndroidInstanceMutexName
+
 Func _AcquireExactAndroidInstanceMutexHandle($sIdentity, $iTimeoutMs, $bStopAware)
 	Local $hTimer = __TimerInit()
 	While (Not $bStopAware Or $g_bRunState) And ($iTimeoutMs < 1 Or __TimerDiff($hTimer) < $iTimeoutMs)
@@ -71,7 +85,7 @@ EndFunc   ;==>_AcquireExactAndroidInstanceMutexHandle
 ; still used for a plan that temporarily targets a different exact instance.
 Func ReserveConfiguredAndroidInstanceLock($sEmulator, $sInstance, ByRef $sReason, $iTimeoutMs = 5000)
 	$sReason = ""
-	Local $sIdentity = _ExactAndroidInstanceMutexName($sEmulator, $sInstance)
+	Local $sIdentity = _ConfiguredAndroidInstanceMutexName($sEmulator, $sInstance)
 	If $sIdentity = "" Then
 		$sReason = "The configured emulator instance cannot be canonicalized for exclusive ownership"
 		Return False
@@ -95,7 +109,7 @@ EndFunc   ;==>ReserveConfiguredAndroidInstanceLock
 Func RebindConfiguredAndroidInstanceLock($sEmulator, $sInstance, ByRef $sReason)
 	$sReason = ""
 	If Not $g_hConfiguredAndroidInstanceMutex Then Return True
-	Local $sIdentity = _ExactAndroidInstanceMutexName($sEmulator, $sInstance)
+	Local $sIdentity = _ConfiguredAndroidInstanceMutexName($sEmulator, $sInstance)
 	If $sIdentity = "" Then
 		$sReason = "The selected emulator instance cannot be canonicalized for exclusive ownership"
 		Return False
