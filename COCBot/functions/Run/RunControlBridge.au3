@@ -597,7 +597,8 @@ Func RunControlPoll()
 	Static $bPolling = False
 	If Not $g_bRunControlReady Or $bPolling Then Return
 	$bPolling = True
-	If $g_bRunControlStopRequested Then $g_bRunState = False
+	; Consume the current command before applying a prior Stop flag. A fresh Start command
+	; deliberately clears stale stop state; applying the old flag first kills the new run.
 	_RunControlConsumeCommand()
 	If $g_bRunControlStopRequested Then $g_bRunState = False
 	RunControlWriteStatus()
