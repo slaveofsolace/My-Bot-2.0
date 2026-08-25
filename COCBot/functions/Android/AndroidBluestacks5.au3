@@ -368,7 +368,7 @@ Func LaunchBlueStacks5CoCOnly(ByRef $sReason)
                         If OpenHomeCollectorsProveHome() Then
                                 Return _LaunchBlueStacks5FinalizePassiveProof($sReason, "Home Village passively proven", $bStartedEmulator)
                         EndIf
-                        If BuilderMaintenanceRouteActive() And _CheckPixel($aIsOnBuilderBase, False) Then
+                        If BuilderMaintenanceRoutePrepared() And _CheckPixel($aIsOnBuilderBase, False) Then
                                 Return _LaunchBlueStacks5FinalizePassiveProof($sReason, "Builder Base passively proven for the selected Builder maintenance route", $bStartedEmulator)
                         EndIf
                         If OpenHomeDailyRewardOverlayReady() Then

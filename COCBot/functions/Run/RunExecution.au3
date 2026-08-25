@@ -133,6 +133,10 @@ Func BuilderMaintenanceRouteActive()
 	Return $g_bRunExecutionActive And IsObj($g_oRunExecutionIntent) And BuilderMaintenanceRouteSelected($g_oRunExecutionIntent)
 EndFunc   ;==>BuilderMaintenanceRouteActive
 
+Func BuilderMaintenanceRoutePrepared()
+	Return RunExecutionManagedPlanPrepared() And BuilderMaintenanceRouteSelected($g_oRunExecutionIntent)
+EndFunc   ;==>BuilderMaintenanceRoutePrepared
+
 ; Bind request-only work at the last native boundary that knows the actually loaded profile. The
 ; browser plan intentionally carries no account identifier; using the live profile prevents a stale
 ; saved plan from naming or switching another account. Repeated Apply/Load accepts only the same id.

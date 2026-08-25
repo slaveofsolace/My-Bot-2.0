@@ -141,6 +141,7 @@ class BuilderBaseCollectionRouteTest(unittest.TestCase):
         self.assertIn("BuilderMaintenanceRouteSelected", contract)
         self.assertIn("BuilderMaintenanceRouteValidate", contract)
         self.assertIn("BuilderMaintenanceRouteActive", run)
+        self.assertIn("BuilderMaintenanceRoutePrepared", run)
         self.assertIn("Builder Base maintenance", run)
         self.assertIn("NoPremiumPermitActionKnown", policy)
         self.assertIn('"builder-base.collect-gold"', policy)

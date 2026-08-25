@@ -69,7 +69,7 @@ class GameLaunchOnlyControlTests(unittest.TestCase):
             'AndroidAdbSendShellCommand("am start -n "',
             "GetAndroidProcessPID(Default, False)",
             "OpenHomeCollectorsProveHome()",
-            "BuilderMaintenanceRouteActive()",
+            "BuilderMaintenanceRoutePrepared()",
             "_CheckPixel($aIsOnBuilderBase, False)",
             "Builder Base passively proven for the selected Builder maintenance route",
             "OpenHomeDailyRewardOverlayReady()",
