@@ -148,7 +148,7 @@ Func MBRFuncInitialize($bDiscoverAndroid = True)
 	SetDebugLog("Threading: inherited processing-pool initialization skipped during supervised Start; using engine defaults")
 	If Not _MBRFuncPublishEngineReceipt("pool-returned") Then Return _MBRFuncInitializationFailed("Managed engine supervisor receipt could not publish pool-returned")
 	If Not _MBRFuncPublishEngineReceipt("max-entered") Then Return _MBRFuncInitializationFailed("Managed engine supervisor receipt could not publish max-entered")
-	If Not setMaxDegreeOfParallelism($g_iThreads) Then Return _MBRFuncInitializationFailed("Managed engine parallelism initialization failed")
+	SetDebugLog("Threading: inherited max-degree initialization skipped during supervised Start; using engine defaults")
 	If Not _MBRFuncPublishEngineReceipt("max-returned") Then Return _MBRFuncInitializationFailed("Managed engine supervisor receipt could not publish max-returned")
 	If Not _MBRFuncPublishEngineReceipt("android-entered") Then Return _MBRFuncInitializationFailed("Managed engine supervisor receipt could not publish android-entered")
 	; The engine-only diagnostic must exercise the managed Android-binding export without

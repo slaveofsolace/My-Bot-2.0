@@ -452,6 +452,11 @@ def engine_preflight(plan: dict) -> list[str]:
         problems.append(f"run.strategy: {strategy or 'blank'} has no native execution adapter")
     if strategy != "legacy.csv" and script.lower() != "profile-current":
         problems.append("run.attack_script: a named CSV requires the Scripted strategy")
+    if strategy in {"legacy.csv", "legacy.standard"}:
+        problems.append(
+            "run.strategy: inherited ImgLoc runtime rejected exact-current battle recognition; "
+            "use the clean-room Smart local route for supervised battle Start"
+        )
 
     recipe_name = str(plan.get("army.recipe_name", "")).strip().lower()
     recipe_digest = str(plan.get("army.recipe_digest", "")).strip().lower()
@@ -1437,8 +1442,8 @@ def selftest() -> int:
     diagnostic_plan["run.diagnostic_note"] = "selftest operator acknowledgement"
     diagnostic_problems = engine_preflight(diagnostic_plan)
     check(
-        not diagnostic_problems,
-        "the acknowledged default one-battle plan passes planner preflight behind the clean-room red-line gate",
+        any("inherited ImgLoc runtime rejected exact-current" in item for item in diagnostic_problems),
+        "the acknowledged default inherited battle plan remains blocked until the clean-room route is selected",
     )
 
     preset_contract = metadata_document().get("presets", {})

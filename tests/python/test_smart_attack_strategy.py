@@ -83,8 +83,8 @@ class SmartAttackStrategyTests(unittest.TestCase):
         self.assertIn("historical", smart["warning"].lower())
         self.assertIn("live battle evidence", smart["disabled_reason"].lower())
 
-    def test_every_generic_battle_strategy_requires_diagnostic_acknowledgement(self):
-        for strategy in ("legacy.csv", "legacy.standard", "smart.local"):
+    def test_inherited_battle_strategies_cannot_bypass_imgloc_blocker(self):
+        for strategy in ("legacy.csv", "legacy.standard"):
             with self.subTest(strategy=strategy):
                 plan = planner_ui.default_plan()
                 plan["run.strategy"] = strategy
@@ -92,13 +92,24 @@ class SmartAttackStrategyTests(unittest.TestCase):
                 self.assertTrue(any("needs Allow unverified" in item for item in problems))
                 plan["run.diagnostic_mode"] = True
                 plan["run.diagnostic_note"] = "selftest operator acknowledgement"
-                self.assertEqual([], planner_ui.engine_preflight(plan))
+                diagnostic_problems = planner_ui.engine_preflight(plan)
+                self.assertTrue(
+                    any("inherited ImgLoc runtime rejected exact-current" in item for item in diagnostic_problems)
+                )
+
+        plan = planner_ui.default_plan()
+        plan["run.strategy"] = "smart.local"
+        problems = planner_ui.engine_preflight(plan)
+        self.assertTrue(any("needs Allow unverified" in item for item in problems))
+        plan["run.diagnostic_mode"] = True
+        plan["run.diagnostic_note"] = "selftest operator acknowledgement"
+        self.assertEqual([], planner_ui.engine_preflight(plan))
 
         contract = (ROOT / "COCBot/functions/Run/RunExecutionContract.au3").read_text(encoding="utf-8-sig")
         browser = (ROOT / "ui/planner.js").read_text(encoding="utf-8-sig")
         self.assertIn('Call("CleanRoomRedlineDetectorRuntimeReady")', contract)
         self.assertIn("inherited ImgLoc remains disabled", contract)
-        self.assertNotIn("Allow unverified cannot bypass this gate", browser)
+        self.assertIn("inherited ImgLoc runtime rejected exact-current", (ROOT / "tools/planner_ui.py").read_text(encoding="utf-8-sig"))
 
     def test_each_town_hall_preset_uses_its_smart_policy_and_exact_hero_plan(self):
         catalog = json.loads((ROOT / "config/game/smart-attack-strategies.json").read_text(encoding="utf-8"))

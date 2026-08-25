@@ -84,7 +84,7 @@ class EngineProbeLifecycleTests(unittest.TestCase):
             "inherited processing-pool initialization skipped",
             '_MBRFuncPublishEngineReceipt("pool-returned")',
             '_MBRFuncPublishEngineReceipt("max-entered")',
-            "setMaxDegreeOfParallelism(",
+            "inherited max-degree initialization skipped",
             '_MBRFuncPublishEngineReceipt("max-returned")',
             '_MBRFuncPublishEngineReceipt("android-entered")',
             "setAndroidPID(",
@@ -96,6 +96,7 @@ class EngineProbeLifecycleTests(unittest.TestCase):
         offsets = [initialize.index(item) for item in ordered]
         self.assertEqual(offsets, sorted(offsets))
         self.assertEqual(initialize.count("setProcessingPoolSize("), 0)
+        self.assertEqual(initialize.count("setMaxDegreeOfParallelism("), 0)
         self.assertLess(initialize.index("MBRFuncValidateEngineMarker("), offsets[0])
         self.assertLess(initialize.index("$g_bMBRFuncEngineSupervisorValid"), offsets[0])
 

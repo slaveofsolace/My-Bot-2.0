@@ -5,6 +5,16 @@
 #include <FileConstants.au3>
 #include <Array.au3>
 #include "..\..\COCBot\functions\Other\Json.au3"
+
+Global $g_hBitmap = 0
+Global Const $g_iGAME_WIDTH = 860
+Global Const $g_iGAME_HEIGHT = 732
+Global Const $g_iMidOffsetY = 0
+
+Func _GetPixelColor($iX, $iY, $bNeedCapture = False, $sLogText = Default, $LogTextColor = Default, $bSilentSetLog = Default)
+	Return "000000"
+EndFunc   ;==>_GetPixelColor
+
 #include "..\..\COCBot\functions\Run\CleanRoomRedlineDetector.au3"
 #include "..\..\COCBot\functions\Run\RunIntent.au3"
 #include "..\..\COCBot\functions\Run\RunPlanFile.au3"

@@ -711,7 +711,7 @@ def main() -> int:
     initialize_marker_offset = mbr_initialize_body.find("MBRFuncValidateEngineMarker(")
     prepared_offset = mbr_initialize_body.find('_MBRFuncPublishEngineReceipt("prepared")')
     private_open_offset = mbr_initialize_body.find("_MBRFuncOpenEngineLibrary()")
-    first_export_offset = mbr_initialize_body.find("setProcessingPoolSize(")
+    first_export_offset = mbr_initialize_body.find("setAndroidPID(")
     if (
         initialize_marker_offset < 0
         or prepared_offset < 0
@@ -726,12 +726,15 @@ def main() -> int:
         "android-entered", "android-returned", "gui-entered", "initialized",
     )
     phase_calls = [mbr_initialize_body.find(f'_MBRFuncPublishEngineReceipt("{phase}")') for phase in expected_phases]
-    real_calls = [mbr_initialize_body.find(name) for name in ("setProcessingPoolSize(", "setMaxDegreeOfParallelism(", "setAndroidPID(", "SetBotGuiPID(")]
-    expected_order = [phase_calls[0], phase_calls[1], real_calls[0], phase_calls[2], phase_calls[3], real_calls[1], phase_calls[4], phase_calls[5], real_calls[2], phase_calls[6], phase_calls[7], real_calls[3], phase_calls[8]]
+    skip_calls = [mbr_initialize_body.find(name) for name in ("inherited processing-pool initialization skipped", "inherited max-degree initialization skipped")]
+    real_calls = [mbr_initialize_body.find(name) for name in ("setAndroidPID(", "SetBotGuiPID(")]
+    expected_order = [phase_calls[0], phase_calls[1], skip_calls[0], phase_calls[2], phase_calls[3], skip_calls[1], phase_calls[4], phase_calls[5], real_calls[0], phase_calls[6], phase_calls[7], real_calls[1], phase_calls[8]]
     if any(offset < 0 for offset in expected_order) or expected_order != sorted(expected_order):
         errors.append("real-host managed initialization no longer publishes monotonic phases around every synchronous export")
-    if mbr_initialize_body.count("setProcessingPoolSize(") != 1:
-        errors.append("real host no longer makes exactly one processing-pool initialization call")
+    if mbr_initialize_body.count("setProcessingPoolSize(") != 0:
+        errors.append("real host supervised initializer must not call the blocking processing-pool export")
+    if mbr_initialize_body.count("setMaxDegreeOfParallelism(") != 0:
+        errors.append("real host supervised initializer must not call the blocking max-degree export")
 
     probe = mbr_source.split("Func MBRFuncProbeEngine(", 1)
     probe_body = probe[1].split("EndFunc", 1)[0] if len(probe) > 1 else ""

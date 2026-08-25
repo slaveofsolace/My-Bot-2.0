@@ -11,7 +11,6 @@ MAIN = ROOT / "MyBot.run.au3"
 MBR_FUNC = ROOT / "COCBot" / "functions" / "Other" / "MBRFunc.au3"
 
 SENSITIVE_WRAPPERS = (
-    "setMaxDegreeOfParallelism",
     "setAndroidPID",
     "SetBotGuiPID",
 )
@@ -128,6 +127,15 @@ class ManagedExportSupervisionTests(unittest.TestCase):
         self.assertLess(pool_entered, skip_notice)
         self.assertLess(skip_notice, pool_returned)
         self.assertNotIn("setProcessingPoolSize(", initializer)
+
+    def test_supervised_initializer_skips_blocking_max_degree_export(self) -> None:
+        initializer = function_body(self.mbr_func, "MBRFuncInitialize")
+        max_entered = initializer.index('_MBRFuncPublishEngineReceipt("max-entered")')
+        skip_notice = initializer.index("inherited max-degree initialization skipped", max_entered)
+        max_returned = initializer.index('_MBRFuncPublishEngineReceipt("max-returned")', skip_notice)
+        self.assertLess(max_entered, skip_notice)
+        self.assertLess(skip_notice, max_returned)
+        self.assertNotIn("setMaxDegreeOfParallelism(", initializer)
 
     def test_public_image_call_wrapper_fails_closed_until_initialization_completed(self) -> None:
         public_wrapper = function_body(self.mbr_func, "DllCallMyBot")

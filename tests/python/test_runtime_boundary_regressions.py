@@ -50,12 +50,14 @@ class RuntimeBoundaryRegressionTests(unittest.TestCase):
         for export in ("setMaxDegreeOfParallelism", "setProcessingPoolSize"):
             self.assertIsNone(
                 re.search(rf"\b{export}\s*\(", executable),
-                f"{export} must remain exclusive to launcher-supervised initialization",
+                f"{export} must not be called from ApplyConfig callbacks",
             )
 
         initialize = autoit_function(self.mbr_func, "MBRFuncInitialize")
-        self.assertEqual(initialize.count("setMaxDegreeOfParallelism("), 1)
-        self.assertEqual(initialize.count("setProcessingPoolSize("), 1)
+        self.assertEqual(initialize.count("setMaxDegreeOfParallelism("), 0)
+        self.assertEqual(initialize.count("setProcessingPoolSize("), 0)
+        self.assertIn("inherited max-degree initialization skipped", initialize)
+        self.assertIn("inherited processing-pool initialization skipped", initialize)
 
     def test_native_status_and_web_controls_publish_recognition_truth(self) -> None:
         recognition_available = autoit_function(self.mbr_func, "MBRFuncRecognitionAvailable")

@@ -87,7 +87,7 @@ class CleanRoomRedlineDetectorTests(unittest.TestCase):
         planner_js = read(PLANNER_JS)
         self.assertNotIn("inherited ImgLoc runtime rejected exact-current supervised readiness", planner)
         self.assertNotIn("inherited ImgLoc runtime rejected exact-current supervised readiness", planner_js)
-        self.assertIn("the acknowledged default one-battle plan passes planner preflight", planner)
+        self.assertIn("the acknowledged default inherited battle plan remains blocked", planner)
 
 
 if __name__ == "__main__":

@@ -33,10 +33,10 @@ Local $sInit = StringMid($sParent, $iInitStart, $iInitEnd - $iInitStart)
 Local $aOrdered[13] = [ _
 	'_MBRFuncPublishEngineReceipt("prepared")', _
 	'_MBRFuncPublishEngineReceipt("pool-entered")', _
-	"setProcessingPoolSize(", _
+	"inherited processing-pool initialization skipped", _
 	'_MBRFuncPublishEngineReceipt("pool-returned")', _
 	'_MBRFuncPublishEngineReceipt("max-entered")', _
-	"setMaxDegreeOfParallelism(", _
+	"inherited max-degree initialization skipped", _
 	'_MBRFuncPublishEngineReceipt("max-returned")', _
 	'_MBRFuncPublishEngineReceipt("android-entered")', _
 	"setAndroidPID(", _
