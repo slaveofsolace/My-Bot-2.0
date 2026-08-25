@@ -365,12 +365,15 @@ Func LaunchBlueStacks5CoCOnly(ByRef $sReason)
 			; OpenHomeCollectorsProveHome() refreshes the current ADB frame before checking Home.
 			; If a known startup overlay blocks Home, recognize it from that same fresh frame but never
 			; click or dismiss it. The caller returns idle and game_ready remains false until Home is visible.
-			If OpenHomeCollectorsProveHome() Then
-				Return _LaunchBlueStacks5FinalizePassiveProof($sReason, "Home Village passively proven", $bStartedEmulator)
-			EndIf
-			If OpenHomeDailyRewardOverlayReady() Then
-				Local $aDailyRewardClaim[2]
-				Local $iDailyRewardClaims = OpenHomeDailyRewardFindClaim($aDailyRewardClaim)
+                        If OpenHomeCollectorsProveHome() Then
+                                Return _LaunchBlueStacks5FinalizePassiveProof($sReason, "Home Village passively proven", $bStartedEmulator)
+                        EndIf
+                        If BuilderMaintenanceRouteActive() And _CheckPixel($aIsOnBuilderBase, False) Then
+                                Return _LaunchBlueStacks5FinalizePassiveProof($sReason, "Builder Base passively proven for the selected Builder maintenance route", $bStartedEmulator)
+                        EndIf
+                        If OpenHomeDailyRewardOverlayReady() Then
+                                Local $aDailyRewardClaim[2]
+                                Local $iDailyRewardClaims = OpenHomeDailyRewardFindClaim($aDailyRewardClaim)
 				If $iDailyRewardClaims = 1 Then
 					Return _LaunchBlueStacks5FinalizePassiveProof($sReason, "verified Daily Reward overlay and one Claim candidate passively recognized at (" & $aDailyRewardClaim[0] & "," & $aDailyRewardClaim[1] & "); Home is blocked until the operator handles the overlay", $bStartedEmulator)
 				EndIf
