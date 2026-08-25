@@ -270,6 +270,15 @@ Func _IsCurrentMultiplayerPanelOpen($bNeedCapture = True)
 	Return $bFindMatchLabel
 EndFunc   ;==>_IsCurrentMultiplayerPanelOpen
 
+Func PrepareSearchCurrentRegularEntryReady($bNeedCapture = True)
+	Return _IsCurrentMultiplayerPanelOpen($bNeedCapture)
+EndFunc   ;==>PrepareSearchCurrentRegularEntryReady
+
+Func PrepareSearchCurrentRegularFindMatchRegionReady($iX, $iY)
+	If $iX < 54 Or $iX > 272 Or $iY < (461 + $g_iMidOffsetY) Or $iY > (530 + $g_iMidOffsetY) Then Return False
+	Return PrepareSearchCurrentRegularEntryReady(False)
+EndFunc   ;==>PrepareSearchCurrentRegularFindMatchRegionReady
+
 ; The current client can show My Army between the Multiplayer card and matchmaking.
 ; This helper is bounded and proof-gated so older/direct-to-cloud clients remain unchanged.
 Func _ClickCurrentArmyConfirmationIfPresent()

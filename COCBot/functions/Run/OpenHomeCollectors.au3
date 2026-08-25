@@ -189,6 +189,31 @@ Func OpenHomeCollectorsCollectOnePass($iMaxClicks = 3)
 	Return SetError(0, $iClicks, True)
 EndFunc   ;==>OpenHomeCollectorsCollectOnePass
 
+; Current-client proof for the Builder Base Start Attack panel. This is passive pre-search
+; recognition only: callers may use it to prove the "Find Now" surface, but this helper never
+; clicks the button and never proves opponent search, deployment, battle result, or return-home.
+Func OpenBuilderBattleEntryReady()
+	If $g_hBitmap = 0 Then Return False
+	Return _OpenHomePixelNear(380, 203, 0xFFFFFF, 50) And _
+			_OpenHomePixelNear(535, 250, 0xEFE8DB, 24) And _
+			_OpenHomePixelNear(145, 275, 0xFFFFFE, 42) And _
+			_OpenHomePixelNear(625, 345, 0xFFFFFF, 50) And _
+			_OpenHomePixelNear(610, 430, 0xB9E884, 36) And _
+			_OpenHomePixelNear(650, 455, 0x6BA22E, 36) And _
+			_OpenHomePixelNear(700, 470, 0x83CA38, 36) And _
+			_OpenHomePixelNear(650, 485, 0xEFE8DB, 24)
+EndFunc   ;==>OpenBuilderBattleEntryReady
+
+Func OpenBuilderBattleEntryProve()
+	If Not OpenHomeCollectorsCapture() Then Return False
+	Return OpenBuilderBattleEntryReady()
+EndFunc   ;==>OpenBuilderBattleEntryProve
+
+Func OpenBuilderBattleFindNowRegionReady($iX, $iY)
+	If $iX < 560 Or $iX > 741 Or $iY < 416 Or $iY > 479 Then Return False
+	Return OpenBuilderBattleEntryReady()
+EndFunc   ;==>OpenBuilderBattleFindNowRegionReady
+
 Func _OpenHomePixelNear($iX, $iY, $iExpected, $iVariation = 32)
 	If $g_hBitmap = 0 Or $iX < 0 Or $iX >= $g_iGAME_WIDTH Or $iY < 0 Or $iY >= $g_iGAME_HEIGHT Then Return False
 	Return _ColorCheck(Hex(_OpenHomeCollectorBitmapPixel($g_hBitmap, $iX, $iY), 6), Hex($iExpected, 6), $iVariation)
