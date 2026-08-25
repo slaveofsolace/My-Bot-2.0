@@ -135,6 +135,14 @@ class ExternalProfileRoutingSourceTests(unittest.TestCase):
         )
         self.assertIn("refused planner service: receipt or service identity mismatch", LAUNCHER)
 
+    def test_installed_runtime_prefers_packaged_pythonw_for_control_center(self) -> None:
+        helper = autoit_function(PLANNER_CONTROL, "_RunPlannerPythonExecutable")
+        self.assertIn('@ScriptDir & "\\runtime\\python\\pythonw.exe"', helper)
+        self.assertLess(
+            helper.index('@ScriptDir & "\\runtime\\python\\pythonw.exe"'),
+            helper.index('$g_sMBRFuncRuntimeLocalAppData & "\\Programs\\Python\\Python313\\pythonw.exe"'),
+        )
+
 
 class ExternalProfileRoutingPlannerTests(unittest.TestCase):
     def test_validation_accepts_exact_external_root_and_rejects_escape(self) -> None:

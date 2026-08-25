@@ -289,6 +289,7 @@ EndFunc   ;==>_RunPlannerNewOwnerToken
 
 Func _RunPlannerPythonExecutable()
 	Local $aCandidates = [ _
+		@ScriptDir & "\runtime\python\pythonw.exe", _
 		$g_sMBRFuncRuntimeLocalAppData & "\Programs\Python\Python313\pythonw.exe", _
 		$g_sMBRFuncRuntimeLocalAppData & "\Programs\Python\Python312\pythonw.exe", _
 		$g_sMBRFuncRuntimeLocalAppData & "\Programs\Python\Python311\pythonw.exe", _
