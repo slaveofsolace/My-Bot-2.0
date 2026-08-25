@@ -117,6 +117,18 @@ class FullSystemInventoryTests(unittest.TestCase):
         self.assertEqual("FIXTURE_PROVEN", capability_status["village.collectors"])
         self.assertEqual("BLOCKED_EXTERNAL", capability_status["village.treasury"])
         self.assertEqual("BLOCKED_EXTERNAL", capability_status["safety.no-gem-guard"])
+        capability_reason = {item["id"]: item["truth_reason"] for item in report["capabilities"]}
+        self.assertIn("fixtures are verified", capability_reason["events.daily-reward"])
+        self.assertIn("trusted runtime evidence is missing", capability_reason["events.daily-reward"])
+        self.assertIn("end-to-end, game-surface-recognition", capability_reason["events.daily-reward"])
+        self.assertEqual(
+            "required current-client fixture capture is missing; the route must remain fail-closed",
+            capability_reason["village.treasury"],
+        )
+        self.assertEqual(
+            "required current-client fixture capture is missing; the route must remain fail-closed",
+            capability_reason["safety.no-gem-guard"],
+        )
         fixture_status = {item["id"]: item["truth_status"] for item in report["fixtures"]}
         self.assertEqual("FIXTURE_PROVEN", fixture_status["home.daily-reward"])
         self.assertEqual("BLOCKED_EXTERNAL", fixture_status["safety.gem-window"])
