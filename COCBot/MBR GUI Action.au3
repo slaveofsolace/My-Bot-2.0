@@ -391,6 +391,16 @@ Func _BotStartOpenHomeLootCart(ByRef $sStartError)
 	If Not RunExecutionBegin($sStartError) Then Return _BotOpenCollectorsReject($sStartError)
 	RunControlReportStartOutcome(True, "Template-free Loot Cart pass started")
 	RunEventLogMaintenanceLootCartStarted()
+	If Not OpenHomeClearSelectedActionPanel() Then
+		Local $iClearError = @error
+		$sStartError = $iClearError = 6 ? _
+				"Passive no-gem guard recognized a gem surface before clearing the selected Home object; no Loot Cart input was issued" : _
+				"The selected Home object panel could not be cleared before Loot Cart recognition"
+		RunEventLogRunFailed("regular", $RUN_VERIFICATION_DIAGNOSTIC, $sStartError)
+		RunExecutionCancelPrepared($sStartError)
+		RunControlReportOneShotOutcome("failed", $sStartError)
+		Return False
+	EndIf
 
 	Local $oLootCart = LootCartRouteRunAdapter("OpenHomeLootCartDetectCue", "OpenHomeLootCartIssueOpen", _
 			"OpenHomeLootCartDetectCollect", "OpenHomeLootCartIssueCollect", "_LootCartLiveStopRequested", _
@@ -534,6 +544,14 @@ Func _BotStartOpenDailyReward(ByRef $sStartError)
 	If Not RunExecutionBegin($sStartError) Then Return _BotOpenCollectorsReject($sStartError)
 	RunControlReportStartOutcome(True, "Template-free Daily Reward pass started")
 	RunEventLogMaintenanceDailyRewardStarted()
+	If Not OpenHomeClearSelectedActionPanel() Then
+		Local $iClearError = @error
+		$sStartError = $iClearError = 6 ? _
+				"Passive no-gem guard recognized a gem surface before clearing the selected Home object; no Daily Reward input was issued" : _
+				"The selected Home object panel could not be cleared before Daily Reward recognition"
+		RunEventLogRunFailed("regular", $RUN_VERIFICATION_DIAGNOSTIC, $sStartError)
+		Return _BotOpenDailyRewardFail($sStartError)
+	EndIf
 
 	Local $bReloadIssued = OpenHomeInactivityReloadIssue()
 	Local $iReloadError = @error
@@ -572,7 +590,7 @@ Func _BotStartOpenDailyReward(ByRef $sStartError)
 		EndIf
 		RunEventLogMaintenanceHomeVerified(0, "not-seen", "disabled", "disabled")
 		RunExecutionComplete("home-daily-reward-none-actionable")
-		RunControlReportOneShotOutcome("completed", "Daily Reward unavailable; no Claim input was issued")
+		RunControlReportOneShotOutcome("completed", "Template-free Daily Reward completed; state=not-seen; claim_attempts=0")
 		Return True
 	EndIf
 
@@ -588,7 +606,7 @@ Func _BotStartOpenDailyReward(ByRef $sStartError)
 		EndIf
 		RunEventLogMaintenanceHomeVerified(0, "none-actionable", "disabled", "disabled")
 		RunExecutionComplete("home-daily-reward-none-actionable")
-		RunControlReportOneShotOutcome("completed", "Daily Reward had no actionable Claim; Home Village re-proven; close_issued=" & String($bNoClaimCloseIssued))
+		RunControlReportOneShotOutcome("completed", "Template-free Daily Reward completed; state=none-actionable; claim_attempts=0; close_issued=" & String($bNoClaimCloseIssued))
 		Return True
 	EndIf
 

@@ -340,6 +340,26 @@ Func OpenHomeDailyRewardClaimPointReady($iX, $iY)
 	Return $iClaims = 1 And $aClaim[0] = Int($iX) And $aClaim[1] = Int($iY)
 EndFunc   ;==>OpenHomeDailyRewardClaimPointReady
 
+Func OpenHomeSelectedActionPanelReady()
+	If Not OpenHomeCollectorsCapture() Then Return False
+	If Not _CheckPixel($aIsMain, False) Then Return False
+	; Selected Home objects expose a bottom action card row. Require the Info card and title strip so a
+	; clean Home frame, shop HUD, chat button, or collector bubble cannot authorize a cleanup click.
+	Return _OpenHomePixelNear(196, 608, 0x387CB0, 44) And _
+			_OpenHomePixelNear(198, 586, 0x4F93C7, 60) And _
+			_OpenHomePixelNear(430, 550, 0xFFFFB7, 60)
+EndFunc   ;==>OpenHomeSelectedActionPanelReady
+
+Func OpenHomeClearSelectedActionPanel()
+	If Not OpenHomeSelectedActionPanelReady() Then Return True
+	If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
+	If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, False)
+	If Not NoPremiumPointClick($NO_PREMIUM_ACTION_HOME_CLEAR_SELECTION, 175, 10, 120, "#OpenHomeClearSelection", False) Then Return False
+	If _Sleep(350, True, True, False) Then Return SetError(2, 0, False)
+	If OpenHomeSelectedActionPanelReady() Then Return SetError(1, 0, False)
+	Return OpenHomeCollectorsProveHome()
+EndFunc   ;==>OpenHomeClearSelectedActionPanel
+
 Func OpenHomeDailyRewardClosePointReady($iX, $iY)
 	If Not NoPremiumPermitTargetValid($NO_PREMIUM_ACTION_DAILY_REWARD_CLOSE, $iX, $iY) Then Return False
 	Return OpenHomeDailyRewardOverlayReady() Or OpenHomeDailyRewardClaimedOverlayReady()

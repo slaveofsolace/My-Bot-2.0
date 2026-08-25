@@ -145,6 +145,20 @@ class HomeMaintenanceRouteTest(unittest.TestCase):
         plan["events.collect_treasury"] = True
         self.assertEqual(planner_ui.engine_preflight(plan), [])
 
+    def test_daily_reward_none_actionable_states_report_completed_to_control_center(self):
+        action = source("COCBot/MBR GUI Action.au3")
+        route = autoit_function(action, "_BotStartOpenDailyReward")
+
+        self.assertIn(
+            'RunControlReportOneShotOutcome("completed", "Template-free Daily Reward completed; state=not-seen; claim_attempts=0")',
+            route,
+        )
+        self.assertIn(
+            'RunControlReportOneShotOutcome("completed", "Template-free Daily Reward completed; state=none-actionable; claim_attempts=0; close_issued=" & String($bNoClaimCloseIssued))',
+            route,
+        )
+        self.assertLess(route.index('RunExecutionComplete("home-daily-reward-none-actionable")'), route.index('state=not-seen; claim_attempts=0'))
+
     def test_native_route_is_terminal_and_has_no_matchmaking_or_battle_calls(self):
         execution = source("COCBot/functions/Run/RunExecution.au3")
         route = autoit_function(execution, "HomeMaintenanceRouteExecute")

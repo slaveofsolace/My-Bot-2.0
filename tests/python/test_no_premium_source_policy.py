@@ -231,6 +231,7 @@ class NoPremiumSourcePolicyTests(unittest.TestCase):
                 "OpenHomeInactivityReloadIssue",
                 "OpenHomeDailyRewardIssueClaim",
                 "OpenHomeDailyRewardCloseAndProveHome",
+                "OpenHomeClearSelectedActionPanel",
                 "OpenHomeLootCartIssueOpen",
                 "OpenHomeLootCartIssueCollect",
             },
@@ -312,6 +313,7 @@ class NoPremiumSourcePolicyTests(unittest.TestCase):
             "$iX >= 235 And $iX <= 245 And $iY >= 10 And $iY <= 30",
             "$iX >= 640 And $iX <= 650 And $iY >= 10 And $iY <= 30",
             "$iX >= 360 And $iX <= 510 And $iY >= 450 And $iY <= 540",
+            "$iX = 175 And $iY = 10",
         ):
             self.assertIn(exact, target)
         self.assertIn("$NO_PREMIUM_ACTION_EXACT_TRAINING_ARMY", known)
@@ -321,6 +323,7 @@ class NoPremiumSourcePolicyTests(unittest.TestCase):
         self.assertIn("$NO_PREMIUM_ACTION_BUILDER_RETURN_HOME", known)
         self.assertIn("$NO_PREMIUM_ACTION_HOME_CLEAR_SCREEN", known)
         self.assertIn("$NO_PREMIUM_ACTION_STARTUP_POPUP_CLOSE", known)
+        self.assertIn("$NO_PREMIUM_ACTION_HOME_CLEAR_SELECTION", known)
         self.assertIn("Case $NO_PREMIUM_ACTION_EXACT_TRAINING_ARMY", target)
         self.assertIn("Case $NO_PREMIUM_ACTION_BUILDER_SWITCH", target)
         self.assertIn("Case $NO_PREMIUM_ACTION_BUILDER_COLLECT_GOLD", target)

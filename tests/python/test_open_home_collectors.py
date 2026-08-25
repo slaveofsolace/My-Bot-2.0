@@ -134,7 +134,7 @@ class OpenHomeCollectorsTest(unittest.TestCase):
         self.assertNotIn("$g_sImg", route)
         self.assertLess(route.index("ForceCaptureRegion()"), route.index("AndroidScreencap("))
         self.assertIn("AndroidScreencap(", route)
-        self.assertEqual(route.count("NoPremiumPointClick("), 6)
+        self.assertEqual(route.count("NoPremiumPointClick("), 7)
 
     def test_every_click_is_bounded_by_stop_and_home_proof(self):
         route = source("COCBot/functions/Run/OpenHomeCollectors.au3")
@@ -309,6 +309,22 @@ class OpenHomeCollectorsTest(unittest.TestCase):
         for forbidden in ("Okay", "Confirm", "GemClick", "findMultiple", "findImage"):
             self.assertNotIn(forbidden, issue + cleanup)
 
+    def test_selected_home_action_panel_cleanup_is_exact_and_no_gem_bounded(self):
+        route = source("COCBot/functions/Run/OpenHomeCollectors.au3")
+        predicate = autoit_function(route, "OpenHomeSelectedActionPanelReady")
+        cleanup = autoit_function(route, "OpenHomeClearSelectedActionPanel")
+
+        for color in (0x387CB0, 0x4F93C7, 0xFFFFB7):
+            self.assertIn(f"0x{color:06X}", predicate)
+        self.assertIn("_CheckPixel($aIsMain, False)", predicate)
+        self.assertIn("$NO_PREMIUM_ACTION_HOME_CLEAR_SELECTION", cleanup)
+        self.assertIn("175, 10", cleanup)
+        self.assertIn("OpenHomeNoGemInputReady()", cleanup)
+        self.assertIn("OpenHomeSelectedActionPanelReady()", cleanup)
+        self.assertIn('"#OpenHomeClearSelection", False)', cleanup)
+        for forbidden in ("ClickAway", "Click(", "PureClick(", "GemClick(", "CloseWindow"):
+            self.assertNotIn(forbidden, cleanup.replace("NoPremiumPointClick(", ""))
+
     def test_daily_reward_claimed_close_matches_the_verified_positive_fixture(self):
         width, height, pixel = png_rgb(
             ROOT / "tests/fixtures/current-client/images/home.daily-reward.claimed.png"
@@ -367,6 +383,7 @@ class OpenHomeCollectorsTest(unittest.TestCase):
             "GetBlueStacks5ModernAdbSurfacePosition()",
             "OpenHomeCollectorsProveHome()",
             "LootCartRouteRunAdapter",
+            "OpenHomeClearSelectedActionPanel",
         ):
             self.assertIn(proof, loot_runner)
         for forbidden in (
@@ -415,6 +432,7 @@ class OpenHomeCollectorsTest(unittest.TestCase):
             "OpenHomeDailyRewardCaptureClaim",
             "OpenHomeDailyRewardIssueClaim",
             "OpenHomeDailyRewardCloseAndProveHome",
+            "OpenHomeClearSelectedActionPanel",
             "RunEventLogMaintenanceDailyRewardClickIssued",
             "RunEventLogMaintenanceHomeVerified",
         ):
@@ -460,6 +478,7 @@ class OpenHomeCollectorsTest(unittest.TestCase):
                 for line in source(relative).splitlines()
                 if "NoPremiumPointClick(" in line and "#OpenHomeDailyReward" not in line
                 and "#OpenHomeInactivityReload" not in line
+                and "#OpenHomeClearSelection" not in line
             ]
             self.assertEqual(expected_count, len(click_lines), relative)
             self.assertTrue(all(", True)" in line for line in click_lines), click_lines)
@@ -468,10 +487,14 @@ class OpenHomeCollectorsTest(unittest.TestCase):
         direct_adb_lines = [
             line
             for line in daily.splitlines()
-            if ("#OpenHomeDailyReward" in line or "#OpenHomeInactivityReload" in line)
+            if (
+                "#OpenHomeDailyReward" in line
+                or "#OpenHomeInactivityReload" in line
+                or "#OpenHomeClearSelection" in line
+            )
             and "NoPremiumPointClick(" in line
         ]
-        self.assertEqual(3, len(direct_adb_lines))
+        self.assertEqual(4, len(direct_adb_lines))
         self.assertTrue(all(", False)" in line for line in direct_adb_lines), direct_adb_lines)
 
         click = autoit_function(source("COCBot/functions/Other/Click.au3"), "Click")
