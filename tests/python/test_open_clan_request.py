@@ -171,7 +171,7 @@ class OpenClanRequestContract(unittest.TestCase):
         ):
             self.assertNotIn(legacy, block)
 
-    def test_all_request_inputs_force_window_control_clicks(self) -> None:
+    def test_all_request_inputs_use_exact_adb_capable_point_permits(self) -> None:
         blocks = [
             function_block(self.source, name)
             for name in (
@@ -182,7 +182,14 @@ class OpenClanRequestContract(unittest.TestCase):
             )
         ]
         self.assertEqual(5, sum(block.count("NoPremiumPointClick(") for block in blocks))
-        self.assertEqual(5, sum(block.count(", True)") for block in blocks))
+        request_transport_lines = [
+            line.strip()
+            for block in blocks
+            for line in block.splitlines()
+            if "#OpenClanRequest" in line
+        ]
+        self.assertEqual(5, sum(", False)" in line for line in request_transport_lines))
+        self.assertFalse(any(", True)" in line for line in request_transport_lines))
         executable = "\n".join(
             line for line in self.source.splitlines() if not line.lstrip().startswith(";")
         )
