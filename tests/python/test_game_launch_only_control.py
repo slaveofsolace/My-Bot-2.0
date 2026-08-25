@@ -63,7 +63,7 @@ class GameLaunchOnlyControlTests(unittest.TestCase):
         for required in (
             '$g_sAndroidEmulator <> "BlueStacks5"',
             "GetAndroidProgramParameter()",
-            "LaunchAndroid(",
+            "LaunchBlueStacks5ProcessOnly(",
             "ConnectAndroidAdb(False, 3000)",
             "WaitForAndroidBootCompleted(",
             'AndroidAdbSendShellCommand("am start -n "',
@@ -83,8 +83,11 @@ class GameLaunchOnlyControlTests(unittest.TestCase):
             self.assertIn(required, adapter)
         self.assertEqual(adapter.count('AndroidAdbSendShellCommand("am start -n "'), 1)
         for forbidden in (
+            "LaunchAndroid(",
+            "SetScreenAndroid",
             "RestartAndroidCoC",
             "OpenAndroid(",
+            "_OpenAndroid",
             "CloseAndroid",
             "RebootAndroid",
             "AndroidHomeButton",
@@ -103,6 +106,26 @@ class GameLaunchOnlyControlTests(unittest.TestCase):
             "NoPremiumPointClick",
         ):
             self.assertNotIn(forbidden, adapter)
+
+    def test_process_only_bluestacks_launcher_has_no_legacy_startup_side_effects(self) -> None:
+        launcher = function_body(self.android, "LaunchBlueStacks5ProcessOnly")
+        self.assertIn("Run($sProgramPath & $sCmdParam, $sPath)", launcher)
+        self.assertIn("ProcessExists($pid)", launcher)
+        for forbidden in (
+            "LaunchAndroid(",
+            "SetScreenAndroid",
+            "OpenAndroid(",
+            "_OpenAndroid",
+            "AndroidHomeButton",
+            "StartAndroidCoC",
+            "ConnectAndroidAdb",
+            "WaitForAndroidBootCompleted",
+            "AndroidAdbSendShellCommand",
+            "btnStop",
+            "BotStop",
+            "ShellExecute",
+        ):
+            self.assertNotIn(forbidden, launcher)
 
     def test_launch_only_reports_daily_reward_claim_candidate_without_clicking(self) -> None:
         adapter = function_body(self.android, "LaunchBlueStacks5CoCOnly")

@@ -266,6 +266,27 @@ Func _LaunchBlueStacks5FinalizePassiveProof(ByRef $sReason, $sProof, $bStartedEm
 	Return True
 EndFunc   ;==>_LaunchBlueStacks5FinalizePassiveProof
 
+; Launch only the exact configured BlueStacks 5 process for a bounded diagnostic.
+; Unlike the inherited LaunchAndroid() helper, this process-only contract must not
+; configure shared folders, press Home, launch CoC through the legacy path, or stop
+; the bot. CoC is started below through an exact ADB activity command after the
+; requested instance is owned and connected.
+Func LaunchBlueStacks5ProcessOnly($sProgramPath, $sCmdParam, $sPath)
+	If $sCmdParam And StringLeft($sCmdParam, 1) <> " " Then
+		$sCmdParam = " " & $sCmdParam
+	EndIf
+	Local $pid = 0
+	For $i = 1 To 3
+		SetDebugLog("LaunchBlueStacks5ProcessOnly: " & $sProgramPath & $sCmdParam)
+		$pid = Run($sProgramPath & $sCmdParam, $sPath)
+		If _Sleep(3000) Then Return 0
+		If $pid <> 0 Then $pid = ProcessExists($pid)
+		If $pid <> 0 Then ExitLoop
+	Next
+	SetDebugLog("$LaunchBlueStacks5ProcessOnlyPID= " & $pid)
+	Return $pid
+EndFunc   ;==>LaunchBlueStacks5ProcessOnly
+
 ; Launch the exact configured BlueStacks 5 instance and the CoC activity for a bounded diagnostic.
 ; This route never enters the legacy run loop, changes accounts, pushes shared preferences, presses
 ; Home, clears obstacles, zooms, trains, donates, searches, attacks, upgrades, or spends. Home proof
@@ -300,7 +321,7 @@ Func LaunchBlueStacks5CoCOnly(ByRef $sReason)
 		Return False
 	EndIf
 	If WinGetAndroidHandle() = 0 Then
-		$iLaunchPid = LaunchAndroid($g_sAndroidProgramPath, GetAndroidProgramParameter(), $g_sAndroidPath, 0, False)
+		$iLaunchPid = LaunchBlueStacks5ProcessOnly($g_sAndroidProgramPath, GetAndroidProgramParameter(), $g_sAndroidPath)
 		$bStartedEmulator = $iLaunchPid > 0
 		If $iLaunchPid = 0 And WinGetAndroidHandle() = 0 Then
 			$sReason = "The exact BlueStacks 5 instance did not accept the launch request"
