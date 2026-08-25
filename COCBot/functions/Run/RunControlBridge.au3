@@ -13,6 +13,7 @@ Global Const $RUN_CONTROL_STATUS_FILE_NAME = "config\control-status.local.json"
 Global Const $RUN_CONTROL_MAX_COMMAND_BYTES = 8192
 Global Const $RUN_CONTROL_COMMAND_TTL_SECONDS = 30
 Global Const $RUN_CONTROL_CLOCK_SKEW_SECONDS = 5
+Global Const $RUN_CONTROL_TERMINAL_OUTCOME_TTL_SECONDS = 120
 
 Global $g_bRunControlReady = False
 Global $g_sRunControlLastCommandId = ""
@@ -100,6 +101,38 @@ EndFunc   ;==>RunControlState
 Func _RunControlBool($bValue)
 	Return $bValue ? "true" : "false"
 EndFunc   ;==>_RunControlBool
+
+Func _RunControlOutcomeIsTerminal($sOutcome)
+	Return StringRegExp(StringLower(String($sOutcome)), "^(completed|failed|passed|rejected|stopped)$") = 1
+EndFunc   ;==>_RunControlOutcomeIsTerminal
+
+Func _RunControlRestoreRecentTerminalOutcome()
+	Local $sPath = RunControlStatusPath()
+	If Not FileExists($sPath) Then Return False
+	Local $sTimestampError = ""
+	Local $iAgeSeconds = _RunControlCommandAgeSeconds($sPath, $sTimestampError)
+	If $sTimestampError <> "" Then Return False
+	If $iAgeSeconds < -$RUN_CONTROL_CLOCK_SKEW_SECONDS Then Return False
+	If $iAgeSeconds > $RUN_CONTROL_TERMINAL_OUTCOME_TTL_SECONDS Then Return False
+	Local $sLoadError = ""
+	Local $oStatus = RunPlanFileLoad($sPath, $sLoadError)
+	If @error Or Not IsObj($oStatus) Then Return False
+	If Not $oStatus.Exists("last_outcome") Or Not $oStatus.Exists("last_command") Then Return False
+	Local $sOutcome = StringLower(StringStripWS(String($oStatus.Item("last_outcome")), $STR_STRIPALL))
+	If Not _RunControlOutcomeIsTerminal($sOutcome) Then Return False
+	Local $sCommand = StringLower(StringStripWS(String($oStatus.Item("last_command")), $STR_STRIPALL))
+	If Not StringRegExp($sCommand, "^(start|launch-game|check-engine|stop)$") Then Return False
+	Local $sRequestId = ""
+	If $oStatus.Exists("last_command_id") Then $sRequestId = StringStripWS(String($oStatus.Item("last_command_id")), $STR_STRIPALL)
+	If $sRequestId <> "" And Not StringRegExp($sRequestId, "^[A-Za-z0-9._-]{1,80}$") Then Return False
+	Local $sMessage = ""
+	If $oStatus.Exists("last_command_message") Then $sMessage = StringLeft(String($oStatus.Item("last_command_message")), 1024)
+	$g_sRunControlLastCommandId = $sRequestId
+	$g_sRunControlLastCommand = $sCommand
+	$g_sRunControlLastOutcome = $sOutcome
+	$g_sRunControlMessage = $sMessage
+	Return True
+EndFunc   ;==>_RunControlRestoreRecentTerminalOutcome
 
 Func _RunControlStateMessage($sState)
 	Switch $sState
@@ -619,7 +652,9 @@ Func RunControlInitialize()
 		Return False
 	EndIf
 	$g_bRunControlReady = True
-	If $g_sRunControlLastOutcome <> "rejected" Then $g_sRunControlMessage = "Native engine is ready"
+	Local $bRestoredTerminalOutcome = False
+	If $g_sRunControlLastOutcome = "" Then $bRestoredTerminalOutcome = _RunControlRestoreRecentTerminalOutcome()
+	If Not $bRestoredTerminalOutcome And $g_sRunControlLastOutcome <> "rejected" Then $g_sRunControlMessage = "Native engine is ready"
 	RunControlWriteStatus(True)
 	; Idle startup can spend time outside the main sleep pump (browser launch, emulator checks,
 	; notification setup). The lightweight registered poll keeps the browser heartbeat and Start
@@ -641,7 +676,7 @@ Func RunControlShutdown()
 	$g_sRunControlActiveStartPlanToken = ""
 	$g_sRunControlPendingStartPlanToken = ""
 	If $g_hRunControlOwnerMutex = 0 Then Return
-	FileDelete(RunControlStatusPath())
+	If Not _RunControlOutcomeIsTerminal($g_sRunControlLastOutcome) Then FileDelete(RunControlStatusPath())
 	ReleaseMutex($g_hRunControlOwnerMutex)
 	$g_hRunControlOwnerMutex = 0
 EndFunc   ;==>RunControlShutdown

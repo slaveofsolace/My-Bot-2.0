@@ -468,6 +468,49 @@ class OpenHomeCollectorsTest(unittest.TestCase):
         self.assertNotIn("BotStop", outcome)
         self.assertNotIn("ResumeAndroid", outcome)
 
+    def test_terminal_outcome_survives_native_restart_without_stale_online_claim(self):
+        bridge = source("COCBot/functions/Run/RunControlBridge.au3")
+        self.assertIn("Global Const $RUN_CONTROL_TERMINAL_OUTCOME_TTL_SECONDS = 120", bridge)
+
+        terminal_predicate = autoit_function(bridge, "_RunControlOutcomeIsTerminal")
+        for outcome in ("completed", "failed", "passed", "rejected", "stopped"):
+            self.assertIn(outcome, terminal_predicate)
+        self.assertNotIn("accepted", terminal_predicate)
+        self.assertNotIn("started", terminal_predicate)
+
+        restore = autoit_function(bridge, "_RunControlRestoreRecentTerminalOutcome")
+        for contract in (
+            "RunControlStatusPath()",
+            "_RunControlCommandAgeSeconds($sPath, $sTimestampError)",
+            "$RUN_CONTROL_TERMINAL_OUTCOME_TTL_SECONDS",
+            "RunPlanFileLoad($sPath, $sLoadError)",
+            '"last_command_message"',
+            "$g_sRunControlLastCommandId = $sRequestId",
+            "$g_sRunControlLastCommand = $sCommand",
+            "$g_sRunControlLastOutcome = $sOutcome",
+            "$g_sRunControlMessage = $sMessage",
+        ):
+            self.assertIn(contract, restore)
+        self.assertIn("^[A-Za-z0-9._-]{1,80}$", restore)
+        self.assertIn("^(start|launch-game|check-engine|stop)$", restore)
+
+        initialize = autoit_function(bridge, "RunControlInitialize")
+        self.assertIn("Local $bRestoredTerminalOutcome = False", initialize)
+        self.assertIn(
+            "If $g_sRunControlLastOutcome = \"\" Then $bRestoredTerminalOutcome = _RunControlRestoreRecentTerminalOutcome()",
+            initialize,
+        )
+        self.assertIn(
+            "If Not $bRestoredTerminalOutcome And $g_sRunControlLastOutcome <> \"rejected\" Then $g_sRunControlMessage = \"Native engine is ready\"",
+            initialize,
+        )
+
+        shutdown = autoit_function(bridge, "RunControlShutdown")
+        self.assertIn(
+            "If Not _RunControlOutcomeIsTerminal($g_sRunControlLastOutcome) Then FileDelete(RunControlStatusPath())",
+            shutdown,
+        )
+
     def test_one_shot_home_inputs_use_their_declared_transport(self):
         for relative, expected_count in (
             ("COCBot/functions/Run/OpenHomeCollectors.au3", 3),
