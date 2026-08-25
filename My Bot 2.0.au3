@@ -756,6 +756,19 @@ Func _EngineSupervisorWriteAbortStatus($sStartRequestId, $sReason, $sPhase, $iBa
 	Return True
 EndFunc   ;==>_EngineSupervisorWriteAbortStatus
 
+Func _EngineSupervisorCloseOwnedControllerAfterAbort()
+	If $g_iEngineSupervisorControllerPid <= 0 Then Return True
+	If Not ProcessExists($g_iEngineSupervisorControllerPid) Then Return True
+	If _ProcessCreationId($g_iEngineSupervisorControllerPid) <> $g_sEngineSupervisorControllerCreated Then Return False
+	If StringLower(_ProcessImagePath($g_iEngineSupervisorControllerPid)) <> StringLower($g_sControllerPath) Then Return False
+	If Not ProcessClose($g_iEngineSupervisorControllerPid) And ProcessExists($g_iEngineSupervisorControllerPid) Then Return False
+	For $i = 1 To 100
+		If Not ProcessExists($g_iEngineSupervisorControllerPid) Then Return True
+		Sleep(50)
+	Next
+	Return Not ProcessExists($g_iEngineSupervisorControllerPid)
+EndFunc   ;==>_EngineSupervisorCloseOwnedControllerAfterAbort
+
 Func _ReadPlannerOwnershipReceipt()
 	If Not FileExists($g_sPlannerOwnershipReceipt) Then Return ""
 	If Not _PlannerReceiptPathSafe(True) Then Return ""
@@ -1105,7 +1118,7 @@ Func _EngineSupervisorAbort($sReceipt, $iBackendPid, $sReason)
 			$sCurrent <> $sReceipt Or $iCurrentBackend <> $iBackendPid Then
 		Return _EngineSupervisorRecordFailure("abort refused because exact backend ownership changed; reason=" & $sReason)
 	EndIf
-	_EngineSupervisorWriteAbortStatus($sCurrentStartRequest, $sReason, $sCurrentPhase, $iBackendPid)
+	Local $bStatusWritten = _EngineSupervisorWriteAbortStatus($sCurrentStartRequest, $sReason, $sCurrentPhase, $iBackendPid)
 	_RecoveryLog("engine init supervisor closing verified backend; pid=" & $iBackendPid & "; phase=" & $sCurrentPhase & "; reason=" & $sReason)
 	Local $bCloseIssued = ProcessClose($iBackendPid)
 	If Not $bCloseIssued And ProcessExists($iBackendPid) Then Return _EngineSupervisorRecordFailure("the single verified backend close attempt failed; pid=" & $iBackendPid)
@@ -1114,14 +1127,14 @@ Func _EngineSupervisorAbort($sReceipt, $iBackendPid, $sReason)
 		Sleep(50)
 	Next
 	If ProcessExists($iBackendPid) Then Return _EngineSupervisorRecordFailure("backend remained alive after the single verified close attempt; pid=" & $iBackendPid)
-	Local $bPlannerClosed = _CloseOwnedPlannerService()
+	Local $bControllerClosed = _EngineSupervisorCloseOwnedControllerAfterAbort()
 	If Not _EngineSupervisorPathSafe($g_sEngineInitOwnershipReceipt, True) Or FileRead($g_sEngineInitOwnershipReceipt) <> $sCurrent Then _
 		Return _EngineSupervisorRecordFailure("backend stopped but its ownership receipt changed before cleanup")
 	Local $bReceiptRemoved = _EngineSupervisorDeleteSafeFile($g_sEngineInitOwnershipReceipt)
 	Local $bCancelRemoved = _EngineSupervisorDeleteSafeFile($g_sEngineInitCancelPath)
-	_RecoveryLog("engine init supervisor stopped retry; backend_gone=true; planner_closed=" & $bPlannerClosed & _
-		"; receipt_removed=" & $bReceiptRemoved & "; cancel_removed=" & $bCancelRemoved)
-	If Not $bPlannerClosed Or Not $bReceiptRemoved Or Not $bCancelRemoved Then _
+	_RecoveryLog("engine init supervisor stopped retry; backend_gone=true; controller_closed=" & $bControllerClosed & _
+		"; planner_kept_for_status=true; status_written=" & $bStatusWritten & "; receipt_removed=" & $bReceiptRemoved & "; cancel_removed=" & $bCancelRemoved)
+	If Not $bControllerClosed Or Not $bReceiptRemoved Or Not $bCancelRemoved Then _
 		Return _EngineSupervisorRecordFailure("backend stopped but supervised cleanup was incomplete")
 	; Keep the abort latch and generation identity until a different exact backend generation appears.
 	; This prevents a stale receipt or PID reuse race from issuing another close, while the launcher

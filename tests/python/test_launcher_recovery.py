@@ -671,8 +671,11 @@ class LauncherRecoveryContractTests(unittest.TestCase):
         self.assertIn("_EngineSupervisorReadReceipt", abort[:close_at])
         self.assertIn("$sCurrent <> $sReceipt", abort[:close_at])
         self.assertIn("$iCurrentBackend <> $iBackendPid", abort[:close_at])
-        self.assertIn("_CloseOwnedPlannerService()", abort[close_at:])
+        self.assertIn("_EngineSupervisorCloseOwnedControllerAfterAbort()", abort[close_at:])
+        self.assertNotIn("_CloseOwnedPlannerService()", abort)
         self.assertIn("backend_gone=true", abort)
+        self.assertIn("planner_kept_for_status=true", abort)
+        self.assertIn("status_written=", abort)
         self.assertNotIn("Run(", abort)
         self.assertNotIn("ShellExecute", abort)
         self.assertNotIn("BlueStacks", abort)
@@ -698,6 +701,18 @@ class LauncherRecoveryContractTests(unittest.TestCase):
         self.assertNotIn("Run(", writer)
         self.assertNotIn("ShellExecute", writer)
         self.assertNotIn("ProcessClose", writer)
+
+    def test_engine_supervisor_closes_exact_controller_to_stop_abort_retry(self):
+        closer = autoit_function(LAUNCHER, "_EngineSupervisorCloseOwnedControllerAfterAbort")
+        self.assertIn("$g_iEngineSupervisorControllerPid", closer)
+        self.assertIn("$g_sEngineSupervisorControllerCreated", closer)
+        self.assertIn("_ProcessCreationId($g_iEngineSupervisorControllerPid)", closer)
+        self.assertIn("_ProcessImagePath($g_iEngineSupervisorControllerPid)", closer)
+        self.assertIn("$g_sControllerPath", closer)
+        self.assertIn("ProcessClose($g_iEngineSupervisorControllerPid)", closer)
+        self.assertNotIn("taskkill", closer.lower())
+        self.assertNotIn("ShellExecute", closer)
+        self.assertNotIn("Run(", closer)
 
     def test_engine_supervisor_keeps_controller_binding_across_backend_generations(self):
         token = "7a" * 32
