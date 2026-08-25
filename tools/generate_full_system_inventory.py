@@ -354,10 +354,26 @@ def _capability_truth_status(readiness_row: dict[str, Any]) -> dict[str, Any]:
             "truth_blocker_class": _blocker_class(blockers),
             "truth_reason": "source, fixture, or historical runtime evidence exists, but exact-current installed proof is still missing",
         }
+    if readiness_row.get("fixture_ready"):
+        missing = ", ".join(readiness_row.get("missing_test_types") or readiness_row.get("current_binary_missing_test_types") or [])
+        detail = f": {missing}" if missing else ""
+        return {
+            "truth_status": _assert_truth_status("BLOCKED_EXTERNAL"),
+            "truth_blocker_class": _blocker_class(blockers),
+            "truth_reason": "required current-client fixtures are verified, but trusted runtime evidence is missing"
+            + detail
+            + "; the route must remain fail-closed",
+        }
+    if readiness_row.get("requires_fixture"):
+        return {
+            "truth_status": _assert_truth_status("BLOCKED_EXTERNAL"),
+            "truth_blocker_class": _blocker_class(blockers),
+            "truth_reason": "required current-client fixture capture is missing; the route must remain fail-closed",
+        }
     return {
         "truth_status": _assert_truth_status("BLOCKED_EXTERNAL"),
         "truth_blocker_class": _blocker_class(blockers),
-        "truth_reason": "required fixture, runtime, or exact-current evidence is missing; the route must remain fail-closed",
+        "truth_reason": "required runtime or exact-current evidence is missing; the route must remain fail-closed",
     }
 
 
