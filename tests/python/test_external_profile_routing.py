@@ -118,11 +118,16 @@ class ExternalProfileRoutingSourceTests(unittest.TestCase):
 
     def test_planner_and_recovery_require_same_canonical_profile_root(self) -> None:
         self.assertIn(' --profiles-root "\' & $g_sProfilePath & \'"', PLANNER_CONTROL)
-        expected = (
-            'If _RunPlannerNormalizeRoot(Json_ObjGet($oPayload, "profiles_root")) '
-            '<> _RunPlannerNormalizeRoot($g_sProfilePath) Then Return False'
+        self.assertIn("Func _RunPlannerProfilesRootMatches($sObservedProfilesRoot)", PLANNER_CONTROL)
+        self.assertIn("If $sObserved = _RunPlannerNormalizeRoot($g_sProfilePath) Then Return True", PLANNER_CONTROL)
+        self.assertIn(
+            'If $sObserved = _RunPlannerNormalizeRoot($g_sMBRFuncRuntimeLocalAppData & "\\My Bot 2.0\\Profiles") Then Return True',
+            PLANNER_CONTROL,
         )
-        self.assertGreaterEqual(PLANNER_CONTROL.count(expected), 2)
+        self.assertGreaterEqual(
+            PLANNER_CONTROL.count('If Not _RunPlannerProfilesRootMatches(Json_ObjGet($oPayload, "profiles_root")) Then Return False'),
+            2,
+        )
         self.assertIn('"""profiles_root_token"": """ & $sProfilesRootToken & """"', LAUNCHER)
         self.assertIn(
             '_PlannerReceiptString($sReceipt, "profiles_root_token") <> _ProfilesRootToken($g_sProfilesRoot)',

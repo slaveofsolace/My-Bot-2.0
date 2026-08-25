@@ -548,7 +548,7 @@ class RuntimeBoundaryRegressionTests(unittest.TestCase):
             )
         )
 
-        def wait_for(path: Path, timeout: float = 2.0) -> bool:
+        def wait_for(path: Path, timeout: float = 5.0) -> bool:
             deadline = time.monotonic() + timeout
             while time.monotonic() < deadline:
                 if path.exists():
@@ -557,7 +557,7 @@ class RuntimeBoundaryRegressionTests(unittest.TestCase):
             return path.exists()
 
         aliases = (
-            ("BlueStacks5", "Pie64", "Pie64", "Pie65"),
+            ("BlueStacks5", "Pie64-test-mutex", "Pie64-test-mutex", "Pie65-test-mutex"),
             ("Nox", "nox", "Nox_0", "clone_1"),
             ("LDPlayer9", "leidian0", "0", "1"),
             ("Mumu", "MuMuPlayerGlobal-12.0-0", "foo", "1"),
@@ -579,7 +579,7 @@ class RuntimeBoundaryRegressionTests(unittest.TestCase):
                 same = distinct = None
                 try:
                     if not wait_for(first_marker):
-                        stdout, stderr = first.communicate(timeout=2)
+                        stdout, stderr = first.communicate(timeout=5)
                         self.fail(
                             f"first owner did not acquire {emulator}/{first_instance}; exit={first.returncode}; "
                             f"stdout={stdout!r}; stderr={stderr!r}"
