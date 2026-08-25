@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import ctypes
 import hashlib
 import http.client
 import json
@@ -91,6 +92,7 @@ CONTROL_STATUS_BUSY_MAX_AGE_SECONDS = 45.0
 CONTROL_STATUS_READ_RETRY_SECONDS = 0.02
 CONTROL_STATUS_READ_ATTEMPTS = 5
 CONTROL_BUSY_STATES = {"starting", "stopping", "closing"}
+CONTROL_TERMINAL_OUTCOMES = {"completed", "passed", "rejected", "failed", "stopped", "paused", "resumed", "no-op"}
 ENGINE_INIT_CANCEL_CONTEXT_WAIT_SECONDS = 3.0
 ENGINE_INIT_CANCEL_CONTEXT_POLL_SECONDS = 0.025
 CONTROL_ACTIONS = {"start", "stop", "pause", "resume", "check-engine", "launch-game"}
@@ -106,7 +108,7 @@ DIAGNOSTIC_ARTIFACTS = {
 DIAGNOSTIC_ENGINE_FIELDS = {
     "connected", "state", "authorization_ready", "engine_available", "engine_probe_state", "recognition_available", "recognition_error", "product_name",
     "product_version", "engine_version", "plan_active", "plan_message", "session_id",
-    "emulator", "emulator_attached", "window_attached", "adb_ready", "game_ready", "bot_pid", "last_command", "last_outcome", "last_command_message",
+    "emulator", "emulator_attached", "window_attached", "adb_ready", "game_ready", "bot_pid", "bot_process_alive", "last_command", "last_outcome", "last_command_message",
     "message", "last_seen_at", "age_seconds",
 }
 DIAGNOSTIC_EVENT_FIELDS = {"timestamp_ms", "type", "severity", "message", "surface_id", "verification_state"}
@@ -152,6 +154,51 @@ def read_json(path: Path, default):
         return json.loads(path.read_text(encoding="utf-8-sig"))
     except (OSError, json.JSONDecodeError):
         return default
+
+
+def native_bot_process_alive(pid) -> bool | None:
+    """Return whether a reported native bot PID is still alive without enumerating the host."""
+    if isinstance(pid, bool):
+        return None
+    try:
+        value = int(pid)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    if value <= 0:
+        return None
+    if os.name != "nt":
+        try:
+            os.kill(value, 0)
+        except ProcessLookupError:
+            return False
+        except PermissionError:
+            return True
+        except OSError:
+            return False
+        return True
+
+    process_query_limited_information = 0x1000
+    still_active = 259
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    handle = kernel32.OpenProcess(process_query_limited_information, False, value)
+    if not handle:
+        return False
+    try:
+        exit_code = ctypes.c_ulong()
+        if not kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code)):
+            return False
+        return exit_code.value == still_active
+    finally:
+        kernel32.CloseHandle(handle)
+
+
+def control_status_terminal_receipt(document: dict) -> bool:
+    """A recent terminal receipt may remain after the native owner has shut down cleanly."""
+    return (
+        document.get("state") == "idle"
+        and document.get("last_command") in CONTROL_ACTIONS
+        and document.get("last_outcome") in CONTROL_TERMINAL_OUTCOMES
+    )
 
 
 def _path_is_reparse(path: Path) -> bool:
@@ -923,6 +970,21 @@ def control_status() -> dict:
         document["recognition_error"] = (
             "Native recognition state is unavailable because the engine heartbeat is stale"
         )
+    bot_process_alive = native_bot_process_alive(document.get("bot_pid"))
+    document["bot_process_alive"] = bot_process_alive
+    if document["connected"] and bot_process_alive is False and not control_status_terminal_receipt(document):
+        document["connected"] = False
+        document["state"] = "offline"
+        message = "Native engine process exited before publishing a terminal run outcome"
+        document["message"] = message
+        document["engine_available"] = False
+        document["recognition_available"] = False
+        document["recognition_error"] = (
+            "Native recognition state is unavailable because the engine process exited"
+        )
+        if document.get("last_outcome") in {"accepted", "started"}:
+            document["last_outcome"] = "failed"
+            document["last_command_message"] = message
     native_attached = (
         document.get("window_attached") is True
         if "window_attached" in document
@@ -1750,14 +1812,14 @@ def selftest() -> int:
             payload = json.loads(response.read())
             check(response.status == 409 and payload["ok"] is False, "control command is refused while native engine is offline")
 
-            write_json_atomic({"state": "idle", "message": "Managed engine probe timed out", "bot_pid": 123, "engine_available": False}, CONTROL_STATUS_PATH)
+            write_json_atomic({"state": "idle", "message": "Managed engine probe timed out", "bot_pid": os.getpid(), "engine_available": False}, CONTROL_STATUS_PATH)
             connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
             connection.request("POST", "/api/control/command", body=body, headers={"Content-Type": "application/json"})
             response = connection.getresponse()
             payload = json.loads(response.read())
             check(response.status == 409 and "timed out" in payload["problems"][0], "Start is refused when the native engine reports unavailable")
 
-            write_json_atomic({"state": "idle", "message": "Native engine is ready", "bot_pid": 123, "engine_available": True, "authorization_ready": False}, CONTROL_STATUS_PATH)
+            write_json_atomic({"state": "idle", "message": "Native engine is ready", "bot_pid": os.getpid(), "engine_available": True, "authorization_ready": False}, CONTROL_STATUS_PATH)
             connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
             connection.request("POST", "/api/control/command", body=body, headers={"Content-Type": "application/json"})
             response = connection.getresponse()
@@ -1766,14 +1828,14 @@ def selftest() -> int:
             check(CONTROL_COMMAND_PATH.exists(), "compatibility-status Start is queued for the native engine")
             CONTROL_COMMAND_PATH.unlink(missing_ok=True)
 
-            write_json_atomic({"state": "idle", "message": "Native engine is ready", "bot_pid": 123, "engine_available": True, "authorization_ready": True}, CONTROL_STATUS_PATH)
+            write_json_atomic({"state": "idle", "message": "Native engine is ready", "bot_pid": os.getpid(), "engine_available": True, "authorization_ready": True}, CONTROL_STATUS_PATH)
             connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
             connection.request("GET", "/api/control/status")
             response = connection.getresponse()
             payload = json.loads(response.read())
             check(response.status == 200 and payload["connected"] and payload["state"] == "idle", "fresh native heartbeat is reported online")
 
-            write_json_atomic({"state": "starting", "message": "Preparing the run", "bot_pid": 123}, CONTROL_STATUS_PATH)
+            write_json_atomic({"state": "starting", "message": "Preparing the run", "bot_pid": os.getpid()}, CONTROL_STATUS_PATH)
             stale_busy_time = datetime.now(timezone.utc).timestamp() - (CONTROL_STATUS_MAX_AGE_SECONDS + 2)
             os.utime(CONTROL_STATUS_PATH, (stale_busy_time, stale_busy_time))
             connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
@@ -1782,7 +1844,7 @@ def selftest() -> int:
             payload = json.loads(response.read())
             check(response.status == 200 and payload["connected"] and payload["state"] == "starting", "busy startup keeps a bounded heartbeat grace")
 
-            write_json_atomic({"state": "idle", "message": "Native engine is ready", "bot_pid": 123}, CONTROL_STATUS_PATH)
+            write_json_atomic({"state": "idle", "message": "Native engine is ready", "bot_pid": os.getpid()}, CONTROL_STATUS_PATH)
             os.utime(CONTROL_STATUS_PATH, (stale_busy_time, stale_busy_time))
             connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
             connection.request("GET", "/api/control/status")
@@ -1790,8 +1852,8 @@ def selftest() -> int:
             payload = json.loads(response.read())
             check(response.status == 200 and not payload["connected"] and payload["state"] == "offline", "idle heartbeat still fails closed at the normal threshold")
 
-            write_json_atomic({"state": "starting", "message": "Preparing the run", "bot_pid": 123}, CONTROL_STATUS_PATH)
-            with mock.patch(f"{__name__}.read_json", side_effect=[None, {"state": "starting", "message": "Preparing the run", "bot_pid": 123}]) as status_read:
+            write_json_atomic({"state": "starting", "message": "Preparing the run", "bot_pid": os.getpid()}, CONTROL_STATUS_PATH)
+            with mock.patch(f"{__name__}.read_json", side_effect=[None, {"state": "starting", "message": "Preparing the run", "bot_pid": os.getpid()}]) as status_read:
                 payload = control_status()
             check(payload["connected"] and payload["state"] == "starting" and status_read.call_count == 2, "status replacement race is retried once")
 

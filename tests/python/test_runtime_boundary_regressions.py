@@ -118,6 +118,59 @@ class RuntimeBoundaryRegressionTests(unittest.TestCase):
         self.assertIn("$('controlSafeHomeRoute').onclick = prepareVerifiedHomeRoute;", click_handler)
         self.assertNotIn("else prepareVerifiedHomeRoute()", click_handler)
 
+    def test_dead_native_pid_fails_busy_status_without_erasing_terminal_receipts(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            status_path = root / "control-status.local.json"
+            command_path = root / "control-command.local.json"
+            starting = {
+                "state": "starting",
+                "message": "Preparing the run",
+                "bot_pid": 424242,
+                "engine_available": True,
+                "last_command": "start",
+                "last_outcome": "accepted",
+                "last_command_id": "dead-start",
+            }
+            with mock.patch.object(planner_ui, "CONTROL_STATUS_PATH", status_path), mock.patch.object(
+                planner_ui, "CONTROL_COMMAND_PATH", command_path
+            ), mock.patch.object(planner_ui, "native_bot_process_alive", return_value=False):
+                planner_ui.write_json_atomic(starting, status_path)
+                payload = planner_ui.control_status()
+                self.assertFalse(payload["connected"])
+                self.assertEqual(payload["state"], "offline")
+                self.assertEqual(payload["last_outcome"], "failed")
+                self.assertIn("process exited", payload["last_command_message"])
+                self.assertFalse(payload["engine_available"])
+                self.assertFalse(payload["recognition_available"])
+
+                start_payload, start_code = planner_ui.queue_control_command("start")
+                self.assertEqual(start_code, 409)
+                self.assertFalse(start_payload["ok"])
+                self.assertIn("native engine is offline", start_payload["problems"])
+                self.assertFalse(command_path.exists())
+
+                planner_ui.write_json_atomic(
+                    {
+                        "state": "idle",
+                        "message": "Template-free Home collectors completed; collector_clicks=1",
+                        "bot_pid": 424242,
+                        "engine_available": True,
+                        "last_command": "start",
+                        "last_outcome": "completed",
+                        "last_command_id": "completed-route",
+                    },
+                    status_path,
+                )
+                terminal = planner_ui.control_status()
+                self.assertTrue(terminal["connected"])
+                self.assertEqual(terminal["state"], "idle")
+                self.assertEqual(terminal["last_outcome"], "completed")
+                self.assertEqual(
+                    terminal["message"],
+                    "Template-free Home collectors completed; collector_clicks=1",
+                )
+
     def test_rights_gate_rejects_full_profile_without_writing_a_command(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
