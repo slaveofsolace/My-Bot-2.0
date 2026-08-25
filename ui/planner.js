@@ -64,6 +64,29 @@ const STRATEGY_SAFETY_PATCHES = {
       'pacing.break_every_minutes': 0, 'pacing.break_minutes': 5,
     },
   },
+  'army.exact-recipe': {
+    label: 'Exact recipe training safety settings',
+    values: {
+      'run.surface': 'regular', 'run.strategy': 'army.exact-recipe', 'run.attack_script': 'profile-current',
+      'run.town_hall': 0, 'run.heroes': [], 'run.duration_minutes': 0, 'run.max_battles': 0,
+      'run.stop_on_star_bonus': false, 'run.max_failures': 0,
+      'target.gold': 0, 'target.elixir': 0, 'target.dark_elixir': 0,
+      'upgrade.policy': 'disabled', 'account.queue': '',
+      'army.source': 'recipe', 'army.manage_training': false,
+      'army.wait_for_full': false, 'army.train_spells': false, 'army.train_sieges': false,
+      'search.min_gold': 0, 'search.min_elixir': 0, 'search.min_dark': 0,
+      'search.max_seconds': 0, 'search.town_hall_filter': 'any',
+      'donate.mode': 'off', 'donate.keep_army': true, 'donate.max_per_run': 0,
+      'donate.request_when_short': false,
+      'events.clan_games': false, 'events.clan_games_point_cap': 0,
+      'events.laboratory': 'off', 'events.collect_resources': false, 'events.collect_daily_reward': false,
+      'events.collect_loot_cart': false,
+      'events.collect_treasury': false,
+      'notify.on_stop': true, 'notify.on_error': true, 'notify.channel': 'log-only',
+      'pacing.action_delay_ms': 180, 'pacing.settle_ms': 650, 'pacing.retry_attempts': 0,
+      'pacing.break_every_minutes': 0, 'pacing.break_minutes': 5,
+    },
+  },
 };
 
 const MAINTENANCE_COLLECTIONS = Object.freeze([
@@ -1195,7 +1218,8 @@ function clientProblems(plan = PLAN) {
   if (plan['run.surface'] !== 'regular') addProblem(problems, 'Only Regular Battles can start through the native engine.', 'run.surface');
   const homeMaintenance = plan['run.strategy'] === 'home.collectors';
   const clanRequestOnly = plan['run.strategy'] === 'home.clan-request';
-  if (!['legacy.csv', 'legacy.standard', 'smart.local', 'home.collectors', 'home.clan-request'].includes(plan['run.strategy'])) {
+  const exactRecipeTraining = plan['run.strategy'] === 'army.exact-recipe';
+  if (!['legacy.csv', 'legacy.standard', 'smart.local', 'home.collectors', 'home.clan-request', 'army.exact-recipe'].includes(plan['run.strategy'])) {
     addProblem(problems, 'The selected deployment routine has no native adapter.', 'run.strategy');
   }
   if (['legacy.csv', 'legacy.standard', 'smart.local'].includes(plan['run.strategy'])) {
@@ -1223,7 +1247,8 @@ function clientProblems(plan = PLAN) {
   const instance = String(plan['runtime.instance'] || '').trim();
   if (emulator === 'auto' && instance) addProblem(problems, 'Choose a specific emulator before selecting an instance.', 'runtime.instance');
   if (emulator !== 'auto' && !instance) addProblem(problems, 'Choose the exact emulator instance so capture, input, and docking stay bound to one account.', 'runtime.instance');
-  if (plan['army.source'] !== 'recipe' || String(plan['army.recipe_name'] || '').trim()) {
+  if (!exactRecipeTraining && (plan['army.source'] !== 'recipe' || String(plan['army.recipe_name'] || '').trim()
+      || String(plan['army.recipe_digest'] || '').trim() || Number(plan['army.max_queue_units'] || 0) !== 0)) {
     addProblem(problems, 'The run can use only the active profile army; named recipes are not wired.', 'army.source');
   }
   if (homeMaintenance) {
@@ -1259,6 +1284,27 @@ function clientProblems(plan = PLAN) {
     if (Number(plan['pacing.break_every_minutes']) !== 0) addProblem(problems, 'Clan request requires scheduled breaks off.', 'pacing.break_every_minutes');
     if (emulator === 'auto' || !instance) addProblem(problems, 'Clan request requires the exact non-Auto emulator and instance.', 'runtime.instance');
     if (instance && !/^[A-Za-z0-9_. -]{1,64}$/.test(instance)) addProblem(problems, 'The Home route instance name contains unsupported characters.', 'runtime.instance');
+  } else if (exactRecipeTraining) {
+    const recipeName = String(plan['army.recipe_name'] || '').trim().toLowerCase();
+    const recipeDigest = String(plan['army.recipe_digest'] || '').trim().toLowerCase();
+    const maxQueueUnits = Number(plan['army.max_queue_units'] || 0);
+    if (!plan['run.diagnostic_mode']) addProblem(problems, 'Exact recipe training requires supervised diagnostic acknowledgement.', 'run.diagnostic_mode');
+    if (emulator === 'auto' || !instance) addProblem(problems, 'Exact recipe training requires the exact non-Auto emulator and instance.', 'runtime.instance');
+    if (instance && !/^[A-Za-z0-9_. -]{1,64}$/.test(instance)) addProblem(problems, 'The exact-training instance name contains unsupported characters.', 'runtime.instance');
+    if (plan['army.source'] !== 'recipe') addProblem(problems, 'Exact recipe training requires the saved recipe army source.', 'army.source');
+    if (!/^[a-z0-9][a-z0-9_.-]{0,63}$/.test(recipeName)) addProblem(problems, 'Exact recipe training requires a safe recipe id.', 'army.recipe_name');
+    if (!/^[a-f0-9]{64}$/.test(recipeDigest)) addProblem(problems, 'Exact recipe training requires a 64-character recipe digest.', 'army.recipe_digest');
+    if (!Number.isInteger(maxQueueUnits) || maxQueueUnits < 1 || maxQueueUnits > 500) addProblem(problems, 'Exact recipe training requires a max queue cap from 1 to 500 units.', 'army.max_queue_units');
+    if (plan['army.manage_training'] || plan['army.wait_for_full'] || plan['army.train_spells'] || plan['army.train_sieges']) addProblem(problems, 'Exact recipe training requires generic training, army wait, spells, and sieges off.', 'army.manage_training');
+    if (asList(plan['run.heroes']).length) addProblem(problems, 'Exact recipe training requires no selected Heroes.', 'run.heroes');
+    if (Number(plan['run.duration_minutes']) !== 0 || Number(plan['run.max_battles']) !== 0 || plan['run.stop_on_star_bonus'] || Number(plan['run.max_failures']) !== 0) addProblem(problems, 'Exact recipe training is one pass; duration, battles, star bonus, and failure limits must be 0/off.', 'run.max_battles');
+    if (['target.gold', 'target.elixir', 'target.dark_elixir', 'search.min_gold', 'search.min_elixir', 'search.min_dark', 'search.max_seconds'].some((key) => Number(plan[key]) !== 0)) addProblem(problems, 'Exact recipe training cannot configure matchmaking or battle-loot targets.', 'search.min_gold');
+    if (plan['donate.mode'] !== 'off' || plan['donate.request_when_short'] || Number(plan['donate.max_per_run']) !== 0) addProblem(problems, 'Exact recipe training requires donations and requests off.', 'donate.mode');
+    if (plan['events.collect_resources'] || plan['events.collect_daily_reward'] || plan['events.collect_loot_cart'] || plan['events.collect_treasury'] || plan['events.clan_games'] || Number(plan['events.clan_games_point_cap']) !== 0) addProblem(problems, 'Exact recipe training cannot collect resources, claim rewards, or enter Clan Games.', 'events.clan_games');
+    if (plan['events.laboratory'] !== 'off') addProblem(problems, 'Exact recipe training requires Laboratory off.', 'events.laboratory');
+    if (plan['upgrade.policy'] !== 'disabled') addProblem(problems, 'Exact recipe training requires upgrades disabled.', 'upgrade.policy');
+    if (String(plan['account.queue'] || '').trim()) addProblem(problems, 'Exact recipe training cannot rotate accounts.', 'account.queue');
+    if (Number(plan['pacing.break_every_minutes']) !== 0) addProblem(problems, 'Exact recipe training requires scheduled breaks off.', 'pacing.break_every_minutes');
   } else if (plan['events.collect_resources'] || plan['events.collect_daily_reward'] || plan['events.collect_loot_cart'] || plan['events.collect_treasury']) {
     addProblem(problems, 'Home collection work requires the Home maintenance strategy.', 'events.collect_resources');
   } else if (plan['army.manage_training']) {

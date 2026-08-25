@@ -186,6 +186,8 @@ Json_ObjPut($oSavedPlan, "upgrade.policy", "disabled")
 Json_ObjPut($oSavedPlan, "account.queue", "")
 Json_ObjPut($oSavedPlan, "army.source", "recipe")
 Json_ObjPut($oSavedPlan, "army.recipe_name", "farm")
+Json_ObjPut($oSavedPlan, "army.recipe_digest", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+Json_ObjPut($oSavedPlan, "army.max_queue_units", 120)
 Json_ObjPut($oSavedPlan, "army.manage_training", True)
 Json_ObjPut($oSavedPlan, "army.wait_for_full", True)
 Json_ObjPut($oSavedPlan, "army.train_spells", True)
@@ -224,6 +226,8 @@ AssertTrue(IsObj($oSavedIntent), "saved planner document becomes a run intent: "
 Local $oSavedEnginePlan = $oSavedIntent.Item("plan")
 AssertTrue($oSavedEnginePlan.Item("search_max_seconds") = 120, "saved search limit reaches RunPlan")
 AssertTrue($oSavedEnginePlan.Item("army_recipe_name") = "farm", "saved army recipe reaches RunPlan")
+AssertTrue($oSavedEnginePlan.Item("army_recipe_digest") = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "saved army recipe digest reaches RunPlan")
+AssertTrue($oSavedEnginePlan.Item("army_max_queue_units") = 120, "saved army queue cap reaches RunPlan")
 AssertTrue($oSavedEnginePlan.Item("attack_script") = "Barch four fingers", "saved attack script reaches RunPlan")
 AssertTrue(Not $oSavedEnginePlan.Item("events_collect_daily_reward"), "saved Daily Reward choice reaches RunPlan")
 AssertTrue(Not $oSavedEnginePlan.Item("events_collect_loot_cart"), "saved Loot Cart choice reaches RunPlan")
@@ -238,6 +242,8 @@ AssertTrue(RunPacingSettleMilliseconds($oSavedPacing) = 400, "saved pacing reach
 AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "unsupported planner values are blocked rather than ignored")
 AssertTrue(StringInStr($sError, "recipe") > 0, "the first unsupported adapter is named")
 $oSavedEnginePlan.Item("army_recipe_name") = ""
+$oSavedEnginePlan.Item("army_recipe_digest") = ""
+$oSavedEnginePlan.Item("army_max_queue_units") = 0
 $oSavedEnginePlan.Item("search_max_seconds") = 0
 $oSavedEnginePlan.Item("search_town_hall_filter") = "any"
 AssertTrue(Not RunExecutionContractValidate($oSavedIntent, $sError), "managed profile training is blocked even after unrelated adapter errors are cleared")

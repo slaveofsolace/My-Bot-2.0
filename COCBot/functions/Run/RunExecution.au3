@@ -125,6 +125,10 @@ Func ClanRequestRouteActive()
 	Return $g_bRunExecutionActive And IsObj($g_oRunExecutionIntent) And ClanRequestRouteSelected($g_oRunExecutionIntent)
 EndFunc   ;==>ClanRequestRouteActive
 
+Func ExactRecipeTrainingRouteActive()
+	Return $g_bRunExecutionActive And IsObj($g_oRunExecutionIntent) And ExactRecipeTrainingRouteSelected($g_oRunExecutionIntent)
+EndFunc   ;==>ExactRecipeTrainingRouteActive
+
 ; Bind request-only work at the last native boundary that knows the actually loaded profile. The
 ; browser plan intentionally carries no account identifier; using the live profile prevents a stale
 ; saved plan from naming or switching another account. Repeated Apply/Load accepts only the same id.
@@ -132,8 +136,9 @@ Func RunExecutionBindCurrentProfileForHomeRoute(ByRef $oIntent, ByRef $sError)
 	$sError = ""
 	Local $bClanRequest = ClanRequestRouteSelected($oIntent)
 	Local $bCollectors = HomeMaintenanceRouteSelected($oIntent)
-	If Not $bClanRequest And Not $bCollectors Then Return True
-	Local $sRouteName = $bClanRequest ? "Clan request" : "Home maintenance"
+	Local $bExactTraining = ExactRecipeTrainingRouteSelected($oIntent)
+	If Not $bClanRequest And Not $bCollectors And Not $bExactTraining Then Return True
+	Local $sRouteName = $bClanRequest ? "Clan request" : ($bExactTraining ? "Exact saved-recipe training" : "Home maintenance")
 	Local $sActiveProfile = StringStripWS(String($g_sProfileCurrentName), $STR_STRIPLEADING + $STR_STRIPTRAILING)
 	If $sActiveProfile = "" Or StringLen($sActiveProfile) > 64 Or _
 			Not StringRegExp($sActiveProfile, "^[A-Za-z0-9_. -]+$") Then
@@ -148,8 +153,14 @@ Func RunExecutionBindCurrentProfileForHomeRoute(ByRef $oIntent, ByRef $sError)
 		EndIf
 		Return True
 	EndIf
-	Local $bMatches = $bClanRequest ? ClanRequestRouteAccountMatches($oIntent, $sActiveProfile) : _
-			HomeMaintenanceRouteAccountMatches($oIntent, $sActiveProfile)
+	Local $bMatches = False
+	If $bClanRequest Then
+		$bMatches = ClanRequestRouteAccountMatches($oIntent, $sActiveProfile)
+	ElseIf $bExactTraining Then
+		$bMatches = ExactRecipeTrainingRouteAccountMatches($oIntent, $sActiveProfile)
+	Else
+		$bMatches = HomeMaintenanceRouteAccountMatches($oIntent, $sActiveProfile)
+	EndIf
 	If Not $bMatches Then
 		$sError = $sRouteName & " plan is bound to a different active profile/account"
 		Return SetError(3, 0, False)
@@ -1110,6 +1121,23 @@ Func _RunExecutionApplyIntent(ByRef $sError)
 		$g_bChkDonate = False
 		$g_bDonateLikeCrazy = False
 		$g_bRequestTroopsEnable = True
+		$g_bChkSwitchAcc = False
+		$g_bChkClanGamesEnabled = 0
+		$g_bChkCollect = False
+		$g_bAutoLabUpgradeEnable = False
+		$g_bAutoUpgradeWallsEnable = False
+		$g_bAutoUpgradeEnabled = False
+		$g_bRunExecutionGameplayApplied = True
+		Return True
+	EndIf
+	If $sStrategy = $EXACT_TRAINING_ROUTE_STRATEGY Then
+		; Exact saved-recipe training owns one route-specific queue attempt. The inherited broad
+		; trainer remains off: no Quick Train fallback, boost, deletion, spell/siege queue, donation,
+		; collector, upgrade, matchmaking, or account-switch behavior may leak in from the profile.
+		$g_bRunExecutionManageTraining = False
+		$g_bChkDonate = False
+		$g_bDonateLikeCrazy = False
+		$g_bRequestTroopsEnable = False
 		$g_bChkSwitchAcc = False
 		$g_bChkClanGamesEnabled = 0
 		$g_bChkCollect = False

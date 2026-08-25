@@ -32,6 +32,8 @@ Func RunPlanCreateDefault($sMode = "home", $sStrategy = "auto", $sAttackScript =
 	$oPlan.Add("emulator_instance", "")
 	$oPlan.Add("army_source", "recipe")
 	$oPlan.Add("army_recipe_name", "")
+	$oPlan.Add("army_recipe_digest", "")
+	$oPlan.Add("army_max_queue_units", 0)
 	$oPlan.Add("army_manage_training", False)
 	$oPlan.Add("army_wait_for_full", True)
 	$oPlan.Add("army_train_spells", False)
@@ -65,7 +67,7 @@ Func RunPlanValidate(ByRef $oPlan, ByRef $sError)
 	EndIf
 
 	Local $aRequired = ["schema_version", "mode", "strategy", "attack_script", "planned_town_hall", "duration_minutes", "max_battles", "stop_on_star_bonus", "max_failures", "target_gold", "target_elixir", "target_dark_elixir", "upgrade_policy", "account_queue_id", _
-		"emulator", "emulator_instance", "army_source", "army_recipe_name", "army_manage_training", "army_wait_for_full", "army_train_spells", "army_train_sieges", "search_min_gold", "search_min_elixir", "search_min_dark", "search_max_seconds", "search_town_hall_filter", _
+		"emulator", "emulator_instance", "army_source", "army_recipe_name", "army_recipe_digest", "army_max_queue_units", "army_manage_training", "army_wait_for_full", "army_train_spells", "army_train_sieges", "search_min_gold", "search_min_elixir", "search_min_dark", "search_max_seconds", "search_town_hall_filter", _
 		"donate_mode", "donate_keep_army", "donate_max_per_run", "donate_request_when_short", "events_clan_games", "events_clan_games_point_cap", "events_laboratory", "events_collect_resources", "events_collect_daily_reward", "events_collect_loot_cart", "events_collect_treasury", "notify_on_stop", "notify_on_error", "notify_channel"]
 	For $i = 0 To UBound($aRequired) - 1
 		If Not $oPlan.Exists($aRequired[$i]) Then
@@ -100,7 +102,7 @@ Func RunPlanValidate(ByRef $oPlan, ByRef $sError)
 		Return SetError(4, 2, False)
 	EndIf
 
-	Local $aNonNegative = ["duration_minutes", "max_battles", "max_failures", "target_gold", "target_elixir", "target_dark_elixir", "search_min_gold", "search_min_elixir", "search_min_dark", "search_max_seconds", "donate_max_per_run", "events_clan_games_point_cap"]
+	Local $aNonNegative = ["duration_minutes", "max_battles", "max_failures", "target_gold", "target_elixir", "target_dark_elixir", "army_max_queue_units", "search_min_gold", "search_min_elixir", "search_min_dark", "search_max_seconds", "donate_max_per_run", "events_clan_games_point_cap"]
 	For $i = 0 To UBound($aNonNegative) - 1
 		If Number($oPlan.Item($aNonNegative[$i])) < 0 Then
 			$sError = $aNonNegative[$i] & " cannot be negative"
@@ -135,6 +137,17 @@ Func RunPlanValidate(ByRef $oPlan, ByRef $sError)
 			$sError = "Unsupported army source: " & $oPlan.Item("army_source")
 			Return SetError(8, 0, False)
 	EndSwitch
+	Local $sRecipeDigest = StringLower(StringStripWS(String($oPlan.Item("army_recipe_digest")), $STR_STRIPALL))
+	If $sRecipeDigest <> "" And Not StringRegExp($sRecipeDigest, "^[a-f0-9]{64}$") Then
+		$sError = "Army recipe digest must be blank or 64 lowercase hexadecimal characters"
+		Return SetError(8, 1, False)
+	EndIf
+	Local $iMaxQueueUnits = Int(Number($oPlan.Item("army_max_queue_units")))
+	If Not IsNumber($oPlan.Item("army_max_queue_units")) Or Number($oPlan.Item("army_max_queue_units")) <> $iMaxQueueUnits Or _
+			$iMaxQueueUnits < 0 Or $iMaxQueueUnits > 500 Then
+		$sError = "Army max queue units must be an integer from 0 to 500"
+		Return SetError(8, 2, False)
+	EndIf
 	Switch StringLower($oPlan.Item("search_town_hall_filter"))
 		Case "any", "lower-only", "same-or-lower"
 		Case Else
