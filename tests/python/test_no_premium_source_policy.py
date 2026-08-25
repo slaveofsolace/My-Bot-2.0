@@ -268,7 +268,7 @@ class NoPremiumSourcePolicyTests(unittest.TestCase):
         target = autoit_function(self.policy, "NoPremiumPermitTargetValid")
         point = autoit_function(self.policy, "NoPremiumPermitPointMatches")
         age = autoit_function(self.policy, "NoPremiumPermitAgeValid")
-        self.assertEqual(16, len(re.findall(r'^Global Const \$NO_PREMIUM_ACTION_', self.policy, re.MULTILINE)))
+        self.assertEqual(17, len(re.findall(r'^Global Const \$NO_PREMIUM_ACTION_', self.policy, re.MULTILINE)))
         for forbidden in ('"home"', '"builder-home"', '"full-profile"', '"confirm"'):
             self.assertNotIn(forbidden, known)
         for exact in (
@@ -284,6 +284,8 @@ class NoPremiumSourcePolicyTests(unittest.TestCase):
             "$iX = 792 And $iY = 187",
         ):
             self.assertIn(exact, target)
+        self.assertIn("$NO_PREMIUM_ACTION_EXACT_TRAINING_ARMY", known)
+        self.assertIn("Case $NO_PREMIUM_ACTION_EXACT_TRAINING_ARMY", target)
         self.assertIn("Int($iExpectedX) = Int($iActualX)", point)
         self.assertIn("Int($iExpectedY) = Int($iActualY)", point)
         self.assertIn("$iAgeMs >= 0", age)

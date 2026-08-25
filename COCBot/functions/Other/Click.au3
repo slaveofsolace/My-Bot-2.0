@@ -108,6 +108,8 @@ Func NoPremiumSurfaceState(ByRef $sReason, $sPermitAction = "", $iExpectedX = De
 			$bRouteReady = OpenHomeTreasuryClosePointReady(Int($iExpectedX), Int($iExpectedY))
 		Case $NO_PREMIUM_ACTION_CLAN_REQUEST_ARMY
 			$bRouteReady = OpenClanRequestArmyOverviewPointReady(Int($iExpectedX), Int($iExpectedY))
+		Case $NO_PREMIUM_ACTION_EXACT_TRAINING_ARMY
+			$bRouteReady = OpenClanRequestArmyOverviewPointReady(Int($iExpectedX), Int($iExpectedY))
 		Case $NO_PREMIUM_ACTION_CLAN_REQUEST_REQUEST
 			$bRouteReady = OpenClanRequestRequestPointReady(Int($iExpectedX), Int($iExpectedY))
 		Case $NO_PREMIUM_ACTION_CLAN_REQUEST_SEND

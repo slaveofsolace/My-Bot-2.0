@@ -638,10 +638,12 @@ Func _ExactTrainingLiveStopRequested()
 	Return RunControlStopRequested() Or Not $g_bRunState
 EndFunc   ;==>_ExactTrainingLiveStopRequested
 
-; The route is wired before saved-recipe framebuffer fixtures exist. Returning the reviewed
-; unavailable observation keeps Start truthful: no inherited training routine, no queue input, no
-; retry, and a visible Activity/control receipt until a clean-room recognizer supplies recipe-ready.
+; The route is wired before saved-recipe framebuffer fixtures exist. It must first prove the
+; task-owned Army Overview frame, then return the reviewed unavailable observation: no inherited
+; training routine, no queue input, no retry, and a visible Activity/control receipt until a
+; clean-room recognizer supplies recipe-ready.
 Func _ExactTrainingLiveDetect($sPhase)
+	If Not OpenClanRequestArmyOverviewReady(False) Then Return SetError(2, 0, 0)
 	Return ExactRecipeTrainingObservationCreate($EXACT_TRAINING_STATE_UNAVAILABLE)
 EndFunc   ;==>_ExactTrainingLiveDetect
 
@@ -671,10 +673,17 @@ Func _BotStartExactRecipeTraining(ByRef $sStartError)
 	If Not RunExecutionBegin($sStartError) Then Return _BotOpenCollectorsReject($sStartError)
 	RunControlReportStartOutcome(True, "Exact saved-recipe training pass started")
 	RunEventLogExactTrainingStarted($sRecipeId, $iMaxQueueUnits)
+	If Not OpenClanRequestOpenArmyOverview($NO_PREMIUM_ACTION_EXACT_TRAINING_ARMY) Then
+		$sStartError = "Army Overview did not open for exact saved-recipe training; no queue input was issued"
+		RunEventLogRunFailed("regular", $RUN_VERIFICATION_DIAGNOSTIC, $sStartError)
+		RunExecutionCancelPrepared($sStartError)
+		RunControlReportOneShotOutcome("failed", $sStartError)
+		Return False
+	EndIf
 
 	Local $oOutcome = ExactRecipeTrainingRouteRunAdapter($sRecipeId, $sRecipeDigest, $iMaxQueueUnits, _
-			"_ExactTrainingLiveDetect", "_ExactTrainingLiveIssueQueue", "_ExactTrainingLiveStopRequested", _
-			"OpenHomeNoGemInputReady", "OpenHomeCollectorsProveHome")
+		"_ExactTrainingLiveDetect", "_ExactTrainingLiveIssueQueue", "_ExactTrainingLiveStopRequested", _
+		"OpenHomeNoGemInputReady", "OpenClanRequestCloseAndProveHome")
 	If Not IsObj($oOutcome) Then
 		$sStartError = "Exact saved-recipe training adapter returned no bounded outcome"
 	Else

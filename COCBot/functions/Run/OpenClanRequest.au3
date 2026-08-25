@@ -98,12 +98,12 @@ Func OpenClanRequestProveNeutralHome()
 	Return _OpenClanRequestNeutralHomeFrameReady()
 EndFunc   ;==>OpenClanRequestProveNeutralHome
 
-Func OpenClanRequestOpenArmyOverview()
+Func OpenClanRequestOpenArmyOverview($sPermitAction = $NO_PREMIUM_ACTION_CLAN_REQUEST_ARMY)
 	If RunControlStopRequested() Or Not $g_bRunState Then Return False
 	If Not OpenClanRequestProveNeutralHome() Then Return False
 	If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, False)
 	If RunControlStopRequested() Or Not $g_bRunState Then Return False
-	If Not NoPremiumPointClick($NO_PREMIUM_ACTION_CLAN_REQUEST_ARMY, $OPEN_CLAN_REQUEST_ARMY_X, _
+	If Not NoPremiumPointClick($sPermitAction, $OPEN_CLAN_REQUEST_ARMY_X, _
 			$OPEN_CLAN_REQUEST_ARMY_Y, 120, "#OpenClanRequestArmy", True) Then Return False
 	If _Sleep(400, True, True, False) Then Return False
 	For $iAttempt = 1 To 10
