@@ -95,8 +95,8 @@ Func NoPremiumPermitTargetValid($sAction, $iX, $iY)
 			Return $iX >= 500 And $iX <= 530 And $iY >= 405 And $iY <= 435
 		Case $NO_PREMIUM_ACTION_BUILDER_COLLECT_ELIXIR
 			Return $iX >= 320 And $iX <= 350 And $iY >= 395 And $iY <= 420
-		Case $NO_PREMIUM_ACTION_BUILDER_RETURN_HOME
-			Return $iX = 758 And $iY = 160
+                Case $NO_PREMIUM_ACTION_BUILDER_RETURN_HOME
+                        Return $iX = 821 And $iY = 465
 	EndSwitch
 	Return False
 EndFunc   ;==>NoPremiumPermitTargetValid

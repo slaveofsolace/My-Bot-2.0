@@ -147,6 +147,9 @@ class BuilderBaseCollectionRouteTest(unittest.TestCase):
         self.assertIn('"builder-base.collect-gold"', policy)
         self.assertIn('"builder-base.collect-elixir"', policy)
         self.assertIn('"builder-base.return-home"', policy)
+        self.assertIn("Return $iX = 821 And $iY = 465", policy)
+        self.assertIn("$OPEN_BUILDER_RETURN_X = 821", source("COCBot/functions/Run/OpenBuilderBaseCollectors.au3"))
+        self.assertIn("$OPEN_BUILDER_RETURN_Y = 465", source("COCBot/functions/Run/OpenBuilderBaseCollectors.au3"))
 
         self.assertIn("maintenance.builder-collectors.started", events)
         self.assertIn("maintenance.builder-collectors.resource-issued", events)

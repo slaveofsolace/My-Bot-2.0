@@ -16,8 +16,8 @@ Global Const $OPEN_BUILDER_COLLECTOR_ELIXIR = 2
 
 Global Const $OPEN_BUILDER_SWITCH_X = 145
 Global Const $OPEN_BUILDER_SWITCH_Y = 620
-Global Const $OPEN_BUILDER_RETURN_X = 758
-Global Const $OPEN_BUILDER_RETURN_Y = 160
+Global Const $OPEN_BUILDER_RETURN_X = 821
+Global Const $OPEN_BUILDER_RETURN_Y = 465
 
 Func OpenBuilderBaseCollectorsPreparedMode(ByRef $oIntent, ByRef $sError)
 	$sError = ""
@@ -58,9 +58,9 @@ EndFunc   ;==>OpenBuilderBaseHomeBoatPointReady
 Func OpenBuilderBaseReturnBoatPointReady($iX, $iY)
 	If Not NoPremiumPermitTargetValid($NO_PREMIUM_ACTION_BUILDER_RETURN_HOME, $iX, $iY) Then Return False
 	If Not OpenBuilderBaseCurrentFrameReady() Then Return False
-	Return _OpenHomePixelNear(754, 180, 0xAE474A, 56) And _
-			_OpenHomePixelNear(733, 171, 0x2E6C70, 64) And _
-			_OpenHomePixelNear(780, 187, 0x0F6579, 48)
+	Return _OpenHomePixelNear(821, 465, 0xEE5C54, 48) And _
+			_OpenHomePixelNear(798, 442, 0xFFED1A, 48) And _
+			_OpenHomePixelNear(804, 479, 0xD3AC35, 48)
 EndFunc   ;==>OpenBuilderBaseReturnBoatPointReady
 
 Func _OpenBuilderBaseColorRed($iColor)

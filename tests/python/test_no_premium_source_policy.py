@@ -295,7 +295,7 @@ class NoPremiumSourcePolicyTests(unittest.TestCase):
             "$iX = 145 And $iY = 620",
             "$iX >= 500 And $iX <= 530 And $iY >= 405 And $iY <= 435",
             "$iX >= 320 And $iX <= 350 And $iY >= 395 And $iY <= 420",
-            "$iX = 758 And $iY = 160",
+            "$iX = 821 And $iY = 465",
         ):
             self.assertIn(exact, target)
         self.assertIn("$NO_PREMIUM_ACTION_EXACT_TRAINING_ARMY", known)
