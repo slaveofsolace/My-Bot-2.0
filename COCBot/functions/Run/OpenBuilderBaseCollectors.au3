@@ -93,6 +93,28 @@ Func _OpenBuilderBaseIsElixirColor($iColor)
 	Return $iRed >= 130 And $iBlue >= 150 And $iGreen <= 130 And ($iRed + $iBlue - 2 * $iGreen) >= 120
 EndFunc   ;==>_OpenBuilderBaseIsElixirColor
 
+Func _OpenBuilderBaseIsResourceFrameColor($iColor)
+	Local $iRed = _OpenBuilderBaseColorRed($iColor)
+	Local $iGreen = _OpenBuilderBaseColorGreen($iColor)
+	Local $iBlue = _OpenBuilderBaseColorBlue($iColor)
+	Return $iRed >= 185 And $iGreen >= 35 And $iGreen <= 135 And $iBlue <= 85 And $iRed >= $iGreen + 80
+EndFunc   ;==>_OpenBuilderBaseIsResourceFrameColor
+
+; Builder Base resource badges use compact orange-framed square icons. The center resource
+; color is not enough by itself: the frame check prevents scenery, decorations, bars, and
+; the Gem Mine bubble from minting a reviewed point-click permit.
+Func OpenBuilderBaseResourceGeometryScore($iLeft, $iRight, $iTopLeft, $iTopRight, $iBottomLeft, $iBottomRight)
+	Local $iFrame = 0
+	If _OpenBuilderBaseIsResourceFrameColor($iLeft) Then $iFrame += 1
+	If _OpenBuilderBaseIsResourceFrameColor($iRight) Then $iFrame += 1
+	If _OpenBuilderBaseIsResourceFrameColor($iTopLeft) Then $iFrame += 1
+	If _OpenBuilderBaseIsResourceFrameColor($iTopRight) Then $iFrame += 1
+	If _OpenBuilderBaseIsResourceFrameColor($iBottomLeft) Then $iFrame += 1
+	If _OpenBuilderBaseIsResourceFrameColor($iBottomRight) Then $iFrame += 1
+	If $iFrame < 3 Then Return -1
+	Return 6 - $iFrame
+EndFunc   ;==>OpenBuilderBaseResourceGeometryScore
+
 Func _OpenBuilderBaseResourceCandidateAllowed($iType, $iX, $iY)
 	; Narrow to the reviewed current-client Builder Base resource-bubble lane. This prevents gold piles,
 	; decorations, and the green Gem Mine bubble from minting a permit.
@@ -109,10 +131,19 @@ Func OpenBuilderBaseResourceTargetReady($iType, $iX, $iY)
 	If Not OpenBuilderBaseCurrentFrameReady() Or Not NoPremiumPermitTargetValid( _
 			$iType = $OPEN_BUILDER_COLLECTOR_GOLD ? $NO_PREMIUM_ACTION_BUILDER_COLLECT_GOLD : $NO_PREMIUM_ACTION_BUILDER_COLLECT_ELIXIR, _
 			$iX, $iY) Then Return False
-	If Not _OpenBuilderBaseResourceCandidateAllowed($iType, Int($iX), Int($iY)) Then Return False
-	Local $iColor = _OpenBuilderBasePixel(Int($iX), Int($iY))
-	If $iType = $OPEN_BUILDER_COLLECTOR_GOLD Then Return _OpenBuilderBaseIsGoldColor($iColor)
-	Return _OpenBuilderBaseIsElixirColor($iColor)
+	$iX = Int($iX)
+	$iY = Int($iY)
+	If Not _OpenBuilderBaseResourceCandidateAllowed($iType, $iX, $iY) Then Return False
+	Local $iColor = _OpenBuilderBasePixel($iX, $iY)
+	If $iType = $OPEN_BUILDER_COLLECTOR_GOLD And Not _OpenBuilderBaseIsGoldColor($iColor) Then Return False
+	If $iType = $OPEN_BUILDER_COLLECTOR_ELIXIR And Not _OpenBuilderBaseIsElixirColor($iColor) Then Return False
+	Return OpenBuilderBaseResourceGeometryScore( _
+			_OpenBuilderBasePixel($iX - 8, $iY), _
+			_OpenBuilderBasePixel($iX + 8, $iY), _
+			_OpenBuilderBasePixel($iX - 8, $iY - 4), _
+			_OpenBuilderBasePixel($iX + 8, $iY - 4), _
+			_OpenBuilderBasePixel($iX - 8, $iY + 8), _
+			_OpenBuilderBasePixel($iX + 8, $iY + 8)) >= 0
 EndFunc   ;==>OpenBuilderBaseResourceTargetReady
 
 Func OpenBuilderBaseCollectorsDetect(ByRef $aFound)
@@ -130,6 +161,14 @@ Func OpenBuilderBaseCollectorsDetect(ByRef $aFound)
 				$iType = $OPEN_BUILDER_COLLECTOR_ELIXIR
 			EndIf
 			If $iType = 0 Or $aFound[$iType][0] Or Not _OpenBuilderBaseResourceCandidateAllowed($iType, $iX, $iY) Then ContinueLoop
+			Local $iScore = OpenBuilderBaseResourceGeometryScore( _
+					_OpenBuilderBasePixel($iX - 8, $iY), _
+					_OpenBuilderBasePixel($iX + 8, $iY), _
+					_OpenBuilderBasePixel($iX - 8, $iY - 4), _
+					_OpenBuilderBasePixel($iX + 8, $iY - 4), _
+					_OpenBuilderBasePixel($iX - 8, $iY + 8), _
+					_OpenBuilderBasePixel($iX + 8, $iY + 8))
+			If $iScore < 0 Then ContinueLoop
 			$aFound[$iType][0] = 1
 			$aFound[$iType][1] = $iX
 			$aFound[$iType][2] = $iY
