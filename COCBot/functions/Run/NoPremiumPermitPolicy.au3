@@ -66,7 +66,8 @@ Func NoPremiumPermitTargetValid($sAction, $iX, $iY)
 			Return $iX = 431 And $iY = 608
 		Case $NO_PREMIUM_ACTION_DAILY_REWARD_CLAIM
 			Return ($iY = 326 And ($iX = 149 Or $iX = 297 Or $iX = 445)) Or _
-					($iY = 485 And ($iX = 149 Or $iX = 297 Or $iX = 445 Or $iX = 592))
+					($iY = 485 And ($iX = 149 Or $iX = 297 Or $iX = 445)) Or _
+					($iX = 628 And $iY = 483)
 		Case $NO_PREMIUM_ACTION_DAILY_REWARD_CLOSE
 			Return $iX = 759 And $iY = 173
 		Case $NO_PREMIUM_ACTION_RECOVERY_RELOAD_GAME

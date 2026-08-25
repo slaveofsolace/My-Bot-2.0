@@ -240,9 +240,22 @@ class OpenHomeCollectorsTest(unittest.TestCase):
             self.assertIn(f"0x{color:06X}", claim_source)
         self.assertIn("Local $aCandidates[7][2]", find_source)
         self.assertIn("[149, 485]", find_source)
-        self.assertIn("[592, 485]", find_source)
+        self.assertIn("[628, 483]", find_source)
+        self.assertNotIn("[592, 485]", find_source)
         self.assertNotIn("[149, 477]", find_source)
         self.assertNotIn("ImgLoc", overlay_source + claim_source + find_source)
+
+    def test_startup_daily_reward_blocker_reuses_claim_guard_before_battle_start(self):
+        route = source("COCBot/functions/Run/OpenHomeCollectors.au3")
+        resolver = autoit_function(route, "OpenHomeStartupResolveDailyRewardBlocker")
+        gui = source("COCBot/MBR GUI Action.au3")
+        start = autoit_function(gui, "BotStart")
+        self.assertIn("OpenHomeDailyRewardIssueClaim($aClaim[0], $aClaim[1])", resolver)
+        self.assertIn("OpenHomeDailyRewardCloseAndProveHome($bCloseIssued)", resolver)
+        self.assertIn("RunEventLogMaintenanceDailyRewardUnconfirmed", resolver)
+        self.assertIn("OpenHomeStartupResolveDailyRewardBlocker($sStartupRewardOutcome, $sStartError)", start)
+        self.assertLess(start.index("_BotEnsureConfiguredAndroidAndGame"), start.index("OpenHomeStartupResolveDailyRewardBlocker"))
+        self.assertLess(start.index("OpenHomeStartupResolveDailyRewardBlocker"), start.index("MBRFuncInitialize"))
 
     def test_inactivity_reload_dialog_uses_clean_room_anchors_and_exact_point(self):
         route = source("COCBot/functions/Run/OpenHomeCollectors.au3")

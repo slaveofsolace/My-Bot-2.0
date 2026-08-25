@@ -933,6 +933,14 @@ Func BotStart($bAutostartDelay = 0)
 		SetLog($sStartError, $COLOR_ERROR)
 		Return FuncReturn(_BotStartReject($sStartError))
 	EndIf
+	Local $sStartupRewardOutcome = ""
+	If Not OpenHomeStartupResolveDailyRewardBlocker($sStartupRewardOutcome, $sStartError) Then
+		If $sStartError = "" Then $sStartError = "Startup Daily Reward recovery failed"
+		SetLog($sStartError, $COLOR_ERROR)
+		Return FuncReturn(_BotStartReject($sStartError))
+	EndIf
+	If $sStartupRewardOutcome <> "" And $sStartupRewardOutcome <> "not-seen" Then _
+		SetLog("Run Planner: startup Daily Reward state before route=" & $sStartupRewardOutcome, $COLOR_INFO)
 
 	If Not MBRFuncInitialize() Then
 		$sStartError = MBRFuncEngineError()

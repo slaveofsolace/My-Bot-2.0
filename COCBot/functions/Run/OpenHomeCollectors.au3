@@ -302,9 +302,10 @@ EndFunc   ;==>_OpenHomeDailyRewardClaimCandidateReady
 ; actionable state, or >1 for an ambiguous state that must never receive input.
 Func OpenHomeDailyRewardFindClaim(ByRef $aClaim)
 	If Not IsArray($aClaim) Or UBound($aClaim) < 2 Or Not OpenHomeDailyRewardOverlayReady() Then Return 0
-	; The current client places the lower-row recognition center at y=485. The earlier y=477
-	; landed on the white label and sampled above the green control at y-16.
-	Local $aCandidates[7][2] = [[149, 326], [297, 326], [445, 326], [149, 485], [297, 485], [445, 485], [592, 485]]
+	; The current client places the lower-row recognition centers at y=485 except the expanded
+	; rightmost live offer, whose green control is centered at 628,483. The older 592,485 point
+	; lands its left-edge sample on the wood panel and fails the exact button predicate.
+	Local $aCandidates[7][2] = [[149, 326], [297, 326], [445, 326], [149, 485], [297, 485], [445, 485], [628, 483]]
 	Local $iMatches = 0
 	For $i = 0 To UBound($aCandidates) - 1
 		If Not _OpenHomeDailyRewardClaimCandidateReady($aCandidates[$i][0], $aCandidates[$i][1]) Then ContinueLoop
@@ -368,6 +369,103 @@ Func OpenHomeDailyRewardCloseAndProveHome(ByRef $bCloseIssued)
 	Next
 	Return SetError(4, 0, False)
 EndFunc   ;==>OpenHomeDailyRewardCloseAndProveHome
+
+; Resolve a startup Daily Reward panel that blocks another planned route, such as a one-battle run.
+; This helper is intentionally narrower than the Daily Reward route: it may issue one exact Claim
+; and one exact close only when the reviewed clean-room predicates and no-premium guard agree.
+; It never reports a Home-maintenance route as completed and never clicks Okay/Confirm/conversion.
+Func OpenHomeStartupResolveDailyRewardBlocker(ByRef $sOutcome, ByRef $sError)
+	$sOutcome = "not-seen"
+	$sError = ""
+	If RunControlStopRequested() Or Not $g_bRunState Then
+		$sError = "Start cancelled before startup Daily Reward recovery"
+		Return SetError(2, 0, False)
+	EndIf
+
+	Local $bReloadIssued = OpenHomeInactivityReloadIssue()
+	Local $iReloadError = @error
+	If $bReloadIssued Then
+		SetLog("Run Planner: startup inactivity dialog recognized; reload issued before route startup", $COLOR_INFO)
+		If Not OpenHomeStartupRecoveryWait() Then
+			$sOutcome = "reload-unconfirmed"
+			$sError = "Startup reload recovery did not reach Home or a reviewed startup overlay; error=" & @error
+			Return SetError(3, 0, False)
+		EndIf
+	ElseIf $iReloadError = 2 Then
+		$sError = "Start cancelled during startup inactivity recovery"
+		Return SetError(2, 0, False)
+	ElseIf $iReloadError = 6 Then
+		$sOutcome = "gem-surface-blocked"
+		$sError = "Passive no-gem guard recognized a gem surface before startup recovery; no input was issued"
+		Return SetError(6, 0, False)
+	EndIf
+
+	Local $aClaim[2]
+	Local $iClaimButtons = OpenHomeDailyRewardCaptureClaim($aClaim)
+	If @error Then
+		$sError = "The startup Daily Reward framebuffer could not be captured"
+		Return SetError(1, 0, False)
+	EndIf
+	If Not OpenHomeDailyRewardOverlayReady() Then
+		If OpenHomeDailyRewardClaimedOverlayReady() Then
+			Local $bClaimedCloseIssued = False
+			If Not OpenHomeDailyRewardCloseAndProveHome($bClaimedCloseIssued) Then
+				$sOutcome = "claimed-close-unconfirmed"
+				$sError = "Startup Daily Reward was already claimed but Home Village was not re-proven"
+				Return SetError(4, 0, False)
+			EndIf
+			$sOutcome = "already-claimed-closed"
+			Return True
+		EndIf
+		Return True
+	EndIf
+
+	RunEventLogMaintenanceDailyRewardStarted()
+	If $iClaimButtons = 0 Then
+		Local $bNoClaimCloseIssued = False
+		If Not OpenHomeDailyRewardCloseAndProveHome($bNoClaimCloseIssued) Then
+			$sOutcome = "none-actionable-close-unconfirmed"
+			$sError = "Startup Daily Reward had no Claim button and Home Village was not re-proven"
+			Return SetError(4, 0, False)
+		EndIf
+		$sOutcome = "none-actionable-closed"
+		RunEventLogMaintenanceDailyRewardUnavailable("startup-none-actionable")
+		Return True
+	EndIf
+	If $iClaimButtons <> 1 Then
+		$sOutcome = "ambiguous"
+		$sError = "Startup Daily Reward recognition was ambiguous; claim_buttons=" & $iClaimButtons
+		RunEventLogMaintenanceDailyRewardUnconfirmed(False, $sError)
+		Return SetError(5, $iClaimButtons, False)
+	EndIf
+
+	Local $bClaimIssued = OpenHomeDailyRewardIssueClaim($aClaim[0], $aClaim[1])
+	Local $iClaimError = @error
+	If Not $bClaimIssued Then
+		If $iClaimError = 2 Or RunControlStopRequested() Or Not $g_bRunState Then
+			$sError = "Start cancelled before startup Daily Reward Claim"
+			Return SetError(2, 0, False)
+		EndIf
+		$sOutcome = "click-rejected"
+		$sError = $iClaimError = 6 ? _
+				"Passive no-gem guard recognized a gem surface; no startup Daily Reward Claim input was issued" : _
+				"The one startup Daily Reward Claim attempt was rejected after fresh recognition"
+		RunEventLogMaintenanceDailyRewardUnconfirmed(False, $sError)
+		Return SetError($iClaimError = 6 ? 6 : 5, 0, False)
+	EndIf
+
+	RunEventLogMaintenanceDailyRewardClickIssued(1)
+	Local $bCloseIssued = False
+	If Not OpenHomeDailyRewardCloseAndProveHome($bCloseIssued) Then
+		$sOutcome = "click-issued-close-unconfirmed"
+		$sError = "Startup Daily Reward Claim was issued but Home Village was not re-proven; the Claim will not be retried"
+		RunEventLogMaintenanceDailyRewardUnconfirmed(True, $sError)
+		Return SetError(4, 0, False)
+	EndIf
+	$sOutcome = "click-issued-closed"
+	SetLog("Run Planner: startup Daily Reward cleared before selected route; close_issued=" & String($bCloseIssued), $COLOR_SUCCESS)
+	Return True
+EndFunc   ;==>OpenHomeStartupResolveDailyRewardBlocker
 
 ; Current-client 860x732 Home Village cue for the in-game "Collect" label above a Loot Cart.
 ; Eight anti-aliased glyph pixels make the cue unique in the verified redacted Home fixture while
