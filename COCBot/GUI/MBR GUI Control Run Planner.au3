@@ -327,6 +327,17 @@ Func _RunPlannerStartService(ByRef $sError)
 		$sError = "Trusted Local AppData could not be published to the planner service"
 		Return False
 	EndIf
+	; Keep the installed application directory immutable during normal Control Center startup. The
+	; bundled Python runtime must not create __pycache__ files beside the reviewed package payload,
+	; and user-site packages must never shadow the packaged standard library.
+	If Not EnvSet("PYTHONDONTWRITEBYTECODE", "1") Then
+		$sError = "Python no-bytecode mode could not be published to the planner service"
+		Return False
+	EndIf
+	If Not EnvSet("PYTHONNOUSERSITE", "1") Then
+		$sError = "Python user-site isolation could not be published to the planner service"
+		Return False
+	EndIf
 	Local $iPid = Run($sCommand, @ScriptDir, @SW_HIDE)
 	If $iPid = 0 Then
 		$sError = "Python could not start the planner service"
