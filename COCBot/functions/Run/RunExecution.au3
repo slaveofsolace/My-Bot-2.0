@@ -129,6 +129,10 @@ Func ExactRecipeTrainingRouteActive()
 	Return $g_bRunExecutionActive And IsObj($g_oRunExecutionIntent) And ExactRecipeTrainingRouteSelected($g_oRunExecutionIntent)
 EndFunc   ;==>ExactRecipeTrainingRouteActive
 
+Func BuilderMaintenanceRouteActive()
+	Return $g_bRunExecutionActive And IsObj($g_oRunExecutionIntent) And BuilderMaintenanceRouteSelected($g_oRunExecutionIntent)
+EndFunc   ;==>BuilderMaintenanceRouteActive
+
 ; Bind request-only work at the last native boundary that knows the actually loaded profile. The
 ; browser plan intentionally carries no account identifier; using the live profile prevents a stale
 ; saved plan from naming or switching another account. Repeated Apply/Load accepts only the same id.
@@ -137,8 +141,9 @@ Func RunExecutionBindCurrentProfileForHomeRoute(ByRef $oIntent, ByRef $sError)
 	Local $bClanRequest = ClanRequestRouteSelected($oIntent)
 	Local $bCollectors = HomeMaintenanceRouteSelected($oIntent)
 	Local $bExactTraining = ExactRecipeTrainingRouteSelected($oIntent)
-	If Not $bClanRequest And Not $bCollectors And Not $bExactTraining Then Return True
-	Local $sRouteName = $bClanRequest ? "Clan request" : ($bExactTraining ? "Exact saved-recipe training" : "Home maintenance")
+	Local $bBuilderCollectors = BuilderMaintenanceRouteSelected($oIntent)
+	If Not $bClanRequest And Not $bCollectors And Not $bExactTraining And Not $bBuilderCollectors Then Return True
+	Local $sRouteName = $bClanRequest ? "Clan request" : ($bExactTraining ? "Exact saved-recipe training" : ($bBuilderCollectors ? "Builder Base maintenance" : "Home maintenance"))
 	Local $sActiveProfile = StringStripWS(String($g_sProfileCurrentName), $STR_STRIPLEADING + $STR_STRIPTRAILING)
 	If $sActiveProfile = "" Or StringLen($sActiveProfile) > 64 Or _
 			Not StringRegExp($sActiveProfile, "^[A-Za-z0-9_. -]+$") Then
@@ -158,6 +163,8 @@ Func RunExecutionBindCurrentProfileForHomeRoute(ByRef $oIntent, ByRef $sError)
 		$bMatches = ClanRequestRouteAccountMatches($oIntent, $sActiveProfile)
 	ElseIf $bExactTraining Then
 		$bMatches = ExactRecipeTrainingRouteAccountMatches($oIntent, $sActiveProfile)
+	ElseIf $bBuilderCollectors Then
+		$bMatches = BuilderMaintenanceRouteAccountMatches($oIntent, $sActiveProfile)
 	Else
 		$bMatches = HomeMaintenanceRouteAccountMatches($oIntent, $sActiveProfile)
 	EndIf

@@ -30,8 +30,8 @@
     "dynamic_dispatch": ["DynamicCall"]
   },
   "owner_fingerprint": {
-    "count": 465,
-    "sha256": "378f7acd6e48ec15c4a9ed859a807f0205a4fc0da647a44b998a155d84fb4033"
+    "count": 468,
+    "sha256": "2ef3e9bc6e540ebcb3c11be1185ac400531207b96701b2034e1389824ca91b5f"
   },
   "mappings": [
     {
@@ -232,6 +232,13 @@
       "path_globs": ["COCBot/functions/Run/LootCartRoute.au3", "COCBot/functions/Run/OpenHomeCollectors.au3"],
       "capability_ids": ["village.collectors", "village.loot-cart", "events.daily-reward"],
       "reason": "The terminal Home adapter owns collector, Loot Cart, and Daily Reward action sinks."
+    },
+    {
+      "id": "capability.builder-collection",
+      "policy": "capability",
+      "path_globs": ["COCBot/functions/Run/OpenBuilderBaseCollectors.au3"],
+      "capability_ids": ["builder-base.resources"],
+      "reason": "The terminal clean-room Builder Base adapter owns only the bounded switch, ordinary Builder Gold/Elixir resource clicks, and Home-return inputs."
     },
     {
       "id": "capability.treasury",

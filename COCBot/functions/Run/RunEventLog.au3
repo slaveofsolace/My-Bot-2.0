@@ -373,14 +373,66 @@ EndFunc   ;==>RunEventLogMaintenanceCollectorsCompleted
 Func RunEventLogMaintenanceCollectorsNoneActionable()
 	If Not $g_bRunEventSessionBound Then Return False
 	Return RunEventLogWrite("maintenance.collectors.none-actionable", "warning", _
-			"No collector click was issued; recognition returned none or storage/threshold guards skipped every match; collector_clicks=0", _
-			$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+					"No collector click was issued; recognition returned none or storage/threshold guards skipped every match; collector_clicks=0", _
+					$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
 EndFunc   ;==>RunEventLogMaintenanceCollectorsNoneActionable
+
+Func RunEventLogBuilderMaintenanceStarted()
+	If Not $g_bRunEventSessionBound Then Return False
+	Return RunEventLogWrite("maintenance.builder-collectors.started", "info", _
+					"Builder Base resource pass started; max_switch=1; max_resource_clicks=2; max_return=1; gems=false", _
+					$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogBuilderMaintenanceStarted
+
+Func RunEventLogBuilderMaintenanceSwitchIssued()
+	If Not $g_bRunEventSessionBound Then Return False
+	Return RunEventLogWrite("maintenance.builder-collectors.switch-issued", "info", _
+					"One exact Home-to-Builder switch input was issued; switch_attempts=1; gems=false", _
+					$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogBuilderMaintenanceSwitchIssued
+
+Func RunEventLogBuilderMaintenanceResourceIssued($iType, $iX, $iY)
+	If Not $g_bRunEventSessionBound Then Return False
+	Local $sKind = Int($iType) = 1 ? "gold" : "elixir"
+	Return RunEventLogWrite("maintenance.builder-collectors.resource-issued", "info", _
+					"One Builder " & $sKind & " resource input was issued at " & Int($iX) & "," & Int($iY) & _
+					"; confirmation_inputs=0; gems=false", _
+					$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogBuilderMaintenanceResourceIssued
+
+Func RunEventLogBuilderMaintenanceNoneActionable()
+	If Not $g_bRunEventSessionBound Then Return False
+	Return RunEventLogWrite("maintenance.builder-collectors.none-actionable", "warning", _
+					"No Builder Gold/Elixir input was issued; reviewed clean-room recognition returned no actionable resource bubbles", _
+					$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogBuilderMaintenanceNoneActionable
+
+Func RunEventLogBuilderMaintenanceUnconfirmed($iIssued, $sDetail)
+	If Not $g_bRunEventSessionBound Then Return False
+	Return RunEventLogWrite("maintenance.builder-collectors.unconfirmed", "error", _
+					"builder_resource_clicks=" & Int($iIssued) & "; retries=0; gems=false; " & String($sDetail), _
+					$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogBuilderMaintenanceUnconfirmed
+
+Func RunEventLogBuilderMaintenanceHomeVerified($iIssued)
+	If Not $g_bRunEventSessionBound Then Return False
+	Return RunEventLogWrite("maintenance.builder-collectors.home-verified", "info", _
+					"Home Village re-proven after Builder Base collection; builder_resource_clicks=" & Int($iIssued), _
+					$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogBuilderMaintenanceHomeVerified
+
+Func RunEventLogBuilderMaintenanceCompleted($iIssued)
+	If Not $g_bRunEventSessionBound Then Return False
+	If Int($iIssued) < 1 Then Return False
+	Return RunEventLogWrite("maintenance.builder-collectors.completed", "info", _
+					"Builder Base collection completed; builder_resource_clicks=" & Int($iIssued), _
+					$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogBuilderMaintenanceCompleted
 
 Func RunEventLogClanRequestStarted()
 	If Not $g_bRunEventSessionBound Then Return False
 	Return RunEventLogWrite("maintenance.clan-request.started", "info", _
-			"Request-only Home Village pass started", $g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+					"Request-only Home Village pass started", $g_sRunEventSurfaceId, $g_sRunEventVerificationState)
 EndFunc   ;==>RunEventLogClanRequestStarted
 
 Func RunEventLogClanRequestUnavailable($sBeforeState)

@@ -221,8 +221,10 @@ Func _BotStartRunOneShot($iRoute, ByRef $sStartError)
 			$bResult = _BotStartOpenClanRequest($sStartError)
 		Case 6
 			$bResult = _BotStartExactRecipeTraining($sStartError)
+		Case 7
+			$bResult = _BotStartOpenBuilderCollectors($sStartError)
 		Case Else
-			$bResult = _BotOpenCollectorsReject("Terminal Home route selection changed before execution")
+			$bResult = _BotOpenCollectorsReject("Terminal Home/Builder route selection changed before execution")
 	EndSwitch
 	ReleaseExactAndroidInstanceLock()
 	LockBotSlot(False)
@@ -293,6 +295,76 @@ Func _BotStartOpenHomeCollectors(ByRef $sStartError)
 	SetLog("Run Planner: " & $sMessage, $COLOR_SUCCESS)
 	Return True
 EndFunc   ;==>_BotStartOpenHomeCollectors
+
+; Run one Builder Base collection pass without loading the restricted managed image engine. The route
+; may start from Home Village or an already-open Builder Base, but it must finish by re-proving Home.
+Func _BotStartOpenBuilderCollectors(ByRef $sStartError)
+	If RunControlStopRequested() Then Return _BotOpenCollectorsReject("Template-free Builder Base collectors cancelled before attachment", "cancelled")
+	If Not RunExecutionApplyPrepared($sStartError) Then Return _BotOpenCollectorsReject($sStartError)
+	Local $oIntent = RunExecutionPreparedIntent()
+	If Not IsObj($oIntent) Or Not BuilderMaintenanceRouteAccountMatches($oIntent, $g_sProfileCurrentName) Then _
+			Return _BotOpenCollectorsReject("The active profile no longer matches the account bound at Start")
+	Local $sAttachmentError = ""
+	If Not _BotOpenHomeEnsureExactBlueStacks($sAttachmentError) Then Return _BotOpenCollectorsReject($sAttachmentError)
+	If Not $g_bAndroidAdbScreencap Or Not AndroidControlAvailable() Or _
+			Not IsArray(GetBlueStacks5ModernAdbSurfacePosition()) Then _
+			Return _BotOpenCollectorsReject("The exact BlueStacks 5 framebuffer/control surface is not available")
+	If Not OpenHomeCollectorsProveHome() And Not OpenBuilderBaseCollectorsProveBuilder() Then _
+			Return _BotOpenCollectorsReject("Neither Home Village nor Builder Base could be proven before Builder collection")
+	If RunControlStopRequested() Then Return _BotOpenCollectorsReject("Template-free Builder Base collectors cancelled before execution", "cancelled")
+
+	$g_bRunState = True
+	$g_bTogglePauseAllowed = False
+	If Not RunExecutionBegin($sStartError) Then Return _BotOpenCollectorsReject($sStartError)
+	RunControlReportStartOutcome(True, "Template-free Builder Base collectors started")
+	RunEventLogBuilderMaintenanceStarted()
+
+	Local $bCollected = OpenBuilderBaseCollectorsCollectOnePass(2)
+	Local $iCollectError = @error
+	Local $iCollectorClicks = @extended
+	If Not $bCollected Then
+		If $iCollectError = 2 Or RunControlStopRequested() Or Not $g_bRunState Then
+			RunExecutionComplete("stopped")
+			RunControlReportOneShotOutcome("stopped", "Template-free Builder Base collectors stopped")
+			Return False
+		EndIf
+		$sStartError = "Template-free Builder Base collectors failed"
+		Switch $iCollectError
+			Case 1
+				$sStartError &= ": starting village state was not proven"
+			Case 3
+				$sStartError &= ": Builder Base was not proven before input"
+			Case 4
+				$sStartError &= ": the selected Builder resource click was not accepted"
+			Case 5
+				$sStartError &= ": Builder Base did not become visible after the switch"
+			Case 6
+				$sStartError &= ": passive no-gem guard recognized a gem surface; no further input was issued"
+			Case 7
+				$sStartError &= ": Home Village was not re-proven after Builder Base collection; inputs will not be retried"
+			Case Else
+				$sStartError &= ": the bounded adapter returned an unknown outcome"
+		EndSwitch
+		RunEventLogBuilderMaintenanceUnconfirmed($iCollectorClicks, $sStartError)
+		RunEventLogRunFailed("builder", $RUN_VERIFICATION_DIAGNOSTIC, $sStartError)
+		RunExecutionCancelPrepared($sStartError)
+		RunControlReportOneShotOutcome("failed", $sStartError)
+		Return False
+	EndIf
+
+	RunEventLogBuilderMaintenanceHomeVerified($iCollectorClicks)
+	If $iCollectorClicks > 0 Then
+		RunEventLogBuilderMaintenanceCompleted($iCollectorClicks)
+	Else
+		RunEventLogBuilderMaintenanceNoneActionable()
+	EndIf
+	Local $sReason = $iCollectorClicks > 0 ? "builder-collectors-open-complete" : "builder-collectors-open-none-actionable"
+	RunExecutionComplete($sReason)
+	Local $sMessage = "Template-free Builder Base collectors completed; builder_resource_clicks=" & $iCollectorClicks
+	RunControlReportOneShotOutcome("completed", $sMessage)
+	SetLog("Run Planner: " & $sMessage, $COLOR_SUCCESS)
+	Return True
+EndFunc   ;==>_BotStartOpenBuilderCollectors
 
 Func _BotStartOpenHomeLootCart(ByRef $sStartError)
 	If RunControlStopRequested() Then Return _BotOpenCollectorsReject("Template-free Loot Cart cancelled before attachment", "cancelled")
@@ -820,6 +892,9 @@ Func BotStart($bAutostartDelay = 0)
 	If $iOpenCollectorsMode >= 1 And $iOpenCollectorsMode <= 4 Then _
 		Return FuncReturn(_BotStartRunOneShot($iOpenCollectorsMode, $sStartError))
 	If $iOpenCollectorsMode = -1 Then Return FuncReturn(_BotOpenCollectorsReject($sStartError))
+	Local $iOpenBuilderMode = OpenBuilderBaseCollectorsPreparedMode($oPreparedIntent, $sStartError)
+	If $iOpenBuilderMode = 1 Then Return FuncReturn(_BotStartRunOneShot(7, $sStartError))
+	If $iOpenBuilderMode = -1 Then Return FuncReturn(_BotOpenCollectorsReject($sStartError))
 	If ClanRequestRouteSelected($oPreparedIntent) Then Return FuncReturn(_BotStartRunOneShot(5, $sStartError))
 	If ExactRecipeTrainingRouteSelected($oPreparedIntent) Then Return FuncReturn(_BotStartRunOneShot(6, $sStartError))
 	; Readiness belongs to this Start attempt. A previous run may have left the

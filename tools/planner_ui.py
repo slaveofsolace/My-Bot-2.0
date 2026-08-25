@@ -424,7 +424,12 @@ def engine_preflight(plan: dict) -> list[str]:
             continue
         selected = plan.get(setting_id)
         option = next((item for item in setting.get("options", []) if item.get("value") == selected), None)
-        if option and option.get("availability") in {"planned", "unsupported"}:
+        builder_collection_surface = (
+            setting_id == "run.surface"
+            and selected == "builder"
+            and str(plan.get("run.strategy", "")).strip().lower() == "builder.collectors"
+        )
+        if option and option.get("availability") in {"planned", "unsupported"} and not builder_collection_surface:
             problems.append(f"{setting_id}: {option.get('label', selected)} is not implemented by the native engine")
         elif option and option.get("availability") == "gated" and not bool(plan.get("run.diagnostic_mode")):
             problems.append(
@@ -437,11 +442,12 @@ def engine_preflight(plan: dict) -> list[str]:
     script = str(plan.get("run.attack_script", "")).strip()
     planned_town_hall = int(plan.get("run.town_hall", 0))
     home_maintenance = strategy == "home.collectors"
+    builder_collectors = strategy == "builder.collectors"
     clan_request_only = strategy == "home.clan-request"
     exact_recipe_training = strategy == "army.exact-recipe"
-    if surface != "regular":
+    if surface != "regular" and not (builder_collectors and surface == "builder"):
         problems.append("run.surface: the native engine is currently wired only to Regular Battles")
-    if strategy not in {"legacy.csv", "legacy.standard", "smart.local", "home.collectors", "home.clan-request", "army.exact-recipe"}:
+    if strategy not in {"legacy.csv", "legacy.standard", "smart.local", "home.collectors", "builder.collectors", "home.clan-request", "army.exact-recipe"}:
         problems.append(f"run.strategy: {strategy or 'blank'} has no native execution adapter")
     if strategy in {"legacy.csv", "legacy.standard", "smart.local"}:
         problems.append(
@@ -494,6 +500,37 @@ def engine_preflight(plan: dict) -> list[str]:
             problems.append("upgrade.policy: Home maintenance requires upgrades disabled")
         if str(plan.get("account.queue", "")).strip():
             problems.append("account.queue: Home maintenance cannot rotate accounts")
+    elif builder_collectors:
+        if surface != "builder":
+            problems.append("run.surface: Builder Base collection requires the Builder Base surface")
+        if not bool(plan.get("run.diagnostic_mode")):
+            problems.append("run.diagnostic_mode: Builder Base collection requires supervised diagnostic acknowledgement")
+        if not bool(plan.get("events.collect_resources")) or bool(plan.get("events.collect_daily_reward")) or bool(plan.get("events.collect_loot_cart")) or bool(plan.get("events.collect_treasury")):
+            problems.append("events: Builder Base collection requires only Builder resource collection")
+        if manages_training or bool(plan.get("army.wait_for_full")) or bool(plan.get("army.train_spells")) or bool(plan.get("army.train_sieges")):
+            problems.append("army: Builder Base collection requires training, army wait, spells, and sieges off")
+        if plan.get("run.heroes"):
+            problems.append("run.heroes: Builder Base collection requires no selected Heroes")
+        if int(plan.get("run.duration_minutes", 0)) != 0 or int(plan.get("run.max_battles", 0)) != 0 or bool(plan.get("run.stop_on_star_bonus")) or int(plan.get("run.max_failures", 0)) != 0:
+            problems.append("run: Builder Base collection is one pass; duration, battles, star bonus, and failure limits must be 0/off")
+        if any(int(plan.get(key, 0)) != 0 for key in ("target.gold", "target.elixir", "target.dark_elixir", "search.min_gold", "search.min_elixir", "search.min_dark", "search.max_seconds")):
+            problems.append("search/targets: Builder Base collection cannot configure matchmaking or battle-loot targets")
+        if str(plan.get("donate.mode", "")).strip().lower() != "off" or bool(plan.get("donate.request_when_short")) or int(plan.get("donate.max_per_run", 0)) != 0:
+            problems.append("donate: Builder Base collection requires donations and requests off")
+        if bool(plan.get("events.clan_games")) or int(plan.get("events.clan_games_point_cap", 0)) != 0:
+            problems.append("events.clan_games: Builder Base collection cannot enter Clan Games")
+        if str(plan.get("events.laboratory", "")).strip().lower() != "off":
+            problems.append("events.laboratory: Builder Base collection requires Laboratory off")
+        if str(plan.get("upgrade.policy", "")).strip().lower() != "disabled":
+            problems.append("upgrade.policy: Builder Base collection requires upgrades disabled")
+        if str(plan.get("account.queue", "")).strip():
+            problems.append("account.queue: Builder Base collection cannot rotate accounts")
+        if int(plan.get("pacing.break_every_minutes", 0)) != 0:
+            problems.append("pacing.break_every_minutes: Builder Base collection requires scheduled breaks off")
+        if str(plan.get("runtime.emulator", "")).strip().lower() != "bluestacks5":
+            problems.append("runtime.emulator: Builder Base collection currently requires BlueStacks 5")
+        if not str(plan.get("runtime.instance", "")).strip():
+            problems.append("runtime.instance: Builder Base collection requires an exact emulator instance")
     elif clan_request_only:
         if not bool(plan.get("run.diagnostic_mode")):
             problems.append("run.diagnostic_mode: Clan request requires supervised diagnostic acknowledgement")

@@ -1316,6 +1316,25 @@
               "warning": ""
             },
             {
+              "value": "builder.collectors",
+              "label": "Builder Base collection",
+              "summary": "Run one clean-room Builder Base resource collection pass.",
+              "description": "Switches to Builder Base when needed, recognizes only reviewed Builder Gold/Elixir resource bubbles on the exact current client, issues at most two resource clicks, returns Home, and stops. It cannot attack, upgrade, clear obstacles, train, donate, enter Star Laboratory, collect the Gem Mine, rotate accounts, or use gems.",
+              "availability": "gated",
+              "runtime_verified": false,
+              "disabled_reason": "Current-client Builder Base collection requires an exact live receipt before it is considered accepted.",
+              "capability_ids": [
+                "builder-base.resources"
+              ],
+              "prerequisites": [
+                "Exact BlueStacks 5 instance",
+                "A supervised diagnostic operator",
+                "Current Builder Base resource bubbles"
+              ],
+              "recommended": false,
+              "warning": "Diagnostic only: one Builder Gold/Elixir collection pass may mutate ordinary Builder resources; Gem Mine collection is intentionally excluded."
+            },
+            {
               "value": "builder.baby-dragon",
               "label": "Builder Base routine",
               "summary": "Deployment routine for Builder Base battles.",

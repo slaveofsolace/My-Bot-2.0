@@ -21,13 +21,13 @@ class FullSystemInventoryTests(unittest.TestCase):
                 "compile_targets": 6,
                 "control_actions": 6,
                 "infrastructure_routes": 8,
-                "actuator_owners": 465,
-                "actuator_sites": 1179,
+                "actuator_owners": 468,
+                "actuator_sites": 1182,
                 "exact_current_capabilities_ready": 0,
                 "capability_truth_statuses": {"BLOCKED_EXTERNAL": 53, "FIXTURE_PROVEN": 8},
                 "fixture_truth_statuses": {"BLOCKED_EXTERNAL": 49, "FIXTURE_PROVEN": 8},
                 "actuator_truth_statuses": {
-                    "BLOCKED_EXTERNAL": 30,
+                    "BLOCKED_EXTERNAL": 33,
                     "NOT_APPLICABLE": 182,
                     "UNSUPPORTED": 253,
                 },
@@ -103,7 +103,7 @@ class FullSystemInventoryTests(unittest.TestCase):
             report["counts"]["fixture_truth_statuses"],
         )
         self.assertEqual(
-            {"BLOCKED_EXTERNAL": 30, "NOT_APPLICABLE": 182, "UNSUPPORTED": 253},
+            {"BLOCKED_EXTERNAL": 33, "NOT_APPLICABLE": 182, "UNSUPPORTED": 253},
             report["counts"]["actuator_truth_statuses"],
         )
         self.assertTrue(all(item["truth_status"] != "DEFERRED" for item in report["capabilities"]))

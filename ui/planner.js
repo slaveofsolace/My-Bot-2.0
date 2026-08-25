@@ -41,6 +41,29 @@ const STRATEGY_SAFETY_PATCHES = {
       'pacing.break_every_minutes': 0, 'pacing.break_minutes': 5,
     },
   },
+  'builder.collectors': {
+    label: 'Builder Base collection safety settings',
+    values: {
+      'run.surface': 'builder', 'run.strategy': 'builder.collectors', 'run.attack_script': 'profile-current',
+      'run.town_hall': 0, 'run.heroes': [], 'run.duration_minutes': 0, 'run.max_battles': 0,
+      'run.stop_on_star_bonus': false, 'run.max_failures': 0,
+      'target.gold': 0, 'target.elixir': 0, 'target.dark_elixir': 0,
+      'upgrade.policy': 'disabled', 'account.queue': '',
+      'army.source': 'recipe', 'army.recipe_name': '', 'army.recipe_digest': '', 'army.max_queue_units': 0,
+      'army.manage_training': false, 'army.wait_for_full': false, 'army.train_spells': false, 'army.train_sieges': false,
+      'search.min_gold': 0, 'search.min_elixir': 0, 'search.min_dark': 0,
+      'search.max_seconds': 0, 'search.town_hall_filter': 'any',
+      'donate.mode': 'off', 'donate.keep_army': true, 'donate.max_per_run': 0,
+      'donate.request_when_short': false,
+      'events.clan_games': false, 'events.clan_games_point_cap': 0,
+      'events.laboratory': 'off', 'events.collect_resources': true, 'events.collect_daily_reward': false,
+      'events.collect_loot_cart': false,
+      'events.collect_treasury': false,
+      'notify.on_stop': true, 'notify.on_error': true, 'notify.channel': 'log-only',
+      'pacing.action_delay_ms': 180, 'pacing.settle_ms': 650, 'pacing.retry_attempts': 0,
+      'pacing.break_every_minutes': 0, 'pacing.break_minutes': 5,
+    },
+  },
   'home.clan-request': {
     label: 'Clan-request-only safety settings',
     values: {
@@ -175,7 +198,7 @@ const SURFACE_DEFINITIONS = [
     view: 'plan',
     group: 'match',
     title: 'Builder Base',
-    description: 'Builder Base is visible here only as a blocked route until current-client adapters exist.',
+    description: 'Builder Base exposes the bounded clean-room collection route. Battles and upgrades stay blocked until current-client adapters exist.',
     settingIds: ['run.surface', 'run.strategy'],
     blocked: true,
   },
@@ -245,7 +268,7 @@ const CAPABILITY_GROUPS = [
   },
   {
     label: 'Builder Base and Capital',
-    ids: ['builder-base.upgrades', 'builder-base.battles', 'builder-base.additional-builder', 'clan-capital.upgrades'],
+    ids: ['builder-base.resources', 'builder-base.upgrades', 'builder-base.battles', 'builder-base.additional-builder', 'clan-capital.upgrades'],
   },
   {
     label: 'Events, accounts, and recovery',
@@ -713,7 +736,8 @@ function planSurfaceSections(surface) {
 
 function builderBaseUnavailableReason() {
   const surface = optionOf(findSetting('run.surface'), 'builder');
-  const strategy = optionOf(findSetting('run.strategy'), 'builder.baby-dragon');
+  const selectedStrategy = PLAN['run.strategy'] === 'builder.collectors' ? 'builder.collectors' : 'builder.baby-dragon';
+  const strategy = optionOf(findSetting('run.strategy'), selectedStrategy);
   const reasons = [surface?.disabled_reason, strategy?.disabled_reason].filter(Boolean);
   return reasons.length
     ? reasons.join(' ')
@@ -740,11 +764,15 @@ function renderPlanSurfaceChrome(surface = activeSurface()) {
   }
   const title = context.querySelector('strong');
   const text = context.querySelector('p');
-  title.textContent = planSurface.blocked ? 'Unavailable in this build' : `${planSurface.title} surface`;
+  const builderCollectors = planSurface.id === 'builder' && PLAN['run.strategy'] === 'builder.collectors';
+  const blocked = planSurface.blocked && !builderCollectors;
+  title.textContent = blocked ? 'Unavailable in this build' : `${planSurface.title} surface`;
   text.textContent = planSurface.id === 'builder'
-    ? `${builderBaseUnavailableReason()} The controls below are shown for review only; Start remains blocked.`
+    ? (builderCollectors
+      ? 'Builder Base collection is available as one bounded supervised pass: switch to Builder Base, collect ordinary Builder Gold/Elixir bubbles, then return Home. Builder battles, Builder upgrades, Gem Mine, and other routes remain unavailable until separately proven.'
+      : `${builderBaseUnavailableReason()} The controls below are shown for review only; Start remains blocked.`)
     : `${planSurface.description} These controls use the same persisted planner values as Run Planner.`;
-  context.className = `surface-context${planSurface.blocked ? ' is-blocked' : ''}`;
+  context.className = `surface-context${blocked ? ' is-blocked' : ''}`;
   context.hidden = false;
 }
 
@@ -1215,11 +1243,12 @@ function clientProblems(plan = PLAN) {
     }
   }
 
-  if (plan['run.surface'] !== 'regular') addProblem(problems, 'Only Regular Battles can start through the native engine.', 'run.surface');
   const homeMaintenance = plan['run.strategy'] === 'home.collectors';
+  const builderCollectors = plan['run.strategy'] === 'builder.collectors';
   const clanRequestOnly = plan['run.strategy'] === 'home.clan-request';
   const exactRecipeTraining = plan['run.strategy'] === 'army.exact-recipe';
-  if (!['legacy.csv', 'legacy.standard', 'smart.local', 'home.collectors', 'home.clan-request', 'army.exact-recipe'].includes(plan['run.strategy'])) {
+  if (plan['run.surface'] !== 'regular' && !(builderCollectors && plan['run.surface'] === 'builder')) addProblem(problems, 'Only Regular Battles and the bounded Builder collection route can start through the native engine.', 'run.surface');
+  if (!['legacy.csv', 'legacy.standard', 'smart.local', 'home.collectors', 'builder.collectors', 'home.clan-request', 'army.exact-recipe'].includes(plan['run.strategy'])) {
     addProblem(problems, 'The selected deployment routine has no native adapter.', 'run.strategy');
   }
   if (['legacy.csv', 'legacy.standard', 'smart.local'].includes(plan['run.strategy'])) {
@@ -1270,6 +1299,22 @@ function clientProblems(plan = PLAN) {
     if (plan['events.laboratory'] !== 'off') addProblem(problems, 'Home maintenance requires Laboratory off.', 'events.laboratory');
     if (plan['upgrade.policy'] !== 'disabled') addProblem(problems, 'Home maintenance requires upgrades disabled.', 'upgrade.policy');
     if (String(plan['account.queue'] || '').trim()) addProblem(problems, 'Home maintenance cannot rotate accounts.', 'account.queue');
+  } else if (builderCollectors) {
+    if (plan['run.surface'] !== 'builder') addProblem(problems, 'Builder Base collection requires the Builder Base surface.', 'run.surface');
+    if (emulator !== 'bluestacks5' || !instance) addProblem(problems, 'Builder Base collection requires the exact BlueStacks 5 instance.', 'runtime.instance');
+    if (instance && !/^[A-Za-z0-9_. -]{1,64}$/.test(instance)) addProblem(problems, 'The Builder route instance name contains unsupported characters.', 'runtime.instance');
+    if (!plan['run.diagnostic_mode']) addProblem(problems, 'Builder Base collection requires supervised diagnostic acknowledgement.', 'run.diagnostic_mode');
+    if (plan['events.collect_resources'] !== true || plan['events.collect_daily_reward'] || plan['events.collect_loot_cart'] || plan['events.collect_treasury']) addProblem(problems, 'Builder Base collection requires only Builder resource collection.', 'events.collect_resources');
+    if (plan['army.manage_training'] || plan['army.wait_for_full'] || plan['army.train_spells'] || plan['army.train_sieges']) addProblem(problems, 'Builder Base collection requires training, army wait, spells, and sieges off.', 'army.manage_training');
+    if (asList(plan['run.heroes']).length) addProblem(problems, 'Builder Base collection requires no selected Heroes.', 'run.heroes');
+    if (Number(plan['run.duration_minutes']) !== 0 || Number(plan['run.max_battles']) !== 0 || plan['run.stop_on_star_bonus'] || Number(plan['run.max_failures']) !== 0) addProblem(problems, 'Builder Base collection is one pass; duration, battles, star bonus, and failure limits must be 0/off.', 'run.max_battles');
+    if (['target.gold', 'target.elixir', 'target.dark_elixir', 'search.min_gold', 'search.min_elixir', 'search.min_dark', 'search.max_seconds'].some((key) => Number(plan[key]) !== 0)) addProblem(problems, 'Builder Base collection cannot configure matchmaking or battle-loot targets.', 'search.min_gold');
+    if (plan['donate.mode'] !== 'off' || plan['donate.request_when_short'] || Number(plan['donate.max_per_run']) !== 0) addProblem(problems, 'Builder Base collection requires donations and requests off.', 'donate.mode');
+    if (plan['events.clan_games'] || Number(plan['events.clan_games_point_cap']) !== 0) addProblem(problems, 'Builder Base collection cannot enter Clan Games.', 'events.clan_games');
+    if (plan['events.laboratory'] !== 'off') addProblem(problems, 'Builder Base collection requires Laboratory off.', 'events.laboratory');
+    if (plan['upgrade.policy'] !== 'disabled') addProblem(problems, 'Builder Base collection requires upgrades disabled.', 'upgrade.policy');
+    if (String(plan['account.queue'] || '').trim()) addProblem(problems, 'Builder Base collection cannot rotate accounts.', 'account.queue');
+    if (Number(plan['pacing.break_every_minutes']) !== 0) addProblem(problems, 'Builder Base collection requires scheduled breaks off.', 'pacing.break_every_minutes');
   } else if (clanRequestOnly) {
     if (!plan['run.diagnostic_mode']) addProblem(problems, 'Clan request requires supervised diagnostic acknowledgement.', 'run.diagnostic_mode');
     if (plan['army.manage_training'] || plan['army.wait_for_full'] || plan['army.train_spells'] || plan['army.train_sieges']) addProblem(problems, 'Clan request requires training, army wait, spells, and sieges off.', 'army.manage_training');
@@ -2036,6 +2081,7 @@ function capabilityLabel(id) {
     'village.laboratory': 'Laboratory research',
     'village.town-hall-18': 'Town Hall 18 recognition',
     'village.guardians': 'Guardians',
+    'builder-base.resources': 'Builder Base resources',
     'builder-base.upgrades': 'Builder Base upgrades',
     'builder-base.battles': 'Builder Base battles',
     'builder-base.additional-builder': 'Additional Builder',

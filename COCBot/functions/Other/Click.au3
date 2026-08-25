@@ -118,6 +118,14 @@ Func NoPremiumSurfaceState(ByRef $sReason, $sPermitAction = "", $iExpectedX = De
 			$bRouteReady = OpenClanRequestCancelPointReady(Int($iExpectedX), Int($iExpectedY))
 		Case $NO_PREMIUM_ACTION_CLAN_REQUEST_CLOSE
 			$bRouteReady = OpenClanRequestClosePointReady(Int($iExpectedX), Int($iExpectedY))
+		Case $NO_PREMIUM_ACTION_BUILDER_SWITCH
+			$bRouteReady = OpenBuilderBaseHomeBoatPointReady(Int($iExpectedX), Int($iExpectedY))
+		Case $NO_PREMIUM_ACTION_BUILDER_COLLECT_GOLD
+			$bRouteReady = OpenBuilderBaseResourceTargetReady(1, Int($iExpectedX), Int($iExpectedY))
+		Case $NO_PREMIUM_ACTION_BUILDER_COLLECT_ELIXIR
+			$bRouteReady = OpenBuilderBaseResourceTargetReady(2, Int($iExpectedX), Int($iExpectedY))
+		Case $NO_PREMIUM_ACTION_BUILDER_RETURN_HOME
+			$bRouteReady = OpenBuilderBaseReturnBoatPointReady(Int($iExpectedX), Int($iExpectedY))
 	EndSwitch
 	If $bRouteReady Then Return $NO_PREMIUM_SURFACE_SAFE
 	$sReason = "positive current-client surface was not recognized for action " & $sPermitAction

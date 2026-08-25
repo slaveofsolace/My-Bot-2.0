@@ -55,6 +55,7 @@ Global $g_hFrmBot = 0 ; The main GUI window
 #include "COCBot\functions\Run\OpenHomeCollectors.au3"
 #include "COCBot\functions\Run\OpenHomeTreasury.au3"
 #include "COCBot\functions\Run\OpenClanRequest.au3"
+#include "COCBot\functions\Run\OpenBuilderBaseCollectors.au3"
 #include "COCBot\functions\Run\RunControlBridge.au3"
 ; MBR References.au3 must be last include
 #include "COCBot\MBR References.au3"

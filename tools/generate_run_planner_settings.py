@@ -363,16 +363,26 @@ def main() -> int:
                                    "gated", ["army.training"], ["Recipe id", "Recipe digest", "Queue cap", "Exact emulator instance", "A supervised diagnostic operator"],
                                    disabled_reason="Exact saved-recipe training needs a supervised diagnostic acknowledgement and current saved-recipe recognition.",
                                    warning="This route is fail-closed: if the saved recipe is not freshly recognized, no queue input is issued."),
-                            option("legacy.smart-farm", "Smart farm",
-                                   "Targets collectors and storages based on the base layout.",
-                                   "Reads the base to choose where to drop, which needs current building recognition "
-                                   "including the Town Hall 18 additions.",
-                                   "planned", ["village.town-hall-18"], ["Current building recognition"],
-                                   disabled_reason="The native execution contract has no Smart farm adapter."),
-                            option("builder.baby-dragon", "Builder Base routine",
-                                   "Deployment routine for Builder Base battles.",
-                                   "A Builder Base specific deployment. It is not implemented against the current "
-                                   "Builder Base layout yet.",
+                             option("legacy.smart-farm", "Smart farm",
+                                    "Targets collectors and storages based on the base layout.",
+                                    "Reads the base to choose where to drop, which needs current building recognition "
+                                    "including the Town Hall 18 additions.",
+                                    "planned", ["village.town-hall-18"], ["Current building recognition"],
+                                    disabled_reason="The native execution contract has no Smart farm adapter."),
+                             option("builder.collectors", "Builder Base collection",
+                                    "Run one clean-room Builder Base resource collection pass.",
+                                    "Switches to Builder Base when needed, recognizes only reviewed Builder Gold/Elixir "
+                                    "resource bubbles on the exact current client, issues at most two resource clicks, "
+                                    "returns Home, and stops. It cannot attack, upgrade, clear obstacles, train, donate, "
+                                    "enter Star Laboratory, collect the Gem Mine, rotate accounts, or use gems.",
+                                    "gated", ["builder-base.resources"],
+                                    ["Exact BlueStacks 5 instance", "A supervised diagnostic operator", "Current Builder Base resource bubbles"],
+                                    disabled_reason="Current-client Builder Base collection requires an exact live receipt before it is considered accepted.",
+                                    warning="Diagnostic only: one Builder Gold/Elixir collection pass may mutate ordinary Builder resources; Gem Mine collection is intentionally excluded."),
+                             option("builder.baby-dragon", "Builder Base routine",
+                                    "Deployment routine for Builder Base battles.",
+                                    "A Builder Base specific deployment. It is not implemented against the current "
+                                    "Builder Base layout yet.",
                                    "planned", ["builder-base.battles"], ["Builder Base recognition"],
                                    disabled_reason="Not implemented for the current Builder Base layout."),
                         ],

@@ -542,10 +542,21 @@ def main() -> int:
     for strategy_id in ("legacy.smart-farm", "builder.baby-dragon"):
         if strategy_options.get(strategy_id, {}).get("availability") not in {"planned", "unsupported"}:
             errors.append(f"{strategy_id}: strategy with no native adapter must not remain selectable")
+    builder_collectors = strategy_options.get("builder.collectors", {})
+    if builder_collectors.get("availability") != "gated":
+        errors.append("builder.collectors must remain a gated supervised Builder Base collection route")
+    if builder_collectors.get("runtime_verified") is not False:
+        errors.append("builder.collectors must not claim live/runtime acceptance before an exact installed receipt")
+    builder_copy = " ".join(
+        str(builder_collectors.get(key, "")) for key in ("description", "details", "warning", "disabled_reason")
+    ).lower()
+    if not all(term in builder_copy for term in ("builder gold", "elixir", "gem mine", "excluded")):
+        errors.append("builder.collectors copy must name ordinary Builder resources and the excluded Gem Mine")
 
     expected_option_capabilities = {
         ("run.surface", "builder"): {"builder-base.battles"},
         ("run.strategy", "army.exact-recipe"): {"army.training"},
+        ("run.strategy", "builder.collectors"): {"builder-base.resources"},
         ("run.strategy", "builder.baby-dragon"): {"builder-base.battles"},
         ("run.strategy", "home.clan-request"): {"village.clan-request"},
         ("upgrade.policy", "walls"): {"village.upgrades-home", "village.town-hall-18"},
