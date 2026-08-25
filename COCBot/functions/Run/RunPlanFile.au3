@@ -321,30 +321,34 @@ Func _RunPlanFileModeForSurface($sSurface)
 	Return ""
 EndFunc   ;==>_RunPlanFileModeForSurface
 
-; The exact contract. 47 keys: 42 run settings plus the five pacing settings the cloud surface adds.
+; The exact contract. 50 keys: 45 run settings plus the five pacing settings the cloud surface adds.
 ; If a setting is added to config/ui/run-planner.settings.json it MUST be added here too, or every
 ; saved plan is refused.
 Func _RunPlanFileRequiredKeys()
 	Local $aKeys = ["run.surface", "run.strategy", "run.attack_script", "run.town_hall", "run.heroes", "runtime.emulator", "runtime.instance", "run.duration_minutes", "run.max_battles", "run.stop_on_star_bonus", "run.max_failures", _
-		"target.gold", "target.elixir", "target.dark_elixir", "upgrade.policy", "account.queue", "army.source", "army.recipe_name", "army.manage_training", "army.wait_for_full", "army.train_spells", "army.train_sieges", _
+		"target.gold", "target.elixir", "target.dark_elixir", "upgrade.policy", "account.queue", "army.source", "army.recipe_name", "army.recipe_digest", "army.max_queue_units", "army.manage_training", "army.wait_for_full", "army.train_spells", "army.train_sieges", _
 		"search.min_gold", "search.min_elixir", "search.min_dark", "search.max_seconds", "search.town_hall_filter", "donate.mode", "donate.keep_army", "donate.max_per_run", "donate.request_when_short", _
 		"events.clan_games", "events.clan_games_point_cap", "events.laboratory", "events.collect_resources", "events.collect_daily_reward", "events.collect_loot_cart", "events.collect_treasury", "notify.on_stop", "notify.on_error", "notify.channel", "run.diagnostic_mode", "run.diagnostic_note", _
 		"pacing.action_delay_ms", "pacing.settle_ms", "pacing.retry_attempts", "pacing.break_every_minutes", "pacing.break_minutes"]
 	Return $aKeys
 EndFunc   ;==>_RunPlanFileRequiredKeys
 
-; Current plans own explicit Loot Cart and Treasury choices. The preceding 46/47-key builds did not,
-; so migrate each to the safe default (False). Earlier Daily Reward/Town Hall/training/attack-script migrations retain
-; their original meanings before those final additions. Unknown or otherwise
-; incomplete documents remain strict failures below.
+; Current plans own explicit Loot Cart, Treasury, and exact recipe-training identity choices. The preceding
+; builds did not, so migrate each to the safe default. Earlier Daily Reward/Town Hall/training/attack-script
+; migrations retain their original meanings before those final additions. Unknown or otherwise incomplete
+; documents remain strict failures below.
 Func _RunPlanFileNormalizeCurrentContract(ByRef $oJson)
 	If Not IsObj($oJson) Then Return False
-	If $oJson.Count = 42 And Not $oJson.Exists("run.attack_script") Then $oJson.Add("run.attack_script", "profile-current")
-	If $oJson.Count = 43 And Not $oJson.Exists("army.manage_training") Then $oJson.Add("army.manage_training", True)
-	If $oJson.Count = 44 And Not $oJson.Exists("run.town_hall") Then $oJson.Add("run.town_hall", 0)
-	If $oJson.Count = 45 And Not $oJson.Exists("events.collect_daily_reward") Then $oJson.Add("events.collect_daily_reward", False)
-	If $oJson.Count = 46 And Not $oJson.Exists("events.collect_loot_cart") Then $oJson.Add("events.collect_loot_cart", False)
-	If $oJson.Count = 47 And Not $oJson.Exists("events.collect_treasury") Then $oJson.Add("events.collect_treasury", False)
+	Local $aRequired = _RunPlanFileRequiredKeys()
+	If $oJson.Count < 42 Or $oJson.Count >= UBound($aRequired) Then Return True
+	If Not $oJson.Exists("run.attack_script") Then $oJson.Add("run.attack_script", "profile-current")
+	If Not $oJson.Exists("army.manage_training") Then $oJson.Add("army.manage_training", True)
+	If Not $oJson.Exists("run.town_hall") Then $oJson.Add("run.town_hall", 0)
+	If Not $oJson.Exists("events.collect_daily_reward") Then $oJson.Add("events.collect_daily_reward", False)
+	If Not $oJson.Exists("events.collect_loot_cart") Then $oJson.Add("events.collect_loot_cart", False)
+	If Not $oJson.Exists("events.collect_treasury") Then $oJson.Add("events.collect_treasury", False)
+	If Not $oJson.Exists("army.recipe_digest") Then $oJson.Add("army.recipe_digest", "")
+	If Not $oJson.Exists("army.max_queue_units") Then $oJson.Add("army.max_queue_units", 0)
 	Return True
 EndFunc   ;==>_RunPlanFileNormalizeCurrentContract
 
@@ -507,13 +511,13 @@ Func RunPlanFileLoadIntent($sPath, ByRef $sError)
 		Return SetError(6, 0, 0)
 	EndIf
 
-	Local $aStrings[11][2] = [["attack_script", "run.attack_script"], ["emulator", "runtime.emulator"], ["emulator_instance", "runtime.instance"], ["upgrade_policy", "upgrade.policy"], ["account_queue_id", "account.queue"], ["army_source", "army.source"], ["army_recipe_name", "army.recipe_name"], ["search_town_hall_filter", "search.town_hall_filter"], ["donate_mode", "donate.mode"], ["events_laboratory", "events.laboratory"], ["notify_channel", "notify.channel"]]
+	Local $aStrings[12][2] = [["attack_script", "run.attack_script"], ["emulator", "runtime.emulator"], ["emulator_instance", "runtime.instance"], ["upgrade_policy", "upgrade.policy"], ["account_queue_id", "account.queue"], ["army_source", "army.source"], ["army_recipe_name", "army.recipe_name"], ["army_recipe_digest", "army.recipe_digest"], ["search_town_hall_filter", "search.town_hall_filter"], ["donate_mode", "donate.mode"], ["events_laboratory", "events.laboratory"], ["notify_channel", "notify.channel"]]
 	; mode is derived from the surface. Assign every other text field explicitly.
 	For $i = 0 To UBound($aStrings) - 1
 		If Not _RunPlanFileAssignString($oPlan, $oJson, $aStrings[$i][0], $aStrings[$i][1], $sError) Then Return SetError(7, $i, 0)
 	Next
 	; pacing.* is deliberately absent from this table - it belongs to the intent, not the plan.
-	Local $aIntegers[13][2] = [["planned_town_hall", "run.town_hall"], ["duration_minutes", "run.duration_minutes"], ["max_battles", "run.max_battles"], ["max_failures", "run.max_failures"], ["target_gold", "target.gold"], ["target_elixir", "target.elixir"], ["target_dark_elixir", "target.dark_elixir"], ["search_min_gold", "search.min_gold"], ["search_min_elixir", "search.min_elixir"], ["search_min_dark", "search.min_dark"], ["search_max_seconds", "search.max_seconds"], ["donate_max_per_run", "donate.max_per_run"], ["events_clan_games_point_cap", "events.clan_games_point_cap"]]
+	Local $aIntegers[14][2] = [["planned_town_hall", "run.town_hall"], ["duration_minutes", "run.duration_minutes"], ["max_battles", "run.max_battles"], ["max_failures", "run.max_failures"], ["target_gold", "target.gold"], ["target_elixir", "target.elixir"], ["target_dark_elixir", "target.dark_elixir"], ["army_max_queue_units", "army.max_queue_units"], ["search_min_gold", "search.min_gold"], ["search_min_elixir", "search.min_elixir"], ["search_min_dark", "search.min_dark"], ["search_max_seconds", "search.max_seconds"], ["donate_max_per_run", "donate.max_per_run"], ["events_clan_games_point_cap", "events.clan_games_point_cap"]]
 	For $i = 0 To UBound($aIntegers) - 1
 		If Not _RunPlanFileAssignInteger($oPlan, $oJson, $aIntegers[$i][0], $aIntegers[$i][1], $sError) Then Return SetError(8, $i, 0)
 	Next

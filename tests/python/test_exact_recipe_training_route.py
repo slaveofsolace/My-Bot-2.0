@@ -25,8 +25,36 @@ class ExactRecipeTrainingRouteContractTests(unittest.TestCase):
             "TrainSystem(", "BoostSuperTroop(", "QuickTrain(", "Delete(", "Remove(", "GemClick(", "DllCallMyBot", "Sleep("
         ):
             self.assertNotIn(forbidden, source)
-        for production in (ROOT / "MyBot.run.au3", ROOT / "COCBot/functions/Run/RunExecution.au3"):
-            self.assertNotIn("ExactRecipeTrainingRoute", production.read_text(encoding="utf-8-sig"))
+        self.assertIn("$EXACT_TRAINING_ROUTE_STRATEGY = \"army.exact-recipe\"", source)
+        self.assertIn("ExactRecipeTrainingRouteValidate", source)
+        self.assertIn("Exact saved-recipe training requires a safe recipe id", source)
+        self.assertIn("Exact saved-recipe training requires a 64-character recipe digest", source)
+        self.assertIn("Exact saved-recipe training requires a max queue cap from 1 to 500 units", source)
+
+    def test_route_is_wired_but_terminal_and_no_input_until_recognizer_exists(self) -> None:
+        run_bot = (ROOT / "MyBot.run.au3").read_text(encoding="utf-8-sig")
+        execution = (ROOT / "COCBot/functions/Run/RunExecution.au3").read_text(encoding="utf-8-sig")
+        gui_action = (ROOT / "COCBot/MBR GUI Action.au3").read_text(encoding="utf-8-sig")
+
+        self.assertIn("If ExactRecipeTrainingRouteActive() Then", run_bot)
+        route_branch = run_bot[
+            run_bot.index("If ExactRecipeTrainingRouteActive() Then") :
+            run_bot.index("EndIf", run_bot.index("If ExactRecipeTrainingRouteActive() Then"))
+        ]
+        self.assertIn("RunExecutionComplete(\"army-exact-recipe-no-loop-dispatch\")", route_branch)
+        self.assertIn("Return", route_branch)
+        for forbidden in ("TrainSystem", "QuickTrain", "DonateCC", "AttackMain", "InitiateSwitchAcc"):
+            self.assertNotIn(forbidden, route_branch)
+
+        self.assertIn("Func ExactRecipeTrainingRouteActive()", execution)
+        self.assertIn("ExactRecipeTrainingRouteAccountMatches($oIntent, $sActiveProfile)", execution)
+        self.assertIn("If ExactRecipeTrainingRouteSelected($oPreparedIntent) Then Return FuncReturn(_BotStartRunOneShot(6, $sStartError))", gui_action)
+        self.assertIn("ExactRecipeTrainingRouteRunAdapter($sRecipeId, $sRecipeDigest, $iMaxQueueUnits", gui_action)
+        self.assertIn("Func _ExactTrainingLiveDetect($sPhase)", gui_action)
+        self.assertIn("Return ExactRecipeTrainingObservationCreate($EXACT_TRAINING_STATE_UNAVAILABLE)", gui_action)
+        self.assertIn("Func _ExactTrainingLiveIssueQueue($iX, $iY)", gui_action)
+        self.assertIn("Return SetError(1, 0, False)", gui_action)
+        self.assertIn("Exact saved-recipe training unavailable; no queue input was issued", gui_action)
 
     def test_catalog_and_saved_recipe_fixture_remain_fail_closed(self) -> None:
         catalog = json.loads((ROOT / "config/current-client-capabilities.json").read_text(encoding="utf-8-sig"))

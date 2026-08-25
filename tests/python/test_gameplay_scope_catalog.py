@@ -227,6 +227,7 @@ class GameplayScopeCatalogTests(unittest.TestCase):
             return set(option["capability_ids"])
 
         self.assertEqual(option_capabilities("run.surface", "builder"), {"builder-base.battles"})
+        self.assertEqual(option_capabilities("run.strategy", "army.exact-recipe"), {"army.training"})
         self.assertEqual(option_capabilities("run.strategy", "builder.baby-dragon"), {"builder-base.battles"})
         self.assertEqual(option_capabilities("run.strategy", "home.clan-request"), {"village.clan-request"})
         self.assertEqual(option_capabilities("events.laboratory", "cheapest"), {"village.laboratory"})

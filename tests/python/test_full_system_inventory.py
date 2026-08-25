@@ -16,7 +16,7 @@ class FullSystemInventoryTests(unittest.TestCase):
         self.assertEqual(
             {
                 "capabilities": 61,
-                "planner_settings": 48,
+                "planner_settings": 50,
                 "fixtures": 57,
                 "compile_targets": 6,
                 "control_actions": 6,

@@ -353,6 +353,16 @@ def main() -> int:
                                    "gated", ["village.clan-request"], ["Request when available enabled", "Exact emulator instance", "A supervised diagnostic operator"],
                                    disabled_reason="Current-client Clan request recognition still needs a supervised runtime receipt.",
                                    warning="Diagnostic only: this may post one real Clan request. Send is never retried."),
+                            option("army.exact-recipe", "Exact saved-recipe training",
+                                   "Queue one freshly recognized saved Army Recipe.",
+                                   "Runs one terminal training pass on the exact active profile and emulator instance. "
+                                   "The plan must name the recipe, carry its 64-hex digest, and cap the missing unit "
+                                   "count. The inherited TrainSystem, Quick Train, boosts, deletion/rebalancing, spells, "
+                                   "sieges, donations, collectors, upgrades, matchmaking, retries, gems, and purchases "
+                                   "remain unreachable.",
+                                   "gated", ["army.training"], ["Recipe id", "Recipe digest", "Queue cap", "Exact emulator instance", "A supervised diagnostic operator"],
+                                   disabled_reason="Exact saved-recipe training needs a supervised diagnostic acknowledgement and current saved-recipe recognition.",
+                                   warning="This route is fail-closed: if the saved recipe is not freshly recognized, no queue input is issued."),
                             option("legacy.smart-farm", "Smart farm",
                                    "Targets collectors and storages based on the base layout.",
                                    "Reads the base to choose where to drop, which needs current building recognition "
@@ -793,14 +803,40 @@ def main() -> int:
                         "default": "",
                         "required": False,
                         "engine_binding": "RunPlan.army_recipe_name",
-                        "native_fixed_value": "",
-                        "native_fixed_reason": "Named Army Recipe selection is not wired; the run can only use the active profile army.",
                         "validation": {"max_length": 64},
+                    },
+                    {
+                        "id": "army.recipe_digest",
+                        "type": "text",
+                        "label": "Recipe digest",
+                        "summary": "Fingerprint for the exact saved recipe.",
+                        "description": (
+                            "A 64-character hexadecimal digest of the expected recipe state. Exact recipe training "
+                            "uses it to reject stale or wrong saved-recipe screens instead of guessing from a name."
+                        ),
+                        "default": "",
+                        "required": False,
+                        "engine_binding": "RunPlan.army_recipe_digest",
+                        "validation": {"max_length": 64},
+                    },
+                    {
+                        "id": "army.max_queue_units",
+                        "type": "integer",
+                        "label": "Queue cap",
+                        "summary": "Hard cap for one recipe queue attempt.",
+                        "description": (
+                            "Exact recipe training refuses to queue if the recognized missing-unit count is below 1 "
+                            "or above this cap. The cap prevents a stale recipe from filling an unexpected army queue."
+                        ),
+                        "default": 0,
+                        "required": False,
+                        "engine_binding": "RunPlan.army_max_queue_units",
+                        "validation": {"minimum": 0, "maximum": 500, "step": 1},
                     },
                     {
                         "id": "army.manage_training",
                         "type": "boolean",
-                        "label": "Manage training",
+                        "label": "Training",
                         "summary": "Do not change the training queue.",
                         "description": (
                             "Planned combat uses one army already trained in game. The bot checks whether that army "
@@ -828,7 +864,7 @@ def main() -> int:
                     {
                         "id": "army.wait_for_full",
                         "type": "boolean",
-                        "label": "Wait for a full army",
+                        "label": "Wait full",
                         "summary": "Do not attack with a partly trained army.",
                         "description": (
                             "Holds the run until the army is complete. Worth leaving on: attacking short-handed "

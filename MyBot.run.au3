@@ -826,6 +826,14 @@ Func runBot() ;Bot that runs everything in order
 		Return
 	EndIf
 
+	; Exact saved-recipe training is a terminal one-shot route. It must never fall through to the
+	; inherited TrainSystem, Quick Train, delete/rebalance, donation, search, or attack paths.
+	If ExactRecipeTrainingRouteActive() Then
+		RunExecutionComplete("army-exact-recipe-no-loop-dispatch")
+		RunControlReportOneShotOutcome("completed", "Exact saved-recipe training route handled at Start")
+		Return
+	EndIf
+
 	; A passive plan owns exactly the army already visible in game and exactly one attack attempt.
 	; Keep that bounded path out of FirstCheck and the generic maintenance loop entirely: both contain
 	; inherited building, upgrade, account-switch and village-zoom work that this plan did not authorize.

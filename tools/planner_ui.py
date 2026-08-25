@@ -429,9 +429,10 @@ def engine_preflight(plan: dict) -> list[str]:
     planned_town_hall = int(plan.get("run.town_hall", 0))
     home_maintenance = strategy == "home.collectors"
     clan_request_only = strategy == "home.clan-request"
+    exact_recipe_training = strategy == "army.exact-recipe"
     if surface != "regular":
         problems.append("run.surface: the native engine is currently wired only to Regular Battles")
-    if strategy not in {"legacy.csv", "legacy.standard", "smart.local", "home.collectors", "home.clan-request"}:
+    if strategy not in {"legacy.csv", "legacy.standard", "smart.local", "home.collectors", "home.clan-request", "army.exact-recipe"}:
         problems.append(f"run.strategy: {strategy or 'blank'} has no native execution adapter")
     if strategy in {"legacy.csv", "legacy.standard", "smart.local"}:
         problems.append(
@@ -442,7 +443,15 @@ def engine_preflight(plan: dict) -> list[str]:
     if strategy != "legacy.csv" and script.lower() != "profile-current":
         problems.append("run.attack_script: a named CSV requires the Scripted strategy")
 
-    if str(plan.get("army.source", "")).strip().lower() != "recipe" or str(plan.get("army.recipe_name", "")).strip():
+    recipe_name = str(plan.get("army.recipe_name", "")).strip().lower()
+    recipe_digest = str(plan.get("army.recipe_digest", "")).strip().lower()
+    max_queue_units = int(plan.get("army.max_queue_units", 0) or 0)
+    if not exact_recipe_training and (
+        str(plan.get("army.source", "")).strip().lower() != "recipe"
+        or recipe_name
+        or recipe_digest
+        or max_queue_units != 0
+    ):
         problems.append("army: named recipes and non-profile army sources are not wired; use the active profile army")
 
     manages_training = bool(plan.get("army.manage_training"))
@@ -499,6 +508,37 @@ def engine_preflight(plan: dict) -> list[str]:
             problems.append("account.queue: Clan request cannot rotate accounts")
         if int(plan.get("pacing.break_every_minutes", 0)) != 0:
             problems.append("pacing.break_every_minutes: Clan request requires scheduled breaks off")
+    elif exact_recipe_training:
+        if not bool(plan.get("run.diagnostic_mode")):
+            problems.append("run.diagnostic_mode: Exact recipe training requires supervised diagnostic acknowledgement")
+        if str(plan.get("army.source", "")).strip().lower() != "recipe":
+            problems.append("army.source: Exact recipe training requires the saved recipe army source")
+        if not re.fullmatch(r"[a-z0-9][a-z0-9_.-]{0,63}", recipe_name):
+            problems.append("army.recipe_name: Exact recipe training requires a safe recipe id")
+        if not re.fullmatch(r"[a-f0-9]{64}", recipe_digest):
+            problems.append("army.recipe_digest: Exact recipe training requires a 64-character recipe digest")
+        if max_queue_units < 1 or max_queue_units > 500:
+            problems.append("army.max_queue_units: Exact recipe training requires a max queue cap from 1 to 500 units")
+        if manages_training or bool(plan.get("army.wait_for_full")) or bool(plan.get("army.train_spells")) or bool(plan.get("army.train_sieges")):
+            problems.append("army: Exact recipe training requires generic training, army wait, spells, and sieges off")
+        if plan.get("run.heroes"):
+            problems.append("run.heroes: Exact recipe training requires no selected Heroes")
+        if int(plan.get("run.duration_minutes", 0)) != 0 or int(plan.get("run.max_battles", 0)) != 0 or bool(plan.get("run.stop_on_star_bonus")) or int(plan.get("run.max_failures", 0)) != 0:
+            problems.append("run: Exact recipe training is one pass; duration, battles, star bonus, and failure limits must be 0/off")
+        if any(int(plan.get(key, 0)) != 0 for key in ("target.gold", "target.elixir", "target.dark_elixir", "search.min_gold", "search.min_elixir", "search.min_dark", "search.max_seconds")):
+            problems.append("search/targets: Exact recipe training cannot configure matchmaking or battle-loot targets")
+        if str(plan.get("donate.mode", "")).strip().lower() != "off" or bool(plan.get("donate.request_when_short")) or int(plan.get("donate.max_per_run", 0)) != 0:
+            problems.append("donate: Exact recipe training requires donations and requests off")
+        if bool(plan.get("events.collect_resources")) or bool(plan.get("events.collect_daily_reward")) or bool(plan.get("events.collect_loot_cart")) or bool(plan.get("events.collect_treasury")) or bool(plan.get("events.clan_games")) or int(plan.get("events.clan_games_point_cap", 0)) != 0:
+            problems.append("events: Exact recipe training cannot collect resources, claim rewards, or enter Clan Games")
+        if str(plan.get("events.laboratory", "")).strip().lower() != "off":
+            problems.append("events.laboratory: Exact recipe training requires Laboratory off")
+        if str(plan.get("upgrade.policy", "")).strip().lower() != "disabled":
+            problems.append("upgrade.policy: Exact recipe training requires upgrades disabled")
+        if str(plan.get("account.queue", "")).strip():
+            problems.append("account.queue: Exact recipe training cannot rotate accounts")
+        if int(plan.get("pacing.break_every_minutes", 0)) != 0:
+            problems.append("pacing.break_every_minutes: Exact recipe training requires scheduled breaks off")
     elif bool(plan.get("events.collect_resources")) or bool(plan.get("events.collect_daily_reward")) or bool(plan.get("events.collect_loot_cart")) or bool(plan.get("events.collect_treasury")):
         problems.append("events: Home collection work requires the Home maintenance strategy")
     elif manages_training:
@@ -551,10 +591,10 @@ def engine_preflight(plan: dict) -> list[str]:
         problems.append("runtime.instance: choose a specific emulator before selecting an instance")
     if emulator == "bluestacks5" and not instance:
         problems.append("runtime.instance: choose the exact BlueStacks 5 instance")
-    if (home_maintenance or clan_request_only) and (emulator == "auto" or not instance):
-        route_label = "Home maintenance" if home_maintenance else "Clan request"
+    if (home_maintenance or clan_request_only or exact_recipe_training) and (emulator == "auto" or not instance):
+        route_label = "Home maintenance" if home_maintenance else ("Clan request" if clan_request_only else "Exact recipe training")
         problems.append(f"runtime.instance: {route_label} requires the exact non-Auto emulator and instance")
-    if (home_maintenance or clan_request_only) and instance and not re.fullmatch(r"[A-Za-z0-9_. -]{1,64}", instance):
+    if (home_maintenance or clan_request_only or exact_recipe_training) and instance and not re.fullmatch(r"[A-Za-z0-9_. -]{1,64}", instance):
         problems.append("runtime.instance: the Home route instance name contains unsupported characters")
 
     if not bool(plan.get("donate.keep_army")):

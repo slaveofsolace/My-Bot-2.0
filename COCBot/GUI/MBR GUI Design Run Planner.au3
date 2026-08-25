@@ -173,6 +173,8 @@ Func CreateRunPlannerTab()
 		Local $iLabelX = $iLeft + 8
 		Local $iCtrlX = $iLeft + 150
 		Local $iCtrlW = $iWidth - 166
+		Local $iArmyCompactBaseY = 0
+		Local $iArmyCompactIndex = 0
 
 		For $iSetting = 0 To UBound($g_aRunPlannerSettings, 1) - 1
 			If $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingSectionId] <> $sSectionId Then ContinueLoop
@@ -181,14 +183,28 @@ Func CreateRunPlannerTab()
 			Local $sType = StringLower($g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingType])
 			Local $sLabel = $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingLabel]
 			If $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingRequired] Then $sLabel &= " *"
+			Local $bArmyCompact = ($sSectionId = "army" And StringRegExp($sId, "^army\.(max_queue_units|manage_training|wait_for_full|train_spells|train_sieges)$"))
+			Local $iSettingLabelX = $iLabelX
+			Local $iSettingLabelW = 138
+			Local $iSettingCtrlX = $iCtrlX
+			Local $iSettingCtrlW = $iCtrlW
+			If $bArmyCompact Then
+				If $iArmyCompactBaseY = 0 Then $iArmyCompactBaseY = $iRowY
+				Local $iArmyCompactColumn = Mod($iArmyCompactIndex, 2)
+				$iRowY = $iArmyCompactBaseY + Int($iArmyCompactIndex / 2) * 26
+				$iSettingLabelX = $iLeft + 8 + ($iArmyCompactColumn * 207)
+				$iSettingLabelW = 84
+				$iSettingCtrlX = $iSettingLabelX + 88
+				$iSettingCtrlW = 108
+			EndIf
 
-			GUICtrlCreateLabel($sLabel, $iLabelX, $iRowY + 3, 138, 18)
+			GUICtrlCreateLabel($sLabel, $iSettingLabelX, $iRowY + 3, $iSettingLabelW, 18)
 			GUICtrlSetFont(-1, 8.5, ($g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingRequired] ? $FW_BOLD : $FW_NORMAL), Default, "Arial")
 			_GUICtrlSetTip(-1, $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingSummary])
 
 			Switch $sType
 				Case "select"
-					$g_ahRunPlannerControls[$iSetting] = GUICtrlCreateCombo("", $iCtrlX, $iRowY, $iCtrlW, 20, BitOR($CBS_DROPDOWNLIST, $WS_VSCROLL))
+					$g_ahRunPlannerControls[$iSetting] = GUICtrlCreateCombo("", $iSettingCtrlX, $iRowY, $iSettingCtrlW, 20, BitOR($CBS_DROPDOWNLIST, $WS_VSCROLL))
 					GUICtrlSetData(-1, _RunPlannerOptionLabelList($sId), _RunPlannerDefaultLabel($sId, $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingDefault]))
 					_GUICtrlSetTip(-1, $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingDescription])
 					If _RunPlannerHandlerFor($sId) <> "" Then GUICtrlSetOnEvent(-1, _RunPlannerHandlerFor($sId))
@@ -197,60 +213,66 @@ Func CreateRunPlannerTab()
 
 				Case "multi-select"
 					; Four active slots out of six Heroes, so this is a picker plus a running selection, not one choice.
-					$g_ahRunPlannerControls[$iSetting] = GUICtrlCreateCombo("", $iCtrlX, $iRowY, $iCtrlW - 90, 20, BitOR($CBS_DROPDOWNLIST, $WS_VSCROLL))
+					$g_ahRunPlannerControls[$iSetting] = GUICtrlCreateCombo("", $iSettingCtrlX, $iRowY, $iSettingCtrlW - 90, 20, BitOR($CBS_DROPDOWNLIST, $WS_VSCROLL))
 					GUICtrlSetData(-1, _RunPlannerOptionLabelList($sId), _RunPlannerDefaultLabel($sId, $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingDefault]))
 					_GUICtrlSetTip(-1, $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingDescription])
 					If _RunPlannerHandlerFor($sId) <> "" Then GUICtrlSetOnEvent(-1, _RunPlannerHandlerFor($sId))
-					$g_hBtnRunPlannerHeroAdd = GUICtrlCreateButton("Add", $iCtrlX + $iCtrlW - 86, $iRowY, 40, 21)
+					$g_hBtnRunPlannerHeroAdd = GUICtrlCreateButton("Add", $iSettingCtrlX + $iSettingCtrlW - 86, $iRowY, 40, 21)
 					GUICtrlSetOnEvent(-1, "btnRunPlannerHeroAdd")
 					_GUICtrlSetTip(-1, "Puts the selected Hero into an active slot.")
-					$g_hBtnRunPlannerHeroRemove = GUICtrlCreateButton("Drop", $iCtrlX + $iCtrlW - 43, $iRowY, 43, 21)
+					$g_hBtnRunPlannerHeroRemove = GUICtrlCreateButton("Drop", $iSettingCtrlX + $iSettingCtrlW - 43, $iRowY, 43, 21)
 					GUICtrlSetOnEvent(-1, "btnRunPlannerHeroRemove")
 					_GUICtrlSetTip(-1, "Frees the slot the selected Hero occupies.")
 					$iRowY += 26
-					GUICtrlCreateLabel("Active slots", $iLabelX, $iRowY + 3, 138, 18)
+					GUICtrlCreateLabel("Active slots", $iSettingLabelX, $iRowY + 3, $iSettingLabelW, 18)
 					GUICtrlSetFont(-1, 8.5, $FW_NORMAL, Default, "Arial")
-					$g_hRunPlannerHeroSelection = GUICtrlCreateInput("", $iCtrlX, $iRowY, $iCtrlW, 20, BitOR($ES_READONLY, $ES_AUTOHSCROLL))
+					$g_hRunPlannerHeroSelection = GUICtrlCreateInput("", $iSettingCtrlX, $iRowY, $iSettingCtrlW, 20, BitOR($ES_READONLY, $ES_AUTOHSCROLL))
 					$g_ahRunPlannerBuddies[$iSetting] = $g_hRunPlannerHeroSelection
 					$iRowY += 26
 
 				Case "integer"
-					$g_ahRunPlannerControls[$iSetting] = GUICtrlCreateInput($g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingDefault], $iCtrlX, $iRowY, 90, 20, BitOR($ES_NUMBER, $ES_RIGHT))
+					$g_ahRunPlannerControls[$iSetting] = GUICtrlCreateInput($g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingDefault], $iSettingCtrlX, $iRowY, ($bArmyCompact ? 56 : 90), 20, BitOR($ES_NUMBER, $ES_RIGHT))
 					_GUICtrlSetTip(-1, $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingDescription])
 					$g_ahRunPlannerBuddies[$iSetting] = GUICtrlCreateUpdown(-1)
 					GUICtrlSetLimit(-1, $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingMaximum], $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingMinimum])
 					Local $sUnit = $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingUnit]
 					If $sUnit <> "" Then
-						GUICtrlCreateLabel($sUnit, $iCtrlX + 96, $iRowY + 3, $iCtrlW - 96, 18)
+						GUICtrlCreateLabel($sUnit, $iSettingCtrlX + 96, $iRowY + 3, $iSettingCtrlW - 96, 18)
 						GUICtrlSetFont(-1, 8, $FW_NORMAL, Default, "Arial")
 						GUICtrlSetColor(-1, $COLOR_GRAY)
 					EndIf
 					$iRowY += 26
 
 				Case "boolean"
-					$g_ahRunPlannerControls[$iSetting] = GUICtrlCreateCheckbox("", $iCtrlX, $iRowY, 20, 20)
+					$g_ahRunPlannerControls[$iSetting] = GUICtrlCreateCheckbox("", $iSettingCtrlX, $iRowY, 20, 20)
 					If $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingDefault] Then GUICtrlSetState(-1, $GUI_CHECKED)
 					_GUICtrlSetTip(-1, $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingDescription])
 					If _RunPlannerHandlerFor($sId) <> "" Then GUICtrlSetOnEvent(-1, _RunPlannerHandlerFor($sId))
-					GUICtrlCreateLabel($g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingSummary], $iCtrlX + 24, $iRowY + 3, $iCtrlW - 24, 18)
-					GUICtrlSetFont(-1, 8, $FW_NORMAL, Default, "Arial")
-					GUICtrlSetColor(-1, $COLOR_GRAY)
+					If Not $bArmyCompact Then
+						GUICtrlCreateLabel($g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingSummary], $iSettingCtrlX + 24, $iRowY + 3, $iSettingCtrlW - 24, 18)
+						GUICtrlSetFont(-1, 8, $FW_NORMAL, Default, "Arial")
+						GUICtrlSetColor(-1, $COLOR_GRAY)
+					EndIf
 					$iRowY += 26
 
 				Case Else
 					; instance-select and profile-queue are free text until their sources can be enumerated.
-					$g_ahRunPlannerControls[$iSetting] = GUICtrlCreateInput($g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingDefault], $iCtrlX, $iRowY, $iCtrlW, 20, $ES_AUTOHSCROLL)
+					$g_ahRunPlannerControls[$iSetting] = GUICtrlCreateInput($g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingDefault], $iSettingCtrlX, $iRowY, $iSettingCtrlW, 20, $ES_AUTOHSCROLL)
 					_GUICtrlSetTip(-1, $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingDescription])
 					Local $sEmpty = $g_aRunPlannerSettings[$iSetting][$eRunPlannerSettingEmptyState]
 					If $sEmpty <> "" Then
 						$iRowY += 20
-						GUICtrlCreateLabel($sEmpty, $iCtrlX, $iRowY, $iCtrlW, 16)
+						GUICtrlCreateLabel($sEmpty, $iSettingCtrlX, $iRowY, $iSettingCtrlW, 16)
 						GUICtrlSetFont(-1, 7.5, $FW_NORMAL, Default, "Arial")
 						GUICtrlSetColor(-1, $COLOR_GRAY)
 						$iRowY += 8
 					EndIf
 					$iRowY += 26
 			EndSwitch
+			If $bArmyCompact Then
+				$iArmyCompactIndex += 1
+				$iRowY = $iArmyCompactBaseY + Int(($iArmyCompactIndex + 1) / 2) * 26
+			EndIf
 			_RunPlannerApplyNativeFixedState($iSetting)
 			$iSettingRow += 1
 		Next

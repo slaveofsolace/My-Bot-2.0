@@ -10,6 +10,9 @@
     "strategy",
     "attack_script",
     "planned_town_hall",
+    "army_recipe_name",
+    "army_recipe_digest",
+    "army_max_queue_units",
     "army_manage_training",
     "duration_minutes",
     "max_battles",
@@ -32,6 +35,16 @@
       "pattern": "^[^\\\\/:*?\"<>|]+$"
     },
     "planned_town_hall": {"type": "integer", "minimum": 0, "maximum": 18},
+    "army_recipe_name": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^$|^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$"
+    },
+    "army_recipe_digest": {
+      "type": "string",
+      "pattern": "^$|^[A-Fa-f0-9]{64}$"
+    },
+    "army_max_queue_units": {"type": "integer", "minimum": 0, "maximum": 500},
     "army_manage_training": {"type": "boolean"},
     "duration_minutes": {"type": "integer", "minimum": 0, "maximum": 10080},
     "max_battles": {"type": "integer", "minimum": 0, "maximum": 100000},

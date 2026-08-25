@@ -111,40 +111,66 @@ def layout():
     for section in sections:
         row = tab_top + TAB_HEADER
         tab_name = section["tab_label"]
+        army_compact_base = None
+        army_compact_index = 0
         for setting in section["settings"]:
             kind = setting["type"]
             label = setting["label"] + (" *" if setting.get("required") else "")
-            boxes.append(Box("label", label_x, row + 3, 138, 18, label, tab_name))
+            compact_army = section["id"] == "army" and setting["id"] in {
+                "army.max_queue_units",
+                "army.manage_training",
+                "army.wait_for_full",
+                "army.train_spells",
+                "army.train_sieges",
+            }
+            this_label_x, this_label_w = label_x, 138
+            this_ctrl_x, this_ctrl_w = ctrl_x, ctrl_w
+            if compact_army:
+                if army_compact_base is None:
+                    army_compact_base = row
+                col = army_compact_index % 2
+                row = army_compact_base + (army_compact_index // 2) * 26
+                this_label_x = left + 8 + (col * 207)
+                this_label_w = 84
+                this_ctrl_x = this_label_x + 88
+                this_ctrl_w = 108
+
+            boxes.append(Box("label", this_label_x, row + 3, this_label_w, 18, label, tab_name))
 
             if kind == "select":
-                boxes.append(Box("combo", ctrl_x, row, ctrl_w, 20, decorated_default(setting), tab_name))
+                boxes.append(Box("combo", this_ctrl_x, row, this_ctrl_w, 20, decorated_default(setting), tab_name))
                 row += 26
             elif kind == "multi-select":
-                boxes.append(Box("combo", ctrl_x, row, ctrl_w - 90, 20, decorated_default(setting), tab_name))
-                boxes.append(Box("button", ctrl_x + ctrl_w - 86, row, 40, 21, "Add", tab_name))
-                boxes.append(Box("button", ctrl_x + ctrl_w - 43, row, 43, 21, "Drop", tab_name))
+                boxes.append(Box("combo", this_ctrl_x, row, this_ctrl_w - 90, 20, decorated_default(setting), tab_name))
+                boxes.append(Box("button", this_ctrl_x + this_ctrl_w - 86, row, 40, 21, "Add", tab_name))
+                boxes.append(Box("button", this_ctrl_x + this_ctrl_w - 43, row, 43, 21, "Drop", tab_name))
                 row += 26
-                boxes.append(Box("label", label_x, row + 3, 138, 18, "Active slots", tab_name))
-                boxes.append(Box("input", ctrl_x, row, ctrl_w, 20, "No Heroes selected", tab_name))
+                boxes.append(Box("label", this_label_x, row + 3, this_label_w, 18, "Active slots", tab_name))
+                boxes.append(Box("input", this_ctrl_x, row, this_ctrl_w, 20, "No Heroes selected", tab_name))
                 row += 26
             elif kind == "integer":
-                boxes.append(Box("input", ctrl_x, row, 90, 20, str(setting["default"]), tab_name))
+                boxes.append(Box("input", this_ctrl_x, row, 56 if compact_army else 90, 20, str(setting["default"]), tab_name))
                 unit = setting.get("unit", "")
                 if unit:
-                    boxes.append(Box("unit", ctrl_x + 96, row + 3, ctrl_w - 96, 18, unit, tab_name))
+                    boxes.append(Box("unit", this_ctrl_x + 96, row + 3, this_ctrl_w - 96, 18, unit, tab_name))
                 row += 26
             elif kind == "boolean":
-                boxes.append(Box("check", ctrl_x, row, 20, 20, "", tab_name))
-                boxes.append(Box("unit", ctrl_x + 24, row + 3, ctrl_w - 24, 18, setting["summary"], tab_name))
+                boxes.append(Box("check", this_ctrl_x, row, 20, 20, "", tab_name))
+                if not compact_army:
+                    boxes.append(Box("unit", this_ctrl_x + 24, row + 3, this_ctrl_w - 24, 18, setting["summary"], tab_name))
                 row += 26
             else:
-                boxes.append(Box("input", ctrl_x, row, ctrl_w, 20, str(setting["default"]), tab_name))
+                boxes.append(Box("input", this_ctrl_x, row, this_ctrl_w, 20, str(setting["default"]), tab_name))
                 empty = setting.get("empty_state", "")
                 if empty:
                     row += 20
-                    boxes.append(Box("hint", ctrl_x, row, ctrl_w, 16, empty, tab_name))
+                    boxes.append(Box("hint", this_ctrl_x, row, this_ctrl_w, 16, empty, tab_name))
                     row += 8
                 row += 26
+
+            if compact_army:
+                army_compact_index += 1
+                row = army_compact_base + ((army_compact_index + 1) // 2) * 26
 
     y += POST_TAB_ADVANCE
     boxes.append(Box("label", left, y, width, 16, "About the selected option"))

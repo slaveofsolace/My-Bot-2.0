@@ -447,6 +447,9 @@ def main() -> int:
         "target.dark_elixir",
         "upgrade.policy",
         "account.queue",
+        "army.recipe_name",
+        "army.recipe_digest",
+        "army.max_queue_units",
         "army.manage_training",
     }
     missing_settings = sorted(expected_settings - seen_settings)
@@ -476,7 +479,6 @@ def main() -> int:
     expected_native_fixed = {
         "account.queue": "",
         "army.manage_training": False,
-        "army.recipe_name": "",
         "search.max_seconds": 0,
         "donate.keep_army": True,
         "donate.max_per_run": 0,
@@ -543,6 +545,7 @@ def main() -> int:
 
     expected_option_capabilities = {
         ("run.surface", "builder"): {"builder-base.battles"},
+        ("run.strategy", "army.exact-recipe"): {"army.training"},
         ("run.strategy", "builder.baby-dragon"): {"builder-base.battles"},
         ("run.strategy", "home.clan-request"): {"village.clan-request"},
         ("upgrade.policy", "walls"): {"village.upgrades-home", "village.town-hall-18"},
@@ -715,6 +718,8 @@ def main() -> int:
             "run.surface": "regular",
             "army.source": "recipe",
             "army.recipe_name": "",
+            "army.recipe_digest": "",
+            "army.max_queue_units": 0,
             "search.max_seconds": 0,
             "search.town_hall_filter": "any",
             "pacing.retry_attempts": 0,

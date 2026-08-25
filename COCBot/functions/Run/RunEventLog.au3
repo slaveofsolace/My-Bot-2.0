@@ -410,6 +410,43 @@ Func RunEventLogClanRequestHomeVerified($sOutcome)
 			$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
 EndFunc   ;==>RunEventLogClanRequestHomeVerified
 
+Func RunEventLogExactTrainingStarted($sRecipeId, $iMaxQueueUnits)
+	If Not $g_bRunEventSessionBound Then Return False
+	Return RunEventLogWrite("army.exact-recipe.started", "info", _
+			"Exact saved-recipe training started; recipe_id=" & String($sRecipeId) & _
+			"; max_queue_units=" & Int($iMaxQueueUnits) & "; max_queue_inputs=1; gems=false", _
+			$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogExactTrainingStarted
+
+Func RunEventLogExactTrainingUnavailable($sDetail)
+	If Not $g_bRunEventSessionBound Then Return False
+	Return RunEventLogWrite("army.exact-recipe.unavailable", "warning", _
+			"No saved-recipe queue input was issued; " & String($sDetail), _
+			$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogExactTrainingUnavailable
+
+Func RunEventLogExactTrainingQueued($sRecipeId, $iQueuedUnits)
+	If Not $g_bRunEventSessionBound Then Return False
+	Return RunEventLogWrite("army.exact-recipe.queued", "info", _
+			"One exact saved recipe was queued; recipe_id=" & String($sRecipeId) & _
+			"; queued_units=" & Int($iQueuedUnits) & "; queue_inputs=1; gems=false", _
+			$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogExactTrainingQueued
+
+Func RunEventLogExactTrainingUnconfirmed($bQueueIssued, $sDetail)
+	If Not $g_bRunEventSessionBound Then Return False
+	Return RunEventLogWrite("army.exact-recipe.unconfirmed", "error", _
+			"queue_issued=" & ($bQueueIssued ? "true" : "false") & "; retries=0; gems=false; " & String($sDetail), _
+			$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogExactTrainingUnconfirmed
+
+Func RunEventLogExactTrainingHomeVerified($sOutcome)
+	If Not $g_bRunEventSessionBound Then Return False
+	Return RunEventLogWrite("army.exact-recipe.home-verified", "info", _
+			"Home Village main screen re-proven after exact training outcome=" & String($sOutcome), _
+			$g_sRunEventSurfaceId, $g_sRunEventVerificationState)
+EndFunc   ;==>RunEventLogExactTrainingHomeVerified
+
 Func RunEventLogRunStopping($sSurfaceId, $sVerificationState, $sReason)
 	Return RunEventLogWrite("session.stopping", "info", "Stop condition: " & $sReason, $sSurfaceId, $sVerificationState)
 EndFunc   ;==>RunEventLogRunStopping

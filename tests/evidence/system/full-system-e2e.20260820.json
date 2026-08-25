@@ -557,336 +557,350 @@
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "run.strategy",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "run.attack_script",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "run.town_hall",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "run.heroes",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "runtime.emulator",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "runtime.instance",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "army.source",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "army.recipe_name",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "army.recipe_digest",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+      },
+      {
+        "id": "army.max_queue_units",
+        "source_contract": "PASS",
+        "persistence_verdict": "PASS",
+        "execution_verdict": "DEFERRED",
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "army.manage_training",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "army.wait_for_full",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "army.train_spells",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "army.train_sieges",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "search.min_gold",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "search.min_elixir",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "search.min_dark",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "search.max_seconds",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "search.town_hall_filter",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "pacing.action_delay_ms",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "pacing.settle_ms",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "pacing.retry_attempts",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "pacing.break_every_minutes",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "pacing.break_minutes",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "run.duration_minutes",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "run.max_battles",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "run.stop_on_star_bonus",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "run.max_failures",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "target.gold",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "target.elixir",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "target.dark_elixir",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "donate.mode",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "donate.keep_army",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "donate.max_per_run",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "donate.request_when_short",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "events.clan_games",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "events.clan_games_point_cap",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "events.collect_resources",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "events.collect_daily_reward",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "events.collect_loot_cart",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "events.collect_treasury",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "upgrade.policy",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "events.laboratory",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "account.queue",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "notify.on_stop",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "notify.on_error",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "notify.channel",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "run.diagnostic_mode",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       },
       {
         "id": "run.diagnostic_note",
         "source_contract": "PASS",
         "persistence_verdict": "PASS",
         "execution_verdict": "DEFERRED",
-        "reason": "All 48 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
+        "reason": "All 50 normalized values saved and reloaded atomically; live route semantics require capability-specific proof."
       }
     ],
     "fixtures": [

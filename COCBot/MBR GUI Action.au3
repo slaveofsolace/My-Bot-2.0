@@ -219,6 +219,8 @@ Func _BotStartRunOneShot($iRoute, ByRef $sStartError)
 			$bResult = _BotStartOpenHomeTreasury($sStartError)
 		Case 5
 			$bResult = _BotStartOpenClanRequest($sStartError)
+		Case 6
+			$bResult = _BotStartExactRecipeTraining($sStartError)
 		Case Else
 			$bResult = _BotOpenCollectorsReject("Terminal Home route selection changed before execution")
 	EndSwitch
@@ -632,6 +634,93 @@ Func _BotStartOpenClanRequest(ByRef $sStartError)
 	Return True
 EndFunc   ;==>_BotStartOpenClanRequest
 
+Func _ExactTrainingLiveStopRequested()
+	Return RunControlStopRequested() Or Not $g_bRunState
+EndFunc   ;==>_ExactTrainingLiveStopRequested
+
+; The route is wired before saved-recipe framebuffer fixtures exist. Returning the reviewed
+; unavailable observation keeps Start truthful: no inherited training routine, no queue input, no
+; retry, and a visible Activity/control receipt until a clean-room recognizer supplies recipe-ready.
+Func _ExactTrainingLiveDetect($sPhase)
+	Return ExactRecipeTrainingObservationCreate($EXACT_TRAINING_STATE_UNAVAILABLE)
+EndFunc   ;==>_ExactTrainingLiveDetect
+
+Func _ExactTrainingLiveIssueQueue($iX, $iY)
+	Return SetError(1, 0, False)
+EndFunc   ;==>_ExactTrainingLiveIssueQueue
+
+Func _BotStartExactRecipeTraining(ByRef $sStartError)
+	If RunControlStopRequested() Then Return _BotOpenCollectorsReject("Exact saved-recipe training cancelled before attachment", "cancelled")
+	If Not RunExecutionApplyPrepared($sStartError) Then Return _BotOpenCollectorsReject($sStartError)
+	Local $oIntent = RunExecutionPreparedIntent()
+	If Not IsObj($oIntent) Or Not ExactRecipeTrainingRouteAccountMatches($oIntent, $g_sProfileCurrentName) Then _
+		Return _BotOpenCollectorsReject("The active profile no longer matches the account bound at Start")
+	Local $sAttachmentError = ""
+	If Not _BotOpenHomeEnsureExactBlueStacks($sAttachmentError) Then Return _BotOpenCollectorsReject($sAttachmentError)
+	If Not $g_bAndroidAdbScreencap Or Not AndroidControlAvailable() Or _
+			Not IsArray(GetBlueStacks5ModernAdbSurfacePosition()) Then _
+		Return _BotOpenCollectorsReject("The exact BlueStacks 5 framebuffer/control surface is not available")
+	If Not OpenHomeCollectorsProveHome() Then Return _BotOpenCollectorsReject("The current screen is not the proven Home Village")
+	If RunControlStopRequested() Then Return _BotOpenCollectorsReject("Exact saved-recipe training cancelled before execution", "cancelled")
+
+	Local $sRecipeId = ExactRecipeTrainingRouteRecipeId($oIntent)
+	Local $sRecipeDigest = ExactRecipeTrainingRouteRecipeDigest($oIntent)
+	Local $iMaxQueueUnits = ExactRecipeTrainingRouteMaxQueueUnits($oIntent)
+	$g_bRunState = True
+	$g_bTogglePauseAllowed = False
+	If Not RunExecutionBegin($sStartError) Then Return _BotOpenCollectorsReject($sStartError)
+	RunControlReportStartOutcome(True, "Exact saved-recipe training pass started")
+	RunEventLogExactTrainingStarted($sRecipeId, $iMaxQueueUnits)
+
+	Local $oOutcome = ExactRecipeTrainingRouteRunAdapter($sRecipeId, $sRecipeDigest, $iMaxQueueUnits, _
+			"_ExactTrainingLiveDetect", "_ExactTrainingLiveIssueQueue", "_ExactTrainingLiveStopRequested", _
+			"OpenHomeNoGemInputReady", "OpenHomeCollectorsProveHome")
+	If Not IsObj($oOutcome) Then
+		$sStartError = "Exact saved-recipe training adapter returned no bounded outcome"
+	Else
+		Local $sOutcome = String($oOutcome.Item("state"))
+		If $sOutcome = $EXACT_TRAINING_OUTCOME_CANCELLED Or RunControlStopRequested() Or Not $g_bRunState Then
+			RunExecutionComplete("stopped")
+			RunControlReportOneShotOutcome("stopped", "Exact saved-recipe training stopped")
+			Return False
+		EndIf
+		If Not $oOutcome.Item("home_proven") Then
+			RunEventLogExactTrainingUnconfirmed($oOutcome.Item("queue_issued"), _
+					$oOutcome.Item("detail") & "; Home Village was not re-proven")
+			$sStartError = "Home Village could not be re-proven after exact saved-recipe training; queue input will not be retried"
+		Else
+			RunEventLogExactTrainingHomeVerified($sOutcome)
+			Switch $sOutcome
+				Case $EXACT_TRAINING_OUTCOME_QUEUED
+					RunEventLogExactTrainingQueued($oOutcome.Item("recipe_id"), $oOutcome.Item("missing_units"))
+				Case $EXACT_TRAINING_OUTCOME_UNAVAILABLE
+					RunEventLogExactTrainingUnavailable($oOutcome.Item("detail"))
+				Case $EXACT_TRAINING_OUTCOME_UNCONFIRMED
+					RunEventLogExactTrainingUnconfirmed($oOutcome.Item("queue_issued"), $oOutcome.Item("detail"))
+					$sStartError = $oOutcome.Item("detail") & "; queue input will not be retried"
+				Case Else
+					$sStartError = "Exact saved-recipe training adapter returned an unknown terminal state"
+			EndSwitch
+		EndIf
+	EndIf
+
+	If $sStartError <> "" Then
+		RunEventLogRunFailed("regular", $RUN_VERIFICATION_DIAGNOSTIC, $sStartError)
+		RunExecutionCancelPrepared($sStartError)
+		RunControlReportOneShotOutcome("failed", $sStartError)
+		Return False
+	EndIf
+
+	Local $sReason = $sOutcome = $EXACT_TRAINING_OUTCOME_QUEUED ? "army-exact-recipe-queued" : "army-exact-recipe-unavailable"
+	RunExecutionComplete($sReason)
+	Local $sMessage = $sOutcome = $EXACT_TRAINING_OUTCOME_QUEUED ? _
+			"Exact saved recipe queued and Home Village re-proven" : _
+			"Exact saved-recipe training unavailable; no queue input was issued"
+	RunControlReportOneShotOutcome("completed", $sMessage)
+	SetLog("Run Planner: " & $sMessage, $COLOR_SUCCESS)
+	Return True
+EndFunc   ;==>_BotStartExactRecipeTraining
+
 Func _BotEngineCheckFinish($bPassed, $sMessage)
 	If $sMessage = "" Then $sMessage = $bPassed ? "Managed engine check passed" : "Managed engine check failed"
 	; Native terminalization is the linearization point. A Stop accepted before it changes the
@@ -723,6 +812,7 @@ Func BotStart($bAutostartDelay = 0)
 		Return FuncReturn(_BotStartRunOneShot($iOpenCollectorsMode, $sStartError))
 	If $iOpenCollectorsMode = -1 Then Return FuncReturn(_BotOpenCollectorsReject($sStartError))
 	If ClanRequestRouteSelected($oPreparedIntent) Then Return FuncReturn(_BotStartRunOneShot(5, $sStartError))
+	If ExactRecipeTrainingRouteSelected($oPreparedIntent) Then Return FuncReturn(_BotStartRunOneShot(6, $sStartError))
 	; Readiness belongs to this Start attempt. A previous run may have left the
 	; main-screen flag true even though the current emulator view has changed.
 	$g_bMainWindowOk = False

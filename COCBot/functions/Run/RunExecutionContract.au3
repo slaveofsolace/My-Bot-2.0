@@ -8,6 +8,7 @@
 #include "RunIntent.au3"
 #include "HomeMaintenanceRoute.au3"
 #include "ClanRequestRoute.au3"
+#include "ExactRecipeTrainingRoute.au3"
 #include "LootCartRoute.au3"
 #include "TreasuryRoute.au3"
 
@@ -34,6 +35,7 @@ Func RunExecutionContractValidate(ByRef $oIntent, ByRef $sError)
 	If Not RunIntentValidate($oIntent, $sError) Then Return SetError(1, 0, False)
 	If HomeMaintenanceRouteSelected($oIntent) Then Return HomeMaintenanceRouteValidate($oIntent, $sError)
 	If ClanRequestRouteSelected($oIntent) Then Return ClanRequestRouteValidate($oIntent, $sError)
+	If ExactRecipeTrainingRouteSelected($oIntent) Then Return ExactRecipeTrainingRouteValidate($oIntent, $sError)
 
 	Local $sSurface = StringLower(StringStripWS(String($oIntent.Item("surface_id")), $STR_STRIPALL))
 	If $sSurface <> "regular" Then
@@ -65,8 +67,10 @@ Func RunExecutionContractValidate(ByRef $oIntent, ByRef $sError)
 	EndIf
 
 	If StringLower(StringStripWS(String($oPlan.Item("army_source")), $STR_STRIPALL)) <> "recipe" Or _
-			StringStripWS(String($oPlan.Item("army_recipe_name")), $STR_STRIPALL) <> "" Then
-		$sError = "Named army recipes are not wired yet; leave the recipe name empty to use the active profile army"
+			StringStripWS(String($oPlan.Item("army_recipe_name")), $STR_STRIPALL) <> "" Or _
+			StringStripWS(String($oPlan.Item("army_recipe_digest")), $STR_STRIPALL) <> "" Or _
+			Int($oPlan.Item("army_max_queue_units")) <> 0 Then
+		$sError = "Named army recipes are available only through the exact saved-recipe training route; leave recipe id, digest, and max queue empty to use the active profile army"
 		Return SetError(5, 0, False)
 	EndIf
 	; The inherited training entry point is profile-owned rather than plan-owned: it may boost a Super
