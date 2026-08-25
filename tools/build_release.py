@@ -1052,10 +1052,14 @@ def _copy_local_python_runtime(source: Path, payload: Path) -> list[dict[str, ob
             child = current / name
             if _is_reparse_point(child):
                 raise ReleaseError(f"Python runtime contains a reparse-point directory: {child}")
+            if name.casefold() == "__pycache__":
+                names.remove(name)
         relative_dir = current.relative_to(source)
         target_dir = destination / relative_dir
         target_dir.mkdir(parents=True, exist_ok=True)
         for name in filenames:
+            if name.casefold().endswith((".pyc", ".pyo")):
+                continue
             child = current / name
             if _is_reparse_point(child) or not child.is_file():
                 raise ReleaseError(f"Python runtime contains an unsafe file: {child}")

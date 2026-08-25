@@ -467,6 +467,9 @@ class PythonReleaseContractTests(unittest.TestCase):
             write(runtime, "pythonw.exe", b"PYTHONW-EXE")
             write(runtime, "python312.dll", b"PYTHON-DLL")
             write(runtime, "LICENSE.txt", b"PSF license fixture\n")
+            cache = runtime / "Lib" / "__pycache__"
+            cache.mkdir(parents=True)
+            write(cache, "ignored.cpython-312.pyc", b"BYTECODE")
 
             zip_path = release.package_reviewed(
                 fixture.repo,
@@ -481,6 +484,7 @@ class PythonReleaseContractTests(unittest.TestCase):
                 names = set(archive.namelist())
                 self.assertIn("MyBot-2.0.0-win-x86/runtime/python/pythonw.exe", names)
                 self.assertIn("MyBot-2.0.0-win-x86/runtime/python/python312.dll", names)
+                self.assertFalse(any("__pycache__" in name or name.endswith(".pyc") for name in names))
                 manifest = json.loads(
                     archive.read("MyBot-2.0.0-win-x86/release-manifest.json")
                 )
