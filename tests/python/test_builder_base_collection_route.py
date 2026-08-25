@@ -125,6 +125,9 @@ class BuilderBaseCollectionRouteTest(unittest.TestCase):
         self.assertIn("OpenBuilderBaseReturnBoatPointReady", route)
         self.assertIn("$aIsOnBuilderBase", route)
         self.assertIn("green Gem Mine bubble", route)
+        self.assertIn("OpenHomeInactivityReloadIssue()", route)
+        self.assertIn("OpenHomeStartupRecoveryWait()", route)
+        self.assertLess(route.index("OpenHomeInactivityReloadIssue()"), route.index("OpenHomeCollectorsProveHome()"))
         self.assertNotIn("COLLECT_GEM", route)
         self.assertNotIn("GEM_MINE", route)
 

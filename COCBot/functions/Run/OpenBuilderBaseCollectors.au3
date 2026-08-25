@@ -142,6 +142,10 @@ EndFunc   ;==>OpenBuilderBaseCollectorsDetect
 
 Func OpenBuilderBaseSwitchToBuilder()
 	If OpenBuilderBaseCollectorsProveBuilder() Then Return True
+	Local $bReloadIssued = OpenHomeInactivityReloadIssue()
+	If @error Then Return SetError(@error, 0, False)
+	If $bReloadIssued And Not OpenHomeStartupRecoveryWait() Then Return SetError(8, 0, False)
+	If OpenBuilderBaseCollectorsProveBuilder() Then Return True
 	If Not OpenHomeCollectorsProveHome() Then Return SetError(1, 0, False)
 	If Not OpenBuilderBaseHomeBoatPointReady($OPEN_BUILDER_SWITCH_X, $OPEN_BUILDER_SWITCH_Y) Then Return SetError(3, 0, False)
 	If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, False)
