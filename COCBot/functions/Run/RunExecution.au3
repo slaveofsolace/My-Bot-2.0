@@ -995,10 +995,10 @@ Func RunExecutionPrepareStart(ByRef $sError)
 			$sError = "The applied plan changed after Full profile Start was accepted; Start was refused"
 			Return SetError(1, 4, False)
 		EndIf
-		If Not MBRFuncRecognitionAvailable() Then
-			$sError = MBRFuncRecognitionError()
-			Return SetError(1, 3, False)
-		EndIf
+		; Full profile mode may be the operator's first cold action after launching the product.
+		; Recognition cannot be live until the emulator/game bootstrap creates a frame, so this
+		; pre-launch preparation step only binds the absence of an applied plan and arms the later
+		; no-gem safety overlay.
 		; The web command is the Start linearization point. A removed plan file alone is not enough:
 		; this long-lived process can still retain $g_oRunPlannerIntent from the preceding run.
 		$g_bRunExecutionFullProfileSafetyPending = True

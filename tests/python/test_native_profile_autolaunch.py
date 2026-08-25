@@ -374,6 +374,8 @@ class NativeProfileAutoLaunchTests(unittest.TestCase):
         native_branch = prepare.index('$sRequestedMode = "native-profile"')
         stale_fallback = prepare.index('IsObj($g_oRunPlannerIntent)')
         self.assertLess(native_branch, stale_fallback)
+        native_profile_block = prepare[native_branch:stale_fallback]
+        self.assertNotIn("MBRFuncRecognitionAvailable()", native_profile_block)
         self.assertIn('$sRequestedMode = "" And IsObj($g_oRunPlannerIntent)', prepare)
         self.assertIn('selected planned mode, but the applied plan is missing', prepare)
 

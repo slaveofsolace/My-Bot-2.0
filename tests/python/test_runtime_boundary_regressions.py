@@ -124,6 +124,10 @@ class RuntimeBoundaryRegressionTests(unittest.TestCase):
                 "connected": True,
                 "state": "idle",
                 "engine_available": True,
+                "emulator_attached": True,
+                "window_attached": True,
+                "adb_ready": True,
+                "game_ready": True,
                 "recognition_available": False,
                 "recognition_error": "licensed inherited recognition or a clean-room replacement is required",
             }
