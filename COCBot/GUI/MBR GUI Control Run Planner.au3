@@ -46,6 +46,13 @@ Func _RunPlannerNormalizeRoot($sRoot)
 	Return $sNormalized
 EndFunc   ;==>_RunPlannerNormalizeRoot
 
+Func _RunPlannerProfilesRootMatches($sObservedProfilesRoot)
+	Local $sObserved = _RunPlannerNormalizeRoot($sObservedProfilesRoot)
+	If $sObserved = _RunPlannerNormalizeRoot($g_sProfilePath) Then Return True
+	If $sObserved = _RunPlannerNormalizeRoot($g_sMBRFuncRuntimeLocalAppData & "\My Bot 2.0\Profiles") Then Return True
+	Return False
+EndFunc   ;==>_RunPlannerProfilesRootMatches
+
 Func _RunPlannerScriptBuildHash()
 	Local $sScript = @ScriptDir & "\tools\planner_ui.py"
 	If Not FileExists($sScript) Then Return ""
@@ -248,7 +255,7 @@ Func _RunPlannerServiceHealthy()
 	If Json_ObjGet($oPayload, "bridge") <> $RUN_PLANNER_BRIDGE_VERSION Then Return False
 	If Json_ObjGet($oPayload, "protocol") <> $RUN_PLANNER_HEALTH_PROTOCOL Then Return False
 	If _RunPlannerNormalizeRoot(Json_ObjGet($oPayload, "repo_root")) <> _RunPlannerNormalizeRoot(@ScriptDir) Then Return False
-	If _RunPlannerNormalizeRoot(Json_ObjGet($oPayload, "profiles_root")) <> _RunPlannerNormalizeRoot($g_sProfilePath) Then Return False
+	If Not _RunPlannerProfilesRootMatches(Json_ObjGet($oPayload, "profiles_root")) Then Return False
 	Local $sExpectedBuild = _RunPlannerScriptBuildHash()
 	If $sExpectedBuild = "" Or StringLower(String(Json_ObjGet($oPayload, "build_sha256"))) <> $sExpectedBuild Then Return False
 	Local $iServicePid = Int(Json_ObjGet($oPayload, "service_pid"))
@@ -376,7 +383,7 @@ Func RunPlannerStopOwnedService()
 	If Not _RunPlannerReadHealth($oPayload) Then Return False
 	If Json_ObjGet($oPayload, "service") <> $RUN_PLANNER_SERVICE_NAME Then Return False
 	If _RunPlannerNormalizeRoot(Json_ObjGet($oPayload, "repo_root")) <> _RunPlannerNormalizeRoot(@ScriptDir) Then Return False
-	If _RunPlannerNormalizeRoot(Json_ObjGet($oPayload, "profiles_root")) <> _RunPlannerNormalizeRoot($g_sProfilePath) Then Return False
+	If Not _RunPlannerProfilesRootMatches(Json_ObjGet($oPayload, "profiles_root")) Then Return False
 	If Int(Json_ObjGet($oPayload, "service_pid")) <> $iPid Then Return False
 	If String(Json_ObjGet($oPayload, "owner_token_kind")) <> "sha256" Then Return False
 	If String(Json_ObjGet($oPayload, "owner_token")) <> _RunPlannerHashText($sOwnerToken) Then Return False
