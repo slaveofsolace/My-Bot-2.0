@@ -770,7 +770,9 @@ Func _BotStartExactRecipeTraining(ByRef $sStartError)
 	RunControlReportStartOutcome(True, "Exact saved-recipe training pass started")
 	RunEventLogExactTrainingStarted($sRecipeId, $iMaxQueueUnits)
 	If Not OpenClanRequestOpenArmyOverview($NO_PREMIUM_ACTION_EXACT_TRAINING_ARMY) Then
-		$sStartError = "Army Overview did not open for exact saved-recipe training; no queue input was issued"
+		$sStartError = $g_bNoPremiumPolicyTripped ? RunExecutionMessage() : _
+				"Army Overview did not open for exact saved-recipe training; no queue input was issued"
+		If $sStartError = "" Then $sStartError = "Exact saved-recipe training failed before Army Overview opened"
 		RunEventLogRunFailed("regular", $RUN_VERIFICATION_DIAGNOSTIC, $sStartError)
 		RunExecutionCancelPrepared($sStartError)
 		RunControlReportOneShotOutcome("failed", $sStartError)
@@ -784,6 +786,15 @@ Func _BotStartExactRecipeTraining(ByRef $sStartError)
 		$sStartError = "Exact saved-recipe training adapter returned no bounded outcome"
 	Else
 		Local $sOutcome = String($oOutcome.Item("state"))
+		If $g_bNoPremiumPolicyTripped Then
+			$sStartError = RunExecutionMessage()
+			If $sStartError = "" Then $sStartError = "Exact saved-recipe training was blocked by the no-gem input guard"
+			RunEventLogExactTrainingUnconfirmed($oOutcome.Item("queue_issued"), $sStartError)
+			RunEventLogRunFailed("regular", $RUN_VERIFICATION_DIAGNOSTIC, $sStartError)
+			RunExecutionCancelPrepared($sStartError)
+			RunControlReportOneShotOutcome("failed", $sStartError)
+			Return False
+		EndIf
 		If $sOutcome = $EXACT_TRAINING_OUTCOME_CANCELLED Or RunControlStopRequested() Or Not $g_bRunState Then
 			RunExecutionComplete("stopped")
 			RunControlReportOneShotOutcome("stopped", "Exact saved-recipe training stopped")

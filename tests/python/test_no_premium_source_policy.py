@@ -48,6 +48,7 @@ class NoPremiumSourcePolicyTests(unittest.TestCase):
         cls.android = source("COCBot/functions/Android/Android.au3")
         cls.drag = source("COCBot/functions/Other/ClickDrag.au3")
         cls.policy = source("COCBot/functions/Run/NoPremiumPermitPolicy.au3")
+        cls.event = source("COCBot/functions/Run/RunEvent.au3")
 
     def test_policy_is_compile_time_enabled_and_terminal(self) -> None:
         self.assertIn("Global Const $NO_PREMIUM_POLICY_ENABLED = True", self.click)
@@ -66,6 +67,7 @@ class NoPremiumSourcePolicyTests(unittest.TestCase):
             self.assertIn(token, blocked)
         for forbidden in ("Click(", "ClickP(", "_ControlClick(", "AndroidClick(", "CloseWindow"):
             self.assertNotIn(forbidden, blocked)
+        self.assertIn('"safety.premium-blocked"', self.event)
 
     def test_passive_surface_recognizer_covers_gem_and_shop_anchors(self) -> None:
         recognizer = autoit_function(self.click, "NoPremiumSurfaceState")

@@ -27,7 +27,7 @@ Global Const $NO_PREMIUM_ACTION_HOME_CLEAR_SCREEN = "home.clear-screen"
 Global Const $NO_PREMIUM_ACTION_STARTUP_POPUP_CLOSE = "startup.popup.close"
 Global Const $NO_PREMIUM_ACTION_HOME_CLEAR_SELECTION = "home.clear-selection"
 
-Global Const $NO_PREMIUM_INPUT_PERMIT_MAX_AGE_MS = 1000
+Global Const $NO_PREMIUM_INPUT_PERMIT_MAX_AGE_MS = 5000
 
 Func NoPremiumPermitActionKnown($sAction)
 	Switch StringLower(String($sAction))
