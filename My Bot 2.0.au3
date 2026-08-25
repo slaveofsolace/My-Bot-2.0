@@ -8,6 +8,7 @@
 #pragma compile(Out, My Bot 2.0.exe)
 
 #include <Crypt.au3>
+#include <FileConstants.au3>
 #include <GUIConstantsEx.au3>
 #include <Misc.au3>
 #include <MsgBoxConstants.au3>
@@ -49,6 +50,7 @@ Global Const $g_sEngineInitOwnershipSchema = "engine-init-supervisor-v1"
 Global Const $g_sEngineInitCancelSchema = "engine-init-cancel-v1"
 Global Const $g_sEngineInitOwnershipReceipt = $g_sUserDataRoot & "\engine-init-owner-v1.json"
 Global Const $g_sEngineInitCancelPath = @ScriptDir & "\config\engine-init-cancel.local.json"
+Global Const $g_sControlStatusPath = @ScriptDir & "\config\control-status.local.json"
 Global Const $g_sEngineSupervisorTokenEnv = "MYBOT_ENGINE_INIT_TOKEN"
 Global Const $g_sEngineSupervisorLauncherPidEnv = "MYBOT_ENGINE_INIT_LAUNCHER_PID"
 Global Const $g_sEngineSupervisorLauncherCreatedEnv = "MYBOT_ENGINE_INIT_LAUNCHER_CREATED"
@@ -691,6 +693,69 @@ Func _EngineSupervisorSequence($sJson)
 	Return Int($aValue[0])
 EndFunc   ;==>_EngineSupervisorSequence
 
+Func _EngineSupervisorJsonString($sValue)
+	Local $sText = String($sValue)
+	$sText = StringReplace($sText, "\", "\\")
+	$sText = StringReplace($sText, '"', '\"')
+	$sText = StringReplace($sText, @CRLF, "\n")
+	$sText = StringReplace($sText, @CR, "\n")
+	$sText = StringReplace($sText, @LF, "\n")
+	$sText = StringReplace($sText, @TAB, "\t")
+	Return '"' & $sText & '"'
+EndFunc   ;==>_EngineSupervisorJsonString
+
+Func _EngineSupervisorWriteAbortStatus($sStartRequestId, $sReason, $sPhase, $iBackendPid)
+	If Not _EngineSupervisorPathSafe($g_sControlStatusPath, False) Then Return False
+	Local $sMessage = "Managed engine initialization failed"
+	If $sPhase <> "" Then $sMessage &= " at " & $sPhase
+	If $sReason <> "" Then $sMessage &= ": " & $sReason
+	Local $sTemporary = $g_sControlStatusPath & "." & @AutoItPID & ".tmp"
+	Local $sJson = "{"
+	$sJson &= _EngineSupervisorJsonString("schema_version") & ":1,"
+	$sJson &= _EngineSupervisorJsonString("product_name") & ":" & _EngineSupervisorJsonString("My Bot 2.0") & ","
+	$sJson &= _EngineSupervisorJsonString("product_version") & ":" & _EngineSupervisorJsonString("2.0.0") & ","
+	$sJson &= _EngineSupervisorJsonString("engine_version") & ":" & _EngineSupervisorJsonString("8.2.0") & ","
+	$sJson &= _EngineSupervisorJsonString("state") & ":" & _EngineSupervisorJsonString("failed") & ","
+	$sJson &= _EngineSupervisorJsonString("run_state") & ":false,"
+	$sJson &= _EngineSupervisorJsonString("paused") & ":false,"
+	$sJson &= _EngineSupervisorJsonString("authorization_ready") & ":true,"
+	$sJson &= _EngineSupervisorJsonString("engine_available") & ":false,"
+	$sJson &= _EngineSupervisorJsonString("engine_probe_state") & ":" & _EngineSupervisorJsonString("failed") & ","
+	$sJson &= _EngineSupervisorJsonString("recognition_available") & ":false,"
+	$sJson &= _EngineSupervisorJsonString("recognition_error") & ":" & _EngineSupervisorJsonString($sMessage) & ","
+	$sJson &= _EngineSupervisorJsonString("plan_active") & ":false,"
+	$sJson &= _EngineSupervisorJsonString("plan_message") & ":" & _EngineSupervisorJsonString($sMessage) & ","
+	$sJson &= _EngineSupervisorJsonString("session_id") & ":" & _EngineSupervisorJsonString("") & ","
+	$sJson &= _EngineSupervisorJsonString("profile") & ":" & _EngineSupervisorJsonString("") & ","
+	$sJson &= _EngineSupervisorJsonString("emulator") & ":" & _EngineSupervisorJsonString("") & ","
+	$sJson &= _EngineSupervisorJsonString("instance") & ":" & _EngineSupervisorJsonString("") & ","
+	$sJson &= _EngineSupervisorJsonString("emulator_attached") & ":false,"
+	$sJson &= _EngineSupervisorJsonString("window_attached") & ":false,"
+	$sJson &= _EngineSupervisorJsonString("adb_ready") & ":false,"
+	$sJson &= _EngineSupervisorJsonString("game_ready") & ":false,"
+	$sJson &= _EngineSupervisorJsonString("bot_pid") & ":" & Int($iBackendPid) & ","
+	$sJson &= _EngineSupervisorJsonString("last_command_id") & ":" & _EngineSupervisorJsonString($sStartRequestId) & ","
+	$sJson &= _EngineSupervisorJsonString("last_command") & ":" & _EngineSupervisorJsonString($sStartRequestId = "" ? "check-engine" : "start") & ","
+	$sJson &= _EngineSupervisorJsonString("last_outcome") & ":" & _EngineSupervisorJsonString("failed") & ","
+	$sJson &= _EngineSupervisorJsonString("last_command_message") & ":" & _EngineSupervisorJsonString($sMessage) & ","
+	$sJson &= _EngineSupervisorJsonString("message") & ":" & _EngineSupervisorJsonString($sMessage)
+	$sJson &= "}"
+	Local $hFile = FileOpen($sTemporary, BitOR($FO_OVERWRITE, $FO_CREATEPATH, $FO_UTF8_NOBOM))
+	If $hFile = -1 Then Return False
+	Local $bWritten = FileWrite($hFile, $sJson & @LF)
+	FileFlush($hFile)
+	FileClose($hFile)
+	If Not $bWritten Then
+		FileDelete($sTemporary)
+		Return False
+	EndIf
+	If Not FileMove($sTemporary, $g_sControlStatusPath, $FC_OVERWRITE) Then
+		FileDelete($sTemporary)
+		Return False
+	EndIf
+	Return True
+EndFunc   ;==>_EngineSupervisorWriteAbortStatus
+
 Func _ReadPlannerOwnershipReceipt()
 	If Not FileExists($g_sPlannerOwnershipReceipt) Then Return ""
 	If Not _PlannerReceiptPathSafe(True) Then Return ""
@@ -1040,6 +1105,7 @@ Func _EngineSupervisorAbort($sReceipt, $iBackendPid, $sReason)
 			$sCurrent <> $sReceipt Or $iCurrentBackend <> $iBackendPid Then
 		Return _EngineSupervisorRecordFailure("abort refused because exact backend ownership changed; reason=" & $sReason)
 	EndIf
+	_EngineSupervisorWriteAbortStatus($sCurrentStartRequest, $sReason, $sCurrentPhase, $iBackendPid)
 	_RecoveryLog("engine init supervisor closing verified backend; pid=" & $iBackendPid & "; phase=" & $sCurrentPhase & "; reason=" & $sReason)
 	Local $bCloseIssued = ProcessClose($iBackendPid)
 	If Not $bCloseIssued And ProcessExists($iBackendPid) Then Return _EngineSupervisorRecordFailure("the single verified backend close attempt failed; pid=" & $iBackendPid)

@@ -661,9 +661,11 @@ class LauncherRecoveryContractTests(unittest.TestCase):
 
     def test_engine_supervisor_revalidates_before_exact_backend_close_and_never_retries(self):
         abort = autoit_function(LAUNCHER, "_EngineSupervisorAbort")
+        status_at = abort.index("_EngineSupervisorWriteAbortStatus")
         close_at = abort.index("ProcessClose($iBackendPid)")
         latch_at = abort.index("$g_bEngineSupervisorAbortAttempted = True")
         self.assertLess(latch_at, close_at)
+        self.assertLess(status_at, close_at)
         self.assertEqual(abort.count("ProcessClose($iBackendPid)"), 1)
         self.assertIn("If $g_bEngineSupervisorAbortAttempted Then Return False", abort)
         self.assertIn("_EngineSupervisorReadReceipt", abort[:close_at])
@@ -678,6 +680,24 @@ class LauncherRecoveryContractTests(unittest.TestCase):
         self.assertIn("$g_bEngineSupervisorFailureLatched = True", failure)
         self.assertIn("$g_sEngineSupervisorFailure = $sReason", failure)
         self.assertIn("_RecoveryLog", failure)
+
+    def test_engine_supervisor_abort_writes_terminal_control_status(self):
+        writer = autoit_function(LAUNCHER, "_EngineSupervisorWriteAbortStatus")
+        self.assertIn("$g_sControlStatusPath", LAUNCHER)
+        self.assertIn("config\\control-status.local.json", LAUNCHER)
+        self.assertIn("_EngineSupervisorPathSafe($g_sControlStatusPath, False)", writer)
+        self.assertIn('"state") & ":" & _EngineSupervisorJsonString("failed")', writer)
+        self.assertIn('"last_outcome") & ":" & _EngineSupervisorJsonString("failed")', writer)
+        self.assertIn('"last_command_message")', writer)
+        self.assertIn('"Managed engine initialization failed"', writer)
+        self.assertIn('"recognition_error")', writer)
+        self.assertIn("FileOpen($sTemporary", writer)
+        self.assertIn("$FO_UTF8_NOBOM", writer)
+        self.assertIn("FileMove($sTemporary, $g_sControlStatusPath, $FC_OVERWRITE)", writer)
+        self.assertIn("FileDelete($sTemporary)", writer)
+        self.assertNotIn("Run(", writer)
+        self.assertNotIn("ShellExecute", writer)
+        self.assertNotIn("ProcessClose", writer)
 
     def test_engine_supervisor_keeps_controller_binding_across_backend_generations(self):
         token = "7a" * 32
