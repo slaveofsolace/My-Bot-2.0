@@ -591,16 +591,19 @@ EndFunc   ;==>setMaxDegreeOfParallelism
 Func _MBRFuncAutomaticProcessingPoolSize()
 	; MyBot.run.dll's processing-pool export can block indefinitely when passed the inherited -1
 	; sentinel. Resolve the documented 0 = automatic setting to an explicit positive Windows
-	; processor count before crossing the externally supervised managed boundary.
+	; processor count before crossing the externally supervised managed boundary.  Very high host
+	; CPU counts have also proven unsafe with the inherited ImgLoc pool startup, so automatic mode
+	; uses a conservative cap while explicit user settings remain available from the native GUI.
+	Local Const $iAutomaticPoolCap = 4
 	Local $aProcessorCount = DllCall("kernel32.dll", "dword", "GetActiveProcessorCount", "word", 0xFFFF)
 	Local $iCallError = @error
 	If $iCallError = 0 And IsArray($aProcessorCount) Then
 		Local $iActiveProcessors = Int($aProcessorCount[0])
-		If $iActiveProcessors > 0 Then Return $iActiveProcessors
+		If $iActiveProcessors > 0 Then Return $iActiveProcessors > $iAutomaticPoolCap ? $iAutomaticPoolCap : $iActiveProcessors
 	EndIf
 
 	Local $iEnvironmentProcessors = Int(EnvGet("NUMBER_OF_PROCESSORS"))
-	If $iEnvironmentProcessors > 0 Then Return $iEnvironmentProcessors
+	If $iEnvironmentProcessors > 0 Then Return $iEnvironmentProcessors > $iAutomaticPoolCap ? $iAutomaticPoolCap : $iEnvironmentProcessors
 	Return 1
 EndFunc   ;==>_MBRFuncAutomaticProcessingPoolSize
 
