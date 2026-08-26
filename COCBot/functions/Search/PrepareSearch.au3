@@ -285,7 +285,7 @@ Func PrepareSearchCurrentRegularEntryReady($bNeedCapture = True)
 EndFunc   ;==>PrepareSearchCurrentRegularEntryReady
 
 Func PrepareSearchCurrentRegularFindMatchRegionReady($iX, $iY)
-	If $iX < 54 Or $iX > 272 Or $iY < (461 + $g_iMidOffsetY) Or $iY > (530 + $g_iMidOffsetY) Then Return False
+	If $iX < 54 Or $iX > 272 Or $iY < 461 Or $iY > 530 Then Return False
 	Return PrepareSearchCurrentRegularEntryReady(True)
 EndFunc   ;==>PrepareSearchCurrentRegularFindMatchRegionReady
 
