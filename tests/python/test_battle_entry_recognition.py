@@ -28,6 +28,7 @@ class BattleEntryRecognitionTests(unittest.TestCase):
         self.assertIn("Func PrepareSearchCurrentRegularFindMatchRegionReady(", prepare_search)
         self.assertIn("$iX < 54 Or $iX > 272", prepare_search)
         self.assertIn("$iY < (461 + $g_iMidOffsetY) Or $iY > (530 + $g_iMidOffsetY)", prepare_search)
+        self.assertIn("Return PrepareSearchCurrentRegularEntryReady(True)", prepare_search)
         self.assertIn("_GetPixelColor(60, 470 + $g_iMidOffsetY, False)", prepare_search)
         self.assertIn("_GetPixelColor(75, 500 + $g_iMidOffsetY, False)", prepare_search)
         self.assertIn("_GetPixelColor(135, 486 + $g_iMidOffsetY, False)", prepare_search)
