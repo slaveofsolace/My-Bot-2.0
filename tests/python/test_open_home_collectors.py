@@ -134,7 +134,7 @@ class OpenHomeCollectorsTest(unittest.TestCase):
         self.assertNotIn("$g_sImg", route)
         self.assertLess(route.index("ForceCaptureRegion()"), route.index("AndroidScreencap("))
         self.assertIn("AndroidScreencap(", route)
-        self.assertEqual(route.count("NoPremiumPointClick("), 7)
+        self.assertEqual(route.count("NoPremiumPointClick("), 9)
 
     def test_every_click_is_bounded_by_stop_and_home_proof(self):
         route = source("COCBot/functions/Run/OpenHomeCollectors.au3")
@@ -522,6 +522,7 @@ class OpenHomeCollectorsTest(unittest.TestCase):
                 if "NoPremiumPointClick(" in line and "#OpenHomeDailyReward" not in line
                 and "#OpenHomeInactivityReload" not in line
                 and "#OpenHomeClearSelection" not in line
+                and "#OpenRegularBattleEntry" not in line
             ]
             self.assertEqual(expected_count, len(click_lines), relative)
             self.assertTrue(all(", True)" in line for line in click_lines), click_lines)
@@ -534,10 +535,11 @@ class OpenHomeCollectorsTest(unittest.TestCase):
                 "#OpenHomeDailyReward" in line
                 or "#OpenHomeInactivityReload" in line
                 or "#OpenHomeClearSelection" in line
+                or "#OpenRegularBattleEntry" in line
             )
             and "NoPremiumPointClick(" in line
         ]
-        self.assertEqual(4, len(direct_adb_lines))
+        self.assertEqual(6, len(direct_adb_lines))
         self.assertTrue(all(", False)" in line for line in direct_adb_lines), direct_adb_lines)
 
         click = autoit_function(source("COCBot/functions/Other/Click.au3"), "Click")

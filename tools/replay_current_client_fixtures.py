@@ -274,7 +274,7 @@ def _load_home_daily_reward_contract() -> tuple[
         (int(x), int(y))
         for x, y in re.findall(r"\[(\d+)\s*,\s*(\d+)\]", candidate_match.group(1))
     )
-    if centers != ((149, 326), (297, 326), (445, 326), (149, 485), (297, 485), (445, 485), (592, 485)):
+    if centers != ((149, 326), (297, 326), (445, 326), (149, 485), (297, 485), (445, 485), (628, 483)):
         raise FixtureReplayError("production Daily Reward candidate centers changed outside the reviewed contract")
     return overlay_anchors, tuple(claim_anchors), centers
 

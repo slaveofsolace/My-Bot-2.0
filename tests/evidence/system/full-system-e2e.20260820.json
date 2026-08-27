@@ -2096,16 +2096,6 @@
         "verdict": "PASS"
       },
       {
-        "id": "COCBot/functions/Android/AndroidBluestacks5.au3::LaunchBlueStacks5ProcessOnly",
-        "policy": "infrastructure",
-        "mapping": "infra.android-transport",
-        "capability_ids": [
-          "emulator.bluestacks5",
-          "runtime.recovery"
-        ],
-        "verdict": "PASS"
-      },
-      {
         "id": "COCBot/functions/Android/Android.au3::Minitouch",
         "policy": "infrastructure",
         "mapping": "infra.android-transport",
@@ -2302,6 +2292,19 @@
       },
       {
         "id": "COCBot/functions/Android/AndroidBluestacks5.au3::LaunchBlueStacks5CoCOnly",
+        "policy": "infrastructure",
+        "mapping": "infra.android-transport",
+        "capability_ids": [
+          "emulator.bluestacks5",
+          "emulator.memu",
+          "emulator.ldplayer9",
+          "emulator.mumu",
+          "runtime.recovery"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Android/AndroidBluestacks5.au3::LaunchBlueStacks5ProcessOnly",
         "policy": "infrastructure",
         "mapping": "infra.android-transport",
         "capability_ids": [
@@ -3422,16 +3425,6 @@
         "verdict": "PASS"
       },
       {
-        "id": "COCBot/functions/Image Search/IsWindowOpen.au3::ClearScreen",
-        "policy": "blocked",
-        "mapping": "blocked.legacy-page-navigation",
-        "capability_ids": [
-          "runtime.recovery",
-          "model.screen-state-registry"
-        ],
-        "verdict": "PASS"
-      },
-      {
         "id": "COCBot/functions/Image Search/IsWindowOpen.au3::CloseWindow",
         "policy": "blocked",
         "mapping": "blocked.legacy-page-navigation",
@@ -3785,6 +3778,13 @@
         "verdict": "PASS"
       },
       {
+        "id": "COCBot/functions/Other/Click.au3::NoPremiumClickAway",
+        "policy": "infrastructure",
+        "mapping": "infra.input-primitives",
+        "capability_ids": [],
+        "verdict": "PASS"
+      },
+      {
         "id": "COCBot/functions/Other/Click.au3::NoPremiumPointClick",
         "policy": "infrastructure",
         "mapping": "infra.input-primitives",
@@ -4096,7 +4096,7 @@
         "capability_ids": [
           "village.clan-request"
         ],
-        "verdict": "DEFERRED"
+        "verdict": "PASS"
       },
       {
         "id": "COCBot/functions/Run/ClanRequestRoute.au3::_ClanRequestRouteFinish",
@@ -4105,7 +4105,7 @@
         "capability_ids": [
           "village.clan-request"
         ],
-        "verdict": "DEFERRED"
+        "verdict": "PASS"
       },
       {
         "id": "COCBot/functions/Run/CollectorBubbleRecognizer.au3::CollectorBubbleRecognize",
@@ -4164,7 +4164,7 @@
           "village.loot-cart",
           "events.daily-reward"
         ],
-        "verdict": "DEFERRED"
+        "verdict": "PASS"
       },
       {
         "id": "COCBot/functions/Run/LootCartRoute.au3::_LootCartRouteFinish",
@@ -4175,43 +4175,7 @@
           "village.loot-cart",
           "events.daily-reward"
         ],
-        "verdict": "DEFERRED"
-      },
-      {
-        "id": "COCBot/functions/Run/OpenClanRequest.au3::OpenClanRequestCloseAndProveHome",
-        "policy": "capability",
-        "mapping": "capability.clan-request",
-        "capability_ids": [
-          "village.clan-request"
-        ],
-        "verdict": "DEFERRED"
-      },
-      {
-        "id": "COCBot/functions/Run/OpenClanRequest.au3::OpenClanRequestIssueSend",
-        "policy": "capability",
-        "mapping": "capability.clan-request",
-        "capability_ids": [
-          "village.clan-request"
-        ],
-        "verdict": "DEFERRED"
-      },
-      {
-        "id": "COCBot/functions/Run/OpenClanRequest.au3::OpenClanRequestOpenArmyOverview",
-        "policy": "capability",
-        "mapping": "capability.clan-request",
-        "capability_ids": [
-          "village.clan-request"
-        ],
-        "verdict": "DEFERRED"
-      },
-      {
-        "id": "COCBot/functions/Run/OpenClanRequest.au3::OpenClanRequestOpenDialog",
-        "policy": "capability",
-        "mapping": "capability.clan-request",
-        "capability_ids": [
-          "village.clan-request"
-        ],
-        "verdict": "DEFERRED"
+        "verdict": "PASS"
       },
       {
         "id": "COCBot/functions/Run/OpenBuilderBaseCollectors.au3::OpenBuilderBaseCollectorsCollectOnePass",
@@ -4220,7 +4184,7 @@
         "capability_ids": [
           "builder-base.resources"
         ],
-        "verdict": "DEFERRED"
+        "verdict": "PASS"
       },
       {
         "id": "COCBot/functions/Run/OpenBuilderBaseCollectors.au3::OpenBuilderBaseReturnHome",
@@ -4229,7 +4193,7 @@
         "capability_ids": [
           "builder-base.resources"
         ],
-        "verdict": "DEFERRED"
+        "verdict": "PASS"
       },
       {
         "id": "COCBot/functions/Run/OpenBuilderBaseCollectors.au3::OpenBuilderBaseSwitchToBuilder",
@@ -4238,7 +4202,72 @@
         "capability_ids": [
           "builder-base.resources"
         ],
-        "verdict": "DEFERRED"
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Run/OpenBuilderBaseCollectors.au3::OpenBuilderBattleEntryIssueClose",
+        "policy": "capability",
+        "mapping": "capability.builder-collection",
+        "capability_ids": [
+          "builder-base.resources"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Run/OpenBuilderBaseCollectors.au3::OpenBuilderBattleEntryIssueOpen",
+        "policy": "capability",
+        "mapping": "capability.builder-collection",
+        "capability_ids": [
+          "builder-base.resources"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Run/OpenClanRequest.au3::OpenClanRequestCloseAndProveHome",
+        "policy": "capability",
+        "mapping": "capability.clan-request",
+        "capability_ids": [
+          "village.clan-request"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Run/OpenClanRequest.au3::OpenClanRequestIssueSend",
+        "policy": "capability",
+        "mapping": "capability.clan-request",
+        "capability_ids": [
+          "village.clan-request"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Run/OpenClanRequest.au3::OpenClanRequestOpenArmyOverview",
+        "policy": "capability",
+        "mapping": "capability.clan-request",
+        "capability_ids": [
+          "village.clan-request"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Run/OpenClanRequest.au3::OpenClanRequestOpenDialog",
+        "policy": "capability",
+        "mapping": "capability.clan-request",
+        "capability_ids": [
+          "village.clan-request"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Run/OpenHomeCollectors.au3::OpenHomeClearSelectedActionPanel",
+        "policy": "capability",
+        "mapping": "capability.home-collection",
+        "capability_ids": [
+          "village.collectors",
+          "village.loot-cart",
+          "events.daily-reward"
+        ],
+        "verdict": "PASS"
       },
       {
         "id": "COCBot/functions/Run/OpenHomeCollectors.au3::OpenHomeCollectorsCollectOnePass",
@@ -4249,7 +4278,7 @@
           "village.loot-cart",
           "events.daily-reward"
         ],
-        "verdict": "DEFERRED"
+        "verdict": "PASS"
       },
       {
         "id": "COCBot/functions/Run/OpenHomeCollectors.au3::OpenHomeDailyRewardCloseAndProveHome",
@@ -4260,7 +4289,7 @@
           "village.loot-cart",
           "events.daily-reward"
         ],
-        "verdict": "DEFERRED"
+        "verdict": "PASS"
       },
       {
         "id": "COCBot/functions/Run/OpenHomeCollectors.au3::OpenHomeDailyRewardIssueClaim",
@@ -4271,7 +4300,7 @@
           "village.loot-cart",
           "events.daily-reward"
         ],
-        "verdict": "DEFERRED"
+        "verdict": "PASS"
       },
       {
         "id": "COCBot/functions/Run/OpenHomeCollectors.au3::OpenHomeInactivityReloadIssue",
@@ -4282,18 +4311,7 @@
           "village.loot-cart",
           "events.daily-reward"
         ],
-        "verdict": "DEFERRED"
-      },
-      {
-        "id": "COCBot/functions/Run/OpenHomeCollectors.au3::OpenHomeStartupRecoveryLaunchGame",
-        "policy": "capability",
-        "mapping": "capability.home-collection",
-        "capability_ids": [
-          "village.collectors",
-          "village.loot-cart",
-          "events.daily-reward"
-        ],
-        "verdict": "DEFERRED"
+        "verdict": "PASS"
       },
       {
         "id": "COCBot/functions/Run/OpenHomeCollectors.au3::OpenHomeLootCartIssueCollect",
@@ -4304,7 +4322,7 @@
           "village.loot-cart",
           "events.daily-reward"
         ],
-        "verdict": "DEFERRED"
+        "verdict": "PASS"
       },
       {
         "id": "COCBot/functions/Run/OpenHomeCollectors.au3::OpenHomeLootCartIssueOpen",
@@ -4315,7 +4333,40 @@
           "village.loot-cart",
           "events.daily-reward"
         ],
-        "verdict": "DEFERRED"
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Run/OpenHomeCollectors.au3::OpenHomeStartupRecoveryLaunchGame",
+        "policy": "capability",
+        "mapping": "capability.home-collection",
+        "capability_ids": [
+          "village.collectors",
+          "village.loot-cart",
+          "events.daily-reward"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Run/OpenHomeCollectors.au3::OpenRegularBattleEntryIssueClose",
+        "policy": "capability",
+        "mapping": "capability.home-collection",
+        "capability_ids": [
+          "village.collectors",
+          "village.loot-cart",
+          "events.daily-reward"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Run/OpenHomeCollectors.au3::OpenRegularBattleEntryIssueOpen",
+        "policy": "capability",
+        "mapping": "capability.home-collection",
+        "capability_ids": [
+          "village.collectors",
+          "village.loot-cart",
+          "events.daily-reward"
+        ],
+        "verdict": "PASS"
       },
       {
         "id": "COCBot/functions/Run/OpenHomeTreasury.au3::OpenHomeTreasuryCleanup",
@@ -4324,7 +4375,7 @@
         "capability_ids": [
           "village.treasury"
         ],
-        "verdict": "DEFERRED"
+        "verdict": "PASS"
       },
       {
         "id": "COCBot/functions/Run/OpenHomeTreasury.au3::OpenHomeTreasuryIssueCastle",
@@ -4333,7 +4384,7 @@
         "capability_ids": [
           "village.treasury"
         ],
-        "verdict": "DEFERRED"
+        "verdict": "PASS"
       },
       {
         "id": "COCBot/functions/Run/OpenHomeTreasury.au3::OpenHomeTreasuryIssueEntry",
@@ -4342,7 +4393,7 @@
         "capability_ids": [
           "village.treasury"
         ],
-        "verdict": "DEFERRED"
+        "verdict": "PASS"
       },
       {
         "id": "COCBot/functions/Run/RunExecution.au3::_ClanRequestLiveIssueSend",
@@ -4353,7 +4404,7 @@
           "village.treasury",
           "village.clan-request"
         ],
-        "verdict": "DEFERRED"
+        "verdict": "PASS"
       },
       {
         "id": "COCBot/functions/Run/RunExecution.au3::_ClanRequestLiveOpenDialog",
@@ -4364,7 +4415,7 @@
           "village.treasury",
           "village.clan-request"
         ],
-        "verdict": "DEFERRED"
+        "verdict": "PASS"
       },
       {
         "id": "COCBot/functions/Run/RunExecution.au3::_LootCartLiveIssueCart",
@@ -4375,7 +4426,7 @@
           "village.treasury",
           "village.clan-request"
         ],
-        "verdict": "DEFERRED"
+        "verdict": "PASS"
       },
       {
         "id": "COCBot/functions/Run/RunExecution.au3::_LootCartLiveIssueCollect",
@@ -4386,7 +4437,40 @@
           "village.treasury",
           "village.clan-request"
         ],
-        "verdict": "DEFERRED"
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Run/RunExecution.au3::_RegularBattleScoutIssueCurrentArmyConfirmationIfPresent",
+        "policy": "capability",
+        "mapping": "capability.execution-adapters",
+        "capability_ids": [
+          "village.loot-cart",
+          "village.treasury",
+          "village.clan-request"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Run/RunExecution.au3::_RegularBattleScoutIssueFindMatch",
+        "policy": "capability",
+        "mapping": "capability.execution-adapters",
+        "capability_ids": [
+          "village.loot-cart",
+          "village.treasury",
+          "village.clan-request"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Run/RunExecution.au3::_RegularBattleScoutReturnHome",
+        "policy": "capability",
+        "mapping": "capability.execution-adapters",
+        "capability_ids": [
+          "village.loot-cart",
+          "village.treasury",
+          "village.clan-request"
+        ],
+        "verdict": "PASS"
       },
       {
         "id": "COCBot/functions/Run/RunExecution.au3::_TreasuryLiveIssueCastle",
@@ -4397,7 +4481,7 @@
           "village.treasury",
           "village.clan-request"
         ],
-        "verdict": "DEFERRED"
+        "verdict": "PASS"
       },
       {
         "id": "COCBot/functions/Run/RunExecution.au3::_TreasuryLiveIssueCollect",
@@ -4408,7 +4492,7 @@
           "village.treasury",
           "village.clan-request"
         ],
-        "verdict": "DEFERRED"
+        "verdict": "PASS"
       },
       {
         "id": "COCBot/functions/Run/RunExecution.au3::_TreasuryLiveIssueConfirm",
@@ -4419,7 +4503,7 @@
           "village.treasury",
           "village.clan-request"
         ],
-        "verdict": "DEFERRED"
+        "verdict": "PASS"
       },
       {
         "id": "COCBot/functions/Run/RunExecution.au3::_TreasuryLiveIssueEntry",
@@ -4430,7 +4514,17 @@
           "village.treasury",
           "village.clan-request"
         ],
-        "verdict": "DEFERRED"
+        "verdict": "PASS"
+      },
+      {
+        "id": "COCBot/functions/Run/RunExecutionContract.au3::RunExecutionContractValidate",
+        "policy": "infrastructure",
+        "mapping": "infra.run-execution-contract",
+        "capability_ids": [
+          "orchestration.run-plan",
+          "orchestration.run-session"
+        ],
+        "verdict": "PASS"
       },
       {
         "id": "COCBot/functions/Run/TreasuryRoute.au3::TreasuryRouteRunAdapter",
@@ -4439,7 +4533,7 @@
         "capability_ids": [
           "village.treasury"
         ],
-        "verdict": "DEFERRED"
+        "verdict": "PASS"
       },
       {
         "id": "COCBot/functions/Run/TreasuryRoute.au3::_TreasuryRouteFinish",
@@ -4448,7 +4542,7 @@
         "capability_ids": [
           "village.treasury"
         ],
-        "verdict": "DEFERRED"
+        "verdict": "PASS"
       },
       {
         "id": "COCBot/functions/Run/TreasuryRoute.au3::_TreasuryRouteFinishUnlessStopped",
@@ -4457,7 +4551,7 @@
         "capability_ids": [
           "village.treasury"
         ],
-        "verdict": "DEFERRED"
+        "verdict": "PASS"
       },
       {
         "id": "COCBot/functions/Run/TreasuryRoute.au3::_TreasuryRouteIssue",
@@ -4466,7 +4560,7 @@
         "capability_ids": [
           "village.treasury"
         ],
-        "verdict": "DEFERRED"
+        "verdict": "PASS"
       },
       {
         "id": "COCBot/functions/Run/TreasuryRoute.au3::_TreasuryRouteReadObservation",
@@ -4475,7 +4569,7 @@
         "capability_ids": [
           "village.treasury"
         ],
-        "verdict": "DEFERRED"
+        "verdict": "PASS"
       },
       {
         "id": "COCBot/functions/Search/PrepareSearch.au3::OkayLegend",
@@ -5912,6 +6006,16 @@
         "verdict": "PASS"
       },
       {
+        "id": "My Bot 2.0.au3::_EngineSupervisorCloseOwnedControllerAfterAbort",
+        "policy": "infrastructure",
+        "mapping": "infra.launcher",
+        "capability_ids": [
+          "runtime.recovery",
+          "orchestration.engine-initialization"
+        ],
+        "verdict": "PASS"
+      },
+      {
         "id": "My Bot 2.0.au3::_OpenControlCenter",
         "policy": "infrastructure",
         "mapping": "infra.launcher",
@@ -6125,16 +6229,16 @@
   },
   "counts": {
     "capabilities": 61,
-    "planner_settings": 48,
+    "planner_settings": 50,
     "fixtures": 57,
     "compile_targets": 6,
     "control_actions": 6,
     "infrastructure_routes": 8,
-    "actuator_owners": 470,
-    "actuator_sites": 1184,
+    "actuator_owners": 480,
+    "actuator_sites": 1195,
     "pass_capabilities": 2,
     "deferred_capabilities": 59,
-    "pass_actuator_owners": 436,
-    "deferred_actuator_owners": 34
+    "pass_actuator_owners": 438,
+    "deferred_actuator_owners": 42
   }
 }

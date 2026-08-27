@@ -30,8 +30,8 @@
     "dynamic_dispatch": ["DynamicCall"]
   },
   "owner_fingerprint": {
-    "count": 470,
-    "sha256": "0f16b9cdfe5ad7aedf5fd89d975b8e2d10c9912d7a952edee602169e82ed12ee"
+    "count": 480,
+    "sha256": "cfface80cf8663500bc86434b867fc95fe7733602033e22fa13d259ca753f6ef"
   },
   "mappings": [
     {
@@ -253,6 +253,13 @@
       "path_globs": ["COCBot/functions/Run/RunExecution.au3"],
       "capability_ids": ["village.loot-cart", "village.treasury", "village.clan-request"],
       "reason": "RunExecution binds terminal routes to the reviewed live callbacks and exact plan identity."
+    },
+    {
+      "id": "infra.run-execution-contract",
+      "policy": "infrastructure",
+      "path_globs": ["COCBot/functions/Run/RunExecutionContract.au3"],
+      "capability_ids": ["orchestration.run-plan", "orchestration.run-session"],
+      "reason": "The run-execution contract owns dynamic dispatch only for closed-world route validation; it does not issue game input."
     },
     {
       "id": "blocked.one-unit-donation-adapter",
