@@ -63,6 +63,7 @@ UI_JS = ROOT / "ui/planner.js"
 UI_FAVICON = ROOT / "ui/favicon.svg"
 
 PLAN_PATH = ROOT / "config/run-plan.local.json"
+PLAN_RECEIPT_PATH = ROOT / "config/run-plan.receipt.local.json"
 EVENTS_PATH = ROOT / "logs/run-events.jsonl"
 PROFILES_ROOT = ROOT / "Profiles"
 CONTROL_COMMAND_PATH = ROOT / "config/control-command.local.json"
@@ -98,6 +99,7 @@ ENGINE_INIT_CANCEL_CONTEXT_POLL_SECONDS = 0.025
 CONTROL_ACTIONS = {"start", "stop", "pause", "resume", "check-engine", "launch-game"}
 CONTROL_LOCK = threading.Lock()
 PLAN_ABSENCE_TOKEN = "absent"
+PLAN_RECEIPT_SCHEMA_VERSION = 1
 _LAST_PLAN_REJECTION: dict[str, object] | None = None
 LOCAL_HOSTS = {"127.0.0.1", "localhost"}
 DIAGNOSTIC_ARTIFACTS = {
@@ -832,31 +834,43 @@ def write_json_atomic(document: dict, destination: Path) -> None:
     write_plan_atomic(document, destination)
 
 
-def plan_status() -> dict:
-    """Report what is on disk.
-
-    A file that exists but cannot be parsed is reported as "unreadable", not "saved". The AutoIt
-    loader is strict and would refuse such a file, and a status that disagrees with the reader is
-    worse than no status at all.
-    """
-    if not PLAN_PATH.exists():
-        return {"exists": False, "state": "defaults", "mode": "native-profile", "written_at": None}
-    try:
-        written = datetime.fromtimestamp(PLAN_PATH.stat().st_mtime, timezone.utc).isoformat()
-    except OSError:
-        written = None
-    parsed = read_json(PLAN_PATH, None)
-    if not isinstance(parsed, dict):
-        return {"exists": True, "state": "unreadable", "mode": "planned", "written_at": written}
-    return {"exists": True, "state": "saved", "mode": "planned", "written_at": written}
+def new_attempt_id() -> str:
+    return uuid.uuid4().hex
 
 
-def plan_start_token(run_mode: str) -> str | None:
-    """Return the exact applied-plan identity while the caller holds CONTROL_LOCK."""
-    if run_mode == "native-profile":
-        return PLAN_ABSENCE_TOKEN if not PLAN_PATH.exists() else None
-    if run_mode != "planned":
+def planner_service_identity() -> str:
+    return f"{os.getpid()}:{SERVICE_BUILD_SHA256}"
+
+
+def read_plan_receipt() -> dict:
+    receipt = read_json(PLAN_RECEIPT_PATH, {})
+    return receipt if isinstance(receipt, dict) else {}
+
+
+def receipt_revision_floor(receipt: dict | None = None) -> int:
+    source = receipt if isinstance(receipt, dict) else read_plan_receipt()
+    for key in ("plan_revision", "last_plan_revision"):
+        value = source.get(key)
+        if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+            return value
+    return 0
+
+
+def next_plan_revision() -> int:
+    return receipt_revision_floor() + 1
+
+
+def normalize_plan_revision(value) -> int | None:
+    if isinstance(value, bool):
         return None
+    if isinstance(value, int) and value >= 0:
+        return value
+    if isinstance(value, str) and re.fullmatch(r"0|[1-9][0-9]{0,18}", value):
+        return int(value)
+    return None
+
+
+def plan_file_token() -> str | None:
     try:
         raw = PLAN_PATH.read_bytes()
         parsed = json.loads(raw.decode("utf-8-sig"))
@@ -867,13 +881,137 @@ def plan_start_token(run_mode: str) -> str | None:
     return f"sha256:{hashlib.sha256(raw).hexdigest()}"
 
 
-def remember_plan_rejection(problems: list[str]) -> None:
-    """Latch a failed save so Start cannot replay an older applied plan."""
+def write_plan_receipt_atomic(receipt: dict) -> None:
+    write_json_atomic(receipt, PLAN_RECEIPT_PATH)
+
+
+def accepted_plan_receipt(run_mode: str, attempt_id: str, plan_revision: int, plan_token: str) -> dict:
+    return {
+        "schema_version": PLAN_RECEIPT_SCHEMA_VERSION,
+        "state": "accepted",
+        "attempt_id": attempt_id,
+        "run_mode": run_mode,
+        "plan_revision": plan_revision,
+        "plan_token": plan_token,
+        "service_identity": planner_service_identity(),
+        "recorded_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def plan_status() -> dict:
+    """Report the exact applied plan plus its durable Start receipt.
+
+    A readable plan is not automatically runnable. Start requires the latest accepted receipt to
+    match the current mode, revision, and token, so rejected edits and backend restarts cannot replay
+    an older plan.
+    """
+    receipt = read_plan_receipt()
+    receipt_state = receipt.get("state") if isinstance(receipt.get("state"), str) else "missing"
+    if not PLAN_PATH.exists():
+        status = {"exists": False, "state": "defaults", "mode": "native-profile", "written_at": None}
+        current_token = PLAN_ABSENCE_TOKEN
+    else:
+        try:
+            written = datetime.fromtimestamp(PLAN_PATH.stat().st_mtime, timezone.utc).isoformat()
+        except OSError:
+            written = None
+        parsed = read_json(PLAN_PATH, None)
+        if not isinstance(parsed, dict):
+            return {
+                "exists": True,
+                "state": "unreadable",
+                "mode": "planned",
+                "written_at": written,
+                "receipt_state": receipt_state,
+                "runnable": False,
+                "runnable_problem": "the applied plan is unreadable",
+            }
+        status = {"exists": True, "state": "saved", "mode": "planned", "written_at": written}
+        current_token = plan_file_token()
+
+    status.update({
+        "receipt_state": receipt_state,
+        "runnable": False,
+        "attempt_id": None,
+        "plan_revision": None,
+        "plan_token": None,
+        "runnable_problem": "the applied plan has not been accepted for Start",
+    })
+    if receipt_state == "rejected":
+        problems = receipt.get("problems")
+        status["attempt_id"] = receipt.get("attempt_id")
+        status["last_plan_revision"] = receipt_revision_floor(receipt)
+        status["runnable_problem"] = "the most recent plan save failed; fix and save a valid plan before Start"
+        if isinstance(problems, list):
+            status["problems"] = [str(item) for item in problems]
+        return status
+
+    if receipt_state != "accepted":
+        return status
+    if receipt.get("schema_version") != PLAN_RECEIPT_SCHEMA_VERSION:
+        status["runnable_problem"] = "the accepted plan receipt has an unsupported schema"
+        return status
+    if receipt.get("service_identity") != planner_service_identity():
+        status["runnable_problem"] = "the accepted plan receipt belongs to a previous planner service"
+        return status
+    if receipt.get("run_mode") != status["mode"]:
+        status["runnable_problem"] = "the accepted plan receipt targets a different run mode"
+        return status
+    receipt_revision = normalize_plan_revision(receipt.get("plan_revision"))
+    receipt_token = receipt.get("plan_token")
+    if receipt_revision is None:
+        status["runnable_problem"] = "the accepted plan receipt is missing a valid revision"
+        return status
+    if status["mode"] == "planned" and not isinstance(receipt_token, str):
+        status["runnable_problem"] = "the accepted plan receipt is missing a plan token"
+        return status
+    if receipt_token != current_token:
+        status["runnable_problem"] = "the applied plan bytes no longer match the accepted receipt"
+        return status
+
+    status.update({
+        "runnable": True,
+        "attempt_id": receipt.get("attempt_id"),
+        "plan_revision": receipt_revision,
+        "plan_token": receipt_token,
+        "runnable_problem": "",
+    })
+    return status
+
+
+def plan_start_token(run_mode: str) -> str | None:
+    """Return the exact applied-plan identity while the caller holds CONTROL_LOCK."""
+    if run_mode == "native-profile":
+        return PLAN_ABSENCE_TOKEN if not PLAN_PATH.exists() else None
+    if run_mode != "planned":
+        return None
+    return plan_file_token()
+
+
+def remember_plan_rejection(problems: list[str], attempt_id: str | None = None) -> str:
+    """Persist a failed save so Start cannot replay an older applied plan after service restart."""
     global _LAST_PLAN_REJECTION
+    recorded_attempt_id = attempt_id or new_attempt_id()
+    previous = read_plan_receipt()
+    last_revision = receipt_revision_floor(previous)
     _LAST_PLAN_REJECTION = {
+        "attempt_id": recorded_attempt_id,
         "problems": list(problems),
         "recorded_at": datetime.now(timezone.utc).isoformat(),
     }
+    receipt = {
+        "schema_version": PLAN_RECEIPT_SCHEMA_VERSION,
+        "state": "rejected",
+        "attempt_id": recorded_attempt_id,
+        "last_plan_revision": last_revision,
+        "problems": list(problems),
+        "recorded_at": _LAST_PLAN_REJECTION["recorded_at"],
+    }
+    try:
+        write_plan_receipt_atomic(receipt)
+    except OSError as exc:
+        _LAST_PLAN_REJECTION["receipt_error"] = str(exc)
+    return recorded_attempt_id
 
 
 def clear_plan_rejection() -> None:
@@ -884,19 +1022,21 @@ def clear_plan_rejection() -> None:
 def save_plan(submitted: dict) -> tuple[dict, int]:
     """Validate and replace the applied plan at the shared control linearization point."""
     with CONTROL_LOCK:
+        attempt_id = new_attempt_id()
         clean, adjustments, rejected = validate_plan(submitted)
 
         # An unknown setting means the caller and this server disagree about what exists. Saving
         # the rest would silently drop intent, so refuse the whole document and write nothing.
         if rejected:
-            remember_plan_rejection(rejected)
-            return {"ok": False, "problems": rejected, "written": None}, 400
+            remember_plan_rejection(rejected, attempt_id)
+            return {"ok": False, "attempt_id": attempt_id, "problems": rejected, "written": None}, 400
 
         preflight = engine_preflight(clean)
         if preflight:
-            remember_plan_rejection(preflight)
+            remember_plan_rejection(preflight, attempt_id)
             return {
                 "ok": False,
+                "attempt_id": attempt_id,
                 "problems": preflight,
                 "written": None,
                 "plan": clean,
@@ -906,33 +1046,59 @@ def save_plan(submitted: dict) -> tuple[dict, int]:
             write_plan_atomic(clean)
         except OSError:
             problems = ["the plan could not be written atomically"]
-            remember_plan_rejection(problems)
-            return {"ok": False, "problems": problems}, 500
+            remember_plan_rejection(problems, attempt_id)
+            return {"ok": False, "attempt_id": attempt_id, "problems": problems}, 500
+        plan_token = plan_start_token("planned")
+        if plan_token is None:
+            problems = ["the written plan could not be hashed for Start"]
+            remember_plan_rejection(problems, attempt_id)
+            return {"ok": False, "attempt_id": attempt_id, "problems": problems}, 500
+        plan_revision = next_plan_revision()
+        try:
+            write_plan_receipt_atomic(accepted_plan_receipt("planned", attempt_id, plan_revision, plan_token))
+        except OSError:
+            problems = ["the plan receipt could not be written atomically"]
+            remember_plan_rejection(problems, attempt_id)
+            return {"ok": False, "attempt_id": attempt_id, "problems": problems}, 500
         clear_plan_rejection()
+        status = plan_status()
         return {
             "ok": True,
+            "attempt_id": attempt_id,
+            "run_mode": "planned",
+            "plan_revision": plan_revision,
+            "plan_token": plan_token,
             "problems": adjustments,
             "written": displayed_path(PLAN_PATH),
             "plan": clean,
-            "status": plan_status(),
+            "status": status,
         }, 200
 
 
 def activate_native_profile_mode() -> tuple[dict, int]:
     """Recoverably disable the applied plan so full-profile Start owns emulator/game startup."""
     with CONTROL_LOCK:
+        attempt_id = new_attempt_id()
         native = control_status()
         if native.get("connected") is not True or native.get("state") != "idle":
             return {
                 "ok": False,
+                "attempt_id": attempt_id,
                 "problems": [
                     "full profile automation requires a fresh connected idle native engine"
                 ],
             }, 409
 
-        if native.get("recognition_available") is not True:
+        native_profile_cold_bootstrap = (
+            native.get("emulator_attached") is not True
+            and native.get("window_attached") is not True
+            and native.get("adb_ready") is not True
+            and native.get("game_ready") is not True
+        )
+        if native.get("recognition_available") is not True and not native_profile_cold_bootstrap:
             return {
                 "ok": False,
+                "attempt_id": attempt_id,
                 "problems": [
                     native.get("recognition_error")
                     or "Full profile automation requires a licensed or clean-room recognizer; the applied bounded plan was left unchanged"
@@ -940,10 +1106,19 @@ def activate_native_profile_mode() -> tuple[dict, int]:
             }, 409
 
         if not PLAN_PATH.exists():
+            plan_revision = next_plan_revision()
+            try:
+                write_plan_receipt_atomic(accepted_plan_receipt("native-profile", attempt_id, plan_revision, PLAN_ABSENCE_TOKEN))
+            except OSError:
+                return {"ok": False, "attempt_id": attempt_id, "problems": ["the native profile receipt could not be written atomically"]}, 500
             clear_plan_rejection()
             return {
                 "ok": True,
+                "attempt_id": attempt_id,
                 "mode": "native-profile",
+                "run_mode": "native-profile",
+                "plan_revision": plan_revision,
+                "plan_token": PLAN_ABSENCE_TOKEN,
                 "backup": None,
                 "status": plan_status(),
             }, 200
@@ -951,22 +1126,31 @@ def activate_native_profile_mode() -> tuple[dict, int]:
         try:
             plan_entry = PLAN_PATH.lstat()
         except OSError:
-            return {"ok": False, "problems": ["the applied plan could not be inspected"]}, 500
+            return {"ok": False, "attempt_id": attempt_id, "problems": ["the applied plan could not be inspected"]}, 500
         if not stat.S_ISREG(plan_entry.st_mode):
-            return {"ok": False, "problems": ["the applied plan is not a regular file"]}, 409
+            return {"ok": False, "attempt_id": attempt_id, "problems": ["the applied plan is not a regular file"]}, 409
         if not isinstance(read_json(PLAN_PATH, None), dict):
-            return {"ok": False, "problems": ["the applied plan is unreadable and was left untouched"]}, 409
+            return {"ok": False, "attempt_id": attempt_id, "problems": ["the applied plan is unreadable and was left untouched"]}, 409
 
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
         backup = PLAN_PATH.with_name(f"{PLAN_PATH.stem}.backup-{stamp}-{uuid.uuid4().hex[:8]}.json")
         try:
             os.replace(PLAN_PATH, backup)
         except OSError:
-            return {"ok": False, "problems": ["the applied plan could not be backed up atomically"]}, 500
+            return {"ok": False, "attempt_id": attempt_id, "problems": ["the applied plan could not be backed up atomically"]}, 500
+        plan_revision = next_plan_revision()
+        try:
+            write_plan_receipt_atomic(accepted_plan_receipt("native-profile", attempt_id, plan_revision, PLAN_ABSENCE_TOKEN))
+        except OSError:
+            return {"ok": False, "attempt_id": attempt_id, "problems": ["the native profile receipt could not be written atomically"]}, 500
         clear_plan_rejection()
         return {
             "ok": True,
+            "attempt_id": attempt_id,
             "mode": "native-profile",
+            "run_mode": "native-profile",
+            "plan_revision": plan_revision,
+            "plan_token": PLAN_ABSENCE_TOKEN,
             "backup": displayed_path(backup),
             "status": plan_status(),
         }, 200
@@ -1091,12 +1275,33 @@ def control_status() -> dict:
     return document
 
 
-def queue_control_command(action: str, expected_start_request_id: str = "") -> tuple[dict, int]:
+def queue_control_command(
+    action: str,
+    expected_start_request_id: str = "",
+    expected_run_mode: str = "",
+    expected_plan_revision=None,
+    expected_plan_token: str = "",
+) -> tuple[dict, int]:
     if action not in CONTROL_ACTIONS:
         return {"ok": False, "problems": ["unsupported control action"]}, 400
     if expected_start_request_id:
         if action != "stop" or re.fullmatch(r"[A-Za-z0-9._-]{1,80}", expected_start_request_id) is None:
             return {"ok": False, "problems": ["expected_start_request_id is invalid for this action"]}, 400
+    normalized_expected_revision = normalize_plan_revision(expected_plan_revision)
+    if action == "start":
+        if expected_run_mode not in {"planned", "native-profile"}:
+            return {"ok": False, "problems": ["Start requires expected_run_mode for the accepted plan"]}, 400
+        if normalized_expected_revision is None:
+            return {"ok": False, "problems": ["Start requires expected_plan_revision for the accepted plan"]}, 400
+        expected_token_valid = (
+            expected_run_mode == "planned"
+            and isinstance(expected_plan_token, str)
+            and re.fullmatch(r"sha256:[0-9a-f]{64}", expected_plan_token) is not None
+        ) or (expected_run_mode == "native-profile" and expected_plan_token == PLAN_ABSENCE_TOKEN)
+        if not expected_token_valid:
+            return {"ok": False, "problems": ["Start requires expected_plan_token for the accepted plan"]}, 400
+    elif expected_run_mode or expected_plan_revision is not None or expected_plan_token:
+        return {"ok": False, "problems": ["plan identity fields are valid only for Start"]}, 400
     status = control_status()
     init_context = engine_init_cancel_context() if action == "stop" else None
     expected_init_request_id = expected_start_request_id
@@ -1122,13 +1327,6 @@ def queue_control_command(action: str, expected_start_request_id: str = "") -> t
         # started yet. Once a receipt exists, the separate launcher cancel remains authoritative.
         if command_pending and action != "stop":
             return {"ok": False, "problems": ["another control command is awaiting the native engine"]}, 409
-        if action == "start" and _LAST_PLAN_REJECTION is not None:
-            latched = _LAST_PLAN_REJECTION
-            problems = ["the most recent plan save failed; fix and save a valid plan before Start"]
-            saved_problems = latched.get("problems")
-            if isinstance(saved_problems, list):
-                problems.extend(str(item) for item in saved_problems)
-            return {"ok": False, "problems": problems, "status": status}, 409
         request_id = uuid.uuid4().hex
         command = {
             "schema_version": 1,
@@ -1139,6 +1337,32 @@ def queue_control_command(action: str, expected_start_request_id: str = "") -> t
         if action == "start":
             current_plan = plan_status()
             run_mode = current_plan.get("mode")
+            if current_plan.get("runnable") is not True:
+                problems = [current_plan.get("runnable_problem") or "the applied plan is not accepted for Start"]
+                if isinstance(current_plan.get("problems"), list):
+                    problems.extend(str(item) for item in current_plan["problems"])
+                return {"ok": False, "problems": problems, "status": status, "plan": current_plan}, 409
+            if run_mode != expected_run_mode:
+                return {
+                    "ok": False,
+                    "problems": ["the accepted plan mode changed before Start"],
+                    "status": status,
+                    "plan": current_plan,
+                }, 409
+            if current_plan.get("plan_revision") != normalized_expected_revision:
+                return {
+                    "ok": False,
+                    "problems": ["the accepted plan revision changed before Start"],
+                    "status": status,
+                    "plan": current_plan,
+                }, 409
+            if current_plan.get("plan_token") != expected_plan_token:
+                return {
+                    "ok": False,
+                    "problems": ["the accepted plan token changed before Start"],
+                    "status": status,
+                    "plan": current_plan,
+                }, 409
             if run_mode not in {"planned", "native-profile"}:
                 return {"ok": False, "problems": ["the selected run mode is invalid"]}, 409
             if run_mode == "planned" and current_plan.get("state") != "saved":
@@ -1181,6 +1405,7 @@ def queue_control_command(action: str, expected_start_request_id: str = "") -> t
             # to the server-observed mode so a stale cached plan can never replace the operator's
             # explicit Full profile choice.
             command["run_mode"] = run_mode
+            command["plan_revision"] = current_plan["plan_revision"]
             command["plan_token"] = plan_token
         native_command_queued = False
         # A supervised Stop must replace any command that could otherwise be replayed by the
@@ -1223,6 +1448,7 @@ def queue_control_command(action: str, expected_start_request_id: str = "") -> t
         "accepted": True,
         "request_id": request_id,
         "action": action,
+        "plan": current_plan if action == "start" else None,
         "native_command_queued": native_command_queued,
         "supervisor_cancel_status": supervisor_cancel_status,
         "written": displayed_path(CONTROL_COMMAND_PATH) if native_command_queued else None,
@@ -1559,7 +1785,22 @@ class Handler(BaseHTTPRequestHandler):
             if not isinstance(expected_start_request_id, str):
                 self._json({"ok": False, "problems": ["expected_start_request_id must be a string"]}, 400)
                 return
-            payload, code = queue_control_command(action.strip().lower(), expected_start_request_id)
+            expected_run_mode = submitted.get("expected_run_mode", "")
+            if not isinstance(expected_run_mode, str):
+                self._json({"ok": False, "problems": ["expected_run_mode must be a string"]}, 400)
+                return
+            expected_plan_revision = submitted.get("expected_plan_revision")
+            expected_plan_token = submitted.get("expected_plan_token", "")
+            if not isinstance(expected_plan_token, str):
+                self._json({"ok": False, "problems": ["expected_plan_token must be a string"]}, 400)
+                return
+            payload, code = queue_control_command(
+                action.strip().lower(),
+                expected_start_request_id,
+                expected_run_mode.strip(),
+                expected_plan_revision,
+                expected_plan_token.strip().lower(),
+            )
             self._json(payload, code)
             return
 
@@ -1690,14 +1931,15 @@ def selftest() -> int:
         check(read_json(target, {}) == {"sentinel": True}, "interrupted replacement preserves the previous plan")
         check(not list(target.parent.glob(".*.tmp")), "failed writes leave no temporary plan behind")
 
-    global PLAN_PATH, EVENTS_PATH, CONTROL_COMMAND_PATH, CONTROL_STATUS_PATH
+    global PLAN_PATH, PLAN_RECEIPT_PATH, EVENTS_PATH, CONTROL_COMMAND_PATH, CONTROL_STATUS_PATH
     global ENGINE_INIT_RECEIPT_PATH, ENGINE_INIT_CANCEL_PATH, SERVICE_OWNER_TOKEN
-    original_plan, original_events = PLAN_PATH, EVENTS_PATH
+    original_plan, original_receipt, original_events = PLAN_PATH, PLAN_RECEIPT_PATH, EVENTS_PATH
     original_control_command, original_control_status = CONTROL_COMMAND_PATH, CONTROL_STATUS_PATH
     original_engine_receipt, original_engine_cancel = ENGINE_INIT_RECEIPT_PATH, ENGINE_INIT_CANCEL_PATH
     original_service_owner_token = SERVICE_OWNER_TOKEN
     with tempfile.TemporaryDirectory() as folder:
         PLAN_PATH = Path(folder) / "plan.json"
+        PLAN_RECEIPT_PATH = Path(folder) / "plan-receipt.json"
         EVENTS_PATH = Path(folder) / "events.jsonl"
         CONTROL_COMMAND_PATH = Path(folder) / "control-command.json"
         CONTROL_STATUS_PATH = Path(folder) / "control-status.json"
@@ -1839,6 +2081,12 @@ def selftest() -> int:
             response = connection.getresponse()
             payload = json.loads(response.read())
             check(response.status == 200 and payload["ok"] and set(payload["plan"]) == setting_ids, "valid partial plan is normalized and written")
+            accepted_plan_identity = {
+                "expected_run_mode": payload["run_mode"],
+                "expected_plan_revision": payload["plan_revision"],
+                "expected_plan_token": payload["plan_token"],
+            }
+            check(payload["status"]["runnable"] and payload["status"]["plan_revision"] == payload["plan_revision"], "valid Apply returns a runnable plan receipt")
 
             saved_before_refusal = PLAN_PATH.read_bytes()
             connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
@@ -1849,9 +2097,9 @@ def selftest() -> int:
             check(response.status == 422 and payload["ok"] is False, "engine-incompatible plan is refused before save")
             check(PLAN_PATH.read_bytes() == saved_before_refusal, "engine preflight refusal preserves the previous plan")
 
-            write_json_atomic({"state": "idle", "message": "Native engine is ready", "bot_pid": 123, "engine_available": True}, CONTROL_STATUS_PATH)
+            write_json_atomic({"state": "idle", "message": "Native engine is ready", "bot_pid": os.getpid(), "engine_available": True}, CONTROL_STATUS_PATH)
             connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
-            body = json.dumps({"action": "start"}).encode()
+            body = json.dumps({"action": "start", **accepted_plan_identity}).encode()
             connection.request("POST", "/api/control/command", body=body, headers={"Content-Type": "application/json"})
             response = connection.getresponse()
             payload = json.loads(response.read())
@@ -1861,6 +2109,19 @@ def selftest() -> int:
                 and "most recent plan save failed" in payload["problems"][0]
                 and not CONTROL_COMMAND_PATH.exists(),
                 "Start is refused after a failed plan save instead of replaying the previous plan",
+            )
+            clear_plan_rejection()
+            connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
+            body = json.dumps({"action": "start", **accepted_plan_identity}).encode()
+            connection.request("POST", "/api/control/command", body=body, headers={"Content-Type": "application/json"})
+            response = connection.getresponse()
+            payload = json.loads(response.read())
+            check(
+                response.status == 409
+                and payload["ok"] is False
+                and "most recent plan save failed" in payload["problems"][0]
+                and not CONTROL_COMMAND_PATH.exists(),
+                "persisted rejected receipt survives an in-memory latch reset",
             )
 
             connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
@@ -1895,10 +2156,15 @@ def selftest() -> int:
             response = connection.getresponse()
             payload = json.loads(response.read())
             check(response.status == 200 and payload["ok"], "a valid plan clears the failed-save Start latch")
+            accepted_plan_identity = {
+                "expected_run_mode": payload["run_mode"],
+                "expected_plan_revision": payload["plan_revision"],
+                "expected_plan_token": payload["plan_token"],
+            }
             CONTROL_STATUS_PATH.unlink(missing_ok=True)
 
             connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
-            body = json.dumps({"action": "start"}).encode()
+            body = json.dumps({"action": "start", **accepted_plan_identity}).encode()
             connection.request("POST", "/api/control/command", body=body, headers={"Content-Type": "application/json"})
             response = connection.getresponse()
             payload = json.loads(response.read())
@@ -1950,7 +2216,7 @@ def selftest() -> int:
             check(payload["connected"] and payload["state"] == "starting" and status_read.call_count == 2, "status replacement race is retried once")
 
             connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
-            body = json.dumps({"action": "start"}).encode()
+            body = json.dumps({"action": "start", **accepted_plan_identity}).encode()
             connection.request("POST", "/api/control/command", body=body, headers={"Content-Type": "application/json"})
             response = connection.getresponse()
             payload = json.loads(response.read())
@@ -1962,12 +2228,18 @@ def selftest() -> int:
             check(response.status == 409, "a pending control command is never overwritten")
 
             queued = read_json(CONTROL_COMMAND_PATH, {})
-            check(queued.get("action") == "start" and bool(queued.get("request_id")), "queued command carries action and request id")
+            check(
+                queued.get("action") == "start"
+                and bool(queued.get("request_id"))
+                and queued.get("plan_revision") == accepted_plan_identity["expected_plan_revision"]
+                and queued.get("plan_token") == accepted_plan_identity["expected_plan_token"],
+                "queued command carries action, request id, and exact plan receipt",
+            )
         finally:
             server.shutdown()
             server.server_close()
             thread.join(timeout=3)
-    PLAN_PATH, EVENTS_PATH = original_plan, original_events
+    PLAN_PATH, PLAN_RECEIPT_PATH, EVENTS_PATH = original_plan, original_receipt, original_events
     CONTROL_COMMAND_PATH, CONTROL_STATUS_PATH = original_control_command, original_control_status
     ENGINE_INIT_RECEIPT_PATH, ENGINE_INIT_CANCEL_PATH = original_engine_receipt, original_engine_cancel
     SERVICE_OWNER_TOKEN = original_service_owner_token

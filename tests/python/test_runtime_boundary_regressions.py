@@ -22,6 +22,14 @@ def read_source(relative_path: str, *, encoding: str = "utf-8-sig") -> str:
     return (ROOT / relative_path).read_text(encoding=encoding)
 
 
+def expected_start_identity(payload: dict) -> dict:
+    return {
+        "expected_run_mode": payload["run_mode"],
+        "expected_plan_revision": payload["plan_revision"],
+        "expected_plan_token": payload["plan_token"],
+    }
+
+
 def autoit_function(source: str, name: str) -> str:
     start = source.index(f"Func {name}(")
     end = source.index(f"EndFunc   ;==>{name}", start)
@@ -144,7 +152,12 @@ class RuntimeBoundaryRegressionTests(unittest.TestCase):
                 self.assertFalse(payload["engine_available"])
                 self.assertFalse(payload["recognition_available"])
 
-                start_payload, start_code = planner_ui.queue_control_command("start")
+                start_payload, start_code = planner_ui.queue_control_command(
+                    "start",
+                    expected_run_mode="planned",
+                    expected_plan_revision=1,
+                    expected_plan_token="sha256:" + "0" * 64,
+                )
                 self.assertEqual(start_code, 409)
                 self.assertFalse(start_payload["ok"])
                 self.assertIn("native engine is offline", start_payload["problems"])
@@ -175,6 +188,7 @@ class RuntimeBoundaryRegressionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             command_path = root / "control-command.local.json"
+            receipt_path = root / "run-plan.receipt.local.json"
             status = {
                 "connected": True,
                 "state": "idle",
@@ -187,9 +201,18 @@ class RuntimeBoundaryRegressionTests(unittest.TestCase):
                 "recognition_error": "licensed inherited recognition or a clean-room replacement is required",
             }
             with mock.patch.object(planner_ui, "PLAN_PATH", root / "missing-plan.json"), mock.patch.object(
+                planner_ui, "PLAN_RECEIPT_PATH", receipt_path
+            ), mock.patch.object(
                 planner_ui, "CONTROL_COMMAND_PATH", command_path
             ), mock.patch.object(planner_ui, "control_status", return_value=status):
-                payload, code = planner_ui.queue_control_command("start")
+                receipt = planner_ui.accepted_plan_receipt("native-profile", planner_ui.new_attempt_id(), 1, planner_ui.PLAN_ABSENCE_TOKEN)
+                planner_ui.write_plan_receipt_atomic(receipt)
+                payload, code = planner_ui.queue_control_command(
+                    "start",
+                    expected_run_mode="native-profile",
+                    expected_plan_revision=receipt["plan_revision"],
+                    expected_plan_token=receipt["plan_token"],
+                )
 
             self.assertEqual(code, 409)
             self.assertFalse(payload["ok"])
@@ -205,6 +228,10 @@ class RuntimeBoundaryRegressionTests(unittest.TestCase):
             status = {
                 "connected": True,
                 "state": "idle",
+                "emulator_attached": True,
+                "window_attached": True,
+                "adb_ready": True,
+                "game_ready": True,
                 "recognition_available": False,
                 "recognition_error": "licensed inherited recognition or a clean-room replacement is required",
             }
@@ -223,6 +250,7 @@ class RuntimeBoundaryRegressionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             plan_path = root / "run-plan.local.json"
+            receipt_path = root / "run-plan.receipt.local.json"
             command_path = root / "control-command.local.json"
             clean_room_plan = planner_ui.default_plan()
             clean_room_plan.update(
@@ -271,7 +299,6 @@ class RuntimeBoundaryRegressionTests(unittest.TestCase):
                     "pacing.retry_attempts": 0,
                 }
             )
-            plan_path.write_text(json.dumps(clean_room_plan), encoding="utf-8")
             status = {
                 "connected": True,
                 "state": "idle",
@@ -280,9 +307,13 @@ class RuntimeBoundaryRegressionTests(unittest.TestCase):
                 "recognition_error": "full-profile recognition is unavailable",
             }
             with mock.patch.object(planner_ui, "PLAN_PATH", plan_path), mock.patch.object(
+                planner_ui, "PLAN_RECEIPT_PATH", receipt_path
+            ), mock.patch.object(
                 planner_ui, "CONTROL_COMMAND_PATH", command_path
             ), mock.patch.object(planner_ui, "control_status", return_value=status):
-                payload, code = planner_ui.queue_control_command("start")
+                save_payload, save_code = planner_ui.save_plan(clean_room_plan)
+                self.assertEqual(save_code, 200)
+                payload, code = planner_ui.queue_control_command("start", **expected_start_identity(save_payload))
 
             self.assertEqual(code, 202)
             self.assertTrue(payload["accepted"])
@@ -293,6 +324,7 @@ class RuntimeBoundaryRegressionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             plan_path = root / "run-plan.local.json"
+            receipt_path = root / "run-plan.receipt.local.json"
             command_path = root / "control-command.local.json"
             bad_plan = planner_ui.default_plan()
             bad_plan.update(
@@ -315,9 +347,19 @@ class RuntimeBoundaryRegressionTests(unittest.TestCase):
                 "recognition_error": "full-profile recognition is unavailable",
             }
             with mock.patch.object(planner_ui, "PLAN_PATH", plan_path), mock.patch.object(
+                planner_ui, "PLAN_RECEIPT_PATH", receipt_path
+            ), mock.patch.object(
                 planner_ui, "CONTROL_COMMAND_PATH", command_path
             ), mock.patch.object(planner_ui, "control_status", return_value=status):
-                payload, code = planner_ui.queue_control_command("start")
+                token = planner_ui.plan_start_token("planned")
+                receipt = planner_ui.accepted_plan_receipt("planned", planner_ui.new_attempt_id(), 1, token)
+                planner_ui.write_plan_receipt_atomic(receipt)
+                payload, code = planner_ui.queue_control_command(
+                    "start",
+                    expected_run_mode="planned",
+                    expected_plan_revision=receipt["plan_revision"],
+                    expected_plan_token=receipt["plan_token"],
+                )
 
             self.assertEqual(code, 409)
             self.assertFalse(payload["ok"])

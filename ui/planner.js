@@ -3,6 +3,7 @@ let PLAN = {};
 let SAVED = {};
 let FILTER = '';
 let PLAN_WRITTEN = false;
+let RUNNABLE_PLAN_RECEIPT = null;
 let NATIVE_PROFILE_MODE = false;
 let BOOT_READY = false;
 let ACTIVE_VIEW = 'run';
@@ -199,6 +200,7 @@ let CONTROL_TIMER = null;
 let EVENTS_TIMER = null;
 let LOG_REFRESH_TIMER = null;
 let LAST_INSTANCE_SIGNATURE = '';
+let SERVICE_IDENTITY = '';
 
 const CONTROL_TERMINAL_OUTCOMES = new Set(['completed', 'passed', 'rejected', 'failed', 'stopped', 'paused', 'resumed', 'no-op']);
 const CONTROL_QUEUE_TIMEOUT_MS = 45_000;
@@ -357,6 +359,44 @@ const presetById = id => presetItems().find(preset => preset.id === id);
 const clone = value => structuredClone(value);
 const surfaceById = id => SURFACE_DEFINITIONS.find(surface => surface.id === id);
 const activeSurface = () => surfaceById(ACTIVE_SURFACE) || surfaceById('overview');
+
+function receiptFromPlanStatus(planStatus) {
+  if (!planStatus || planStatus.runnable !== true) return null;
+  const mode = planStatus.mode;
+  const revision = Number(planStatus.plan_revision);
+  const token = String(planStatus.plan_token || '');
+  if (!['planned', 'native-profile'].includes(mode) || !Number.isInteger(revision) || revision < 0) return null;
+  if (mode === 'planned' && !/^sha256:[0-9a-f]{64}$/.test(token)) return null;
+  if (mode === 'native-profile' && token !== 'absent') return null;
+  return {
+    expected_run_mode: mode,
+    expected_plan_revision: revision,
+    expected_plan_token: token,
+  };
+}
+
+function receiptFromAcceptedPayload(payload) {
+  if (!payload?.ok) return null;
+  const mode = payload.run_mode || payload.mode;
+  const revision = Number(payload.plan_revision);
+  const token = String(payload.plan_token || '');
+  if (!['planned', 'native-profile'].includes(mode) || !Number.isInteger(revision) || revision < 0) return null;
+  if (mode === 'planned' && !/^sha256:[0-9a-f]{64}$/.test(token)) return null;
+  if (mode === 'native-profile' && token !== 'absent') return null;
+  return {
+    expected_run_mode: mode,
+    expected_plan_revision: revision,
+    expected_plan_token: token,
+  };
+}
+
+function clearRunnablePlanReceipt() {
+  RUNNABLE_PLAN_RECEIPT = null;
+}
+
+function applyRunnablePlanReceipt(receipt) {
+  RUNNABLE_PLAN_RECEIPT = receipt ? { ...receipt } : null;
+}
 
 function resolveSurface(token) {
   const id = SURFACE_ALIASES[token] || token || 'overview';
@@ -718,6 +758,7 @@ function renderPresetPreview(loadedChanges = null) {
 function applySelectedPreset() {
   const preset = presetById(SELECTED_PRESET);
   if (!preset) return;
+  clearRunnablePlanReceipt();
   LOADED_SAFETY_PATCH = null;
   const changes = presetChanges(preset);
   const preserved = new Set(META?.presets?.preserved_settings || []);
@@ -737,6 +778,7 @@ function applySelectedPreset() {
 function applyStrategySafetyPatch(strategyId) {
   const patch = STRATEGY_SAFETY_PATCHES[strategyId];
   if (!patch) return false;
+  clearRunnablePlanReceipt();
   const preserved = new Set(META?.presets?.preserved_settings || []);
   const changes = settingChanges(patch.values, preserved);
   markPresetCustom();
@@ -1241,6 +1283,7 @@ function buildSettingHelp(setting) {
 }
 
 function refreshAfterChange(setting, focusId = '') {
+  clearRunnablePlanReceipt();
   drawPlanPanel();
   updatePlanGroupNav();
   renderPresetPreview();
@@ -1836,14 +1879,15 @@ function renderControl() {
   const recognitionError = CONTROL.recognition_error
     || 'Full profile automation requires licensed inherited recognition or a clean-room replacement.';
   $('controlStart').textContent = primaryLaunchOnly ? 'Launch game safely' : 'Start run';
+  const startReceiptMissing = !primaryLaunchOnly && !RUNNABLE_PLAN_RECEIPT;
   $('controlStart').title = primaryLaunchOnly
     ? `${recognitionError} Launch-only starts the exact emulator/game, proves a startup surface, and returns idle without bot actions.`
     : NATIVE_PROFILE_MODE
-      ? 'Start the active native profile; BlueStacks and Clash of Clans will be launched if needed'
+      ? (startReceiptMissing ? 'Activate Full profile before Start so the run has an exact receipt' : 'Start the active native profile; BlueStacks and Clash of Clans will be launched if needed')
     : savedProblems.length
       ? 'Resolve and apply the saved plan issues before starting'
-      : hasUnsavedPlan ? 'Apply the visible plan before starting' : 'Start the applied plan';
-  $('controlStart').disabled = !BOOT_READY || busy || hasUnsavedPlan || !connected
+      : hasUnsavedPlan || startReceiptMissing ? 'Apply the visible plan before starting' : 'Start the applied plan';
+  $('controlStart').disabled = !BOOT_READY || busy || hasUnsavedPlan || startReceiptMissing || !connected
     || (!primaryLaunchOnly && !engineAvailable) || state !== 'idle';
   $('controlNativeMode').textContent = NATIVE_PROFILE_MODE ? 'Full profile automation active' : 'Use full profile automation';
   $('controlNativeMode').title = !recognitionAvailable
@@ -2079,6 +2123,11 @@ async function sendControl(action) {
     renderControl();
     return;
   }
+  if (action === 'start' && !RUNNABLE_PLAN_RECEIPT) {
+    setControlNotice('Apply a valid plan or activate Full profile before Start. No prior plan was replayed.', 'warning');
+    renderControl();
+    return;
+  }
   setControlNotice('', 'info', false);
   CONTROL_PENDING = { action, request_id: null, queued_at: Date.now(), accepted_at: null };
   renderControl();
@@ -2089,6 +2138,7 @@ async function sendControl(action) {
       body: JSON.stringify({
         action,
         ...(replacingStart ? { expected_start_request_id: previousPending.request_id } : {}),
+        ...(action === 'start' ? RUNNABLE_PLAN_RECEIPT : {}),
       }),
     });
     const payload = await response.json();
@@ -2114,6 +2164,7 @@ async function activateNativeProfileMode() {
   if (!BOOT_READY || CONTROL_PENDING || NATIVE_PROFILE_MODE) return;
   const button = $('controlNativeMode');
   button.disabled = true;
+  clearRunnablePlanReceipt();
   try {
     const response = await fetch('/api/plan/native', {
       method: 'POST',
@@ -2127,6 +2178,7 @@ async function activateNativeProfileMode() {
     }
     NATIVE_PROFILE_MODE = true;
     PLAN_WRITTEN = false;
+    applyRunnablePlanReceipt(receiptFromAcceptedPayload(payload));
     const backup = payload.backup ? ` The applied plan was backed up to ${payload.backup}.` : '';
     setControlNotice(`Full profile automation is active.${backup} Start will use the selected native profile through current recognition and no-premium gates.`, 'info');
     setSaveStatus('Full profile automation is active. Apply the visible plan to return to a bounded planned route.', 'warn');
@@ -2482,6 +2534,7 @@ async function savePlan() {
     });
     const payload = await response.json();
     if (!response.ok || !payload.ok) {
+      clearRunnablePlanReceipt();
       setSaveStatus((payload.problems || ['The plan was refused.']).join('; '), 'bad');
       updateDirty();
       return false;
@@ -2490,6 +2543,7 @@ async function savePlan() {
     SAVED = clone(PLAN);
     PLAN_WRITTEN = true;
     NATIVE_PROFILE_MODE = false;
+    applyRunnablePlanReceipt(receiptFromAcceptedPayload(payload));
     const matched = matchingPresetForPlan();
     SELECTED_PRESET = matched?.id || 'custom';
     $('presetSelect').value = SELECTED_PRESET;
@@ -2506,6 +2560,7 @@ async function savePlan() {
     announceControl('Plan applied. Start remains a separate action in Run.');
     return true;
   } catch {
+    clearRunnablePlanReceipt();
     setSaveStatus('Could not reach the planner service. No plan receipt was returned.', 'bad');
     updateDirty();
     return false;
@@ -2515,6 +2570,7 @@ async function savePlan() {
 $('apply').onclick = savePlan;
 $('reset').onclick = () => {
   if (!BOOT_READY) return;
+  clearRunnablePlanReceipt();
   for (const setting of allSettings()) PLAN[setting.id] = clone(defaultFor(setting));
   markPresetCustom();
   drawPlanPanel();
@@ -2639,8 +2695,12 @@ async function boot() {
     SAVED = clone(plan);
     enforceNativeFixedValues(PLAN);
     CONTROL = health.engine || CONTROL;
+    const nextServiceIdentity = `${health.service_pid || ''}|${health.build_sha256 || ''}`;
+    if (SERVICE_IDENTITY && SERVICE_IDENTITY !== nextServiceIdentity) clearRunnablePlanReceipt();
+    SERVICE_IDENTITY = nextServiceIdentity;
+    applyRunnablePlanReceipt(receiptFromPlanStatus(health.plan));
     LAST_INSTANCE_SIGNATURE = [CONTROL.connected, CONTROL.emulator, CONTROL.instance].join('|');
-    PLAN_WRITTEN = health.plan?.state === 'saved';
+    PLAN_WRITTEN = health.plan?.mode === 'planned' && health.plan?.runnable === true;
     NATIVE_PROFILE_MODE = health.plan?.mode === 'native-profile';
     FILTER = '';
     $('filter').value = '';

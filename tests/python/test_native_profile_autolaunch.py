@@ -67,20 +67,32 @@ def valid_home_plan(**overrides) -> dict:
     return plan
 
 
+def expected_start_identity(payload: dict) -> dict:
+    return {
+        "expected_run_mode": payload["run_mode"],
+        "expected_plan_revision": payload["plan_revision"],
+        "expected_plan_token": payload["plan_token"],
+    }
+
+
 class NativeProfileAutoLaunchTests(unittest.TestCase):
     def test_absent_plan_is_explicit_native_profile_mode(self):
         with tempfile.TemporaryDirectory() as folder:
             plan_path = Path(folder) / "run-plan.local.json"
-            with mock.patch.object(planner_ui, "PLAN_PATH", plan_path):
+            receipt_path = Path(folder) / "run-plan.receipt.local.json"
+            with mock.patch.object(planner_ui, "PLAN_PATH", plan_path), \
+                    mock.patch.object(planner_ui, "PLAN_RECEIPT_PATH", receipt_path):
                 self.assertEqual(planner_ui.plan_status()["mode"], "native-profile")
                 self.assertFalse(planner_ui.plan_status()["exists"])
 
     def test_switch_backs_up_applied_plan_atomically_and_is_idempotent(self):
         with tempfile.TemporaryDirectory() as folder:
             plan_path = Path(folder) / "run-plan.local.json"
+            receipt_path = Path(folder) / "run-plan.receipt.local.json"
             original = json.dumps({"run.strategy": "home.collectors"}, indent=2).encode("utf-8")
             plan_path.write_bytes(original)
             with mock.patch.object(planner_ui, "PLAN_PATH", plan_path), \
+                    mock.patch.object(planner_ui, "PLAN_RECEIPT_PATH", receipt_path), \
                     mock.patch.object(
                         planner_ui,
                         "control_status",
@@ -105,6 +117,7 @@ class NativeProfileAutoLaunchTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             plan_path = root / "run-plan.local.json"
+            receipt_path = root / "run-plan.receipt.local.json"
             command_path = root / "control-command.local.json"
             native_status = {
                 "connected": True,
@@ -113,21 +126,27 @@ class NativeProfileAutoLaunchTests(unittest.TestCase):
                 "recognition_available": True,
             }
             with mock.patch.object(planner_ui, "PLAN_PATH", plan_path), \
+                    mock.patch.object(planner_ui, "PLAN_RECEIPT_PATH", receipt_path), \
                     mock.patch.object(planner_ui, "CONTROL_COMMAND_PATH", command_path), \
                     mock.patch.object(planner_ui, "control_status", return_value=native_status):
-                payload, code = planner_ui.queue_control_command("start")
+                native_payload, native_code = planner_ui.activate_native_profile_mode()
+                self.assertEqual(native_code, 200)
+                payload, code = planner_ui.queue_control_command("start", **expected_start_identity(native_payload))
                 self.assertEqual(code, 202)
                 self.assertTrue(payload["accepted"])
                 native_command = json.loads(command_path.read_text(encoding="utf-8"))
                 self.assertEqual(native_command["run_mode"], "native-profile")
+                self.assertEqual(native_command["plan_revision"], native_payload["plan_revision"])
                 self.assertEqual(native_command["plan_token"], planner_ui.PLAN_ABSENCE_TOKEN)
 
                 command_path.unlink()
-                plan_path.write_text(json.dumps(valid_home_plan()), encoding="utf-8")
-                payload, code = planner_ui.queue_control_command("start")
+                save_payload, save_code = planner_ui.save_plan(valid_home_plan())
+                self.assertEqual(save_code, 200)
+                payload, code = planner_ui.queue_control_command("start", **expected_start_identity(save_payload))
                 self.assertEqual(code, 202)
                 planned_command = json.loads(command_path.read_text(encoding="utf-8"))
                 self.assertEqual(planned_command["run_mode"], "planned")
+                self.assertEqual(planned_command["plan_revision"], save_payload["plan_revision"])
                 self.assertEqual(
                     planned_command["plan_token"],
                     f"sha256:{hashlib.sha256(plan_path.read_bytes()).hexdigest()}",
@@ -135,6 +154,7 @@ class NativeProfileAutoLaunchTests(unittest.TestCase):
 
     def test_web_start_refuses_native_profile_when_recognition_is_unavailable(self):
         with tempfile.TemporaryDirectory() as folder:
+            receipt_path = Path(folder) / "run-plan.receipt.local.json"
             command_path = Path(folder) / "control-command.local.json"
             native_status = {
                 "connected": True,
@@ -148,9 +168,17 @@ class NativeProfileAutoLaunchTests(unittest.TestCase):
                 "recognition_error": "clean-room recognizer required",
             }
             with mock.patch.object(planner_ui, "PLAN_PATH", Path(folder) / "missing-plan.json"), \
+                    mock.patch.object(planner_ui, "PLAN_RECEIPT_PATH", receipt_path), \
                     mock.patch.object(planner_ui, "CONTROL_COMMAND_PATH", command_path), \
                     mock.patch.object(planner_ui, "control_status", return_value=native_status):
-                payload, code = planner_ui.queue_control_command("start")
+                receipt = planner_ui.accepted_plan_receipt("native-profile", planner_ui.new_attempt_id(), 1, planner_ui.PLAN_ABSENCE_TOKEN)
+                planner_ui.write_plan_receipt_atomic(receipt)
+                payload, code = planner_ui.queue_control_command(
+                    "start",
+                    expected_run_mode="native-profile",
+                    expected_plan_revision=receipt["plan_revision"],
+                    expected_plan_token=receipt["plan_token"],
+                )
             self.assertEqual(code, 409)
             self.assertFalse(payload["ok"])
             self.assertIn("clean-room recognizer required", payload["problems"])
@@ -158,6 +186,7 @@ class NativeProfileAutoLaunchTests(unittest.TestCase):
 
     def test_web_start_allows_native_profile_cold_bootstrap_before_recognition_exists(self):
         with tempfile.TemporaryDirectory() as folder:
+            receipt_path = Path(folder) / "run-plan.receipt.local.json"
             command_path = Path(folder) / "control-command.local.json"
             native_status = {
                 "connected": True,
@@ -171,13 +200,17 @@ class NativeProfileAutoLaunchTests(unittest.TestCase):
                 "recognition_error": "no frame available yet",
             }
             with mock.patch.object(planner_ui, "PLAN_PATH", Path(folder) / "missing-plan.json"), \
+                    mock.patch.object(planner_ui, "PLAN_RECEIPT_PATH", receipt_path), \
                     mock.patch.object(planner_ui, "CONTROL_COMMAND_PATH", command_path), \
                     mock.patch.object(planner_ui, "control_status", return_value=native_status):
-                payload, code = planner_ui.queue_control_command("start")
+                native_payload, native_code = planner_ui.activate_native_profile_mode()
+                self.assertEqual(native_code, 200)
+                payload, code = planner_ui.queue_control_command("start", **expected_start_identity(native_payload))
             self.assertEqual(code, 202)
             self.assertTrue(payload["accepted"])
             native_command = json.loads(command_path.read_text(encoding="utf-8"))
             self.assertEqual(native_command["run_mode"], "native-profile")
+            self.assertEqual(native_command["plan_revision"], native_payload["plan_revision"])
             self.assertEqual(native_command["plan_token"], planner_ui.PLAN_ABSENCE_TOKEN)
 
     def test_planned_transport_is_applied_before_any_emulator_or_managed_binding(self):
@@ -300,8 +333,10 @@ class NativeProfileAutoLaunchTests(unittest.TestCase):
     def test_busy_or_unreadable_plan_is_left_untouched(self):
         with tempfile.TemporaryDirectory() as folder:
             plan_path = Path(folder) / "run-plan.local.json"
+            receipt_path = Path(folder) / "run-plan.receipt.local.json"
             plan_path.write_text('{"run.strategy":"home.collectors"}', encoding="utf-8")
             with mock.patch.object(planner_ui, "PLAN_PATH", plan_path), \
+                    mock.patch.object(planner_ui, "PLAN_RECEIPT_PATH", receipt_path), \
                     mock.patch.object(planner_ui, "control_status", return_value={"state": "running"}):
                 payload, code = planner_ui.activate_native_profile_mode()
             self.assertEqual(code, 409)
@@ -310,6 +345,7 @@ class NativeProfileAutoLaunchTests(unittest.TestCase):
 
             plan_path.write_text("not-json", encoding="utf-8")
             with mock.patch.object(planner_ui, "PLAN_PATH", plan_path), \
+                    mock.patch.object(planner_ui, "PLAN_RECEIPT_PATH", receipt_path), \
                     mock.patch.object(
                         planner_ui,
                         "control_status",
@@ -383,6 +419,7 @@ class NativeProfileAutoLaunchTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             plan_path = root / "run-plan.local.json"
+            receipt_path = root / "run-plan.receipt.local.json"
             status_path = root / "control-status.local.json"
             original = b'{"run.strategy":"home.collectors"}\n'
             plan_path.write_bytes(original)
@@ -399,6 +436,8 @@ class NativeProfileAutoLaunchTests(unittest.TestCase):
             stale = status_path.stat().st_mtime - planner_ui.CONTROL_STATUS_MAX_AGE_SECONDS - 2
             os.utime(status_path, (stale, stale))
             with mock.patch.object(planner_ui, "PLAN_PATH", plan_path), mock.patch.object(
+                planner_ui, "PLAN_RECEIPT_PATH", receipt_path
+            ), mock.patch.object(
                 planner_ui, "CONTROL_STATUS_PATH", status_path
             ):
                 status = planner_ui.control_status()
@@ -416,6 +455,7 @@ class NativeProfileAutoLaunchTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             plan_path = root / "run-plan.local.json"
+            receipt_path = root / "run-plan.receipt.local.json"
             clean = {"run.strategy": "home.collectors"}
             writer_entered = threading.Event()
             release_writer = threading.Event()
@@ -438,6 +478,8 @@ class NativeProfileAutoLaunchTests(unittest.TestCase):
 
             status = {"connected": True, "state": "idle", "recognition_available": True}
             with mock.patch.object(planner_ui, "PLAN_PATH", plan_path), mock.patch.object(
+                planner_ui, "PLAN_RECEIPT_PATH", receipt_path
+            ), mock.patch.object(
                 planner_ui, "validate_plan", return_value=(clean, [], [])
             ), mock.patch.object(planner_ui, "engine_preflight", return_value=[]), mock.patch.object(
                 planner_ui, "control_status", return_value=status
@@ -465,6 +507,7 @@ class NativeProfileAutoLaunchTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             plan_path = root / "run-plan.local.json"
+            receipt_path = root / "run-plan.receipt.local.json"
             command_path = root / "control-command.local.json"
             original = json.dumps(valid_home_plan(), sort_keys=True).encode("utf-8") + b"\n"
             replacement = (
@@ -487,9 +530,19 @@ class NativeProfileAutoLaunchTests(unittest.TestCase):
                 "recognition_available": True,
             }
             with mock.patch.object(planner_ui, "PLAN_PATH", plan_path), mock.patch.object(
+                planner_ui, "PLAN_RECEIPT_PATH", receipt_path
+            ), mock.patch.object(
                 planner_ui, "CONTROL_COMMAND_PATH", command_path
             ), mock.patch.object(planner_ui, "control_status", return_value=native_status):
-                payload, code = planner_ui.queue_control_command("start")
+                token = planner_ui.plan_start_token("planned")
+                receipt = planner_ui.accepted_plan_receipt("planned", planner_ui.new_attempt_id(), 1, token)
+                planner_ui.write_plan_receipt_atomic(receipt)
+                payload, code = planner_ui.queue_control_command(
+                    "start",
+                    expected_run_mode="planned",
+                    expected_plan_revision=receipt["plan_revision"],
+                    expected_plan_token=receipt["plan_token"],
+                )
                 command = json.loads(command_path.read_text(encoding="utf-8"))
                 plan_path.write_bytes(replacement)
                 replacement_token = planner_ui.plan_start_token("planned")
@@ -499,6 +552,7 @@ class NativeProfileAutoLaunchTests(unittest.TestCase):
             self.assertEqual(
                 command["plan_token"], f"sha256:{hashlib.sha256(original).hexdigest()}"
             )
+            self.assertEqual(command["plan_revision"], 1)
             self.assertNotEqual(replacement_token, command["plan_token"])
 
             execution = (ROOT / "COCBot" / "functions" / "Run" / "RunExecution.au3").read_text(

@@ -1241,6 +1241,46 @@ Func _RunExecutionRequirePlanToken($sPath, $sExpectedToken, ByRef $sError)
 	Return True
 EndFunc   ;==>_RunExecutionRequirePlanToken
 
+Func _RunExecutionRequirePlanReceipt($sExpectedMode, $sExpectedRevision, $sExpectedToken, ByRef $sError)
+	If Not StringRegExp($sExpectedMode, "^(planned|native-profile)$") Then
+		$sError = "The Start command did not carry a valid run mode"
+		Return False
+	EndIf
+	If Not StringRegExp($sExpectedRevision, "^(0|[1-9][0-9]{0,18})$") Then
+		$sError = "The Start command did not carry a valid applied-plan revision"
+		Return False
+	EndIf
+	If ($sExpectedMode = "planned" And Not StringRegExp($sExpectedToken, "^sha256:[0-9a-f]{64}$")) Or _
+			($sExpectedMode = "native-profile" And $sExpectedToken <> "absent") Then
+		$sError = "The Start command did not carry a valid applied-plan identity"
+		Return False
+	EndIf
+
+	Local $sReceiptError = ""
+	Local $oReceipt = RunPlanFileLoad(RunPlanReceiptDefaultPath(), $sReceiptError)
+	If Not IsObj($oReceipt) Then
+		$sError = "The accepted plan receipt could not be loaded: " & $sReceiptError
+		Return False
+	EndIf
+	If Not $oReceipt.Exists("state") Or StringLower(StringStripWS(String($oReceipt.Item("state")), $STR_STRIPALL)) <> "accepted" Then
+		$sError = "The accepted plan receipt is not runnable"
+		Return False
+	EndIf
+	If Not $oReceipt.Exists("run_mode") Or StringLower(StringStripWS(String($oReceipt.Item("run_mode")), $STR_STRIPALL)) <> $sExpectedMode Then
+		$sError = "The accepted plan receipt mode changed before execution"
+		Return False
+	EndIf
+	If Not $oReceipt.Exists("plan_revision") Or StringStripWS(String($oReceipt.Item("plan_revision")), $STR_STRIPALL) <> $sExpectedRevision Then
+		$sError = "The accepted plan receipt revision changed before execution"
+		Return False
+	EndIf
+	If Not $oReceipt.Exists("plan_token") Or StringLower(StringStripWS(String($oReceipt.Item("plan_token")), $STR_STRIPALL)) <> $sExpectedToken Then
+		$sError = "The accepted plan receipt token changed before execution"
+		Return False
+	EndIf
+	Return True
+EndFunc   ;==>_RunExecutionRequirePlanReceipt
+
 Func RunExecutionPrepareStart(ByRef $sError)
 	$sError = ""
 	If Not _RunExecutionRestoreProfile() Then
@@ -1265,12 +1305,14 @@ Func RunExecutionPrepareStart(ByRef $sError)
 	Local $oIntent = 0
 	Local $sPlanPath = RunPlanFileDefaultPath()
 	Local $sRequestedMode = RunControlCurrentStartMode()
+	Local $sRequestedPlanRevision = RunControlCurrentStartPlanRevision()
 	Local $sRequestedPlanToken = RunControlCurrentStartPlanToken()
 	If $sRequestedMode = "native-profile" Then
 		If $sRequestedPlanToken <> "absent" Or FileExists($sPlanPath) Then
 			$sError = "The applied plan changed after Full profile Start was accepted; Start was refused"
 			Return SetError(1, 4, False)
 		EndIf
+		If Not _RunExecutionRequirePlanReceipt($sRequestedMode, $sRequestedPlanRevision, $sRequestedPlanToken, $sError) Then Return SetError(1, 8, False)
 		; Full profile mode may be the operator's first cold action after launching the product.
 		; Recognition cannot be live until the emulator/game bootstrap creates a frame, so this
 		; pre-launch preparation step only binds the absence of an applied plan and arms the later
@@ -1287,6 +1329,7 @@ Func RunExecutionPrepareStart(ByRef $sError)
 	EndIf
 	If FileExists($sPlanPath) Then
 		If $sRequestedMode = "planned" Then
+			If Not _RunExecutionRequirePlanReceipt($sRequestedMode, $sRequestedPlanRevision, $sRequestedPlanToken, $sError) Then Return SetError(1, 8, False)
 			If Not StringRegExp($sRequestedPlanToken, "^sha256:[0-9a-f]{64}$") Then
 				$sError = "The Start command did not carry a valid applied-plan identity"
 				Return SetError(1, 5, False)
@@ -1297,6 +1340,7 @@ Func RunExecutionPrepareStart(ByRef $sError)
 		If Not IsObj($oIntent) Then Return SetError(1, 0, False)
 		; Hash again after parsing. An atomic replacement between the first hash and the loader must
 		; discard the prepared intent rather than execute a document the operator did not start.
+		If $sRequestedMode = "planned" And Not _RunExecutionRequirePlanReceipt($sRequestedMode, $sRequestedPlanRevision, $sRequestedPlanToken, $sError) Then Return SetError(1, 9, False)
 		If $sRequestedMode = "planned" And Not _RunExecutionRequirePlanToken($sPlanPath, $sRequestedPlanToken, $sError) Then Return SetError(1, 7, False)
 	ElseIf $sRequestedMode = "" And IsObj($g_oRunPlannerIntent) Then
 		$oIntent = $g_oRunPlannerIntent
