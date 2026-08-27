@@ -26,6 +26,24 @@ Func CleanRoomRecognitionRuntimeAvailable($sExport)
 	Return CleanRoomRecognitionRuntimeStatus($sExport) = $CLEANROOM_RECOGNITION_STATUS_READ_ONLY_PURE
 EndFunc   ;==>CleanRoomRecognitionRuntimeAvailable
 
+Func CleanRoomRecognitionProviderState($sExport = "")
+	If StringStripWS(String($sExport), 8) = "" Then Return $CLEANROOM_RECOGNITION_DEFAULT_PROVIDER
+	Local $sStatus = CleanRoomRecognitionRuntimeStatus($sExport)
+	If $sStatus = $CLEANROOM_RECOGNITION_STATUS_READ_ONLY_PURE Or _
+			$sStatus = $CLEANROOM_RECOGNITION_STATUS_FIXTURE_REPLAY_ONLY Then _
+		Return $CLEANROOM_RECOGNITION_PROVIDER_CLEANROOMLOCAL
+	Return $CLEANROOM_RECOGNITION_PROVIDER_UNAVAILABLE
+EndFunc   ;==>CleanRoomRecognitionProviderState
+
+Func CleanRoomRecognitionProviderReason($sExport = "")
+	Local $sProvider = CleanRoomRecognitionProviderState($sExport)
+	If $sProvider = $CLEANROOM_RECOGNITION_PROVIDER_CLEANROOMLOCAL Then _
+		Return "CleanRoomLocal supports only bounded local-profile calibration, verified fixture replay, and pure coordinate transforms; it does not authorize full-profile BotStart."
+	If $sProvider = $CLEANROOM_RECOGNITION_PROVIDER_INHERITEDAUTHORIZED Then _
+		Return $CLEANROOM_RECOGNITION_INHERITEDAUTHORIZED_REASON
+	Return $CLEANROOM_RECOGNITION_UNAVAILABLE_REASON
+EndFunc   ;==>CleanRoomRecognitionProviderReason
+
 ; This proves only that an already-hashed fixture receipt names the exact reviewed fixture bytes.
 ; It deliberately returns no match box, center, or other coordinate that could be reused as game input.
 Func CleanRoomRecognitionFixtureReplayAttested($sAssetId, $sFixtureId, $sImageSha256, $sMetadataSha256, $iWidth, $iHeight)

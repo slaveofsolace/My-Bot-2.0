@@ -31,6 +31,29 @@ def render_contract(document: dict[str, object]) -> str:
     adapter_id = document.get("adapter_id")
     _require(isinstance(adapter_id, str) and adapter_id, "adapter_id is required")
 
+    providers = document.get("providers")
+    _require(isinstance(providers, dict), "providers are required")
+    _require(
+        providers.get("states") == ["CleanRoomLocal", "InheritedAuthorized", "Unavailable"],
+        "provider states must remain the reviewed closed-world enum",
+    )
+    _require(providers.get("default_state") == "Unavailable", "default provider state must be Unavailable")
+    _require(providers.get("full_profile_state") == "Unavailable", "full-profile provider state must be Unavailable")
+    clean_room_local = providers.get("clean_room_local")
+    inherited_authorized = providers.get("inherited_authorized")
+    unavailable_provider = providers.get("unavailable")
+    _require(isinstance(clean_room_local, dict), "clean_room_local provider is required")
+    _require(clean_room_local.get("state") == "CleanRoomLocal", "clean_room_local state is invalid")
+    _require(clean_room_local.get("published_assets") is False, "CleanRoomLocal must not publish profile artifacts")
+    _require(clean_room_local.get("supports_bot_start") is False, "CleanRoomLocal cannot authorize full-profile BotStart")
+    _require(isinstance(inherited_authorized, dict), "inherited_authorized provider is required")
+    _require(inherited_authorized.get("state") == "InheritedAuthorized", "inherited_authorized state is invalid")
+    _require(inherited_authorized.get("enabled") is False, "InheritedAuthorized must remain disabled")
+    _require(isinstance(inherited_authorized.get("reason"), str) and inherited_authorized["reason"], "InheritedAuthorized needs a reason")
+    _require(isinstance(unavailable_provider, dict), "unavailable provider is required")
+    _require(unavailable_provider.get("state") == "Unavailable", "unavailable state is invalid")
+    _require(isinstance(unavailable_provider.get("reason"), str) and unavailable_provider["reason"], "Unavailable needs a reason")
+
     runtime = document.get("runtime_bridge")
     _require(isinstance(runtime, dict), "runtime_bridge is required")
     expected_runtime = {
@@ -88,6 +111,16 @@ def render_contract(document: dict[str, object]) -> str:
         "",
         f"Global Const $CLEANROOM_RECOGNITION_SCHEMA_VERSION = {int(document['schema_version'])}",
         f"Global Const $CLEANROOM_RECOGNITION_ADAPTER_ID = {_au3_string(adapter_id)}",
+        "Global Const $CLEANROOM_RECOGNITION_PROVIDER_CLEANROOMLOCAL = \"CleanRoomLocal\"",
+        "Global Const $CLEANROOM_RECOGNITION_PROVIDER_INHERITEDAUTHORIZED = \"InheritedAuthorized\"",
+        "Global Const $CLEANROOM_RECOGNITION_PROVIDER_UNAVAILABLE = \"Unavailable\"",
+        "Global Const $CLEANROOM_RECOGNITION_PROVIDER_STATES = \"CleanRoomLocal|InheritedAuthorized|Unavailable\"",
+        "Global Const $CLEANROOM_RECOGNITION_DEFAULT_PROVIDER = \"Unavailable\"",
+        "Global Const $CLEANROOM_RECOGNITION_FULL_PROFILE_PROVIDER = \"Unavailable\"",
+        "Global Const $CLEANROOM_RECOGNITION_CLEANROOMLOCAL_SUPPORTS_BOT_START = False",
+        "Global Const $CLEANROOM_RECOGNITION_INHERITEDAUTHORIZED_ENABLED = False",
+        f"Global Const $CLEANROOM_RECOGNITION_INHERITEDAUTHORIZED_REASON = {_au3_string(inherited_authorized['reason'])}",
+        f"Global Const $CLEANROOM_RECOGNITION_UNAVAILABLE_REASON = {_au3_string(unavailable_provider['reason'])}",
         "Global Const $CLEANROOM_RECOGNITION_EXPORT_COUNT = 17",
         "Global Const $CLEANROOM_RECOGNITION_STATUS_READ_ONLY_PURE = \"READ_ONLY_PURE\"",
         "Global Const $CLEANROOM_RECOGNITION_STATUS_FIXTURE_REPLAY_ONLY = \"FIXTURE_REPLAY_ONLY\"",

@@ -204,11 +204,19 @@ EndFunc   ;==>MBRFuncEngineError
 ; Managed initialization remains available because terminal clean-room Home routes use the
 ; independently implemented ADB screenshot/click adapters without invoking those exports.
 Func MBRFuncRecognitionAvailable()
-	Return False
+        Return False
 EndFunc   ;==>MBRFuncRecognitionAvailable
 
+Func MBRFuncRecognitionProviderState()
+        Return "Unavailable"
+EndFunc   ;==>MBRFuncRecognitionProviderState
+
+Func MBRFuncRecognitionProviderReason()
+        Return "CleanRoomLocal is available only to reviewed bounded routes; InheritedAuthorized is disabled until ImgLoc permission or a licensed replacement is validated; full-profile automation remains unavailable."
+EndFunc   ;==>MBRFuncRecognitionProviderReason
+
 Func MBRFuncRecognitionError()
-	Return "Full profile automation requires licensed inherited recognition or a clean-room replacement; use a verified bounded Home route"
+        Return "Full profile automation requires licensed inherited recognition or a clean-room replacement; use a verified bounded Home route"
 EndFunc   ;==>MBRFuncRecognitionError
 
 ; MBRFunc.au3 is shared by the full backend and the lightweight MiniGui/engine-probe include graph.
