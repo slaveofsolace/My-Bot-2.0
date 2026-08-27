@@ -516,7 +516,7 @@ def main() -> int:
                                    "The current reviewed local package was installed and completed repeated no-input "
                                    "managed-engine checks. Its launch-only control then started the exact Pie64 instance, "
                                    "attached ADB and the emulator window, launched the game, recognized a returning-player "
-                                   "interruption, and passively proved Home after operator dismissal. Managed Start and "
+                                   "interruption, and passively proved Home through the reviewed no-premium OK dismissal path. Managed Start and "
                                    "gameplay automation were not exercised.",
                                    "gated", ["emulator.bluestacks5"], ["BlueStacks 5 installed", "Exact instance selected", "A supervised diagnostic operator"],
                                     disabled_reason="The current reviewed package proves exact Pie64 self-launch, ADB/window attachment, returning-player interruption recognition, and passive Home proof. Managed Start, capture/input gameplay fixtures, and live gameplay review remain unverified.",
