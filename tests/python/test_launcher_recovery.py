@@ -110,6 +110,55 @@ class LauncherRecoveryContractTests(unittest.TestCase):
         self.assertIn(recovery_gate, LAUNCHER)
         self.assertLess(LAUNCHER.index(recovery_gate), LAUNCHER.index("If Not _ValidateInstallation()"))
 
+    def test_failed_recovery_exit_has_structured_receipt(self):
+        recovery_gate = LAUNCHER.index('If _CommandLineHas("/recover") Or _CommandLineHas("/repair") Then')
+        failed_exit = LAUNCHER.index("Exit 6", recovery_gate)
+        install_gate = LAUNCHER.index("If Not _ValidateInstallation()", failed_exit)
+        self.assertLess(failed_exit, install_gate)
+        self.assertIn('Global Const $g_sRecoveryReceiptPath = $g_sUserDataRoot & "\\launcher-recovery-receipt-v1.json"', LAUNCHER)
+
+        recovery = autoit_function(LAUNCHER, "_RecoverBotStack")
+        self.assertIn('_RecoveryWriteReceipt("operator-recovery"', recovery)
+        self.assertIn("$bRecovered ? 0 : 6", recovery)
+        self.assertIn("_RecoveryFailureReason(", recovery)
+        self.assertIn("_CountLiveVerifiedAdbChildren($aOwnedAdbChildren)", recovery)
+        for component in (
+            "controller",
+            "backend",
+            "planner",
+            "adb_children",
+            "launch_only_emulator",
+        ):
+            self.assertIn(f'_RecoveryComponentReceipt("{component}"', recovery)
+
+        component_receipt = autoit_function(LAUNCHER, "_RecoveryComponentReceipt")
+        for field in (
+            "selected_identity",
+            "close_attempted",
+            "result",
+            "residual_processes",
+            "reason",
+        ):
+            self.assertIn(f'_EngineSupervisorJsonString("{field}")', component_receipt)
+        self.assertIn('"not_present"', component_receipt)
+        self.assertIn('"failed"', component_receipt)
+
+        writer = autoit_function(LAUNCHER, "_RecoveryWriteReceipt")
+        for field in (
+            "my-bot-launcher-recovery-receipt-v1",
+            "scope",
+            "install_root",
+            "launcher_pid",
+            "recovered",
+            "exit_code",
+            "failure_reason",
+            "components",
+        ):
+            self.assertIn(field, writer)
+        self.assertIn("FileOpen($sTemporary, BitOR($FO_OVERWRITE, $FO_CREATEPATH, $FO_UTF8_NOBOM))", writer)
+        self.assertIn("FileFlush($hFile)", writer)
+        self.assertIn("FileMove($sTemporary, $g_sRecoveryReceiptPath, $FC_OVERWRITE)", writer)
+
     def test_only_exact_checkout_process_paths_are_closed(self):
         self.assertIn('StringLower(_ProcessImagePath($iPid)) <> StringLower($sExpectedPath)', LAUNCHER)
         self.assertIn('_CloseExactPathProcesses("MyBot.run.MiniGui.exe", $g_sControllerPath)', LAUNCHER)

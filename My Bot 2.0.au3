@@ -42,6 +42,7 @@ Global Const $g_iDockTransitionPollMs = 1000
 Global Const $g_iDockStablePollMs = 5000
 Global Const $g_iErrorAlreadyExists = 183
 Global Const $g_sRecoveryLogPath = $g_sUserDataRoot & "\launcher-recovery.log"
+Global Const $g_sRecoveryReceiptPath = $g_sUserDataRoot & "\launcher-recovery-receipt-v1.json"
 Global Const $g_sPlannerServiceName = "my-bot-control-center"
 Global Const $g_sPlannerScriptPath = @ScriptDir & "\tools\planner_ui.py"
 Global Const $g_sPlannerOwnershipSchema = "my-bot-planner-owner-v1"
@@ -306,10 +307,94 @@ Func _RecoverBotStack()
 	Local $hController = _FindControllerWindow()
 	Local $bControllerClosed = Not $hController
 	Local $bBackendClosed = _CountExactPathProcesses("MyBot.run.exe", $g_sHostPath) = 0
+	Local $iControllerResidual = $bControllerClosed ? 0 : 1
+	Local $iBackendResidual = _CountExactPathProcesses("MyBot.run.exe", $g_sHostPath)
+	Local $iAdbResidual = _CountLiveVerifiedAdbChildren($aOwnedAdbChildren)
+	Local $iPlannerResidual = $bPlannerClosed ? 0 : 1
+	Local $iLaunchOnlyResidual = $bLaunchOnlyEmulatorClosed ? 0 : 1
 	Local $bRecovered = $bControllerClosed And $bBackendClosed And $bPlannerClosed And $bAdbChildrenClosed And $bLaunchOnlyEmulatorClosed
-	_RecoveryLog("recovery completed; controller_closed=" & $bControllerClosed & "; backend_closed=" & $bBackendClosed & "; planner_closed=" & $bPlannerClosed & "; adb_children_closed=" & $bAdbChildrenClosed & "; launch_only_emulator_closed=" & $bLaunchOnlyEmulatorClosed)
+	Local $sFailureReason = _RecoveryFailureReason($bControllerClosed, $bBackendClosed, $bPlannerClosed, $bAdbChildrenClosed, $bLaunchOnlyEmulatorClosed)
+	_RecoveryWriteReceipt("operator-recovery", $bRecovered, $bRecovered ? 0 : 6, $sFailureReason, _
+		_RecoveryComponentReceipt("controller", "exact-path:" & $g_sControllerPath, True, $bControllerClosed, $iControllerResidual, _
+			$bControllerClosed ? "" : "Mini controller window still belongs to this installation"), _
+		_RecoveryComponentReceipt("backend", "exact-path:" & $g_sHostPath, True, $bBackendClosed, $iBackendResidual, _
+			$bBackendClosed ? "" : "MyBot.run.exe still exists at the exact installation path"), _
+		_RecoveryComponentReceipt("planner", "receipt:" & $g_sPlannerOwnershipReceipt, FileExists($g_sPlannerOwnershipReceipt), $bPlannerClosed, $iPlannerResidual, _
+			$bPlannerClosed ? "" : "planner service receipt or loopback owner could not be closed safely"), _
+		_RecoveryComponentReceipt("adb_children", "backend-child-snapshot:" & $aOwnedAdbChildren[0][0], $aOwnedAdbChildren[0][0] > 0, $bAdbChildrenClosed, $iAdbResidual, _
+			$bAdbChildrenClosed ? "" : "one or more exact backend ADB children remained alive or changed identity"), _
+		_RecoveryComponentReceipt("launch_only_emulator", "receipt:" & $g_sLaunchOnlyEmulatorOwnershipReceipt, FileExists($g_sLaunchOnlyEmulatorOwnershipReceipt), $bLaunchOnlyEmulatorClosed, $iLaunchOnlyResidual, _
+			$bLaunchOnlyEmulatorClosed ? "" : "launch-only emulator ownership receipt could not be consumed safely"))
+	_RecoveryLog("recovery completed; controller_closed=" & $bControllerClosed & "; backend_closed=" & $bBackendClosed & "; planner_closed=" & $bPlannerClosed & "; adb_children_closed=" & $bAdbChildrenClosed & "; launch_only_emulator_closed=" & $bLaunchOnlyEmulatorClosed & "; receipt=" & $g_sRecoveryReceiptPath)
 	Return $bRecovered
 EndFunc   ;==>_RecoverBotStack
+
+Func _RecoveryFailureReason($bControllerClosed, $bBackendClosed, $bPlannerClosed, $bAdbChildrenClosed, $bLaunchOnlyEmulatorClosed)
+	If $bControllerClosed And $bBackendClosed And $bPlannerClosed And $bAdbChildrenClosed And $bLaunchOnlyEmulatorClosed Then Return ""
+	Local $sReason = ""
+	If Not $bControllerClosed Then $sReason &= "controller;"
+	If Not $bBackendClosed Then $sReason &= "backend;"
+	If Not $bPlannerClosed Then $sReason &= "planner;"
+	If Not $bAdbChildrenClosed Then $sReason &= "adb_children;"
+	If Not $bLaunchOnlyEmulatorClosed Then $sReason &= "launch_only_emulator;"
+	Return StringTrimRight($sReason, 1)
+EndFunc   ;==>_RecoveryFailureReason
+
+Func _RecoveryJsonBool($bValue)
+	Return $bValue ? "true" : "false"
+EndFunc   ;==>_RecoveryJsonBool
+
+Func _RecoveryComponentReceipt($sName, $sSelectedIdentity, $bCloseAttempted, $bClosed, $iResidualCount, $sReason)
+	Local $sResult = $bClosed ? "closed" : "failed"
+	If Not $bCloseAttempted Then $sResult = $bClosed ? "not_present" : "not_attempted"
+	Local $sJson = "{"
+	$sJson &= _EngineSupervisorJsonString("name") & ":" & _EngineSupervisorJsonString($sName) & ","
+	$sJson &= _EngineSupervisorJsonString("selected_identity") & ":" & _EngineSupervisorJsonString($sSelectedIdentity) & ","
+	$sJson &= _EngineSupervisorJsonString("close_attempted") & ":" & _RecoveryJsonBool($bCloseAttempted) & ","
+	$sJson &= _EngineSupervisorJsonString("result") & ":" & _EngineSupervisorJsonString($sResult) & ","
+	$sJson &= _EngineSupervisorJsonString("residual_processes") & ":" & Int($iResidualCount) & ","
+	$sJson &= _EngineSupervisorJsonString("reason") & ":" & _EngineSupervisorJsonString($sReason)
+	$sJson &= "}"
+	Return $sJson
+EndFunc   ;==>_RecoveryComponentReceipt
+
+Func _RecoveryWriteReceipt($sScope, $bRecovered, $iExitCode, $sFailureReason, $sController, $sBackend, $sPlanner, $sAdbChildren, $sLaunchOnlyEmulator)
+	If Not FileExists($g_sUserDataRoot) Then DirCreate($g_sUserDataRoot)
+	Local $sTemporary = $g_sRecoveryReceiptPath & "." & @AutoItPID & ".tmp"
+	Local $sJson = "{"
+	$sJson &= _EngineSupervisorJsonString("schema_version") & ":1,"
+	$sJson &= _EngineSupervisorJsonString("schema") & ":" & _EngineSupervisorJsonString("my-bot-launcher-recovery-receipt-v1") & ","
+	$sJson &= _EngineSupervisorJsonString("scope") & ":" & _EngineSupervisorJsonString($sScope) & ","
+	$sJson &= _EngineSupervisorJsonString("install_root") & ":" & _EngineSupervisorJsonString(@ScriptDir) & ","
+	$sJson &= _EngineSupervisorJsonString("launcher_path") & ":" & _EngineSupervisorJsonString(@ScriptFullPath) & ","
+	$sJson &= _EngineSupervisorJsonString("launcher_pid") & ":" & @AutoItPID & ","
+	$sJson &= _EngineSupervisorJsonString("created_at_local") & ":" & _EngineSupervisorJsonString(@YEAR & "-" & @MON & "-" & @MDAY & "T" & @HOUR & ":" & @MIN & ":" & @SEC) & ","
+	$sJson &= _EngineSupervisorJsonString("recovered") & ":" & _RecoveryJsonBool($bRecovered) & ","
+	$sJson &= _EngineSupervisorJsonString("exit_code") & ":" & Int($iExitCode) & ","
+	$sJson &= _EngineSupervisorJsonString("failure_reason") & ":" & _EngineSupervisorJsonString($sFailureReason) & ","
+	$sJson &= _EngineSupervisorJsonString("components") & ":{"
+	$sJson &= _EngineSupervisorJsonString("controller") & ":" & $sController & ","
+	$sJson &= _EngineSupervisorJsonString("backend") & ":" & $sBackend & ","
+	$sJson &= _EngineSupervisorJsonString("planner") & ":" & $sPlanner & ","
+	$sJson &= _EngineSupervisorJsonString("adb_children") & ":" & $sAdbChildren & ","
+	$sJson &= _EngineSupervisorJsonString("launch_only_emulator") & ":" & $sLaunchOnlyEmulator
+	$sJson &= "}}"
+	FileDelete($sTemporary)
+	Local $hFile = FileOpen($sTemporary, BitOR($FO_OVERWRITE, $FO_CREATEPATH, $FO_UTF8_NOBOM))
+	If $hFile = -1 Then Return False
+	Local $bWritten = FileWrite($hFile, $sJson & @LF)
+	FileFlush($hFile)
+	FileClose($hFile)
+	If Not $bWritten Then
+		FileDelete($sTemporary)
+		Return False
+	EndIf
+	If Not FileMove($sTemporary, $g_sRecoveryReceiptPath, $FC_OVERWRITE) Then
+		FileDelete($sTemporary)
+		Return False
+	EndIf
+	Return True
+EndFunc   ;==>_RecoveryWriteReceipt
 
 Func _SnapshotOwnedAdbChildren($iExpectedBackendPid = 0, $sExpectedBackendCreated = "")
 	Local $aChildren[1][4]
@@ -552,6 +637,19 @@ Func _CloseVerifiedAdbChildren(ByRef $aChildren)
 	Next
 	Return $bAllClosed
 EndFunc   ;==>_CloseVerifiedAdbChildren
+
+Func _CountLiveVerifiedAdbChildren(ByRef $aChildren)
+	Local $iLive = 0
+	For $i = 1 To $aChildren[0][0]
+		Local $iPid = $aChildren[$i][0]
+		If Not ProcessExists($iPid) Then ContinueLoop
+		If _ProcessCreationId($iPid) <> $aChildren[$i][1] Then ContinueLoop
+		If _ProcessParentPid($iPid) <> $aChildren[$i][3] Then ContinueLoop
+		If Not _ProcessNameMatches($iPid, $aChildren[$i][2]) Then ContinueLoop
+		$iLive += 1
+	Next
+	Return $iLive
+EndFunc   ;==>_CountLiveVerifiedAdbChildren
 
 Func _ReadLaunchOnlyEmulatorOwnershipReceipt()
 	If Not FileExists($g_sLaunchOnlyEmulatorOwnershipReceipt) Then Return ""
