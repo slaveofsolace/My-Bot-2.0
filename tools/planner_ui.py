@@ -475,7 +475,7 @@ def engine_preflight(plan: dict) -> list[str]:
         builder_collection_surface = (
             setting_id == "run.surface"
             and selected == "builder"
-            and str(plan.get("run.strategy", "")).strip().lower() == "builder.collectors"
+            and str(plan.get("run.strategy", "")).strip().lower() in {"builder.collectors", "builder.battle-entry"}
         )
         if option and option.get("availability") in {"planned", "unsupported"} and not builder_collection_surface:
             problems.append(f"{setting_id}: {option.get('label', selected)} is not implemented by the native engine")
@@ -491,11 +491,12 @@ def engine_preflight(plan: dict) -> list[str]:
     planned_town_hall = int(plan.get("run.town_hall", 0))
     home_maintenance = strategy == "home.collectors"
     builder_collectors = strategy == "builder.collectors"
+    builder_battle_entry = strategy == "builder.battle-entry"
     clan_request_only = strategy == "home.clan-request"
     exact_recipe_training = strategy == "army.exact-recipe"
-    if surface != "regular" and not (builder_collectors and surface == "builder"):
-        problems.append("run.surface: the native engine is currently wired only to Regular Battles")
-    if strategy not in {"legacy.csv", "legacy.standard", "smart.local", "home.collectors", "builder.collectors", "home.clan-request", "army.exact-recipe"}:
+    if surface != "regular" and not ((builder_collectors or builder_battle_entry) and surface == "builder"):
+        problems.append("run.surface: the native engine is currently wired only to Regular Battles and bounded Builder proof routes")
+    if strategy not in {"legacy.csv", "legacy.standard", "smart.local", "home.collectors", "builder.collectors", "builder.battle-entry", "home.clan-request", "army.exact-recipe"}:
         problems.append(f"run.strategy: {strategy or 'blank'} has no native execution adapter")
     if strategy != "legacy.csv" and script.lower() != "profile-current":
         problems.append("run.attack_script: a named CSV requires the Scripted strategy")
@@ -578,6 +579,49 @@ def engine_preflight(plan: dict) -> list[str]:
             problems.append("runtime.emulator: Builder Base collection currently requires BlueStacks 5")
         if not str(plan.get("runtime.instance", "")).strip():
             problems.append("runtime.instance: Builder Base collection requires an exact emulator instance")
+    elif builder_battle_entry:
+        if surface != "builder":
+            problems.append("run.surface: Builder battle entry proof requires the Builder Base surface")
+        if not bool(plan.get("run.diagnostic_mode")):
+            problems.append("run.diagnostic_mode: Builder battle entry proof requires supervised diagnostic acknowledgement")
+        if any(
+            bool(plan.get(key))
+            for key in (
+                "events.collect_resources",
+                "events.collect_daily_reward",
+                "events.collect_loot_cart",
+                "events.collect_treasury",
+            )
+        ):
+            problems.append("events: Builder battle entry proof cannot collect resources, Home rewards, Loot Cart, or Treasury")
+        if manages_training or bool(plan.get("army.wait_for_full")) or bool(plan.get("army.train_spells")) or bool(plan.get("army.train_sieges")):
+            problems.append("army: Builder battle entry proof requires training, army wait, spells, and sieges off")
+        if plan.get("run.heroes"):
+            problems.append("run.heroes: Builder battle entry proof cannot select or deploy Heroes")
+        if int(plan.get("run.duration_minutes", 0)) != 0 or int(plan.get("run.max_battles", 0)) != 0 or bool(plan.get("run.stop_on_star_bonus")) or int(plan.get("run.max_failures", 0)) != 0:
+            problems.append("run: Builder battle entry proof is one pre-search pass; duration, battles, star bonus, and failure limits must be 0/off")
+        if any(int(plan.get(key, 0)) != 0 for key in ("target.gold", "target.elixir", "target.dark_elixir")):
+            problems.append("targets: Builder battle entry proof cannot use battle-loot targets")
+        if any(int(plan.get(key, 0)) != 0 for key in ("search.min_gold", "search.min_elixir", "search.min_dark", "search.max_seconds")) or str(plan.get("search.town_hall_filter", "")).strip().lower() != "any":
+            problems.append("search: Builder battle entry proof cannot configure matchmaking search")
+        if plan.get("donate.mode") != "off" or bool(plan.get("donate.request_when_short")) or int(plan.get("donate.max_per_run", 0)) != 0:
+            problems.append("donate: Builder battle entry proof requires donations and requests off")
+        if bool(plan.get("events.clan_games")) or int(plan.get("events.clan_games_point_cap", 0)) != 0:
+            problems.append("events.clan_games: Builder battle entry proof cannot enter Clan Games")
+        if str(plan.get("events.laboratory", "")).strip().lower() != "off":
+            problems.append("events.laboratory: Builder battle entry proof requires Laboratory off")
+        if str(plan.get("upgrade.policy", "")).strip().lower() != "disabled":
+            problems.append("upgrade.policy: Builder battle entry proof requires upgrades disabled")
+        if str(plan.get("account.queue", "")).strip():
+            problems.append("account.queue: Builder battle entry proof cannot rotate accounts")
+        if int(plan.get("pacing.retry_attempts", 0)) != 0:
+            problems.append("pacing.retry_attempts: Builder battle entry proof requires retries set to 0")
+        if str(plan.get("notify.channel", "")).strip().lower() != "log-only":
+            problems.append("notify.channel: Only Bot log notifications are wired for Builder battle entry proof")
+        if str(plan.get("runtime.emulator", "")).strip().lower() != "bluestacks5":
+            problems.append("runtime.emulator: Builder battle entry proof currently requires BlueStacks 5")
+        if not str(plan.get("runtime.instance", "")).strip():
+            problems.append("runtime.instance: choose the exact emulator instance for Builder battle entry proof")
     elif clan_request_only:
         if not bool(plan.get("run.diagnostic_mode")):
             problems.append("run.diagnostic_mode: Clan request requires supervised diagnostic acknowledgement")
@@ -684,10 +728,10 @@ def engine_preflight(plan: dict) -> list[str]:
         problems.append("runtime.instance: choose a specific emulator before selecting an instance")
     if emulator == "bluestacks5" and not instance:
         problems.append("runtime.instance: choose the exact BlueStacks 5 instance")
-    if (home_maintenance or clan_request_only or exact_recipe_training) and (emulator == "auto" or not instance):
-        route_label = "Home maintenance" if home_maintenance else ("Clan request" if clan_request_only else "Exact recipe training")
+    if (home_maintenance or clan_request_only or exact_recipe_training or builder_battle_entry) and (emulator == "auto" or not instance):
+        route_label = "Home maintenance" if home_maintenance else ("Clan request" if clan_request_only else ("Builder battle entry proof" if builder_battle_entry else "Exact recipe training"))
         problems.append(f"runtime.instance: {route_label} requires the exact non-Auto emulator and instance")
-    if (home_maintenance or clan_request_only or exact_recipe_training) and instance and not re.fullmatch(r"[A-Za-z0-9_. -]{1,64}", instance):
+    if (home_maintenance or clan_request_only or exact_recipe_training or builder_battle_entry) and instance and not re.fullmatch(r"[A-Za-z0-9_. -]{1,64}", instance):
         problems.append("runtime.instance: the Home route instance name contains unsupported characters")
 
     if not bool(plan.get("donate.keep_army")):

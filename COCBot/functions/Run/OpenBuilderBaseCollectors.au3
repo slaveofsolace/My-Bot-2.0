@@ -18,6 +18,10 @@ Global Const $OPEN_BUILDER_SWITCH_X = 145
 Global Const $OPEN_BUILDER_SWITCH_Y = 620
 Global Const $OPEN_BUILDER_RETURN_X = 821
 Global Const $OPEN_BUILDER_RETURN_Y = 465
+Global Const $OPEN_BUILDER_BATTLE_ENTRY_OPEN_X = 62
+Global Const $OPEN_BUILDER_BATTLE_ENTRY_OPEN_Y = 685
+Global Const $OPEN_BUILDER_BATTLE_ENTRY_CLOSE_X = 748
+Global Const $OPEN_BUILDER_BATTLE_ENTRY_CLOSE_Y = 204
 
 Func OpenBuilderBaseCollectorsPreparedMode(ByRef $oIntent, ByRef $sError)
 	$sError = ""
@@ -213,6 +217,44 @@ Func OpenBuilderBaseReturnHome()
 	Next
 	Return SetError(5, 0, False)
 EndFunc   ;==>OpenBuilderBaseReturnHome
+
+Func OpenBuilderBattleEntryOpenPointReady($iX, $iY)
+	If Not NoPremiumPermitTargetValid($NO_PREMIUM_ACTION_BUILDER_BATTLE_ENTRY_OPEN, $iX, $iY) Then Return False
+	Return OpenBuilderBaseCurrentFrameReady()
+EndFunc   ;==>OpenBuilderBattleEntryOpenPointReady
+
+Func OpenBuilderBattleEntryClosePointReady($iX, $iY)
+	If Not NoPremiumPermitTargetValid($NO_PREMIUM_ACTION_BUILDER_BATTLE_ENTRY_CLOSE, $iX, $iY) Then Return False
+	Return OpenBuilderBattleEntryReady()
+EndFunc   ;==>OpenBuilderBattleEntryClosePointReady
+
+Func OpenBuilderBattleEntryIssueOpen()
+	If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
+	If Not OpenBuilderBaseCollectorsProveBuilder() Then Return SetError(3, 0, False)
+	If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, False)
+	If Not NoPremiumPointClick($NO_PREMIUM_ACTION_BUILDER_BATTLE_ENTRY_OPEN, $OPEN_BUILDER_BATTLE_ENTRY_OPEN_X, $OPEN_BUILDER_BATTLE_ENTRY_OPEN_Y, 120, "#OpenBuilderBattleEntryOpen", False) Then _
+		Return SetError(4, 0, False)
+	For $iAttempt = 1 To 12
+		If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
+		If OpenBuilderBattleEntryProve() Then Return True
+		If _Sleep(500, True, True, False) Then Return SetError(2, 0, False)
+	Next
+	Return SetError(5, 0, False)
+EndFunc   ;==>OpenBuilderBattleEntryIssueOpen
+
+Func OpenBuilderBattleEntryIssueClose()
+	If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
+	If Not OpenBuilderBattleEntryProve() Then Return SetError(3, 0, False)
+	If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, False)
+	If Not NoPremiumPointClick($NO_PREMIUM_ACTION_BUILDER_BATTLE_ENTRY_CLOSE, $OPEN_BUILDER_BATTLE_ENTRY_CLOSE_X, $OPEN_BUILDER_BATTLE_ENTRY_CLOSE_Y, 120, "#OpenBuilderBattleEntryClose", False) Then _
+		Return SetError(4, 0, False)
+	For $iAttempt = 1 To 12
+		If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
+		If OpenBuilderBaseCollectorsProveBuilder() Then Return True
+		If _Sleep(500, True, True, False) Then Return SetError(2, 0, False)
+	Next
+	Return SetError(5, 0, False)
+EndFunc   ;==>OpenBuilderBattleEntryIssueClose
 
 Func OpenBuilderBaseCollectorsCollectOnePass($iMaxClicks = 2)
 	Local $iClickLimit = Int($iMaxClicks)

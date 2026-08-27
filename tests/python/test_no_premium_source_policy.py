@@ -257,6 +257,8 @@ class NoPremiumSourcePolicyTests(unittest.TestCase):
                 "OpenBuilderBaseSwitchToBuilder",
                 "OpenBuilderBaseReturnHome",
                 "OpenBuilderBaseCollectorsCollectOnePass",
+                "OpenBuilderBattleEntryIssueOpen",
+                "OpenBuilderBattleEntryIssueClose",
             },
             route_callers["COCBot/functions/Run/OpenBuilderBaseCollectors.au3"],
         )
@@ -294,7 +296,7 @@ class NoPremiumSourcePolicyTests(unittest.TestCase):
         target = autoit_function(self.policy, "NoPremiumPermitTargetValid")
         point = autoit_function(self.policy, "NoPremiumPermitPointMatches")
         age = autoit_function(self.policy, "NoPremiumPermitAgeValid")
-        self.assertEqual(23, len(re.findall(r'^Global Const \$NO_PREMIUM_ACTION_', self.policy, re.MULTILINE)))
+        self.assertEqual(26, len(re.findall(r'^Global Const \$NO_PREMIUM_ACTION_', self.policy, re.MULTILINE)))
         for forbidden in ('"home"', '"builder-home"', '"full-profile"', '"confirm"'):
             self.assertNotIn(forbidden, known)
         for exact in (
@@ -316,6 +318,8 @@ class NoPremiumSourcePolicyTests(unittest.TestCase):
             "$iX >= 640 And $iX <= 650 And $iY >= 10 And $iY <= 30",
             "$iX >= 360 And $iX <= 510 And $iY >= 450 And $iY <= 540",
             "$iX = 175 And $iY = 10",
+            "$iX = 62 And $iY = 685",
+            "$iX = 748 And $iY = 204",
         ):
             self.assertIn(exact, target)
         self.assertIn("$NO_PREMIUM_ACTION_EXACT_TRAINING_ARMY", known)
@@ -323,6 +327,8 @@ class NoPremiumSourcePolicyTests(unittest.TestCase):
         self.assertIn("$NO_PREMIUM_ACTION_BUILDER_COLLECT_GOLD", known)
         self.assertIn("$NO_PREMIUM_ACTION_BUILDER_COLLECT_ELIXIR", known)
         self.assertIn("$NO_PREMIUM_ACTION_BUILDER_RETURN_HOME", known)
+        self.assertIn("$NO_PREMIUM_ACTION_BUILDER_BATTLE_ENTRY_OPEN", known)
+        self.assertIn("$NO_PREMIUM_ACTION_BUILDER_BATTLE_ENTRY_CLOSE", known)
         self.assertIn("$NO_PREMIUM_ACTION_HOME_CLEAR_SCREEN", known)
         self.assertIn("$NO_PREMIUM_ACTION_STARTUP_POPUP_CLOSE", known)
         self.assertIn("$NO_PREMIUM_ACTION_HOME_CLEAR_SELECTION", known)
@@ -331,6 +337,8 @@ class NoPremiumSourcePolicyTests(unittest.TestCase):
         self.assertIn("Case $NO_PREMIUM_ACTION_BUILDER_COLLECT_GOLD", target)
         self.assertIn("Case $NO_PREMIUM_ACTION_BUILDER_COLLECT_ELIXIR", target)
         self.assertIn("Case $NO_PREMIUM_ACTION_BUILDER_RETURN_HOME", target)
+        self.assertIn("Case $NO_PREMIUM_ACTION_BUILDER_BATTLE_ENTRY_OPEN", target)
+        self.assertIn("Case $NO_PREMIUM_ACTION_BUILDER_BATTLE_ENTRY_CLOSE", target)
         self.assertIn("Case $NO_PREMIUM_ACTION_HOME_CLEAR_SCREEN", target)
         self.assertIn("Case $NO_PREMIUM_ACTION_STARTUP_POPUP_CLOSE", target)
         self.assertIn("Int($iExpectedX) = Int($iActualX)", point)

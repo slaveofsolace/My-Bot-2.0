@@ -124,9 +124,13 @@ Func NoPremiumSurfaceState(ByRef $sReason, $sPermitAction = "", $iExpectedX = De
 			$bRouteReady = OpenBuilderBaseResourceTargetReady(1, Int($iExpectedX), Int($iExpectedY))
 		Case $NO_PREMIUM_ACTION_BUILDER_COLLECT_ELIXIR
 			$bRouteReady = OpenBuilderBaseResourceTargetReady(2, Int($iExpectedX), Int($iExpectedY))
-		Case $NO_PREMIUM_ACTION_BUILDER_RETURN_HOME
-			$bRouteReady = OpenBuilderBaseReturnBoatPointReady(Int($iExpectedX), Int($iExpectedY))
-		Case $NO_PREMIUM_ACTION_HOME_CLEAR_SCREEN
+                Case $NO_PREMIUM_ACTION_BUILDER_RETURN_HOME
+                        $bRouteReady = OpenBuilderBaseReturnBoatPointReady(Int($iExpectedX), Int($iExpectedY))
+                Case $NO_PREMIUM_ACTION_BUILDER_BATTLE_ENTRY_OPEN
+                        $bRouteReady = OpenBuilderBattleEntryOpenPointReady(Int($iExpectedX), Int($iExpectedY))
+                Case $NO_PREMIUM_ACTION_BUILDER_BATTLE_ENTRY_CLOSE
+                        $bRouteReady = OpenBuilderBattleEntryClosePointReady(Int($iExpectedX), Int($iExpectedY))
+                Case $NO_PREMIUM_ACTION_HOME_CLEAR_SCREEN
 			$bRouteReady = IsMainPage(1)
 		Case $NO_PREMIUM_ACTION_STARTUP_POPUP_CLOSE
 			$bRouteReady = StartupPopupClosePointReady(Int($iExpectedX), Int($iExpectedY))

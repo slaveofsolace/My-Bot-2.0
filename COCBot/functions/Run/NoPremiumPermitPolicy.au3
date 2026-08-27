@@ -23,6 +23,8 @@ Global Const $NO_PREMIUM_ACTION_BUILDER_SWITCH = "builder-base.switch"
 Global Const $NO_PREMIUM_ACTION_BUILDER_COLLECT_GOLD = "builder-base.collect-gold"
 Global Const $NO_PREMIUM_ACTION_BUILDER_COLLECT_ELIXIR = "builder-base.collect-elixir"
 Global Const $NO_PREMIUM_ACTION_BUILDER_RETURN_HOME = "builder-base.return-home"
+Global Const $NO_PREMIUM_ACTION_BUILDER_BATTLE_ENTRY_OPEN = "builder-base.battle-entry.open"
+Global Const $NO_PREMIUM_ACTION_BUILDER_BATTLE_ENTRY_CLOSE = "builder-base.battle-entry.close"
 Global Const $NO_PREMIUM_ACTION_HOME_CLEAR_SCREEN = "home.clear-screen"
 Global Const $NO_PREMIUM_ACTION_STARTUP_POPUP_CLOSE = "startup.popup.close"
 Global Const $NO_PREMIUM_ACTION_HOME_CLEAR_SELECTION = "home.clear-selection"
@@ -41,6 +43,7 @@ Func NoPremiumPermitActionKnown($sAction)
                         $NO_PREMIUM_ACTION_EXACT_TRAINING_ARMY, _
                         $NO_PREMIUM_ACTION_BUILDER_SWITCH, $NO_PREMIUM_ACTION_BUILDER_COLLECT_GOLD, _
                         $NO_PREMIUM_ACTION_BUILDER_COLLECT_ELIXIR, $NO_PREMIUM_ACTION_BUILDER_RETURN_HOME, _
+                        $NO_PREMIUM_ACTION_BUILDER_BATTLE_ENTRY_OPEN, $NO_PREMIUM_ACTION_BUILDER_BATTLE_ENTRY_CLOSE, _
                         $NO_PREMIUM_ACTION_HOME_CLEAR_SCREEN, $NO_PREMIUM_ACTION_STARTUP_POPUP_CLOSE, _
                         $NO_PREMIUM_ACTION_HOME_CLEAR_SELECTION
                         Return True
@@ -101,9 +104,13 @@ Func NoPremiumPermitTargetValid($sAction, $iX, $iY)
 			Return $iX >= 500 And $iX <= 530 And $iY >= 405 And $iY <= 435
 		Case $NO_PREMIUM_ACTION_BUILDER_COLLECT_ELIXIR
 			Return $iX >= 320 And $iX <= 350 And $iY >= 395 And $iY <= 420
-		Case $NO_PREMIUM_ACTION_BUILDER_RETURN_HOME
-			Return $iX = 821 And $iY = 465
-		Case $NO_PREMIUM_ACTION_HOME_CLEAR_SCREEN
+                Case $NO_PREMIUM_ACTION_BUILDER_RETURN_HOME
+                        Return $iX = 821 And $iY = 465
+                Case $NO_PREMIUM_ACTION_BUILDER_BATTLE_ENTRY_OPEN
+                        Return $iX = 62 And $iY = 685
+                Case $NO_PREMIUM_ACTION_BUILDER_BATTLE_ENTRY_CLOSE
+                        Return $iX = 748 And $iY = 204
+                Case $NO_PREMIUM_ACTION_HOME_CLEAR_SCREEN
 			Return ($iX >= 235 And $iX <= 245 And $iY >= 10 And $iY <= 30) Or _
 					($iX >= 640 And $iX <= 650 And $iY >= 10 And $iY <= 30)
                 Case $NO_PREMIUM_ACTION_STARTUP_POPUP_CLOSE

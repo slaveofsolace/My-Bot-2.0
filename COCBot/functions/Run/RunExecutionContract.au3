@@ -10,6 +10,7 @@
 #include "ClanRequestRoute.au3"
 #include "ExactRecipeTrainingRoute.au3"
 #include "BuilderMaintenanceRoute.au3"
+#include "BuilderBattleEntryRoute.au3"
 #include "LootCartRoute.au3"
 #include "TreasuryRoute.au3"
 
@@ -35,11 +36,12 @@ Func RunExecutionContractValidate(ByRef $oIntent, ByRef $sError)
 	$sError = ""
 	If Not RunIntentValidate($oIntent, $sError) Then Return SetError(1, 0, False)
 	If HomeMaintenanceRouteSelected($oIntent) Then Return HomeMaintenanceRouteValidate($oIntent, $sError)
-	If ClanRequestRouteSelected($oIntent) Then Return ClanRequestRouteValidate($oIntent, $sError)
-	If ExactRecipeTrainingRouteSelected($oIntent) Then Return ExactRecipeTrainingRouteValidate($oIntent, $sError)
-	If BuilderMaintenanceRouteSelected($oIntent) Then Return BuilderMaintenanceRouteValidate($oIntent, $sError)
+        If ClanRequestRouteSelected($oIntent) Then Return ClanRequestRouteValidate($oIntent, $sError)
+        If ExactRecipeTrainingRouteSelected($oIntent) Then Return ExactRecipeTrainingRouteValidate($oIntent, $sError)
+        If BuilderMaintenanceRouteSelected($oIntent) Then Return BuilderMaintenanceRouteValidate($oIntent, $sError)
+	If BuilderBattleEntryRouteSelected($oIntent) Then Return BuilderBattleEntryRouteValidate($oIntent, $sError)
 
-	Local $sSurface = StringLower(StringStripWS(String($oIntent.Item("surface_id")), $STR_STRIPALL))
+        Local $sSurface = StringLower(StringStripWS(String($oIntent.Item("surface_id")), $STR_STRIPALL))
 	If $sSurface <> "regular" Then
 		$sError = "The inherited attack engine is only wired to Regular Battles. " & $sSurface & " remains evidence-only."
 		Return SetError(2, 0, False)

@@ -134,20 +134,29 @@ Func BuilderMaintenanceRouteActive()
 EndFunc   ;==>BuilderMaintenanceRouteActive
 
 Func BuilderMaintenanceRoutePrepared()
-	Return RunExecutionManagedPlanPrepared() And BuilderMaintenanceRouteSelected($g_oRunExecutionIntent)
+        Return RunExecutionManagedPlanPrepared() And BuilderMaintenanceRouteSelected($g_oRunExecutionIntent)
 EndFunc   ;==>BuilderMaintenanceRoutePrepared
+
+Func BuilderBattleEntryRouteActive()
+	Return $g_bRunExecutionActive And IsObj($g_oRunExecutionIntent) And BuilderBattleEntryRouteSelected($g_oRunExecutionIntent)
+EndFunc   ;==>BuilderBattleEntryRouteActive
+
+Func BuilderBattleEntryRoutePrepared()
+	Return RunExecutionManagedPlanPrepared() And IsObj($g_oRunExecutionIntent) And BuilderBattleEntryRouteSelected($g_oRunExecutionIntent)
+EndFunc   ;==>BuilderBattleEntryRoutePrepared
 
 ; Bind request-only work at the last native boundary that knows the actually loaded profile. The
 ; browser plan intentionally carries no account identifier; using the live profile prevents a stale
 ; saved plan from naming or switching another account. Repeated Apply/Load accepts only the same id.
 Func RunExecutionBindCurrentProfileForHomeRoute(ByRef $oIntent, ByRef $sError)
 	$sError = ""
-	Local $bClanRequest = ClanRequestRouteSelected($oIntent)
-	Local $bCollectors = HomeMaintenanceRouteSelected($oIntent)
-	Local $bExactTraining = ExactRecipeTrainingRouteSelected($oIntent)
-	Local $bBuilderCollectors = BuilderMaintenanceRouteSelected($oIntent)
-	If Not $bClanRequest And Not $bCollectors And Not $bExactTraining And Not $bBuilderCollectors Then Return True
-	Local $sRouteName = $bClanRequest ? "Clan request" : ($bExactTraining ? "Exact saved-recipe training" : ($bBuilderCollectors ? "Builder Base maintenance" : "Home maintenance"))
+        Local $bClanRequest = ClanRequestRouteSelected($oIntent)
+        Local $bCollectors = HomeMaintenanceRouteSelected($oIntent)
+        Local $bExactTraining = ExactRecipeTrainingRouteSelected($oIntent)
+        Local $bBuilderCollectors = BuilderMaintenanceRouteSelected($oIntent)
+	Local $bBuilderBattleEntry = BuilderBattleEntryRouteSelected($oIntent)
+        If Not $bClanRequest And Not $bCollectors And Not $bExactTraining And Not $bBuilderCollectors And Not $bBuilderBattleEntry Then Return True
+        Local $sRouteName = $bClanRequest ? "Clan request" : ($bExactTraining ? "Exact saved-recipe training" : ($bBuilderCollectors ? "Builder Base maintenance" : ($bBuilderBattleEntry ? "Builder battle entry proof" : "Home maintenance")))
 	Local $sActiveProfile = StringStripWS(String($g_sProfileCurrentName), $STR_STRIPLEADING + $STR_STRIPTRAILING)
 	If $sActiveProfile = "" Or StringLen($sActiveProfile) > 64 Or _
 			Not StringRegExp($sActiveProfile, "^[A-Za-z0-9_. -]+$") Then
@@ -167,10 +176,12 @@ Func RunExecutionBindCurrentProfileForHomeRoute(ByRef $oIntent, ByRef $sError)
 		$bMatches = ClanRequestRouteAccountMatches($oIntent, $sActiveProfile)
 	ElseIf $bExactTraining Then
 		$bMatches = ExactRecipeTrainingRouteAccountMatches($oIntent, $sActiveProfile)
-	ElseIf $bBuilderCollectors Then
-		$bMatches = BuilderMaintenanceRouteAccountMatches($oIntent, $sActiveProfile)
-	Else
-		$bMatches = HomeMaintenanceRouteAccountMatches($oIntent, $sActiveProfile)
+        ElseIf $bBuilderCollectors Then
+                $bMatches = BuilderMaintenanceRouteAccountMatches($oIntent, $sActiveProfile)
+	ElseIf $bBuilderBattleEntry Then
+		$bMatches = BuilderBattleEntryRouteAccountMatches($oIntent, $sActiveProfile)
+        Else
+                $bMatches = HomeMaintenanceRouteAccountMatches($oIntent, $sActiveProfile)
 	EndIf
 	If Not $bMatches Then
 		$sError = $sRouteName & " plan is bound to a different active profile/account"
@@ -279,6 +290,52 @@ Func _LootCartLiveProveHome()
 	Next
 	Return False
 EndFunc   ;==>_LootCartLiveProveHome
+
+Func _BuilderBattleEntryRouteFail($sReason)
+	If RunControlStopRequested() Or Not $g_bRunState Then Return False
+	Local $sFailure = "Builder battle entry proof failed: " & $sReason
+	SetLog("Run Planner: " & $sFailure, $COLOR_ERROR)
+	RunEventLogRunFailed("builder", $RUN_VERIFICATION_DIAGNOSTIC, $sFailure)
+	RunExecutionCancelPrepared($sFailure)
+	RunControlReportOneShotOutcome("failed", $sFailure)
+	RunControlReportRunFailure($sFailure)
+	Return False
+EndFunc   ;==>_BuilderBattleEntryRouteFail
+
+Func BuilderBattleEntryRouteExecute()
+	If Not BuilderBattleEntryRouteActive() Then Return False
+	If RunControlStopRequested() Or Not $g_bRunState Then Return False
+	If Not BuilderBattleEntryRouteAccountMatches($g_oRunExecutionIntent, $g_sProfileCurrentName) Then _
+			Return _BuilderBattleEntryRouteFail("the active profile no longer matches the account bound at Start")
+
+	SetLog("Run Planner: starting Builder battle entry proof; no search or battle will be started", $COLOR_ACTION)
+	If Not OpenBuilderBaseCollectorsProveBuilder() And Not OpenHomeCollectorsProveHome() Then _
+			Return _BuilderBattleEntryRouteFail("Home Village or Builder Base route-ready screen was not proven before Builder Base transfer")
+	If Not OpenBuilderBaseSwitchToBuilder() Then
+		If RunControlStopRequested() Or Not $g_bRunState Then Return False
+		Return _BuilderBattleEntryRouteFail("Builder Base boat was not recognized or Builder Base was not reached")
+	EndIf
+	If Not OpenBuilderBattleEntryIssueOpen() Then
+		If RunControlStopRequested() Or Not $g_bRunState Then Return False
+		Return _BuilderBattleEntryRouteFail("Builder Battle entry panel was not reached")
+	EndIf
+	If Not OpenBuilderBattleFindNowRegionReady(650, 455) Then _
+			Return _BuilderBattleEntryRouteFail("Builder Battle Find Now region was not recognized after entry")
+	If Not OpenBuilderBattleEntryIssueClose() Then
+		If RunControlStopRequested() Or Not $g_bRunState Then Return False
+		Return _BuilderBattleEntryRouteFail("Builder Battle entry panel could not be closed safely")
+	EndIf
+	If Not OpenBuilderBaseReturnHome() Then
+		If RunControlStopRequested() Or Not $g_bRunState Then Return False
+		Return _BuilderBattleEntryRouteFail("Home Village could not be passively re-proven after Builder battle entry proof")
+	EndIf
+
+	Local $sReason = "builder-battle-entry-proof"
+	RunEventLogRunStopping("builder", $RUN_VERIFICATION_DIAGNOSTIC, $sReason)
+	RunExecutionComplete($sReason)
+	$g_sRunExecutionMessage = "Completed Builder battle entry proof; search_started=false; battle_started=false"
+	Return True
+EndFunc   ;==>BuilderBattleEntryRouteExecute
 
 Func _TreasuryLiveStopRequested()
 	Return RunControlStopRequested() Or Not $g_bRunState
@@ -1141,10 +1198,27 @@ Func _RunExecutionApplyIntent(ByRef $sError)
 		$g_bRunExecutionGameplayApplied = True
 		Return True
 	EndIf
-	If $sStrategy = $EXACT_TRAINING_ROUTE_STRATEGY Then
-		; Exact saved-recipe training owns one route-specific queue attempt. The inherited broad
-		; trainer remains off: no Quick Train fallback, boost, deletion, spell/siege queue, donation,
+        If $sStrategy = $EXACT_TRAINING_ROUTE_STRATEGY Then
+                ; Exact saved-recipe training owns one route-specific queue attempt. The inherited broad
+                ; trainer remains off: no Quick Train fallback, boost, deletion, spell/siege queue, donation,
 		; collector, upgrade, matchmaking, or account-switch behavior may leak in from the profile.
+		$g_bRunExecutionManageTraining = False
+		$g_bChkDonate = False
+		$g_bDonateLikeCrazy = False
+		$g_bRequestTroopsEnable = False
+		$g_bChkSwitchAcc = False
+		$g_bChkClanGamesEnabled = 0
+		$g_bChkCollect = False
+		$g_bAutoLabUpgradeEnable = False
+		$g_bAutoUpgradeWallsEnable = False
+		$g_bAutoUpgradeEnabled = False
+                $g_bRunExecutionGameplayApplied = True
+                Return True
+        EndIf
+	If $sStrategy = $BUILDER_BATTLE_ENTRY_ROUTE_STRATEGY Then
+		; This proof route owns only Builder Base navigation to the current-client pre-search panel.
+		; It never inherits Builder search, battle, deployment, upgrades, collection, training,
+		; donation, event, or account-switch work from the active profile.
 		$g_bRunExecutionManageTraining = False
 		$g_bChkDonate = False
 		$g_bDonateLikeCrazy = False
@@ -1158,7 +1232,7 @@ Func _RunExecutionApplyIntent(ByRef $sError)
 		$g_bRunExecutionGameplayApplied = True
 		Return True
 	EndIf
-	Local $iAlgorithm = ($sStrategy = "legacy.csv") ? 1 : 0
+        Local $iAlgorithm = ($sStrategy = "legacy.csv") ? 1 : 0
 	Local $sAttackScript = StringStripWS(String($oPlan.Item("attack_script")), $STR_STRIPLEADING + $STR_STRIPTRAILING)
 	If $iAlgorithm = 1 And StringLower($sAttackScript) <> "profile-current" Then
 		Local $sAttackScriptPath = $g_sCSVAttacksPath & "\" & $sAttackScript & ".csv"

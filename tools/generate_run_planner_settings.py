@@ -378,6 +378,16 @@ def main() -> int:
                                     ["Exact BlueStacks 5 instance", "A supervised diagnostic operator", "Current Builder Base resource bubbles"],
                                     disabled_reason="Current-client Builder Base collection requires an exact live receipt before it is considered accepted.",
                                     warning="Diagnostic only: one Builder Gold/Elixir collection pass may mutate ordinary Builder resources; Gem Mine collection is intentionally excluded."),
+                             option("builder.battle-entry", "Builder battle entry proof",
+                                    "Open and close the current-client Builder Battle pre-search panel.",
+                                    "Switches to Builder Base when needed, opens the Builder Battle entry panel, proves "
+                                    "the Find Now region, closes the panel, returns Home, and stops. It never starts search, "
+                                    "never starts a battle, never deploys troops, never clears obstacles, never upgrades, never "
+                                    "collects resources, and never uses gems.",
+                                    "gated", ["builder-base.battles"],
+                                    ["Exact BlueStacks 5 instance", "A supervised diagnostic operator", "Builder Battle entry surface"],
+                                    disabled_reason="This is a safe pre-search proof only; it requires an exact-current installed receipt before any Builder battle can be accepted.",
+                                    warning="Diagnostic only: this proves the pre-search surface and never starts search or a battle."),
                              option("builder.baby-dragon", "Builder Base routine",
                                     "Deployment routine for Builder Base battles.",
                                     "A Builder Base specific deployment. It is not implemented against the current "

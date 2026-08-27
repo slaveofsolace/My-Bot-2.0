@@ -64,6 +64,28 @@ const STRATEGY_SAFETY_PATCHES = {
       'pacing.break_every_minutes': 0, 'pacing.break_minutes': 5,
     },
   },
+  'builder.battle-entry': {
+    label: 'Builder battle-entry proof safety settings',
+    values: {
+      'run.surface': 'builder', 'run.strategy': 'builder.battle-entry', 'run.attack_script': 'profile-current',
+      'run.town_hall': 0, 'run.heroes': [], 'run.duration_minutes': 0, 'run.max_battles': 0,
+      'run.stop_on_star_bonus': false, 'run.max_failures': 0,
+      'target.gold': 0, 'target.elixir': 0, 'target.dark_elixir': 0,
+      'upgrade.policy': 'disabled', 'account.queue': '',
+      'army.source': 'recipe', 'army.recipe_name': '', 'army.recipe_digest': '', 'army.max_queue_units': 0,
+      'army.manage_training': false, 'army.wait_for_full': false, 'army.train_spells': false, 'army.train_sieges': false,
+      'search.min_gold': 0, 'search.min_elixir': 0, 'search.min_dark': 0,
+      'search.max_seconds': 0, 'search.town_hall_filter': 'any',
+      'donate.mode': 'off', 'donate.keep_army': true, 'donate.max_per_run': 0, 'donate.request_when_short': false,
+      'events.clan_games': false, 'events.clan_games_point_cap': 0,
+      'events.laboratory': 'off', 'events.collect_resources': false, 'events.collect_daily_reward': false,
+      'events.collect_loot_cart': false,
+      'events.collect_treasury': false,
+      'notify.on_stop': true, 'notify.on_error': true, 'notify.channel': 'log-only',
+      'pacing.action_delay_ms': 180, 'pacing.settle_ms': 650, 'pacing.retry_attempts': 0,
+      'pacing.break_every_minutes': 0, 'pacing.break_minutes': 5,
+    },
+  },
   'home.clan-request': {
     label: 'Clan-request-only safety settings',
     values: {
@@ -736,7 +758,9 @@ function planSurfaceSections(surface) {
 
 function builderBaseUnavailableReason() {
   const surface = optionOf(findSetting('run.surface'), 'builder');
-  const selectedStrategy = PLAN['run.strategy'] === 'builder.collectors' ? 'builder.collectors' : 'builder.baby-dragon';
+  const selectedStrategy = ['builder.collectors', 'builder.battle-entry'].includes(PLAN['run.strategy'])
+    ? PLAN['run.strategy']
+    : 'builder.baby-dragon';
   const strategy = optionOf(findSetting('run.strategy'), selectedStrategy);
   const reasons = [surface?.disabled_reason, strategy?.disabled_reason].filter(Boolean);
   return reasons.length
@@ -765,11 +789,14 @@ function renderPlanSurfaceChrome(surface = activeSurface()) {
   const title = context.querySelector('strong');
   const text = context.querySelector('p');
   const builderCollectors = planSurface.id === 'builder' && PLAN['run.strategy'] === 'builder.collectors';
-  const blocked = planSurface.blocked && !builderCollectors;
+  const builderBattleEntry = planSurface.id === 'builder' && PLAN['run.strategy'] === 'builder.battle-entry';
+  const blocked = planSurface.blocked && !builderCollectors && !builderBattleEntry;
   title.textContent = blocked ? 'Unavailable in this build' : `${planSurface.title} surface`;
   text.textContent = planSurface.id === 'builder'
     ? (builderCollectors
       ? 'Builder Base collection is available as one bounded supervised pass: switch to Builder Base, collect ordinary Builder Gold/Elixir bubbles, then return Home. Builder battles, Builder upgrades, Gem Mine, and other routes remain unavailable until separately proven.'
+      : builderBattleEntry
+      ? 'Builder battle-entry proof is available as one bounded supervised pass: switch to Builder Base, open the pre-search panel, prove Find Now, close it, and return Home. It never starts search or a battle.'
       : `${builderBaseUnavailableReason()} The controls below are shown for review only; Start remains blocked.`)
     : `${planSurface.description} These controls use the same persisted planner values as Run Planner.`;
   context.className = `surface-context${blocked ? ' is-blocked' : ''}`;
@@ -1245,10 +1272,11 @@ function clientProblems(plan = PLAN) {
 
   const homeMaintenance = plan['run.strategy'] === 'home.collectors';
   const builderCollectors = plan['run.strategy'] === 'builder.collectors';
+  const builderBattleEntry = plan['run.strategy'] === 'builder.battle-entry';
   const clanRequestOnly = plan['run.strategy'] === 'home.clan-request';
   const exactRecipeTraining = plan['run.strategy'] === 'army.exact-recipe';
-  if (plan['run.surface'] !== 'regular' && !(builderCollectors && plan['run.surface'] === 'builder')) addProblem(problems, 'Only Regular Battles and the bounded Builder collection route can start through the native engine.', 'run.surface');
-  if (!['legacy.csv', 'legacy.standard', 'smart.local', 'home.collectors', 'builder.collectors', 'home.clan-request', 'army.exact-recipe'].includes(plan['run.strategy'])) {
+  if (plan['run.surface'] !== 'regular' && !((builderCollectors || builderBattleEntry) && plan['run.surface'] === 'builder')) addProblem(problems, 'Only Regular Battles and bounded Builder proof routes can start through the native engine.', 'run.surface');
+  if (!['legacy.csv', 'legacy.standard', 'smart.local', 'home.collectors', 'builder.collectors', 'builder.battle-entry', 'home.clan-request', 'army.exact-recipe'].includes(plan['run.strategy'])) {
     addProblem(problems, 'The selected deployment routine has no native adapter.', 'run.strategy');
   }
   if (plan['run.strategy'] !== 'legacy.csv' && plan['run.attack_script'] !== 'profile-current') {
@@ -1312,6 +1340,24 @@ function clientProblems(plan = PLAN) {
     if (plan['upgrade.policy'] !== 'disabled') addProblem(problems, 'Builder Base collection requires upgrades disabled.', 'upgrade.policy');
     if (String(plan['account.queue'] || '').trim()) addProblem(problems, 'Builder Base collection cannot rotate accounts.', 'account.queue');
     if (Number(plan['pacing.break_every_minutes']) !== 0) addProblem(problems, 'Builder Base collection requires scheduled breaks off.', 'pacing.break_every_minutes');
+  } else if (builderBattleEntry) {
+    if (plan['run.surface'] !== 'builder') addProblem(problems, 'Builder battle entry proof requires the Builder Base surface.', 'run.surface');
+    if (emulator !== 'bluestacks5' || !instance) addProblem(problems, 'Builder battle entry proof requires the exact BlueStacks 5 instance.', 'runtime.instance');
+    if (instance && !/^[A-Za-z0-9_. -]{1,64}$/.test(instance)) addProblem(problems, 'The Builder battle-entry instance name contains unsupported characters.', 'runtime.instance');
+    if (!plan['run.diagnostic_mode']) addProblem(problems, 'Builder battle entry proof requires supervised diagnostic acknowledgement.', 'run.diagnostic_mode');
+    if (plan['events.collect_resources'] || plan['events.collect_daily_reward'] || plan['events.collect_loot_cart'] || plan['events.collect_treasury']) addProblem(problems, 'Builder battle entry proof cannot collect resources, Home rewards, Loot Cart, or Treasury.', 'events.collect_resources');
+    if (plan['army.manage_training'] || plan['army.wait_for_full'] || plan['army.train_spells'] || plan['army.train_sieges']) addProblem(problems, 'Builder battle entry proof requires training, army wait, spells, and sieges off.', 'army.manage_training');
+    if (asList(plan['run.heroes']).length) addProblem(problems, 'Builder battle entry proof cannot select or deploy Heroes.', 'run.heroes');
+    if (Number(plan['run.duration_minutes']) !== 0 || Number(plan['run.max_battles']) !== 0 || plan['run.stop_on_star_bonus'] || Number(plan['run.max_failures']) !== 0) addProblem(problems, 'Builder battle entry proof is one pre-search pass; duration, battles, star bonus, and failure limits must be 0/off.', 'run.max_battles');
+    if (['target.gold', 'target.elixir', 'target.dark_elixir'].some((key) => Number(plan[key]) !== 0)) addProblem(problems, 'Builder battle entry proof cannot use battle-loot targets.', 'target.gold');
+    if (['search.min_gold', 'search.min_elixir', 'search.min_dark', 'search.max_seconds'].some((key) => Number(plan[key]) !== 0) || plan['search.town_hall_filter'] !== 'any') addProblem(problems, 'Builder battle entry proof cannot configure matchmaking search.', 'search.min_gold');
+    if (plan['donate.mode'] !== 'off' || plan['donate.request_when_short'] || Number(plan['donate.max_per_run']) !== 0) addProblem(problems, 'Builder battle entry proof requires donations and requests off.', 'donate.mode');
+    if (plan['events.clan_games'] || Number(plan['events.clan_games_point_cap']) !== 0) addProblem(problems, 'Builder battle entry proof cannot enter Clan Games.', 'events.clan_games');
+    if (plan['events.laboratory'] !== 'off') addProblem(problems, 'Builder battle entry proof requires Laboratory off.', 'events.laboratory');
+    if (plan['upgrade.policy'] !== 'disabled') addProblem(problems, 'Builder battle entry proof requires upgrades disabled.', 'upgrade.policy');
+    if (String(plan['account.queue'] || '').trim()) addProblem(problems, 'Builder battle entry proof cannot rotate accounts.', 'account.queue');
+    if (Number(plan['pacing.retry_attempts']) !== 0) addProblem(problems, 'Builder battle entry proof requires retries set to 0.', 'pacing.retry_attempts');
+    if (PLAN['notify.channel'] !== 'log-only') addProblem(problems, 'Only Bot log notifications are wired for Builder battle entry proof.', 'notify.channel');
   } else if (clanRequestOnly) {
     if (!plan['run.diagnostic_mode']) addProblem(problems, 'Clan request requires supervised diagnostic acknowledgement.', 'run.diagnostic_mode');
     if (plan['army.manage_training'] || plan['army.wait_for_full'] || plan['army.train_spells'] || plan['army.train_sieges']) addProblem(problems, 'Clan request requires training, army wait, spells, and sieges off.', 'army.manage_training');

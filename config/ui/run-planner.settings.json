@@ -1341,6 +1341,25 @@
               "warning": "Diagnostic only: one Builder Gold/Elixir collection pass may mutate ordinary Builder resources; Gem Mine collection is intentionally excluded."
             },
             {
+              "value": "builder.battle-entry",
+              "label": "Builder battle entry proof",
+              "summary": "Open and close the current-client Builder Battle pre-search panel.",
+              "description": "Switches to Builder Base when needed, opens the Builder Battle entry panel, proves the Find Now region, closes the panel, returns Home, and stops. It never starts search, never starts a battle, never deploys troops, never clears obstacles, never upgrades, never collects resources, and never uses gems.",
+              "availability": "gated",
+              "runtime_verified": false,
+              "disabled_reason": "This is a safe pre-search proof only; it requires an exact-current installed receipt before any Builder battle can be accepted.",
+              "capability_ids": [
+                "builder-base.battles"
+              ],
+              "prerequisites": [
+                "Exact BlueStacks 5 instance",
+                "A supervised diagnostic operator",
+                "Builder Battle entry surface"
+              ],
+              "recommended": false,
+              "warning": "Diagnostic only: this proves the pre-search surface and never starts search or a battle."
+            },
+            {
               "value": "builder.baby-dragon",
               "label": "Builder Base routine",
               "summary": "Deployment routine for Builder Base battles.",
