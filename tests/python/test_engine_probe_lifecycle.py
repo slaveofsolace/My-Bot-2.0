@@ -129,8 +129,10 @@ class EngineProbeLifecycleTests(unittest.TestCase):
             "$g_bAndroidAdbClick",
             "_MBRFuncExactDetachedAdbSurfaceAvailable()",
             '_MBRFuncRecordAndroidBinding("detached-adb", $iRequestedPid)',
+            '_MBRFuncRecordAndroidBinding("engine-only", 0)',
             "The exact detached ADB transport changed after managed initialization",
             "managed Android PID export skipped during supervised Start",
+            "Managed Android PID export skipped during engine-only check",
             "$pid = 0",
             "exact ADB surface owns player PID",
         ):
@@ -141,6 +143,7 @@ class EngineProbeLifecycleTests(unittest.TestCase):
         self.assertIn("$g_sMBRFuncAndroidBindingInstance = $g_sAndroidInstance", recorder)
         self.assertIn("$g_iMBRFuncAndroidBindingPid = $iRequestedPid", recorder)
         self.assertLess(binding.index("managed Android PID export skipped during supervised Start"), binding.index('DllCall($g_hLibMyBot, "str", "setAndroidPID"'))
+        self.assertLess(binding.index("Managed Android PID export skipped during engine-only check"), binding.index('DllCall($g_hLibMyBot, "str", "setAndroidPID"'))
         self.assertLess(binding.index("$pid = 0"), binding.index('DllCall($g_hLibMyBot, "str", "setAndroidPID"'))
         self.assertLess(binding.index('Case "detached-adb"'), binding.index('DllCall($g_hLibMyBot, "str", "setAndroidPID"'))
         self.assertIn('"GetBlueStacks5ModernAdbSurface" & "Position"', verifier)

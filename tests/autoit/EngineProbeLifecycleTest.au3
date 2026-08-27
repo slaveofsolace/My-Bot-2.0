@@ -93,6 +93,7 @@ Local $sAndroidPid = StringMid($sParent, $iAndroidPidStart, $iAndroidPidEnd - $i
 AssertTrue(StringInStr($sAndroidPid, '$g_sAndroidEmulator = "BlueStacks5"', 1) > 0 And StringInStr($sAndroidPid, "$g_bAndroidAdbScreencap", 1) > 0 And StringInStr($sAndroidPid, "$g_bAndroidAdbClick", 1) > 0, "BlueStacks5 managed binding requires the verified ADB screenshot and click surface")
 AssertTrue(StringInStr($sAndroidPid, "$pid = 0", 1) > 0 And StringInStr($sAndroidPid, "exact ADB surface owns player PID", 1) > 0 And StringInStr($sAndroidPid, '_MBRFuncRecordAndroidBinding("detached-adb", $iRequestedPid)', 1) > 0, "BlueStacks5 managed binding stays detached from the player process")
 AssertTrue(StringInStr($sAndroidPid, "managed Android PID export skipped during supervised Start", 1) < StringInStr($sAndroidPid, 'DllCall($g_hLibMyBot, "str", "setAndroidPID"', 1), "supervised Start skips the blocking Android metadata export before DllCall")
+AssertTrue(StringInStr($sAndroidPid, '_MBRFuncRecordAndroidBinding("engine-only", 0)', 1) > 0 And StringInStr($sAndroidPid, "Managed Android PID export skipped during engine-only check", 1) < StringInStr($sAndroidPid, 'DllCall($g_hLibMyBot, "str", "setAndroidPID"', 1), "engine-only check skips the blocking Android metadata export before DllCall")
 Local $iGuiPidStart = StringInStr($sParent, "Func SetBotGuiPID(", 1)
 Local $iGuiPidEnd = StringInStr($sParent, "EndFunc", 1, 1, $iGuiPidStart)
 Local $sGuiPid = StringMid($sParent, $iGuiPidStart, $iGuiPidEnd - $iGuiPidStart)

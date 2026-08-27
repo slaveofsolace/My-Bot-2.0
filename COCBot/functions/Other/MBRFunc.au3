@@ -162,13 +162,13 @@ Func MBRFuncInitialize($bDiscoverAndroid = True)
 	SetDebugLog("Threading: inherited max-degree initialization skipped during supervised Start; using engine defaults")
 	If Not _MBRFuncPublishEngineReceipt("max-returned") Then Return _MBRFuncInitializationFailed("Managed engine supervisor receipt could not publish max-returned")
 	If Not _MBRFuncPublishEngineReceipt("android-entered") Then Return _MBRFuncInitializationFailed("Managed engine supervisor receipt could not publish android-entered")
-	; The engine-only diagnostic must exercise the managed Android-binding export without
-	; discovering, moving, hiding, initializing, or otherwise touching an emulator. Passing PID 0
-	; is the engine's detached binding; normal Start retains the existing live PID discovery path.
+	; The engine-only diagnostic must not call the inherited Android metadata export: on some
+	; runtimes the PID-0 export can block even though no emulator, ADB, recognition, or game input
+	; was requested. Normal Start retains the existing live PID discovery and binding path.
 	If $bDiscoverAndroid Then
 		If Not setAndroidPID() Then Return _MBRFuncInitializationFailed("Managed engine Android binding failed")
 	Else
-		If Not setAndroidPID(0) Then Return _MBRFuncInitializationFailed("Managed engine detached Android binding failed")
+		If Not setAndroidPID(0, True) Then Return _MBRFuncInitializationFailed("Managed engine-only Android binding failed")
 	EndIf
 	If Not _MBRFuncPublishEngineReceipt("android-returned") Then Return _MBRFuncInitializationFailed("Managed engine supervisor receipt could not publish android-returned")
 	If Not _MBRFuncPublishEngineReceipt("gui-entered") Then Return _MBRFuncInitializationFailed("Managed engine supervisor receipt could not publish gui-entered")
@@ -179,9 +179,10 @@ Func MBRFuncInitialize($bDiscoverAndroid = True)
 	$g_sMBRFuncEngineProbeState = "passed"
 	$g_sMBRFuncEngineError = ""
 	If Not _MBRFuncPublishEngineReceipt("initialized") Then Return _MBRFuncInitializationFailed("Managed engine supervisor receipt could not publish initialized")
-	; PID 0 proves the managed ABI without attaching to an emulator, but it is not an operational
-	; binding. Keep the warmed DLL resident and require the next normal Start to run the complete
-	; supervised initialization again with a freshly discovered emulator PID.
+	; The engine-only check proves the managed image can be opened inside the supervised backend,
+	; but it is not an operational Android binding. Keep the warmed DLL resident and require the
+	; next normal Start to run the complete supervised initialization with a freshly discovered
+	; emulator PID.
 	If Not $bDiscoverAndroid Then $g_bLibMyBotInitialized = False
 	Return True
 EndFunc   ;==>MBRFuncInitialize
@@ -430,10 +431,16 @@ Func debugMBRFunctions($iDebugSearchArea = 0, $iDebugRedArea = 0, $iDebugOcr = 0
 	WinActivate($activeHWnD) ; restore current active window
 EndFunc   ;==>debugMBRFunctions
 
-Func setAndroidPID($pid = GetAndroidPid())
+Func setAndroidPID($pid = GetAndroidPid(), $bEngineOnlyProbe = False)
 	If Not $g_bLibMyBotInitialized And Not $g_bMBRFuncEngineInitializing Then Return False
 	If $g_hLibMyBot = -1 Then Return False ; Bot didn't finish launch yet
 	Local $iRequestedPid = Int($pid)
+	If $bEngineOnlyProbe Then
+		If Not _MBRFuncSupervisedStartInitializing() Or $iRequestedPid <> 0 Then Return False
+		_MBRFuncRecordAndroidBinding("engine-only", 0)
+		SetDebugLog("Managed Android PID export skipped during engine-only check; no emulator PID is bound")
+		Return True
+	EndIf
 	If $g_bLibMyBotInitialized Then
 		Switch $g_sMBRFuncAndroidBindingMode
 			Case "detached-adb"

@@ -149,6 +149,18 @@ class ManagedExportSupervisionTests(unittest.TestCase):
         self.assertLess(skip_notice, skip_return)
         self.assertLess(skip_return, managed_call)
 
+    def test_engine_only_probe_skips_blocking_android_metadata_export(self) -> None:
+        binding = function_body(self.mbr_func, "setAndroidPID")
+        probe_gate = binding.index("$bEngineOnlyProbe")
+        record = binding.index('_MBRFuncRecordAndroidBinding("engine-only", 0)', probe_gate)
+        skip_notice = binding.index("Managed Android PID export skipped during engine-only check", record)
+        skip_return = binding.index("Return True", skip_notice)
+        managed_call = binding.index('DllCall($g_hLibMyBot, "str", "setAndroidPID"')
+        self.assertLess(probe_gate, record)
+        self.assertLess(record, skip_notice)
+        self.assertLess(skip_notice, skip_return)
+        self.assertLess(skip_return, managed_call)
+
     def test_supervised_gui_binding_skips_blocking_metadata_export(self) -> None:
         binding = function_body(self.mbr_func, "SetBotGuiPID")
         supervised_gate = binding.index("_MBRFuncSupervisedStartInitializing()")

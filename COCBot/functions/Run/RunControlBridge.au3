@@ -260,6 +260,8 @@ Func RunControlReportStartOutcome($bStarted, $sMessage)
 	$g_sRunControlPendingStartRequestId = ""
 	$g_sRunControlActiveStartMode = ""
 	$g_sRunControlPendingStartMode = ""
+	$g_sRunControlActiveStartPlanRevision = ""
+	$g_sRunControlPendingStartPlanRevision = ""
 	$g_sRunControlActiveStartPlanToken = ""
 	$g_sRunControlPendingStartPlanToken = ""
 	If $g_bRunControlStopRequested Then
@@ -287,6 +289,8 @@ Func RunControlReportEngineCheckOutcome(ByRef $bPassed, ByRef $sMessage)
 	$g_sRunControlPendingStartRequestId = ""
 	$g_sRunControlActiveStartMode = ""
 	$g_sRunControlPendingStartMode = ""
+	$g_sRunControlActiveStartPlanRevision = ""
+	$g_sRunControlPendingStartPlanRevision = ""
 	$g_sRunControlActiveStartPlanToken = ""
 	$g_sRunControlPendingStartPlanToken = ""
 	$g_bRunState = False
@@ -315,6 +319,8 @@ Func RunControlReportGameLaunchOutcome(ByRef $bPassed, ByRef $sMessage)
 	$g_sRunControlPendingStartRequestId = ""
 	$g_sRunControlActiveStartMode = ""
 	$g_sRunControlPendingStartMode = ""
+	$g_sRunControlActiveStartPlanRevision = ""
+	$g_sRunControlPendingStartPlanRevision = ""
 	$g_sRunControlActiveStartPlanToken = ""
 	$g_sRunControlPendingStartPlanToken = ""
 	$g_bRunState = False
@@ -337,6 +343,8 @@ Func RunControlReportRunFailure($sMessage)
 	$g_sRunControlPendingStartRequestId = ""
 	$g_sRunControlActiveStartMode = ""
 	$g_sRunControlPendingStartMode = ""
+	$g_sRunControlActiveStartPlanRevision = ""
+	$g_sRunControlPendingStartPlanRevision = ""
 	$g_sRunControlActiveStartPlanToken = ""
 	$g_sRunControlPendingStartPlanToken = ""
 	; Preserve an accepted Stop until BotStop publishes its terminal stopped outcome. A bounded
@@ -363,6 +371,8 @@ Func RunControlReportOneShotOutcome($sOutcome, $sMessage)
 	$g_sRunControlPendingStartRequestId = ""
 	$g_sRunControlActiveStartMode = ""
 	$g_sRunControlPendingStartMode = ""
+	$g_sRunControlActiveStartPlanRevision = ""
+	$g_sRunControlPendingStartPlanRevision = ""
 	$g_sRunControlActiveStartPlanToken = ""
 	$g_sRunControlPendingStartPlanToken = ""
 	$g_bBotPaused = False
@@ -415,6 +425,8 @@ Func RunControlReportStopComplete()
 	$g_sRunControlPendingStartRequestId = ""
 	$g_sRunControlActiveStartMode = ""
 	$g_sRunControlPendingStartMode = ""
+	$g_sRunControlActiveStartPlanRevision = ""
+	$g_sRunControlPendingStartPlanRevision = ""
 	$g_sRunControlActiveStartPlanToken = ""
 	$g_sRunControlPendingStartPlanToken = ""
 	$g_bBotPaused = False

@@ -67,7 +67,7 @@ class EngineInitOnlyControlTests(unittest.TestCase):
         initialize = function_body(self.mbr, "MBRFuncInitialize")
         self.assertIn("$bDiscoverAndroid", initialize)
         self.assertIn("If $bDiscoverAndroid Then", initialize)
-        self.assertIn("setAndroidPID(0)", initialize)
+        self.assertIn("setAndroidPID(0, True)", initialize)
         self.assertLess(
             initialize.index('_MBRFuncPublishEngineReceipt("initialized")'),
             initialize.index("If Not $bDiscoverAndroid Then $g_bLibMyBotInitialized = False"),
@@ -75,6 +75,15 @@ class EngineInitOnlyControlTests(unittest.TestCase):
         detached = initialize.split("Else", 1)[1].split("EndIf", 1)[0]
         for forbidden in ("GetAndroidPid", "WinGetAndroidHandle", "InitAndroid", "WinMove", "HideAndroidWindow"):
             self.assertNotIn(forbidden, detached)
+
+        android_binding = function_body(self.mbr, "setAndroidPID")
+        engine_only_gate = android_binding.index("$bEngineOnlyProbe")
+        engine_only_record = android_binding.index('_MBRFuncRecordAndroidBinding("engine-only", 0)', engine_only_gate)
+        engine_only_skip = android_binding.index("Managed Android PID export skipped during engine-only check", engine_only_record)
+        managed_call = android_binding.index('DllCall($g_hLibMyBot, "str", "setAndroidPID"')
+        self.assertLess(engine_only_gate, engine_only_record)
+        self.assertLess(engine_only_record, engine_only_skip)
+        self.assertLess(engine_only_skip, managed_call)
 
     def test_native_bridge_owns_check_request_and_returns_idle_terminal_status(self) -> None:
         accessor = function_body(self.bridge, "RunControlCurrentCommandId")
@@ -92,6 +101,10 @@ class EngineInitOnlyControlTests(unittest.TestCase):
         self.assertIn('$bPassed ? "passed" : "failed"', outcome)
         self.assertIn("$g_bRunControlEngineCheckRequested = False", outcome)
         self.assertIn("$g_bRunControlStopRequested = False", outcome)
+        self.assertIn('$g_sRunControlActiveStartPlanRevision = ""', outcome)
+        self.assertIn('$g_sRunControlPendingStartPlanRevision = ""', outcome)
+        self.assertIn('$g_sRunControlActiveStartPlanToken = ""', outcome)
+        self.assertIn('$g_sRunControlPendingStartPlanToken = ""', outcome)
         self.assertIn("$g_bRunState = False", outcome)
         self.assertIn("$g_iBotAction = $eBotNoAction", outcome)
         self.assertNotIn("$eBotStop", outcome)
