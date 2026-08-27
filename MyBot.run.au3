@@ -845,6 +845,13 @@ Func runBot() ;Bot that runs everything in order
 		Return
 	EndIf
 
+	; Regular battle scout enters exactly one match, captures evidence, then surrenders and returns Home
+	; without deployment. Dispatch it before the inherited one-battle path.
+	If RegularBattleScoutRouteActive() Then
+		RegularBattleScoutRouteExecute()
+		Return
+	EndIf
+
 	; Builder battle entry proof opens and verifies the current-client Find Now panel, then stops before
 	; search/deployment. Dispatch it before the inherited Builder battle loop.
 	If BuilderBattleEntryRouteActive() Then

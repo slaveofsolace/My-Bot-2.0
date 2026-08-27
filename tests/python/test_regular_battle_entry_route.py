@@ -106,7 +106,8 @@ class RegularBattleEntryRouteTests(unittest.TestCase):
         self.assertIn("'run.surface': 'regular', 'run.strategy': 'regular.battle-entry'", browser)
         self.assertIn("const regularBattleEntry = plan['run.strategy'] === 'regular.battle-entry';", browser)
         self.assertIn("'regular.battle-entry'", browser[browser.index("if (!['legacy.csv'"): browser.index("].includes(plan['run.strategy'])")])
-        self.assertIn("Regular battle entry proof cannot collect resources, rewards, Loot Cart, or Treasury.", browser)
+        self.assertIn("Regular battle-entry proof safety settings", browser)
+        self.assertIn("cannot collect resources", browser)
         self.assertIn("Regular battle entry proof is one pre-search pass; duration, battles, star bonus, and failure limits must be 0/off.", browser)
         self.assertIn("this proves the Find a Match surface", source("config/ui/run-planner.settings.json"))
 
@@ -120,8 +121,9 @@ class RegularBattleEntryRouteTests(unittest.TestCase):
         self.assertIn('$REGULAR_BATTLE_ENTRY_ROUTE_STRATEGY = "regular.battle-entry"', route)
         self.assertIn("Regular battle entry proof cannot collect resources", route)
         self.assertIn("Regular battle entry proof is exactly one pre-search pass", route)
+        entry_validate = autoit_function(route, "RegularBattleEntryRouteValidate")
         for forbidden in ("PrepareSearch(", "VillageSearch", "AttackMain", "ReturnHome", "Collect", "DonateCC", "TrainSystem"):
-            self.assertNotIn(forbidden, route)
+            self.assertNotIn(forbidden, entry_validate)
 
     def test_native_execution_opens_and_closes_entry_without_find_match_or_battle(self):
         execution = source("COCBot/functions/Run/RunExecution.au3")

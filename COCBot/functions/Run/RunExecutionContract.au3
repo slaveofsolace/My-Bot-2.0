@@ -41,6 +41,7 @@ Func RunExecutionContractValidate(ByRef $oIntent, ByRef $sError)
         If ExactRecipeTrainingRouteSelected($oIntent) Then Return ExactRecipeTrainingRouteValidate($oIntent, $sError)
         If BuilderMaintenanceRouteSelected($oIntent) Then Return BuilderMaintenanceRouteValidate($oIntent, $sError)
 	If RegularBattleEntryRouteSelected($oIntent) Then Return RegularBattleEntryRouteValidate($oIntent, $sError)
+	If RegularBattleScoutRouteSelected($oIntent) Then Return RegularBattleScoutRouteValidate($oIntent, $sError)
 	If BuilderBattleEntryRouteSelected($oIntent) Then Return BuilderBattleEntryRouteValidate($oIntent, $sError)
 
         Local $sSurface = StringLower(StringStripWS(String($oIntent.Item("surface_id")), $STR_STRIPALL))

@@ -25,6 +25,11 @@ Global Const $NO_PREMIUM_ACTION_BUILDER_COLLECT_ELIXIR = "builder-base.collect-e
 Global Const $NO_PREMIUM_ACTION_BUILDER_RETURN_HOME = "builder-base.return-home"
 Global Const $NO_PREMIUM_ACTION_REGULAR_BATTLE_ENTRY_OPEN = "regular.battle-entry.open"
 Global Const $NO_PREMIUM_ACTION_REGULAR_BATTLE_ENTRY_CLOSE = "regular.battle-entry.close"
+Global Const $NO_PREMIUM_ACTION_REGULAR_BATTLE_SCOUT_FIND_MATCH = "regular.battle-scout.find-match"
+Global Const $NO_PREMIUM_ACTION_REGULAR_BATTLE_SCOUT_CONFIRM_ARMY = "regular.battle-scout.confirm-army"
+Global Const $NO_PREMIUM_ACTION_REGULAR_BATTLE_SCOUT_END_BATTLE = "regular.battle-scout.end-battle"
+Global Const $NO_PREMIUM_ACTION_REGULAR_BATTLE_SCOUT_CONFIRM_SURRENDER = "regular.battle-scout.confirm-surrender"
+Global Const $NO_PREMIUM_ACTION_REGULAR_BATTLE_SCOUT_RETURN_HOME = "regular.battle-scout.return-home"
 Global Const $NO_PREMIUM_ACTION_BUILDER_BATTLE_ENTRY_OPEN = "builder-base.battle-entry.open"
 Global Const $NO_PREMIUM_ACTION_BUILDER_BATTLE_ENTRY_CLOSE = "builder-base.battle-entry.close"
 Global Const $NO_PREMIUM_ACTION_HOME_CLEAR_SCREEN = "home.clear-screen"
@@ -46,6 +51,9 @@ Func NoPremiumPermitActionKnown($sAction)
                         $NO_PREMIUM_ACTION_BUILDER_SWITCH, $NO_PREMIUM_ACTION_BUILDER_COLLECT_GOLD, _
                         $NO_PREMIUM_ACTION_BUILDER_COLLECT_ELIXIR, $NO_PREMIUM_ACTION_BUILDER_RETURN_HOME, _
                         $NO_PREMIUM_ACTION_REGULAR_BATTLE_ENTRY_OPEN, $NO_PREMIUM_ACTION_REGULAR_BATTLE_ENTRY_CLOSE, _
+                        $NO_PREMIUM_ACTION_REGULAR_BATTLE_SCOUT_FIND_MATCH, $NO_PREMIUM_ACTION_REGULAR_BATTLE_SCOUT_CONFIRM_ARMY, _
+                        $NO_PREMIUM_ACTION_REGULAR_BATTLE_SCOUT_END_BATTLE, $NO_PREMIUM_ACTION_REGULAR_BATTLE_SCOUT_CONFIRM_SURRENDER, _
+                        $NO_PREMIUM_ACTION_REGULAR_BATTLE_SCOUT_RETURN_HOME, _
                         $NO_PREMIUM_ACTION_BUILDER_BATTLE_ENTRY_OPEN, $NO_PREMIUM_ACTION_BUILDER_BATTLE_ENTRY_CLOSE, _
                         $NO_PREMIUM_ACTION_HOME_CLEAR_SCREEN, $NO_PREMIUM_ACTION_STARTUP_POPUP_CLOSE, _
                         $NO_PREMIUM_ACTION_HOME_CLEAR_SELECTION
@@ -58,6 +66,16 @@ Func _NoPremiumPermitIntegerPoint($iX, $iY)
 	If Not IsNumber($iX) Or Not IsNumber($iY) Then Return False
 	Return Int($iX) = $iX And Int($iY) = $iY
 EndFunc   ;==>_NoPremiumPermitIntegerPoint
+
+Func _NoPremiumPermitMidOffsetY()
+	If IsDeclared("g_iMidOffsetY") Then Return Int(Eval("g_iMidOffsetY"))
+	Return 0
+EndFunc   ;==>_NoPremiumPermitMidOffsetY
+
+Func _NoPremiumPermitBottomOffsetY()
+	If IsDeclared("g_iBottomOffsetY") Then Return Int(Eval("g_iBottomOffsetY"))
+	Return 0
+EndFunc   ;==>_NoPremiumPermitBottomOffsetY
 
 ; This validates only the canonical 860x732 action geometry. The current framebuffer
 ; predicate for the named action is independently required when the permit is granted
@@ -113,6 +131,16 @@ Func NoPremiumPermitTargetValid($sAction, $iX, $iY)
                         Return $iX = 62 And $iY = 685
                 Case $NO_PREMIUM_ACTION_REGULAR_BATTLE_ENTRY_CLOSE
                         Return $iX = 820 And $iY = 42
+                Case $NO_PREMIUM_ACTION_REGULAR_BATTLE_SCOUT_FIND_MATCH
+                        Return $iX = 160 And $iY = 470
+                Case $NO_PREMIUM_ACTION_REGULAR_BATTLE_SCOUT_CONFIRM_ARMY
+                        Return $iX = 735 And $iY = 508 + _NoPremiumPermitMidOffsetY()
+                Case $NO_PREMIUM_ACTION_REGULAR_BATTLE_SCOUT_END_BATTLE
+                        Return $iX = 70 And $iY = 545 + _NoPremiumPermitBottomOffsetY()
+                Case $NO_PREMIUM_ACTION_REGULAR_BATTLE_SCOUT_CONFIRM_SURRENDER
+                        Return $iX = 535 And $iY = 435 + _NoPremiumPermitMidOffsetY()
+                Case $NO_PREMIUM_ACTION_REGULAR_BATTLE_SCOUT_RETURN_HOME
+                        Return $iX = 430 And $iY = 566 + _NoPremiumPermitMidOffsetY()
                 Case $NO_PREMIUM_ACTION_BUILDER_BATTLE_ENTRY_OPEN
                         Return $iX = 62 And $iY = 685
                 Case $NO_PREMIUM_ACTION_BUILDER_BATTLE_ENTRY_CLOSE

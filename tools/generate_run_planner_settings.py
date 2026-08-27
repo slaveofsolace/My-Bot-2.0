@@ -344,6 +344,17 @@ def main() -> int:
                                     ["Exact BlueStacks 5 instance", "A supervised diagnostic operator", "Regular Multiplayer entry surface"],
                                     disabled_reason="This is a safe pre-search proof only; it requires an exact-current installed receipt before any live battle can be accepted.",
                                     warning="Diagnostic only: this proves the Find a Match surface and never starts search or a battle."),
+                             option("regular.battle-scout", "Regular battle scout",
+                                    "Enter one Regular match, capture the attack screen, surrender, return Home, then stop.",
+                                    "Runs one bounded scout through reviewed exact points: Home Attack, current-client Find a Match, "
+                                    "optional My Army Attack confirmation, attack-screen proof, exact surrender confirmation, "
+                                    "Return Home, and Home re-proof. It never deploys troops, searches additional bases, upgrades, "
+                                    "collects resources, trains, donates, opens social flows, or rotates accounts. Its purpose is to "
+                                    "capture rights-safe battlefield evidence for the clean-room deployment recognizer.",
+                                    "gated", ["battle.regular-ranked-split"],
+                                    ["Exact BlueStacks 5 instance", "A supervised diagnostic operator", "Regular Multiplayer entry surface"],
+                                    disabled_reason="Regular battle scout is route-wired but still needs an exact-current installed scout completion receipt.",
+                                    warning="Diagnostic only: this taps Find a Match and enters one match, then exits without troop deployment."),
                              option("home.collectors", "Home maintenance",
                                     "Run selected one-shot Home Village collection tasks without matchmaking.",
                                     "Runs a bounded Home pass for collectors, the Loot Cart, a Treasury not-full check, and, when explicitly "

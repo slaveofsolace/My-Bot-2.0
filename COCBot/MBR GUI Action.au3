@@ -229,6 +229,8 @@ Func _BotStartRunOneShot($iRoute, ByRef $sStartError)
 			$bResult = _BotStartRegularBattleEntryProof($sStartError)
 		Case 9
 			$bResult = _BotStartBuilderBattleEntryProof($sStartError)
+		Case 10
+			$bResult = _BotStartRegularBattleScout($sStartError)
 		Case Else
 			$bResult = _BotOpenCollectorsReject("Terminal Home/Builder route selection changed before execution")
 	EndSwitch
@@ -407,6 +409,38 @@ Func _BotStartRegularBattleEntryProof(ByRef $sStartError)
 	EndIf
 	Return $bResult
 EndFunc   ;==>_BotStartRegularBattleEntryProof
+
+Func _BotStartRegularBattleScout(ByRef $sStartError)
+	If RunControlStopRequested() Then Return _BotOpenCollectorsReject("Regular battle scout cancelled before attachment", "cancelled")
+	If Not RunExecutionApplyPrepared($sStartError) Then Return _BotOpenCollectorsReject($sStartError)
+	Local $oIntent = RunExecutionPreparedIntent()
+	If Not IsObj($oIntent) Or Not RegularBattleEntryRouteAccountMatches($oIntent, $g_sProfileCurrentName) Then _
+			Return _BotOpenCollectorsReject("The active profile no longer matches the account bound at Start")
+	Local $sAttachmentError = ""
+	If Not _BotOpenHomeEnsureExactBlueStacks($sAttachmentError) Then Return _BotOpenCollectorsReject($sAttachmentError)
+	If Not $g_bAndroidAdbScreencap Or Not AndroidControlAvailable() Or _
+			Not IsArray(GetBlueStacks5ModernAdbSurfacePosition()) Then _
+			Return _BotOpenCollectorsReject("The exact BlueStacks 5 framebuffer/control surface is not available")
+	If Not OpenHomeCollectorsProveHome() Then
+		Local $bReloadIssued = OpenHomeInactivityReloadIssue(False)
+		If $bReloadIssued Then
+			If Not OpenHomeStartupRecoveryWait(False) Then _
+					Return _BotOpenCollectorsReject("Startup recovery did not reach Home before Regular battle scout")
+		EndIf
+	EndIf
+	If Not OpenHomeCollectorsProveHome() Then _
+			Return _BotOpenCollectorsReject("Home Village was not proven before Regular battle scout")
+	If Not RunExecutionBegin($sStartError) Then Return _BotOpenCollectorsReject($sStartError)
+	RunControlReportStartOutcome(True, "Regular battle scout started")
+	Local $bResult = RegularBattleScoutRouteExecute()
+	If $bResult Then
+		Local $sMessage = RunExecutionMessage()
+		If $sMessage = "" Then $sMessage = "Completed Regular battle scout"
+		RunControlReportOneShotOutcome("completed", $sMessage)
+		SetLog("Run Planner: " & $sMessage, $COLOR_SUCCESS)
+	EndIf
+	Return $bResult
+EndFunc   ;==>_BotStartRegularBattleScout
 
 Func _BotStartBuilderBattleEntryProof(ByRef $sStartError)
 	If RunControlStopRequested() Then Return _BotOpenCollectorsReject("Builder battle entry proof cancelled before attachment", "cancelled")
@@ -1000,6 +1034,7 @@ Func BotStart($bAutostartDelay = 0)
 	If $iOpenBuilderMode = 1 Then Return FuncReturn(_BotStartRunOneShot(7, $sStartError))
 	If $iOpenBuilderMode = -1 Then Return FuncReturn(_BotOpenCollectorsReject($sStartError))
 	If RegularBattleEntryRouteSelected($oPreparedIntent) Then Return FuncReturn(_BotStartRunOneShot(8, $sStartError))
+	If RegularBattleScoutRouteSelected($oPreparedIntent) Then Return FuncReturn(_BotStartRunOneShot(10, $sStartError))
 	If BuilderBattleEntryRouteSelected($oPreparedIntent) Then Return FuncReturn(_BotStartRunOneShot(9, $sStartError))
 	If ClanRequestRouteSelected($oPreparedIntent) Then Return FuncReturn(_BotStartRunOneShot(5, $sStartError))
 	If ExactRecipeTrainingRouteSelected($oPreparedIntent) Then Return FuncReturn(_BotStartRunOneShot(6, $sStartError))

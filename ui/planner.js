@@ -108,6 +108,28 @@ const STRATEGY_SAFETY_PATCHES = {
       'pacing.break_every_minutes': 0, 'pacing.break_minutes': 5,
     },
   },
+  'regular.battle-scout': {
+    label: 'Regular battle-scout safety settings',
+    values: {
+      'run.surface': 'regular', 'run.strategy': 'regular.battle-scout', 'run.attack_script': 'profile-current',
+      'run.town_hall': 0, 'run.heroes': [], 'run.duration_minutes': 0, 'run.max_battles': 1,
+      'run.stop_on_star_bonus': false, 'run.max_failures': 0,
+      'target.gold': 0, 'target.elixir': 0, 'target.dark_elixir': 0,
+      'upgrade.policy': 'disabled', 'account.queue': '',
+      'army.source': 'recipe', 'army.recipe_name': '', 'army.recipe_digest': '', 'army.max_queue_units': 0,
+      'army.manage_training': false, 'army.wait_for_full': false, 'army.train_spells': false, 'army.train_sieges': false,
+      'search.min_gold': 0, 'search.min_elixir': 0, 'search.min_dark': 0,
+      'search.max_seconds': 0, 'search.town_hall_filter': 'any',
+      'donate.mode': 'off', 'donate.keep_army': true, 'donate.max_per_run': 0, 'donate.request_when_short': false,
+      'events.clan_games': false, 'events.clan_games_point_cap': 0,
+      'events.laboratory': 'off', 'events.collect_resources': false, 'events.collect_daily_reward': false,
+      'events.collect_loot_cart': false,
+      'events.collect_treasury': false,
+      'notify.on_stop': true, 'notify.on_error': true, 'notify.channel': 'log-only',
+      'pacing.action_delay_ms': 180, 'pacing.settle_ms': 650, 'pacing.retry_attempts': 0,
+      'pacing.break_every_minutes': 0, 'pacing.break_minutes': 5,
+    },
+  },
   'home.clan-request': {
     label: 'Clan-request-only safety settings',
     values: {
@@ -1295,11 +1317,12 @@ function clientProblems(plan = PLAN) {
   const homeMaintenance = plan['run.strategy'] === 'home.collectors';
   const builderCollectors = plan['run.strategy'] === 'builder.collectors';
   const regularBattleEntry = plan['run.strategy'] === 'regular.battle-entry';
+  const regularBattleScout = plan['run.strategy'] === 'regular.battle-scout';
   const builderBattleEntry = plan['run.strategy'] === 'builder.battle-entry';
   const clanRequestOnly = plan['run.strategy'] === 'home.clan-request';
   const exactRecipeTraining = plan['run.strategy'] === 'army.exact-recipe';
   if (plan['run.surface'] !== 'regular' && !((builderCollectors || builderBattleEntry) && plan['run.surface'] === 'builder')) addProblem(problems, 'Only Regular Battles and bounded Builder proof routes can start through the native engine.', 'run.surface');
-  if (!['legacy.csv', 'legacy.standard', 'smart.local', 'regular.battle-entry', 'home.collectors', 'builder.collectors', 'builder.battle-entry', 'home.clan-request', 'army.exact-recipe'].includes(plan['run.strategy'])) {
+  if (!['legacy.csv', 'legacy.standard', 'smart.local', 'regular.battle-entry', 'regular.battle-scout', 'home.collectors', 'builder.collectors', 'builder.battle-entry', 'home.clan-request', 'army.exact-recipe'].includes(plan['run.strategy'])) {
     addProblem(problems, 'The selected deployment routine has no native adapter.', 'run.strategy');
   }
   if (plan['run.strategy'] !== 'legacy.csv' && plan['run.attack_script'] !== 'profile-current') {
@@ -1363,24 +1386,26 @@ function clientProblems(plan = PLAN) {
     if (plan['upgrade.policy'] !== 'disabled') addProblem(problems, 'Builder Base collection requires upgrades disabled.', 'upgrade.policy');
     if (String(plan['account.queue'] || '').trim()) addProblem(problems, 'Builder Base collection cannot rotate accounts.', 'account.queue');
     if (Number(plan['pacing.break_every_minutes']) !== 0) addProblem(problems, 'Builder Base collection requires scheduled breaks off.', 'pacing.break_every_minutes');
-  } else if (regularBattleEntry) {
+  } else if (regularBattleEntry || regularBattleScout) {
+    const label = regularBattleScout ? 'Regular battle scout' : 'Regular battle entry proof';
     if (plan['run.surface'] !== 'regular') addProblem(problems, 'Regular battle entry proof requires the Regular/Home surface.', 'run.surface');
-    if (emulator !== 'bluestacks5' || !instance) addProblem(problems, 'Regular battle entry proof requires the exact BlueStacks 5 instance.', 'runtime.instance');
+    if (emulator !== 'bluestacks5' || !instance) addProblem(problems, `${label} requires the exact BlueStacks 5 instance.`, 'runtime.instance');
     if (instance && !/^[A-Za-z0-9_. -]{1,64}$/.test(instance)) addProblem(problems, 'The Regular battle-entry instance name contains unsupported characters.', 'runtime.instance');
-    if (!plan['run.diagnostic_mode']) addProblem(problems, 'Regular battle entry proof requires supervised diagnostic acknowledgement.', 'run.diagnostic_mode');
-    if (plan['events.collect_resources'] || plan['events.collect_daily_reward'] || plan['events.collect_loot_cart'] || plan['events.collect_treasury']) addProblem(problems, 'Regular battle entry proof cannot collect resources, rewards, Loot Cart, or Treasury.', 'events.collect_resources');
-    if (plan['army.manage_training'] || plan['army.wait_for_full'] || plan['army.train_spells'] || plan['army.train_sieges']) addProblem(problems, 'Regular battle entry proof cannot manage, train, or inspect an army.', 'army.manage_training');
-    if (asList(plan['run.heroes']).length) addProblem(problems, 'Regular battle entry proof cannot deploy or inspect Heroes.', 'run.heroes');
-    if (Number(plan['run.duration_minutes']) !== 0 || Number(plan['run.max_battles']) !== 0 || plan['run.stop_on_star_bonus'] || Number(plan['run.max_failures']) !== 0) addProblem(problems, 'Regular battle entry proof is one pre-search pass; duration, battles, star bonus, and failure limits must be 0/off.', 'run.max_battles');
-    if (['target.gold', 'target.elixir', 'target.dark_elixir'].some((key) => Number(plan[key]) !== 0)) addProblem(problems, 'Regular battle entry proof cannot use battle-loot targets.', 'target.gold');
-    if (['search.min_gold', 'search.min_elixir', 'search.min_dark', 'search.max_seconds'].some((key) => Number(plan[key]) !== 0) || plan['search.town_hall_filter'] !== 'any') addProblem(problems, 'Regular battle entry proof cannot configure matchmaking search.', 'search.min_gold');
-    if (plan['donate.mode'] !== 'off' || plan['donate.request_when_short'] || Number(plan['donate.max_per_run']) !== 0) addProblem(problems, 'Regular battle entry proof requires donations and requests off.', 'donate.mode');
-    if (plan['events.clan_games'] || Number(plan['events.clan_games_point_cap']) !== 0) addProblem(problems, 'Regular battle entry proof cannot enter Clan Games.', 'events.clan_games');
-    if (plan['events.laboratory'] !== 'off') addProblem(problems, 'Regular battle entry proof requires Laboratory off.', 'events.laboratory');
-    if (plan['upgrade.policy'] !== 'disabled') addProblem(problems, 'Regular battle entry proof requires upgrades disabled.', 'upgrade.policy');
-    if (String(plan['account.queue'] || '').trim()) addProblem(problems, 'Regular battle entry proof cannot rotate accounts.', 'account.queue');
-    if (Number(plan['pacing.retry_attempts']) !== 0) addProblem(problems, 'Regular battle entry proof requires retries set to 0.', 'pacing.retry_attempts');
-    if (PLAN['notify.channel'] !== 'log-only') addProblem(problems, 'Only Bot log notifications are wired for Regular battle entry proof.', 'notify.channel');
+    if (!plan['run.diagnostic_mode']) addProblem(problems, `${label} requires supervised diagnostic acknowledgement.`, 'run.diagnostic_mode');
+    if (plan['events.collect_resources'] || plan['events.collect_daily_reward'] || plan['events.collect_loot_cart'] || plan['events.collect_treasury']) addProblem(problems, `${label} cannot collect resources, rewards, Loot Cart, or Treasury.`, 'events.collect_resources');
+    if (plan['army.manage_training'] || plan['army.wait_for_full'] || plan['army.train_spells'] || plan['army.train_sieges']) addProblem(problems, `${label} cannot manage, train, or inspect an army.`, 'army.manage_training');
+    if (asList(plan['run.heroes']).length) addProblem(problems, `${label} cannot deploy or inspect Heroes.`, 'run.heroes');
+    if (regularBattleEntry && (Number(plan['run.duration_minutes']) !== 0 || Number(plan['run.max_battles']) !== 0 || plan['run.stop_on_star_bonus'] || Number(plan['run.max_failures']) !== 0)) addProblem(problems, 'Regular battle entry proof is one pre-search pass; duration, battles, star bonus, and failure limits must be 0/off.', 'run.max_battles');
+    if (regularBattleScout && (Number(plan['run.duration_minutes']) !== 0 || Number(plan['run.max_battles']) !== 1 || plan['run.stop_on_star_bonus'] || Number(plan['run.max_failures']) !== 0)) addProblem(problems, 'Regular battle scout enters exactly one match; duration must be 0, Max battles 1, star bonus off, failures 0.', 'run.max_battles');
+    if (['target.gold', 'target.elixir', 'target.dark_elixir'].some((key) => Number(plan[key]) !== 0)) addProblem(problems, `${label} cannot use battle-loot targets.`, 'target.gold');
+    if (['search.min_gold', 'search.min_elixir', 'search.min_dark', 'search.max_seconds'].some((key) => Number(plan[key]) !== 0) || plan['search.town_hall_filter'] !== 'any') addProblem(problems, `${label} cannot configure matchmaking search.`, 'search.min_gold');
+    if (plan['donate.mode'] !== 'off' || plan['donate.request_when_short'] || Number(plan['donate.max_per_run']) !== 0) addProblem(problems, `${label} requires donations and requests off.`, 'donate.mode');
+    if (plan['events.clan_games'] || Number(plan['events.clan_games_point_cap']) !== 0) addProblem(problems, `${label} cannot enter Clan Games.`, 'events.clan_games');
+    if (plan['events.laboratory'] !== 'off') addProblem(problems, `${label} requires Laboratory off.`, 'events.laboratory');
+    if (plan['upgrade.policy'] !== 'disabled') addProblem(problems, `${label} requires upgrades disabled.`, 'upgrade.policy');
+    if (String(plan['account.queue'] || '').trim()) addProblem(problems, `${label} cannot rotate accounts.`, 'account.queue');
+    if (Number(plan['pacing.retry_attempts']) !== 0) addProblem(problems, `${label} requires retries set to 0.`, 'pacing.retry_attempts');
+    if (PLAN['notify.channel'] !== 'log-only') addProblem(problems, `Only Bot log notifications are wired for ${label}.`, 'notify.channel');
   } else if (builderBattleEntry) {
     if (plan['run.surface'] !== 'builder') addProblem(problems, 'Builder battle entry proof requires the Builder Base surface.', 'run.surface');
     if (emulator !== 'bluestacks5' || !instance) addProblem(problems, 'Builder battle entry proof requires the exact BlueStacks 5 instance.', 'runtime.instance');

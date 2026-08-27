@@ -130,6 +130,16 @@ Func NoPremiumSurfaceState(ByRef $sReason, $sPermitAction = "", $iExpectedX = De
                         $bRouteReady = OpenRegularBattleEntryOpenPointReady(Int($iExpectedX), Int($iExpectedY))
                 Case $NO_PREMIUM_ACTION_REGULAR_BATTLE_ENTRY_CLOSE
                         $bRouteReady = OpenRegularBattleEntryClosePointReady(Int($iExpectedX), Int($iExpectedY))
+                Case $NO_PREMIUM_ACTION_REGULAR_BATTLE_SCOUT_FIND_MATCH
+                        $bRouteReady = PrepareSearchCurrentRegularFindMatchRegionReady(Int($iExpectedX), Int($iExpectedY))
+                Case $NO_PREMIUM_ACTION_REGULAR_BATTLE_SCOUT_CONFIRM_ARMY
+                        $bRouteReady = PrepareSearchCurrentArmyConfirmationAttackPointReady(Int($iExpectedX), Int($iExpectedY))
+                Case $NO_PREMIUM_ACTION_REGULAR_BATTLE_SCOUT_END_BATTLE
+                        $bRouteReady = RegularBattleScoutEndBattlePointReady(Int($iExpectedX), Int($iExpectedY))
+                Case $NO_PREMIUM_ACTION_REGULAR_BATTLE_SCOUT_CONFIRM_SURRENDER
+                        $bRouteReady = RegularBattleScoutConfirmSurrenderPointReady(Int($iExpectedX), Int($iExpectedY))
+                Case $NO_PREMIUM_ACTION_REGULAR_BATTLE_SCOUT_RETURN_HOME
+                        $bRouteReady = RegularBattleScoutReturnHomePointReady(Int($iExpectedX), Int($iExpectedY))
                 Case $NO_PREMIUM_ACTION_BUILDER_BATTLE_ENTRY_OPEN
                         $bRouteReady = OpenBuilderBattleEntryOpenPointReady(Int($iExpectedX), Int($iExpectedY))
                 Case $NO_PREMIUM_ACTION_BUILDER_BATTLE_ENTRY_CLOSE

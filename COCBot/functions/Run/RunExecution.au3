@@ -145,6 +145,14 @@ Func RegularBattleEntryRoutePrepared()
 	Return RunExecutionManagedPlanPrepared() And IsObj($g_oRunExecutionIntent) And RegularBattleEntryRouteSelected($g_oRunExecutionIntent)
 EndFunc   ;==>RegularBattleEntryRoutePrepared
 
+Func RegularBattleScoutRouteActive()
+	Return $g_bRunExecutionActive And IsObj($g_oRunExecutionIntent) And RegularBattleScoutRouteSelected($g_oRunExecutionIntent)
+EndFunc   ;==>RegularBattleScoutRouteActive
+
+Func RegularBattleScoutRoutePrepared()
+	Return RunExecutionManagedPlanPrepared() And IsObj($g_oRunExecutionIntent) And RegularBattleScoutRouteSelected($g_oRunExecutionIntent)
+EndFunc   ;==>RegularBattleScoutRoutePrepared
+
 Func BuilderBattleEntryRouteActive()
 	Return $g_bRunExecutionActive And IsObj($g_oRunExecutionIntent) And BuilderBattleEntryRouteSelected($g_oRunExecutionIntent)
 EndFunc   ;==>BuilderBattleEntryRouteActive
@@ -163,9 +171,10 @@ Func RunExecutionBindCurrentProfileForHomeRoute(ByRef $oIntent, ByRef $sError)
         Local $bExactTraining = ExactRecipeTrainingRouteSelected($oIntent)
         Local $bBuilderCollectors = BuilderMaintenanceRouteSelected($oIntent)
 	Local $bRegularBattleEntry = RegularBattleEntryRouteSelected($oIntent)
+	Local $bRegularBattleScout = RegularBattleScoutRouteSelected($oIntent)
 	Local $bBuilderBattleEntry = BuilderBattleEntryRouteSelected($oIntent)
-        If Not $bClanRequest And Not $bCollectors And Not $bExactTraining And Not $bBuilderCollectors And Not $bRegularBattleEntry And Not $bBuilderBattleEntry Then Return True
-        Local $sRouteName = $bClanRequest ? "Clan request" : ($bExactTraining ? "Exact saved-recipe training" : ($bBuilderCollectors ? "Builder Base maintenance" : ($bRegularBattleEntry ? "Regular battle entry proof" : ($bBuilderBattleEntry ? "Builder battle entry proof" : "Home maintenance"))))
+        If Not $bClanRequest And Not $bCollectors And Not $bExactTraining And Not $bBuilderCollectors And Not $bRegularBattleEntry And Not $bRegularBattleScout And Not $bBuilderBattleEntry Then Return True
+        Local $sRouteName = $bClanRequest ? "Clan request" : ($bExactTraining ? "Exact saved-recipe training" : ($bBuilderCollectors ? "Builder Base maintenance" : ($bRegularBattleEntry ? "Regular battle entry proof" : ($bRegularBattleScout ? "Regular battle scout" : ($bBuilderBattleEntry ? "Builder battle entry proof" : "Home maintenance")))))
 	Local $sActiveProfile = StringStripWS(String($g_sProfileCurrentName), $STR_STRIPLEADING + $STR_STRIPTRAILING)
 	If $sActiveProfile = "" Or StringLen($sActiveProfile) > 64 Or _
 			Not StringRegExp($sActiveProfile, "^[A-Za-z0-9_. -]+$") Then
@@ -188,6 +197,8 @@ Func RunExecutionBindCurrentProfileForHomeRoute(ByRef $oIntent, ByRef $sError)
         ElseIf $bBuilderCollectors Then
                 $bMatches = BuilderMaintenanceRouteAccountMatches($oIntent, $sActiveProfile)
 	ElseIf $bRegularBattleEntry Then
+		$bMatches = RegularBattleEntryRouteAccountMatches($oIntent, $sActiveProfile)
+	ElseIf $bRegularBattleScout Then
 		$bMatches = RegularBattleEntryRouteAccountMatches($oIntent, $sActiveProfile)
 	ElseIf $bBuilderBattleEntry Then
 		$bMatches = BuilderBattleEntryRouteAccountMatches($oIntent, $sActiveProfile)
@@ -344,6 +355,160 @@ Func RegularBattleEntryRouteExecute()
 	$g_sRunExecutionMessage = "Completed Regular battle entry proof; find_match_clicked=false; battle_started=false"
 	Return True
 EndFunc   ;==>RegularBattleEntryRouteExecute
+
+Func _RegularBattleScoutRouteFail($sReason)
+	If RunControlStopRequested() Or Not $g_bRunState Then Return False
+	Local $sFailure = "Regular battle scout failed: " & $sReason
+	SetLog("Run Planner: " & $sFailure, $COLOR_ERROR)
+	RunEventLogRunFailed("regular", $RUN_VERIFICATION_DIAGNOSTIC, $sFailure)
+	RunExecutionCancelPrepared($sFailure)
+	RunControlReportOneShotOutcome("failed", $sFailure)
+	RunControlReportRunFailure($sFailure)
+	Return False
+EndFunc   ;==>_RegularBattleScoutRouteFail
+
+Func _RegularBattleScoutIssueFindMatch()
+	If Not PrepareSearchCurrentRegularFindMatchRegionReady(160, 470) Then Return SetError(3, 0, False)
+	If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, False)
+	If Not NoPremiumPointClick($NO_PREMIUM_ACTION_REGULAR_BATTLE_SCOUT_FIND_MATCH, 160, 470, 120, "#RegularBattleScoutFindMatch", False) Then
+		If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
+		Return SetError(4, 0, False)
+	EndIf
+	RunEventLogWrite("maintenance.regular-battle-scout.find-match-issued", "info", _
+			"One exact Find a Match input was issued; find_match_clicked=true; battle_started=pending; deployment=false", _
+			"regular", $RUN_VERIFICATION_DIAGNOSTIC)
+	Return True
+EndFunc   ;==>_RegularBattleScoutIssueFindMatch
+
+Func _RegularBattleScoutIssueCurrentArmyConfirmationIfPresent()
+	If Not PrepareSearchCurrentArmyConfirmationAttackPointReady(735, 508 + $g_iMidOffsetY) Then Return False
+	If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, False)
+	If Not NoPremiumPointClick($NO_PREMIUM_ACTION_REGULAR_BATTLE_SCOUT_CONFIRM_ARMY, 735, 508 + $g_iMidOffsetY, 120, "#RegularBattleScoutArmyConfirm", False) Then
+		If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
+		Return SetError(4, 0, False)
+	EndIf
+	RunEventLogWrite("maintenance.regular-battle-scout.army-confirm-issued", "info", _
+			"One exact My Army Attack confirmation was issued; find_match_clicked=true; battle_started=pending; deployment=false", _
+			"regular", $RUN_VERIFICATION_DIAGNOSTIC)
+	Return True
+EndFunc   ;==>_RegularBattleScoutIssueCurrentArmyConfirmationIfPresent
+
+Func _RegularBattleScoutWaitForAttackPage($iTimeoutMs = 90000)
+	Local $hTimer = TimerInit()
+	Local $bArmyConfirmationIssued = False
+	While TimerDiff($hTimer) <= Int($iTimeoutMs)
+		If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
+		If IsAttackPage(True) Then Return SetExtended($bArmyConfirmationIssued ? 1 : 0, True)
+		If _RegularBattleScoutIssueCurrentArmyConfirmationIfPresent() Then
+			$bArmyConfirmationIssued = True
+		Else
+			Local $iConfirmError = @error
+			If $iConfirmError = 2 Or RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
+			If $iConfirmError <> 0 Then Return SetError($iConfirmError, 0, False)
+		EndIf
+		If isGemOpen(True) Then Return SetError(7, 0, False)
+		If _Sleep(750, True, True, False) Then Return SetError(2, 0, False)
+	WEnd
+	Return SetError(5, $bArmyConfirmationIssued ? 1 : 0, False)
+EndFunc   ;==>_RegularBattleScoutWaitForAttackPage
+
+Func _RegularBattleScoutReturnHome()
+	If Not IsAttackPage(True) Then Return SetError(3, 0, False)
+	If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, False)
+	If Not NoPremiumPointClick($NO_PREMIUM_ACTION_REGULAR_BATTLE_SCOUT_END_BATTLE, $aSurrenderButton[0], $aSurrenderButton[1], 120, "#RegularBattleScoutEndBattle", False) Then
+		If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
+		Return SetError(4, 0, False)
+	EndIf
+	RunEventLogWrite("maintenance.regular-battle-scout.end-battle-issued", "info", _
+			"One exact End Battle input was issued; deployment=false", "regular", $RUN_VERIFICATION_DIAGNOSTIC)
+	For $iAttempt = 1 To 12
+		If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
+		If IsEndBattlePage(False) Then ExitLoop
+		If _Sleep(500, True, True, False) Then Return SetError(2, 0, False)
+		If $iAttempt = 12 Then Return SetError(5, 0, False)
+	Next
+	If Not OpenHomeNoGemInputReady() Then Return SetError(6, 1, False)
+	If Not NoPremiumPointClick($NO_PREMIUM_ACTION_REGULAR_BATTLE_SCOUT_CONFIRM_SURRENDER, $aConfirmSurrender[0], $aConfirmSurrender[1], 120, "#RegularBattleScoutConfirmSurrender", False) Then
+		If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
+		Return SetError(4, 1, False)
+	EndIf
+	RunEventLogWrite("maintenance.regular-battle-scout.surrender-confirm-issued", "info", _
+			"One exact surrender confirmation was issued; deployment=false", "regular", $RUN_VERIFICATION_DIAGNOSTIC)
+	For $iAttempt = 1 To 20
+		If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
+		If IsReturnHomeBattlePage(True, False) Then ExitLoop
+		If _Sleep(750, True, True, False) Then Return SetError(2, 0, False)
+		If $iAttempt = 20 Then Return SetError(5, 1, False)
+	Next
+	If Not OpenHomeNoGemInputReady() Then Return SetError(6, 2, False)
+	If Not NoPremiumPointClick($NO_PREMIUM_ACTION_REGULAR_BATTLE_SCOUT_RETURN_HOME, $aReturnHomeButton[0], $aReturnHomeButton[1], 120, "#RegularBattleScoutReturnHome", False) Then
+		If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
+		Return SetError(4, 2, False)
+	EndIf
+	RunEventLogWrite("maintenance.regular-battle-scout.return-home-issued", "info", _
+			"One exact Return Home input was issued after scout; deployment=false", "regular", $RUN_VERIFICATION_DIAGNOSTIC)
+	For $iAttempt = 1 To 24
+		If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
+		If OpenHomeCollectorsProveHome() Then Return True
+		If _Sleep(750, True, True, False) Then Return SetError(2, 0, False)
+	Next
+	Return SetError(5, 2, False)
+EndFunc   ;==>_RegularBattleScoutReturnHome
+
+Func RegularBattleScoutRouteExecute()
+	If Not RegularBattleScoutRouteActive() Then Return False
+	If RunControlStopRequested() Or Not $g_bRunState Then Return False
+	If Not RegularBattleEntryRouteAccountMatches($g_oRunExecutionIntent, $g_sProfileCurrentName) Then _
+			Return _RegularBattleScoutRouteFail("the active profile no longer matches the account bound at Start")
+
+	SetLog("Run Planner: starting Regular battle scout; one match will be entered, captured, surrendered, and returned Home without deployment", $COLOR_ACTION)
+	If Not OpenHomeCollectorsProveHome() Then _
+			Return _RegularBattleScoutRouteFail("Home Village route-ready screen was not proven before opening Multiplayer")
+
+	If Not OpenRegularBattleEntryIssueOpen() Then
+		If RunControlStopRequested() Or Not $g_bRunState Then Return False
+		Return _RegularBattleScoutRouteFail("Regular Multiplayer entry panel was not reached")
+	EndIf
+	If Not _RegularBattleScoutIssueFindMatch() Then
+		Local $iFindError = @error
+		If $iFindError = 6 Then Return _RegularBattleScoutRouteFail("passive no-gem guard recognized a premium surface before Find a Match")
+		Return _RegularBattleScoutRouteFail("Find a Match was not issued from the reviewed current-client region")
+	EndIf
+	If Not _RegularBattleScoutWaitForAttackPage(90000) Then
+		Local $iWaitError = @error
+		Switch $iWaitError
+			Case 2
+				Return False
+			Case 5
+				Return _RegularBattleScoutRouteFail("matchmaking did not reach the attack screen before the bounded deadline")
+			Case 7
+				Return _RegularBattleScoutRouteFail("gem or insufficient-resource surface appeared after Find a Match; no confirmation accepted")
+			Case Else
+				Return _RegularBattleScoutRouteFail("the My Army confirmation could not be handled through the reviewed no-premium path")
+		EndSwitch
+	EndIf
+	Local $bArmyConfirmationIssued = @extended <> 0
+	If $g_bDebugImageSave Then SaveDebugImage("RegularBattleScoutEnemy")
+	RunEventLogWrite("maintenance.regular-battle-scout.attack-page-proven", "info", _
+			"Attack screen was proven; find_match_clicked=true; battle_started=true; army_confirmation_issued=" & _
+			($bArmyConfirmationIssued ? "true" : "false") & "; deployment=false", _
+			"regular", $RUN_VERIFICATION_DIAGNOSTIC)
+
+	If Not _RegularBattleScoutReturnHome() Then
+		Local $iReturnError = @error
+		If $iReturnError = 2 Then Return False
+		If $iReturnError = 6 Then Return _RegularBattleScoutRouteFail("passive no-gem guard recognized a premium surface during battle exit")
+		Return _RegularBattleScoutRouteFail("battle scout could not return Home through exact reviewed exit controls")
+	EndIf
+	RunEventLogWrite("maintenance.regular-battle-scout.home-verified", "info", _
+			"Home Village re-proven after Regular battle scout; deployment=false", "regular", $RUN_VERIFICATION_DIAGNOSTIC)
+
+	Local $sReason = "regular-battle-scout-proof"
+	RunEventLogRunStopping("regular", $RUN_VERIFICATION_DIAGNOSTIC, $sReason)
+	RunExecutionComplete($sReason)
+	$g_sRunExecutionMessage = "Completed Regular battle scout; find_match_clicked=true; battle_started=true; deployment=false; returned_home=true"
+	Return True
+EndFunc   ;==>RegularBattleScoutRouteExecute
 
 Func _BuilderBattleEntryRouteFail($sReason)
 	If RunControlStopRequested() Or Not $g_bRunState Then Return False
@@ -1273,6 +1438,22 @@ Func _RunExecutionApplyIntent(ByRef $sError)
 		; This proof route owns only Home-to-Multiplayer navigation to the current-client pre-search panel.
 		; It never inherits search, battle, deployment, upgrades, collection, training,
 		; donation, event, or account-switch work from the active profile.
+		$g_bRunExecutionManageTraining = False
+		$g_bChkDonate = False
+		$g_bDonateLikeCrazy = False
+		$g_bRequestTroopsEnable = False
+		$g_bChkSwitchAcc = False
+		$g_bChkClanGamesEnabled = 0
+		$g_bChkCollect = False
+		$g_bAutoLabUpgradeEnable = False
+		$g_bAutoUpgradeWallsEnable = False
+		$g_bAutoUpgradeEnabled = False
+		$g_bRunExecutionGameplayApplied = True
+		Return True
+	EndIf
+	If $sStrategy = $REGULAR_BATTLE_SCOUT_ROUTE_STRATEGY Then
+		; This scout route owns exactly one Find a Match attempt, attack-page proof,
+		; surrender/return-home cleanup, and no deployment or inherited profile work.
 		$g_bRunExecutionManageTraining = False
 		$g_bChkDonate = False
 		$g_bDonateLikeCrazy = False

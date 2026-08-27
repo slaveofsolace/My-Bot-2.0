@@ -1263,6 +1263,25 @@
               "warning": "Diagnostic only: this proves the Find a Match surface and never starts search or a battle."
             },
             {
+              "value": "regular.battle-scout",
+              "label": "Regular battle scout",
+              "summary": "Enter one Regular match, capture the attack screen, surrender, return Home, then stop.",
+              "description": "Runs one bounded scout through reviewed exact points: Home Attack, current-client Find a Match, optional My Army Attack confirmation, attack-screen proof, exact surrender confirmation, Return Home, and Home re-proof. It never deploys troops, searches additional bases, upgrades, collects resources, trains, donates, opens social flows, or rotates accounts. Its purpose is to capture rights-safe battlefield evidence for the clean-room deployment recognizer.",
+              "availability": "gated",
+              "runtime_verified": false,
+              "disabled_reason": "Regular battle scout is route-wired but still needs an exact-current installed scout completion receipt.",
+              "capability_ids": [
+                "battle.regular-ranked-split"
+              ],
+              "prerequisites": [
+                "Exact BlueStacks 5 instance",
+                "A supervised diagnostic operator",
+                "Regular Multiplayer entry surface"
+              ],
+              "recommended": false,
+              "warning": "Diagnostic only: this taps Find a Match and enters one match, then exits without troop deployment."
+            },
+            {
               "value": "home.collectors",
               "label": "Home maintenance",
               "summary": "Run selected one-shot Home Village collection tasks without matchmaking.",

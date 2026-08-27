@@ -282,6 +282,7 @@ class NoPremiumSourcePolicyTests(unittest.TestCase):
                 "COCBot/functions/Run/OpenHomeTreasury.au3",
                 "COCBot/functions/Run/OpenClanRequest.au3",
                 "COCBot/functions/Run/OpenBuilderBaseCollectors.au3",
+                "COCBot/functions/Run/RunExecution.au3",
                 "COCBot/functions/Main Screen/checkObstacles.au3",
             },
             all_callers,
@@ -298,7 +299,7 @@ class NoPremiumSourcePolicyTests(unittest.TestCase):
         target = autoit_function(self.policy, "NoPremiumPermitTargetValid")
         point = autoit_function(self.policy, "NoPremiumPermitPointMatches")
         age = autoit_function(self.policy, "NoPremiumPermitAgeValid")
-        self.assertEqual(28, len(re.findall(r'^Global Const \$NO_PREMIUM_ACTION_', self.policy, re.MULTILINE)))
+        self.assertEqual(33, len(re.findall(r'^Global Const \$NO_PREMIUM_ACTION_', self.policy, re.MULTILINE)))
         for forbidden in ('"home"', '"builder-home"', '"full-profile"', '"confirm"'):
             self.assertNotIn(forbidden, known)
         for exact in (
@@ -322,6 +323,11 @@ class NoPremiumSourcePolicyTests(unittest.TestCase):
             "$iX = 175 And $iY = 10",
             "$iX = 62 And $iY = 685",
             "$iX = 820 And $iY = 42",
+            "$iX = 160 And $iY = 470",
+            "$iX = 735 And $iY = 508 + _NoPremiumPermitMidOffsetY()",
+            "$iX = 70 And $iY = 545 + _NoPremiumPermitBottomOffsetY()",
+            "$iX = 535 And $iY = 435 + _NoPremiumPermitMidOffsetY()",
+            "$iX = 430 And $iY = 566 + _NoPremiumPermitMidOffsetY()",
             "$iX = 62 And $iY = 685",
             "$iX = 748 And $iY = 204",
         ):
@@ -333,6 +339,11 @@ class NoPremiumSourcePolicyTests(unittest.TestCase):
         self.assertIn("$NO_PREMIUM_ACTION_BUILDER_RETURN_HOME", known)
         self.assertIn("$NO_PREMIUM_ACTION_REGULAR_BATTLE_ENTRY_OPEN", known)
         self.assertIn("$NO_PREMIUM_ACTION_REGULAR_BATTLE_ENTRY_CLOSE", known)
+        self.assertIn("$NO_PREMIUM_ACTION_REGULAR_BATTLE_SCOUT_FIND_MATCH", known)
+        self.assertIn("$NO_PREMIUM_ACTION_REGULAR_BATTLE_SCOUT_CONFIRM_ARMY", known)
+        self.assertIn("$NO_PREMIUM_ACTION_REGULAR_BATTLE_SCOUT_END_BATTLE", known)
+        self.assertIn("$NO_PREMIUM_ACTION_REGULAR_BATTLE_SCOUT_CONFIRM_SURRENDER", known)
+        self.assertIn("$NO_PREMIUM_ACTION_REGULAR_BATTLE_SCOUT_RETURN_HOME", known)
         self.assertIn("$NO_PREMIUM_ACTION_BUILDER_BATTLE_ENTRY_OPEN", known)
         self.assertIn("$NO_PREMIUM_ACTION_BUILDER_BATTLE_ENTRY_CLOSE", known)
         self.assertIn("$NO_PREMIUM_ACTION_HOME_CLEAR_SCREEN", known)
@@ -345,6 +356,11 @@ class NoPremiumSourcePolicyTests(unittest.TestCase):
         self.assertIn("Case $NO_PREMIUM_ACTION_BUILDER_RETURN_HOME", target)
         self.assertIn("Case $NO_PREMIUM_ACTION_REGULAR_BATTLE_ENTRY_OPEN", target)
         self.assertIn("Case $NO_PREMIUM_ACTION_REGULAR_BATTLE_ENTRY_CLOSE", target)
+        self.assertIn("Case $NO_PREMIUM_ACTION_REGULAR_BATTLE_SCOUT_FIND_MATCH", target)
+        self.assertIn("Case $NO_PREMIUM_ACTION_REGULAR_BATTLE_SCOUT_CONFIRM_ARMY", target)
+        self.assertIn("Case $NO_PREMIUM_ACTION_REGULAR_BATTLE_SCOUT_END_BATTLE", target)
+        self.assertIn("Case $NO_PREMIUM_ACTION_REGULAR_BATTLE_SCOUT_CONFIRM_SURRENDER", target)
+        self.assertIn("Case $NO_PREMIUM_ACTION_REGULAR_BATTLE_SCOUT_RETURN_HOME", target)
         self.assertIn("Case $NO_PREMIUM_ACTION_BUILDER_BATTLE_ENTRY_OPEN", target)
         self.assertIn("Case $NO_PREMIUM_ACTION_BUILDER_BATTLE_ENTRY_CLOSE", target)
         self.assertIn("Case $NO_PREMIUM_ACTION_HOME_CLEAR_SCREEN", target)

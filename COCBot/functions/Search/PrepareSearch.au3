@@ -289,6 +289,11 @@ Func PrepareSearchCurrentRegularFindMatchRegionReady($iX, $iY)
 	Return PrepareSearchCurrentRegularEntryReady(True)
 EndFunc   ;==>PrepareSearchCurrentRegularFindMatchRegionReady
 
+Func PrepareSearchCurrentArmyConfirmationAttackPointReady($iX, $iY)
+	If $iX <> 735 Or $iY <> 508 + $g_iMidOffsetY Then Return False
+	Return _IsCurrentArmyConfirmationOpen(False)
+EndFunc   ;==>PrepareSearchCurrentArmyConfirmationAttackPointReady
+
 ; The current client can show My Army between the Multiplayer card and matchmaking.
 ; This helper is bounded and proof-gated so older/direct-to-cloud clients remain unchanged.
 Func _ClickCurrentArmyConfirmationIfPresent()

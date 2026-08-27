@@ -492,12 +492,13 @@ def engine_preflight(plan: dict) -> list[str]:
     home_maintenance = strategy == "home.collectors"
     builder_collectors = strategy == "builder.collectors"
     regular_battle_entry = strategy == "regular.battle-entry"
+    regular_battle_scout = strategy == "regular.battle-scout"
     builder_battle_entry = strategy == "builder.battle-entry"
     clan_request_only = strategy == "home.clan-request"
     exact_recipe_training = strategy == "army.exact-recipe"
     if surface != "regular" and not ((builder_collectors or builder_battle_entry) and surface == "builder"):
         problems.append("run.surface: the native engine is currently wired only to Regular Battles and bounded Builder proof routes")
-    if strategy not in {"legacy.csv", "legacy.standard", "smart.local", "regular.battle-entry", "home.collectors", "builder.collectors", "builder.battle-entry", "home.clan-request", "army.exact-recipe"}:
+    if strategy not in {"legacy.csv", "legacy.standard", "smart.local", "regular.battle-entry", "regular.battle-scout", "home.collectors", "builder.collectors", "builder.battle-entry", "home.clan-request", "army.exact-recipe"}:
         problems.append(f"run.strategy: {strategy or 'blank'} has no native execution adapter")
     if strategy != "legacy.csv" and script.lower() != "profile-current":
         problems.append("run.attack_script: a named CSV requires the Scripted strategy")
@@ -549,11 +550,12 @@ def engine_preflight(plan: dict) -> list[str]:
             problems.append("upgrade.policy: Home maintenance requires upgrades disabled")
         if str(plan.get("account.queue", "")).strip():
             problems.append("account.queue: Home maintenance cannot rotate accounts")
-    elif regular_battle_entry:
+    elif regular_battle_entry or regular_battle_scout:
+        route_label = "Regular battle scout" if regular_battle_scout else "Regular battle entry proof"
         if surface != "regular":
-            problems.append("run.surface: Regular battle entry proof requires the Regular/Home surface")
+            problems.append(f"run.surface: {route_label} requires the Regular/Home surface")
         if not bool(plan.get("run.diagnostic_mode")):
-            problems.append("run.diagnostic_mode: Regular battle entry proof requires supervised diagnostic acknowledgement")
+            problems.append(f"run.diagnostic_mode: {route_label} requires supervised diagnostic acknowledgement")
         if any(
             bool(plan.get(key))
             for key in (
@@ -563,35 +565,37 @@ def engine_preflight(plan: dict) -> list[str]:
                 "events.collect_treasury",
             )
         ):
-            problems.append("events: Regular battle entry proof cannot collect resources, rewards, Loot Cart, or Treasury")
+            problems.append(f"events: {route_label} cannot collect resources, rewards, Loot Cart, or Treasury")
         if manages_training or bool(plan.get("army.wait_for_full")) or bool(plan.get("army.train_spells")) or bool(plan.get("army.train_sieges")):
-            problems.append("army: Regular battle entry proof cannot manage, train, or inspect an army")
+            problems.append(f"army: {route_label} cannot manage, train, or inspect an army")
         if plan.get("run.heroes"):
-            problems.append("run.heroes: Regular battle entry proof cannot deploy or inspect Heroes")
-        if int(plan.get("run.duration_minutes", 0)) != 0 or int(plan.get("run.max_battles", 0)) != 0 or bool(plan.get("run.stop_on_star_bonus")) or int(plan.get("run.max_failures", 0)) != 0:
+            problems.append(f"run.heroes: {route_label} cannot deploy or inspect Heroes")
+        if regular_battle_entry and (int(plan.get("run.duration_minutes", 0)) != 0 or int(plan.get("run.max_battles", 0)) != 0 or bool(plan.get("run.stop_on_star_bonus")) or int(plan.get("run.max_failures", 0)) != 0):
             problems.append("run: Regular battle entry proof is one pre-search pass; duration, battles, star bonus, and failure limits must be 0/off")
+        if regular_battle_scout and (int(plan.get("run.duration_minutes", 0)) != 0 or int(plan.get("run.max_battles", 0)) != 1 or bool(plan.get("run.stop_on_star_bonus")) or int(plan.get("run.max_failures", 0)) != 0):
+            problems.append("run: Regular battle scout enters exactly one match; duration must be 0, Max battles 1, star bonus off, failures 0")
         if any(int(plan.get(key, 0)) != 0 for key in ("target.gold", "target.elixir", "target.dark_elixir")):
-            problems.append("targets: Regular battle entry proof cannot use battle-loot targets")
+            problems.append(f"targets: {route_label} cannot use battle-loot targets")
         if any(int(plan.get(key, 0)) != 0 for key in ("search.min_gold", "search.min_elixir", "search.min_dark", "search.max_seconds")) or str(plan.get("search.town_hall_filter", "")).strip().lower() != "any":
-            problems.append("search: Regular battle entry proof cannot configure matchmaking search")
+            problems.append(f"search: {route_label} cannot configure matchmaking search")
         if plan.get("donate.mode") != "off" or bool(plan.get("donate.request_when_short")) or int(plan.get("donate.max_per_run", 0)) != 0:
-            problems.append("donate: Regular battle entry proof requires donations and requests off")
+            problems.append(f"donate: {route_label} requires donations and requests off")
         if bool(plan.get("events.clan_games")) or int(plan.get("events.clan_games_point_cap", 0)) != 0:
-            problems.append("events.clan_games: Regular battle entry proof cannot enter Clan Games")
+            problems.append(f"events.clan_games: {route_label} cannot enter Clan Games")
         if str(plan.get("events.laboratory", "")).strip().lower() != "off":
-            problems.append("events.laboratory: Regular battle entry proof requires Laboratory off")
+            problems.append(f"events.laboratory: {route_label} requires Laboratory off")
         if str(plan.get("upgrade.policy", "")).strip().lower() != "disabled":
-            problems.append("upgrade.policy: Regular battle entry proof requires upgrades disabled")
+            problems.append(f"upgrade.policy: {route_label} requires upgrades disabled")
         if str(plan.get("account.queue", "")).strip():
-            problems.append("account.queue: Regular battle entry proof cannot rotate accounts")
+            problems.append(f"account.queue: {route_label} cannot rotate accounts")
         if int(plan.get("pacing.retry_attempts", 0)) != 0:
-            problems.append("pacing.retry_attempts: Regular battle entry proof requires retries set to 0")
+            problems.append(f"pacing.retry_attempts: {route_label} requires retries set to 0")
         if str(plan.get("notify.channel", "")).strip().lower() != "log-only":
-            problems.append("notify.channel: Only Bot log notifications are wired for Regular battle entry proof")
+            problems.append(f"notify.channel: Only Bot log notifications are wired for {route_label}")
         if str(plan.get("runtime.emulator", "")).strip().lower() != "bluestacks5":
-            problems.append("runtime.emulator: Regular battle entry proof currently requires BlueStacks 5")
+            problems.append(f"runtime.emulator: {route_label} currently requires BlueStacks 5")
         if not str(plan.get("runtime.instance", "")).strip():
-            problems.append("runtime.instance: choose the exact emulator instance for Regular battle entry proof")
+            problems.append(f"runtime.instance: choose the exact emulator instance for {route_label}")
     elif builder_collectors:
         if surface != "builder":
             problems.append("run.surface: Builder Base collection requires the Builder Base surface")
@@ -772,10 +776,10 @@ def engine_preflight(plan: dict) -> list[str]:
         problems.append("runtime.instance: choose a specific emulator before selecting an instance")
     if emulator == "bluestacks5" and not instance:
         problems.append("runtime.instance: choose the exact BlueStacks 5 instance")
-    if (home_maintenance or clan_request_only or exact_recipe_training or regular_battle_entry or builder_battle_entry) and (emulator == "auto" or not instance):
-        route_label = "Home maintenance" if home_maintenance else ("Clan request" if clan_request_only else ("Regular battle entry proof" if regular_battle_entry else ("Builder battle entry proof" if builder_battle_entry else "Exact recipe training")))
+    if (home_maintenance or clan_request_only or exact_recipe_training or regular_battle_entry or regular_battle_scout or builder_battle_entry) and (emulator == "auto" or not instance):
+        route_label = "Home maintenance" if home_maintenance else ("Clan request" if clan_request_only else ("Regular battle scout" if regular_battle_scout else ("Regular battle entry proof" if regular_battle_entry else ("Builder battle entry proof" if builder_battle_entry else "Exact recipe training"))))
         problems.append(f"runtime.instance: {route_label} requires the exact non-Auto emulator and instance")
-    if (home_maintenance or clan_request_only or exact_recipe_training or regular_battle_entry or builder_battle_entry) and instance and not re.fullmatch(r"[A-Za-z0-9_. -]{1,64}", instance):
+    if (home_maintenance or clan_request_only or exact_recipe_training or regular_battle_entry or regular_battle_scout or builder_battle_entry) and instance and not re.fullmatch(r"[A-Za-z0-9_. -]{1,64}", instance):
         problems.append("runtime.instance: the Home route instance name contains unsupported characters")
 
     if not bool(plan.get("donate.keep_army")):
