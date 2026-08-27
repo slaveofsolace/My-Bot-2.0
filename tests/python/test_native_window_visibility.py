@@ -54,6 +54,42 @@ class NativeWindowVisibilityTests(unittest.TestCase):
         self.assertIn("Start was not replayed", recovery)
         self.assertNotIn("BotStart()", recovery)
 
+    def test_mini_controller_publishes_structured_lifecycle_receipts(self) -> None:
+        self.assertIn("mini-supervisor-lifecycle-v1.json", MINI_ENTRY)
+        writer = MINI_ENTRY.split("Func _MiniWriteLifecycleState(", 1)[1].split("EndFunc", 1)[0]
+        for contract in (
+            "my-bot-mini-supervisor-lifecycle-v1",
+            "controller_pid",
+            "controller_created",
+            "backend_pid",
+            "backend_created",
+            "backend_alive",
+            "backend_window_attached",
+            "recovery_active",
+            "start_replayed",
+            "FileMove($sTemporary, $g_sMiniLifecycleReceiptPath, 1)",
+        ):
+            self.assertIn(contract, writer)
+        self.assertIn("Local $bWritten = FileWrite($hFile, $sJson)", writer)
+
+        recovery = MINI_ENTRY.split("Func _MiniEnsureBackendAvailable()", 1)[1].split("EndFunc", 1)[0]
+        for state in (
+            '"ready-idle", "backend process is alive"',
+            '"recovering", "backend exited; waiting before one exact-path recovery generation"',
+            '"recovering", "launching one exact-path recovery generation"',
+            '"ready-idle", "backend recovered in Idle; Start was not replayed"',
+            '"failed", "backend recovery did not become ready"',
+        ):
+            self.assertIn(state, recovery)
+        self.assertNotIn("BotStart()", recovery)
+
+        start = MINI_ENTRY.split("Func BotStart()", 1)[1].split("EndFunc", 1)[0]
+        stop = MINI_ENTRY.split("Func BotStop()", 1)[1].split("EndFunc", 1)[0]
+        close = MINI_ENTRY.split("Func BotClose(", 1)[1].split("EndFunc", 1)[0]
+        self.assertIn('"running", "Start command forwarded to owned backend"', start)
+        self.assertIn('"stopping", "Stop command forwarded to owned backend"', stop)
+        self.assertIn('"stopping", "Mini controller is closing"', close)
+
 
 if __name__ == "__main__":
     unittest.main()

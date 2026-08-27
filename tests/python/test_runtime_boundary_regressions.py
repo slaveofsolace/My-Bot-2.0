@@ -126,6 +126,54 @@ class RuntimeBoundaryRegressionTests(unittest.TestCase):
         self.assertIn("$('controlSafeHomeRoute').onclick = prepareVerifiedHomeRoute;", click_handler)
         self.assertNotIn("else prepareVerifiedHomeRoute()", click_handler)
 
+    def test_control_status_surfaces_mini_supervisor_lifecycle_receipt(self) -> None:
+        self.assertIn("mini_supervisor", planner_ui.DIAGNOSTIC_ENGINE_FIELDS)
+        self.assertIn("supervisor_state", planner_ui.DIAGNOSTIC_ENGINE_FIELDS)
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            lifecycle_path = root / "mini-supervisor-lifecycle-v1.json"
+            status_path = root / "missing-status.json"
+            planner_ui.write_json_atomic(
+                {
+                    "schema": "my-bot-mini-supervisor-lifecycle-v1",
+                    "state": "ready-idle",
+                    "reason": "backend recovered in Idle; Start was not replayed",
+                    "controller_pid": 1234,
+                    "controller_created": "controller-created",
+                    "backend_pid": 5678,
+                    "backend_created": "backend-created",
+                    "backend_alive": True,
+                    "backend_window_attached": True,
+                    "profile": "MyVillage",
+                    "emulator": "BlueStacks5",
+                    "instance": "Pie64",
+                    "recovery_active": False,
+                    "recovery_delay_ms": 1500,
+                    "start_replayed": False,
+                    "account_profile_id": "must-not-export",
+                },
+                lifecycle_path,
+            )
+            with mock.patch.object(planner_ui, "MINI_LIFECYCLE_PATH", lifecycle_path), mock.patch.object(
+                planner_ui, "CONTROL_STATUS_PATH", status_path
+            ):
+                offline = planner_ui.control_status()
+
+            self.assertFalse(offline["connected"])
+            self.assertEqual(offline["supervisor_state"], "ready-idle")
+            mini = offline["mini_supervisor"]
+            self.assertTrue(mini["available"])
+            self.assertEqual(mini["state"], "ready-idle")
+            self.assertEqual(mini["backend_pid"], 5678)
+            self.assertIn("Start was not replayed", mini["message"])
+            self.assertNotIn("account_profile_id", mini)
+
+            lifecycle_path.write_text('{"schema": "wrong", "state": "running"}', encoding="utf-8")
+            with mock.patch.object(planner_ui, "MINI_LIFECYCLE_PATH", lifecycle_path):
+                ambiguous = planner_ui.mini_lifecycle_status()
+            self.assertFalse(ambiguous["available"])
+            self.assertEqual(ambiguous["state"], "ownership-ambiguous")
+
     def test_dead_native_pid_fails_busy_status_without_erasing_terminal_receipts(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)

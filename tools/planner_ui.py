@@ -69,6 +69,7 @@ PROFILES_ROOT = ROOT / "Profiles"
 CONTROL_COMMAND_PATH = ROOT / "config/control-command.local.json"
 CONTROL_STATUS_PATH = ROOT / "config/control-status.local.json"
 ENGINE_INIT_RECEIPT_PATH = Path(os.environ.get("LOCALAPPDATA", "")) / "My Bot 2.0" / "engine-init-owner-v1.json"
+MINI_LIFECYCLE_PATH = Path(os.environ.get("LOCALAPPDATA", "")) / "My Bot 2.0" / "mini-supervisor-lifecycle-v1.json"
 ENGINE_INIT_CANCEL_PATH = ROOT / "config/engine-init-cancel.local.json"
 ENGINE_INIT_RECEIPT_MAX_BYTES = 4096
 ENGINE_INIT_ACTIVE_PHASES = {
@@ -93,6 +94,11 @@ CONTROL_STATUS_BUSY_MAX_AGE_SECONDS = 45.0
 CONTROL_STATUS_READ_RETRY_SECONDS = 0.02
 CONTROL_STATUS_READ_ATTEMPTS = 5
 CONTROL_BUSY_STATES = {"starting", "stopping", "closing"}
+MINI_LIFECYCLE_MAX_AGE_SECONDS = 10.0
+MINI_LIFECYCLE_STATES = {
+    "prepared", "starting", "ready-idle", "running", "paused", "stopping", "recovering", "stopped", "failed",
+    "ownership-ambiguous",
+}
 CONTROL_TERMINAL_OUTCOMES = {"completed", "passed", "rejected", "failed", "stopped", "paused", "resumed", "no-op"}
 ENGINE_INIT_CANCEL_CONTEXT_WAIT_SECONDS = 3.0
 ENGINE_INIT_CANCEL_CONTEXT_POLL_SECONDS = 0.025
@@ -111,7 +117,12 @@ DIAGNOSTIC_ENGINE_FIELDS = {
     "connected", "state", "authorization_ready", "engine_available", "engine_probe_state", "recognition_available", "recognition_error", "product_name",
     "product_version", "engine_version", "plan_active", "plan_message", "session_id",
     "emulator", "emulator_attached", "window_attached", "adb_ready", "game_ready", "bot_pid", "bot_process_alive", "last_command", "last_outcome", "last_command_message",
-    "message", "last_seen_at", "age_seconds",
+    "message", "last_seen_at", "age_seconds", "supervisor_state", "mini_supervisor",
+}
+MINI_LIFECYCLE_FIELDS = {
+    "state", "reason", "recorded_at_local", "controller_pid", "controller_created", "backend_pid", "backend_created",
+    "backend_alive", "backend_window_attached", "profile", "emulator", "instance", "recovery_active",
+    "recovery_delay_ms", "start_replayed",
 }
 DIAGNOSTIC_EVENT_FIELDS = {"timestamp_ms", "type", "severity", "message", "surface_id", "verification_state"}
 
@@ -277,6 +288,49 @@ def wait_for_engine_init_cancel_context(expected_start_request_id: str) -> dict 
         if remaining <= 0:
             return None
         time.sleep(min(ENGINE_INIT_CANCEL_CONTEXT_POLL_SECONDS, remaining))
+
+
+def mini_lifecycle_status() -> dict:
+    result = {
+        "available": False,
+        "state": "stopped",
+        "message": "Mini supervisor lifecycle receipt is unavailable",
+        "path": str(MINI_LIFECYCLE_PATH),
+        "last_seen_at": None,
+        "age_seconds": None,
+    }
+    if not MINI_LIFECYCLE_PATH.is_absolute():
+        result["message"] = "Mini supervisor lifecycle path is unavailable"
+        return result
+    try:
+        modified = MINI_LIFECYCLE_PATH.stat().st_mtime
+    except OSError:
+        return result
+    document = read_json(MINI_LIFECYCLE_PATH, None)
+    if not isinstance(document, dict) or document.get("schema") != "my-bot-mini-supervisor-lifecycle-v1":
+        result.update(state="ownership-ambiguous", message="Mini supervisor lifecycle receipt is unreadable")
+        return result
+    state = document.get("state")
+    if state not in MINI_LIFECYCLE_STATES:
+        state = "ownership-ambiguous"
+    age = max(0.0, datetime.now(timezone.utc).timestamp() - modified)
+    filtered = {
+        key: document[key]
+        for key in MINI_LIFECYCLE_FIELDS
+        if key in document and isinstance(document[key], (str, int, float, bool, type(None)))
+    }
+    filtered.update(
+        available=age <= MINI_LIFECYCLE_MAX_AGE_SECONDS and state != "ownership-ambiguous",
+        state=state,
+        path=str(MINI_LIFECYCLE_PATH),
+        last_seen_at=datetime.fromtimestamp(modified, timezone.utc).isoformat(),
+        age_seconds=round(age, 2),
+    )
+    if filtered["available"]:
+        filtered["message"] = document.get("reason") or f"Mini supervisor is {state}"
+    else:
+        filtered["message"] = "Mini supervisor lifecycle receipt is stale or ambiguous"
+    return filtered
 
 
 def metadata_document() -> dict:
@@ -1197,6 +1251,7 @@ def control_status() -> dict:
     but old file must never make the browser claim that a dead engine is online.
     """
     engine_init_cancellable = engine_init_cancel_context() is not None
+    mini_supervisor = mini_lifecycle_status()
     offline = {
         "connected": False,
         "authorization_ready": False,
@@ -1212,6 +1267,8 @@ def control_status() -> dict:
         "last_seen_at": None,
         "age_seconds": None,
         "engine_init_cancellable": engine_init_cancellable,
+        "supervisor_state": mini_supervisor.get("state", "stopped"),
+        "mini_supervisor": mini_supervisor,
     }
     modified = None
     document = None
@@ -1272,6 +1329,8 @@ def control_status() -> dict:
     document["adb_ready"] = bool(window_attached and document.get("adb_ready") is True)
     document["game_ready"] = bool(document["adb_ready"] and document.get("game_ready") is True)
     document["engine_init_cancellable"] = engine_init_cancellable
+    document["mini_supervisor"] = mini_supervisor
+    document["supervisor_state"] = str(mini_supervisor.get("state") or document.get("state") or "ownership-ambiguous")
     return document
 
 
@@ -1932,10 +1991,14 @@ def selftest() -> int:
         check(not list(target.parent.glob(".*.tmp")), "failed writes leave no temporary plan behind")
 
     global PLAN_PATH, PLAN_RECEIPT_PATH, EVENTS_PATH, CONTROL_COMMAND_PATH, CONTROL_STATUS_PATH
-    global ENGINE_INIT_RECEIPT_PATH, ENGINE_INIT_CANCEL_PATH, SERVICE_OWNER_TOKEN
+    global ENGINE_INIT_RECEIPT_PATH, MINI_LIFECYCLE_PATH, ENGINE_INIT_CANCEL_PATH, SERVICE_OWNER_TOKEN
     original_plan, original_receipt, original_events = PLAN_PATH, PLAN_RECEIPT_PATH, EVENTS_PATH
     original_control_command, original_control_status = CONTROL_COMMAND_PATH, CONTROL_STATUS_PATH
-    original_engine_receipt, original_engine_cancel = ENGINE_INIT_RECEIPT_PATH, ENGINE_INIT_CANCEL_PATH
+    original_engine_receipt, original_mini_lifecycle, original_engine_cancel = (
+        ENGINE_INIT_RECEIPT_PATH,
+        MINI_LIFECYCLE_PATH,
+        ENGINE_INIT_CANCEL_PATH,
+    )
     original_service_owner_token = SERVICE_OWNER_TOKEN
     with tempfile.TemporaryDirectory() as folder:
         PLAN_PATH = Path(folder) / "plan.json"
@@ -1944,6 +2007,7 @@ def selftest() -> int:
         CONTROL_COMMAND_PATH = Path(folder) / "control-command.json"
         CONTROL_STATUS_PATH = Path(folder) / "control-status.json"
         ENGINE_INIT_RECEIPT_PATH = Path(folder) / "engine-init-owner.json"
+        MINI_LIFECYCLE_PATH = Path(folder) / "mini-supervisor-lifecycle.json"
         ENGINE_INIT_CANCEL_PATH = Path(folder) / "engine-init-cancel.json"
         SERVICE_OWNER_TOKEN = "selftest-owner"
         EVENTS_PATH.write_text(
@@ -2241,7 +2305,11 @@ def selftest() -> int:
             thread.join(timeout=3)
     PLAN_PATH, PLAN_RECEIPT_PATH, EVENTS_PATH = original_plan, original_receipt, original_events
     CONTROL_COMMAND_PATH, CONTROL_STATUS_PATH = original_control_command, original_control_status
-    ENGINE_INIT_RECEIPT_PATH, ENGINE_INIT_CANCEL_PATH = original_engine_receipt, original_engine_cancel
+    ENGINE_INIT_RECEIPT_PATH, MINI_LIFECYCLE_PATH, ENGINE_INIT_CANCEL_PATH = (
+        original_engine_receipt,
+        original_mini_lifecycle,
+        original_engine_cancel,
+    )
     SERVICE_OWNER_TOKEN = original_service_owner_token
 
     print(f"\n{'selftest passed' if not failures else str(len(failures)) + ' check(s) failed'}")

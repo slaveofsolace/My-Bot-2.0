@@ -86,6 +86,9 @@ Global $g_iBotBackendFindTimeout = 3000
 Global Const $g_iMiniBackendRecoveryDelayMs = 1500
 Global $g_hMiniBackendRecoveryTimer = 0
 Global $g_bMiniBackendRecoveryActive = False
+Global $g_sMiniLifecycleLastState = ""
+Global $g_sMiniLifecycleLastReason = ""
+Global $g_iMiniLifecycleLastBackendPid = -1
 
 Global $hStruct_SleepMicro = DllStructCreate("int64 time;")
 Global $pStruct_SleepMicro = DllStructGetPtr($hStruct_SleepMicro)
@@ -109,6 +112,7 @@ Global $g_hFrmBotEmbeddedMouse = 0
 
 Global Const $g_sMiniEngineInitCancelSchema = "engine-init-cancel-v1"
 Global Const $g_sMiniEngineInitCancelPath = @ScriptDir & "\config\engine-init-cancel.local.json"
+Global Const $g_sMiniLifecycleReceiptPath = $g_sMBRFuncRuntimeLocalAppData & "\My Bot 2.0\mini-supervisor-lifecycle-v1.json"
 Global Const $g_iMiniEngineInitReceiptMaxBytes = 4096
 Global Const $g_iMiniEngineInitCancelMaxBytes = 2048
 
@@ -1210,6 +1214,11 @@ Func UpdateManagedMyBot($aBotDetails)
 	$g_bRunState = $bRunState
 	$g_bBotPaused = $bPaused
 	$g_bBotLaunched = $bLaunched
+	If $bRunState Then
+		_MiniWriteLifecycleState($bPaused ? "paused" : "running", $bPaused ? "backend reported paused" : "backend reported running", $g_WatchOnlyClientPID)
+	ElseIf $bLaunched Then
+		_MiniWriteLifecycleState("ready-idle", "backend reported idle", $g_WatchOnlyClientPID)
+	EndIf
 
 	Return True
 EndFunc   ;==>UpdateManagedMyBot
@@ -1218,6 +1227,7 @@ EndFunc   ;==>UpdateManagedMyBot
 ; native configuration surface in the backend. The browser is a control plane; it must not make
 ; the Village, Attack, Bot, Log, profile, and advanced settings tabs disappear from the product.
 Func LaunchBotBackend($bNoGUI = False)
+	_MiniWriteLifecycleState("starting", "backend launch requested", 0)
 
 	Local $sParam = ""
 	For $i = 1 To $CmdLine[0]
@@ -1269,6 +1279,7 @@ Func LaunchBotBackend($bNoGUI = False)
 			EnvSet($g_sMBRFuncEngineLauncherCreatedEnv, "")
 			If $pid = 0 Then
 				SetLog("Cannot launch My Bot backend process", $COLOR_RED)
+				_MiniWriteLifecycleState("failed", "backend process launch failed with error " & $iRunError, 0, True)
 				Return 0
 			EndIf
 			If $g_iDebugSetLog Then
@@ -1277,12 +1288,14 @@ Func LaunchBotBackend($bNoGUI = False)
 				SetLog("My Bot backend process launched")
 			EndIf
 			$g_WatchOnlyClientPID = $pid
+			_MiniWriteLifecycleState("starting", "backend process launched", $pid, True)
 			ClearManagedMyBotDetails()
 		EndIf
 
 		If $g_bBotLaunched Then
 			If ProcessExists($g_WatchOnlyClientPID) Then
 				$pid = $g_WatchOnlyClientPID
+				_MiniWriteLifecycleState("ready-idle", "backend reported idle and ready", $pid)
 				ExitLoop
 			Else
 				; launch bot again
@@ -1302,11 +1315,78 @@ Func LaunchBotBackend($bNoGUI = False)
 		Sleep(2000)
 	WEnd
 
-	If Not $g_bBotLaunched Then SetLog("Bot didn't launch in 5 Minutes")
+	If Not $g_bBotLaunched Then
+		SetLog("Bot didn't launch in 5 Minutes")
+		_MiniWriteLifecycleState("failed", "backend did not report ready before timeout", $pid, True)
+	EndIf
 
 	Return $pid
 
 EndFunc   ;==>LaunchBotBackend
+
+Func _MiniLifecycleJsonString($sValue)
+	Local $sText = String($sValue)
+	$sText = StringReplace($sText, "\", "\\")
+	$sText = StringReplace($sText, '"', '\"')
+	$sText = StringReplace($sText, @CRLF, "\n")
+	$sText = StringReplace($sText, @CR, "\n")
+	$sText = StringReplace($sText, @LF, "\n")
+	$sText = StringReplace($sText, @TAB, "\t")
+	Return '"' & $sText & '"'
+EndFunc   ;==>_MiniLifecycleJsonString
+
+Func _MiniLifecycleBool($bValue)
+	Return $bValue ? "true" : "false"
+EndFunc   ;==>_MiniLifecycleBool
+
+Func _MiniWriteLifecycleState($sState, $sReason = "", $iBackendPid = Default, $bForce = False)
+	If $iBackendPid = Default Then $iBackendPid = ($g_WatchOnlyClientPID = Default ? 0 : Int($g_WatchOnlyClientPID))
+	If Not $bForce And $sState = $g_sMiniLifecycleLastState And $sReason = $g_sMiniLifecycleLastReason And Int($iBackendPid) = $g_iMiniLifecycleLastBackendPid Then Return True
+	Local $bBackendAlive = Int($iBackendPid) > 0 And ProcessExists(Int($iBackendPid))
+	Local $sBackendCreated = $bBackendAlive ? _MBRFuncProcessCreationId(Int($iBackendPid)) : ""
+	Local $bBackendWindowAttached = $g_hFrmBotBackend <> 0 And Int($iBackendPid) > 0 And WinGetProcess($g_hFrmBotBackend) = Int($iBackendPid)
+	Local $sControllerCreated = _MBRFuncProcessCreationId(@AutoItPID)
+	Local $sParent = $g_sMBRFuncRuntimeLocalAppData & "\My Bot 2.0"
+	DirCreate($sParent)
+	Local $sTemporary = $g_sMiniLifecycleReceiptPath & ".tmp." & @AutoItPID
+	Local $sJson = "{"
+	$sJson &= _MiniLifecycleJsonString("schema_version") & ":1,"
+	$sJson &= _MiniLifecycleJsonString("schema") & ":" & _MiniLifecycleJsonString("my-bot-mini-supervisor-lifecycle-v1") & ","
+	$sJson &= _MiniLifecycleJsonString("state") & ":" & _MiniLifecycleJsonString($sState) & ","
+	$sJson &= _MiniLifecycleJsonString("reason") & ":" & _MiniLifecycleJsonString($sReason) & ","
+	$sJson &= _MiniLifecycleJsonString("recorded_at_local") & ":" & _MiniLifecycleJsonString(@YEAR & "-" & @MON & "-" & @MDAY & "T" & @HOUR & ":" & @MIN & ":" & @SEC) & ","
+	$sJson &= _MiniLifecycleJsonString("controller_pid") & ":" & @AutoItPID & ","
+	$sJson &= _MiniLifecycleJsonString("controller_created") & ":" & _MiniLifecycleJsonString($sControllerCreated) & ","
+	$sJson &= _MiniLifecycleJsonString("backend_pid") & ":" & Int($iBackendPid) & ","
+	$sJson &= _MiniLifecycleJsonString("backend_created") & ":" & _MiniLifecycleJsonString($sBackendCreated) & ","
+	$sJson &= _MiniLifecycleJsonString("backend_alive") & ":" & _MiniLifecycleBool($bBackendAlive) & ","
+	$sJson &= _MiniLifecycleJsonString("backend_window_attached") & ":" & _MiniLifecycleBool($bBackendWindowAttached) & ","
+	$sJson &= _MiniLifecycleJsonString("profile") & ":" & _MiniLifecycleJsonString($g_sProfileCurrentName) & ","
+	$sJson &= _MiniLifecycleJsonString("emulator") & ":" & _MiniLifecycleJsonString($g_sAndroidEmulator) & ","
+	$sJson &= _MiniLifecycleJsonString("instance") & ":" & _MiniLifecycleJsonString($g_sAndroidInstance) & ","
+	$sJson &= _MiniLifecycleJsonString("recovery_active") & ":" & _MiniLifecycleBool($g_bMiniBackendRecoveryActive) & ","
+	$sJson &= _MiniLifecycleJsonString("recovery_delay_ms") & ":" & Int($g_iMiniBackendRecoveryDelayMs) & ","
+	$sJson &= _MiniLifecycleJsonString("start_replayed") & ":false"
+	$sJson &= "}"
+	FileDelete($sTemporary)
+	Local $hFile = FileOpen($sTemporary, 10)
+	If $hFile = -1 Then Return False
+	Local $bWritten = FileWrite($hFile, $sJson)
+	Local $bFlushed = FileFlush($hFile)
+	FileClose($hFile)
+	If Not $bWritten Or Not $bFlushed Then
+		FileDelete($sTemporary)
+		Return False
+	EndIf
+	If Not FileMove($sTemporary, $g_sMiniLifecycleReceiptPath, 1) Then
+		FileDelete($sTemporary)
+		Return False
+	EndIf
+	$g_sMiniLifecycleLastState = $sState
+	$g_sMiniLifecycleLastReason = $sReason
+	$g_iMiniLifecycleLastBackendPid = Int($iBackendPid)
+	Return True
+EndFunc   ;==>_MiniWriteLifecycleState
 
 ; The managed backend owns the planner service. If launcher supervision closes a blocked or crashed
 ; generation, keep the visible controller alive and recreate one exact-path idle backend. Start is
@@ -1314,26 +1394,31 @@ EndFunc   ;==>LaunchBotBackend
 Func _MiniEnsureBackendAvailable()
 	If $g_WatchOnlyClientPID <> Default And $g_WatchOnlyClientPID > 0 And ProcessExists($g_WatchOnlyClientPID) Then
 		$g_hMiniBackendRecoveryTimer = 0
+		_MiniWriteLifecycleState("ready-idle", "backend process is alive", $g_WatchOnlyClientPID)
 		Return True
 	EndIf
 	If $g_bMiniBackendRecoveryActive Then Return False
 	If $g_hMiniBackendRecoveryTimer = 0 Then
 		$g_hMiniBackendRecoveryTimer = __TimerInit()
 		SetLog("Native engine exited; preparing one exact-path recovery generation", $COLOR_WARNING)
+		_MiniWriteLifecycleState("recovering", "backend exited; waiting before one exact-path recovery generation", 0, True)
 		Return False
 	EndIf
 	If __TimerDiff($g_hMiniBackendRecoveryTimer) < $g_iMiniBackendRecoveryDelayMs Then Return False
 
 	$g_hMiniBackendRecoveryTimer = __TimerInit()
 	$g_bMiniBackendRecoveryActive = True
+	_MiniWriteLifecycleState("recovering", "launching one exact-path recovery generation", 0, True)
 	Local $iRecoveredPid = LaunchBotBackend()
 	$g_bMiniBackendRecoveryActive = False
 	If $iRecoveredPid > 0 Then
 		$g_hMiniBackendRecoveryTimer = 0
 		SetLog("Native engine recovered in Idle; Start was not replayed", $COLOR_SUCCESS)
+		_MiniWriteLifecycleState("ready-idle", "backend recovered in Idle; Start was not replayed", $iRecoveredPid, True)
 		Return True
 	EndIf
 	SetLog("Native engine recovery did not become ready; retrying remains bounded by the controller watchdog", $COLOR_ERROR)
+	_MiniWriteLifecycleState("failed", "backend recovery did not become ready", $iRecoveredPid, True)
 	Return False
 EndFunc   ;==>_MiniEnsureBackendAvailable
 
@@ -1455,6 +1540,7 @@ Func BotStart()
 		If Not $g_bBotLaunched Then Return
 	EndIf
 	GUICtrlSetState($g_hBtnStart, $GUI_DISABLE)
+	_MiniWriteLifecycleState("running", "Start command forwarded to owned backend", $g_WatchOnlyClientPID, True)
 	_WinAPI_PostMessage($g_hFrmBotBackend, $WM_MYBOTRUN_API, 0x1000, $g_hFrmBot)
 EndFunc   ;==>BotStart
 
@@ -1464,6 +1550,7 @@ Func BotStop()
 		If Not $g_bBotLaunched Then Return
 	EndIf
 	GUICtrlSetState($g_hBtnStop, $GUI_DISABLE)
+	_MiniWriteLifecycleState("stopping", "Stop command forwarded to owned backend", $g_WatchOnlyClientPID, True)
 	_MiniTryWriteEngineInitCancel()
 	_WinAPI_PostMessage($g_hFrmBotBackend, $WM_MYBOTRUN_API, 0x1010, $g_hFrmBot)
 EndFunc   ;==>BotStop
@@ -1481,6 +1568,7 @@ Func TogglePauseImpl($source)
 EndFunc   ;==>TogglePauseImpl
 
 Func BotClose($SaveConfig = Default, $bExit = True)
+	_MiniWriteLifecycleState("stopping", "Mini controller is closing", $g_WatchOnlyClientPID, True)
 	_WinAPI_PostMessage($g_hFrmBotBackend, $WM_MYBOTRUN_API, 0x1040, $g_hFrmBot)
 
 	$g_bRunState = False
