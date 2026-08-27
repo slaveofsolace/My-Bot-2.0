@@ -231,6 +231,7 @@ class NoPremiumSourcePolicyTests(unittest.TestCase):
             {
                 "OpenHomeCollectorsCollectOnePass",
                 "OpenHomeInactivityReloadIssue",
+                "OpenHomeWelcomeBackCloseAndProveHome",
                 "OpenHomeDailyRewardIssueClaim",
                 "OpenHomeDailyRewardCloseAndProveHome",
                 "OpenHomeClearSelectedActionPanel",

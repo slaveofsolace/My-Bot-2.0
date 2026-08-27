@@ -4347,6 +4347,17 @@
         "verdict": "PASS"
       },
       {
+        "id": "COCBot/functions/Run/OpenHomeCollectors.au3::OpenHomeWelcomeBackCloseAndProveHome",
+        "policy": "capability",
+        "mapping": "capability.home-collection",
+        "capability_ids": [
+          "village.collectors",
+          "village.loot-cart",
+          "events.daily-reward"
+        ],
+        "verdict": "PASS"
+      },
+      {
         "id": "COCBot/functions/Run/OpenHomeCollectors.au3::OpenRegularBattleEntryIssueClose",
         "policy": "capability",
         "mapping": "capability.home-collection",
@@ -6234,11 +6245,11 @@
     "compile_targets": 6,
     "control_actions": 6,
     "infrastructure_routes": 8,
-    "actuator_owners": 480,
-    "actuator_sites": 1195,
+    "actuator_owners": 481,
+    "actuator_sites": 1196,
     "pass_capabilities": 2,
     "deferred_capabilities": 59,
     "pass_actuator_owners": 438,
-    "deferred_actuator_owners": 42
+    "deferred_actuator_owners": 43
   }
 }

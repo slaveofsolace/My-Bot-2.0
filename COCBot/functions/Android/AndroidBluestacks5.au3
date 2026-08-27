@@ -383,9 +383,10 @@ Func LaunchBlueStacks5CoCOnly(ByRef $sReason)
 			Return False
 		EndIf
 		If GetAndroidProcessPID(Default, False) <> 0 Then
-			; OpenHomeCollectorsProveHome() refreshes the current ADB frame before checking Home.
-			; If a known startup overlay blocks Home, recognize it from that same fresh frame but never
-			; click or dismiss it. The caller returns idle and game_ready remains false until Home is visible.
+                        ; OpenHomeCollectorsProveHome() refreshes the current ADB frame before checking Home.
+                        ; If a known startup overlay blocks Home, recognize it from that same fresh frame. Launch-only
+                        ; may close the Welcome Back Okay surface through the reviewed startup-popup permit, but it
+                        ; must never claim Daily Reward or press reward/confirmation controls.
                         If OpenHomeCollectorsProveHome() Then
                                 Return _LaunchBlueStacks5FinalizePassiveProof($sReason, "Home Village passively proven", $bStartedEmulator)
                         EndIf
@@ -409,9 +410,24 @@ Func LaunchBlueStacks5CoCOnly(ByRef $sReason)
 			If OpenHomeInactivityReloadDialogReady() Then
 				Return _LaunchBlueStacks5FinalizePassiveProof($sReason, "verified inactivity reload dialog passively recognized; Home is blocked until the operator reloads the game", $bStartedEmulator)
 			EndIf
-			If OpenHomeWelcomeBackOverlayReady() Then
-				Return _LaunchBlueStacks5FinalizePassiveProof($sReason, "verified Welcome Back overlay passively recognized; Home is blocked until the operator handles the overlay", $bStartedEmulator)
-			EndIf
+                        If OpenHomeWelcomeBackOverlayReady() Then
+                                Local $bWelcomeBackCloseIssued = False
+                                If OpenHomeWelcomeBackCloseAndProveHome($bWelcomeBackCloseIssued) Then
+                                        Return _LaunchBlueStacks5FinalizePassiveProof($sReason, "Welcome Back startup overlay closed by reviewed no-premium OK action; Home Village passively proven", $bStartedEmulator)
+                                EndIf
+                                Local $iWelcomeBackError = @error
+                                If $iWelcomeBackError = 0 Or $iWelcomeBackError = 7 Or $iWelcomeBackError = 8 Then ContinueLoop
+                                If $iWelcomeBackError = 2 Then
+                                        $sReason = "BlueStacks and Clash of Clans launch cancelled while clearing the Welcome Back overlay"
+                                        Return False
+                                EndIf
+                                If $iWelcomeBackError = 6 Then
+                                        $sReason = "Welcome Back startup overlay was recognized, but the passive no-gem guard blocked the only permitted OK input"
+                                        Return False
+                                EndIf
+                                $sReason = "Welcome Back startup overlay was recognized, but the reviewed OK close path did not re-prove Home; error=" & $iWelcomeBackError & "; close_issued=" & String($bWelcomeBackCloseIssued)
+                                Return False
+                        EndIf
 		EndIf
 		If _Sleep(1000) Then
 			$sReason = "BlueStacks and Clash of Clans launch cancelled while waiting for passive game-ready proof"

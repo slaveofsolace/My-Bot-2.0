@@ -310,8 +310,9 @@ Func OpenHomeDailyRewardClaimedOverlayReady()
 EndFunc   ;==>OpenHomeDailyRewardClaimedOverlayReady
 
 ; The returning-player summary blocks Home with a fixed red banner, neutral content panel, and one
-; green operator-only Okay control. Recognition is passive and language-independent: no OCR, ImgLoc,
-; click, or dismissal is permitted. The reviewed fixture masks the account header and opponent card.
+; green operator-only Okay control. Recognition is language-independent: no OCR or ImgLoc is used.
+; A launch-only flow may close only this exact non-premium Okay surface through
+; $NO_PREMIUM_ACTION_STARTUP_POPUP_CLOSE; it must never claim rewards or press confirmations.
 Func OpenHomeWelcomeBackOverlayReady()
 	If $g_hBitmap = 0 Then Return False
 	Return _OpenHomePixelNear(160, 170, 0xB03222, 36) And _
@@ -327,6 +328,25 @@ Func OpenHomeWelcomeBackOverlayReady()
 			_OpenHomePixelNear(440, 520, 0xD9F481, 44) And _
 			_OpenHomePixelNear(440, 558, 0x64AD32, 44)
 EndFunc   ;==>OpenHomeWelcomeBackOverlayReady
+
+Func OpenHomeWelcomeBackCloseAndProveHome(ByRef $bCloseIssued)
+	$bCloseIssued = False
+	If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
+	If Not OpenHomeCollectorsCapture() Then Return SetError(1, 0, False)
+	If Not OpenHomeWelcomeBackOverlayReady() Then Return SetError(0, 0, False)
+	If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, False)
+	If Not NoPremiumPointClick($NO_PREMIUM_ACTION_STARTUP_POPUP_CLOSE, 440, 540, 120, "#OpenHomeWelcomeBackClose", False) Then _
+		Return SetError(3, 0, False)
+	$bCloseIssued = True
+	For $iAttempt = 1 To 16
+		If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
+		If OpenHomeCollectorsProveHome() Then Return True
+		If OpenHomeDailyRewardOverlayReady() Or OpenHomeDailyRewardClaimedOverlayReady() Then Return SetError(7, 0, False)
+		If OpenHomeInactivityReloadDialogReady() Then Return SetError(8, 0, False)
+		If $iAttempt < 16 And _Sleep(500, True, True, False) Then Return SetError(2, 0, False)
+	Next
+	Return SetError(4, 0, False)
+EndFunc   ;==>OpenHomeWelcomeBackCloseAndProveHome
 
 ; Clash can place a foreground "Anyone there?" inactivity dialog over an otherwise valid startup
 ; Daily Reward panel. The dialog is recoverable and non-premium, but it must be handled before any

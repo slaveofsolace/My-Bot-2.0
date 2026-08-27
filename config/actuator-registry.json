@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "as_of": "2026-08-20",
+  "as_of": "2026-08-27",
   "scope": "Every intended tracked or untracked non-test AutoIt function that directly owns a game-input, process-control, window-control, managed-engine, or dynamic-dispatch call.",
   "policy_definitions": {
     "capability": "A closed-world implementation owns the actuator and is named by capability id; runtime evidence is still required.",
@@ -30,8 +30,8 @@
     "dynamic_dispatch": ["DynamicCall"]
   },
   "owner_fingerprint": {
-    "count": 480,
-    "sha256": "cfface80cf8663500bc86434b867fc95fe7733602033e22fa13d259ca753f6ef"
+    "count": 481,
+    "sha256": "761e7354a4dee4a89c61f753660d92e0ae87b23fbc28a5e56ee14c460faa979e"
   },
   "mappings": [
     {
