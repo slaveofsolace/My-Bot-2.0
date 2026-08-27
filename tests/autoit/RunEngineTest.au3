@@ -15,7 +15,22 @@ Func _GetPixelColor($iX, $iY, $bNeedCapture = False, $sLogText = Default, $LogTe
 	Return "000000"
 EndFunc   ;==>_GetPixelColor
 
+; Pure contract harness stubs: RunEngineTest validates saved-plan and route-contract
+; dispatch only. The production entrypoints compile the real page-recognition graph.
+Func IsAttackPage($bWriteLog = True)
+	Return False
+EndFunc   ;==>IsAttackPage
+
+Func IsEndBattlePage($bWriteLog = True)
+	Return False
+EndFunc   ;==>IsEndBattlePage
+
+Func IsReturnHomeBattlePage($useReturnValue = False, $makeDebugImageScreenshot = True)
+	Return False
+EndFunc   ;==>IsReturnHomeBattlePage
+
 #include "..\..\COCBot\functions\Run\CleanRoomRedlineDetector.au3"
+#include "..\..\COCBot\functions\Run\NoPremiumPermitPolicy.au3"
 #include "..\..\COCBot\functions\Run\RunIntent.au3"
 #include "..\..\COCBot\functions\Run\RunPlanFile.au3"
 #include "..\..\COCBot\functions\Run\RunExecutionContract.au3"

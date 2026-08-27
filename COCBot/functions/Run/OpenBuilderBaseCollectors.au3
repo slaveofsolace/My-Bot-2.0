@@ -45,16 +45,20 @@ Func OpenBuilderBaseCurrentFrameReady()
 EndFunc   ;==>OpenBuilderBaseCurrentFrameReady
 
 Func OpenBuilderBaseCollectorsProveBuilder()
-	If Not OpenHomeCollectorsCapture() Then Return False
-	Local $bBuilderProven = OpenBuilderBaseCurrentFrameReady()
-	$g_bMainWindowOk = $bBuilderProven
-	Return $bBuilderProven
+        If Not OpenHomeCollectorsCapture() Then Return False
+        Local $bBuilderProven = OpenBuilderBaseCurrentFrameReady()
+        $g_bMainWindowOk = $bBuilderProven
+        Return $bBuilderProven
 EndFunc   ;==>OpenBuilderBaseCollectorsProveBuilder
 
+Func OpenBuilderBaseProveMain()
+        Return OpenBuilderBaseCollectorsProveBuilder()
+EndFunc   ;==>OpenBuilderBaseProveMain
+
 Func OpenBuilderBaseHomeBoatPointReady($iX, $iY)
-	If Not NoPremiumPermitTargetValid($NO_PREMIUM_ACTION_BUILDER_SWITCH, $iX, $iY) Then Return False
-	If Not _CheckPixel($aIsMain, False) Then Return False
-	Return _OpenHomePixelNear(128, 583, 0xB3463E, 48) And _
+        If Not NoPremiumPermitTargetValid($NO_PREMIUM_ACTION_BUILDER_SWITCH, $iX, $iY) Then Return False
+        If Not _CheckPixel($aIsMain, False) Then Return False
+        Return _OpenHomePixelNear(128, 583, 0xB3463E, 48) And _
 			_OpenHomePixelNear(122, 603, 0xBD9355, 56) And _
 			_OpenHomePixelNear(168, 638, 0x1E384D, 48)
 EndFunc   ;==>OpenBuilderBaseHomeBoatPointReady

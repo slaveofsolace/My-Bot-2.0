@@ -1,5 +1,26 @@
 #NoTrayIcon
 #include <StringConstants.au3>
+#include "..\..\COCBot\functions\Run\NoPremiumPermitPolicy.au3"
+
+; Pure contract harness stubs: this test validates request-only route contracts
+; and fixture dispatch. The production entrypoints compile the real page
+; recognition and clean-room detector graph.
+Func IsAttackPage($bWriteLog = True)
+        Return False
+EndFunc   ;==>IsAttackPage
+
+Func IsEndBattlePage($bWriteLog = True)
+        Return False
+EndFunc   ;==>IsEndBattlePage
+
+Func IsReturnHomeBattlePage($useReturnValue = False, $makeDebugImageScreenshot = True)
+        Return False
+EndFunc   ;==>IsReturnHomeBattlePage
+
+Func CleanRoomRedlineDetectorRuntimeReady()
+        Return True
+EndFunc   ;==>CleanRoomRedlineDetectorRuntimeReady
+
 #include "..\..\COCBot\functions\Run\RunExecutionContract.au3"
 
 Global $g_iAssertions = 0
