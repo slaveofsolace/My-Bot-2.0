@@ -110,7 +110,7 @@ Func NoPremiumPermitTargetValid($sAction, $iX, $iY)
                 Case $NO_PREMIUM_ACTION_BUILDER_RETURN_HOME
                         Return $iX = 821 And $iY = 465
                 Case $NO_PREMIUM_ACTION_REGULAR_BATTLE_ENTRY_OPEN
-                        Return $iX = 65 And $iY = 608
+                        Return $iX = 62 And $iY = 685
                 Case $NO_PREMIUM_ACTION_REGULAR_BATTLE_ENTRY_CLOSE
                         Return $iX = 820 And $iY = 42
                 Case $NO_PREMIUM_ACTION_BUILDER_BATTLE_ENTRY_OPEN

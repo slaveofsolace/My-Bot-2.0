@@ -320,7 +320,7 @@ class NoPremiumSourcePolicyTests(unittest.TestCase):
             "$iX >= 640 And $iX <= 650 And $iY >= 10 And $iY <= 30",
             "$iX >= 360 And $iX <= 510 And $iY >= 450 And $iY <= 540",
             "$iX = 175 And $iY = 10",
-            "$iX = 65 And $iY = 608",
+            "$iX = 62 And $iY = 685",
             "$iX = 820 And $iY = 42",
             "$iX = 62 And $iY = 685",
             "$iX = 748 And $iY = 204",
