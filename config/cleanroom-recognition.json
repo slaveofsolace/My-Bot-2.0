@@ -1,6 +1,27 @@
 {
   "schema_version": 1,
   "adapter_id": "mybot.cleanroom-recognition.v1",
+  "providers": {
+    "states": ["CleanRoomLocal", "InheritedAuthorized", "Unavailable"],
+    "default_state": "Unavailable",
+    "full_profile_state": "Unavailable",
+    "clean_room_local": {
+      "state": "CleanRoomLocal",
+      "scope": "local-profile-calibration-and-verified-fixture-replay",
+      "published_assets": false,
+      "account_specific_artifacts": "stored outside published source/package assets",
+      "supports_bot_start": false
+    },
+    "inherited_authorized": {
+      "state": "InheritedAuthorized",
+      "enabled": false,
+      "reason": "Inherited ImgLoc recognition remains disabled until written permission or a licensed replacement is validated."
+    },
+    "unavailable": {
+      "state": "Unavailable",
+      "reason": "No current provider can satisfy full-profile recognition safely."
+    }
+  },
   "runtime_bridge": {
     "contract_path": "COCBot/functions/Run/CleanRoomRecognitionContract.generated.au3",
     "bridge_path": "COCBot/functions/Run/CleanRoomRecognitionBridge.au3",

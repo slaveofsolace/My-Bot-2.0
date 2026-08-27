@@ -13,6 +13,10 @@ Global Const $OPEN_HOME_MODE_LOOT_CART = 2
 Global Const $OPEN_HOME_MODE_DAILY_REWARD = 3
 Global Const $OPEN_HOME_MODE_TREASURY = 4
 Global Const $OPEN_HOME_MODE_REJECTED = -1
+Global Const $OPEN_REGULAR_BATTLE_ENTRY_OPEN_X = 62
+Global Const $OPEN_REGULAR_BATTLE_ENTRY_OPEN_Y = 685
+Global Const $OPEN_REGULAR_BATTLE_ENTRY_CLOSE_X = 820
+Global Const $OPEN_REGULAR_BATTLE_ENTRY_CLOSE_Y = 42
 
 ; Return 0 for another route, 1 for exact resource collectors, 2 for an exact Loot Cart pass, 3 for the
 ; startup Daily Reward, 4 for the bounded Treasury adapter, and -1 for an invalid Home selection. This
@@ -189,9 +193,92 @@ Func OpenHomeCollectorsCollectOnePass($iMaxClicks = 3)
 	Return SetError(0, $iClicks, True)
 EndFunc   ;==>OpenHomeCollectorsCollectOnePass
 
+; Current-client proof for the Builder Base Start Attack panel. This is passive pre-search
+; recognition only: callers may use it to prove the "Find Now" surface, but this helper never
+; clicks the button and never proves opponent search, deployment, battle result, or return-home.
+Func OpenBuilderBattleEntryReady()
+	If $g_hBitmap = 0 Then Return False
+	Return _OpenHomePixelNear(380, 203, 0xFFFFFF, 50) And _
+			_OpenHomePixelNear(535, 250, 0xEFE8DB, 24) And _
+			_OpenHomePixelNear(145, 275, 0xFFFFFE, 42) And _
+			_OpenHomePixelNear(625, 345, 0xFFFFFF, 50) And _
+			_OpenHomePixelNear(610, 430, 0xB9E884, 36) And _
+			_OpenHomePixelNear(650, 455, 0x6BA22E, 36) And _
+			_OpenHomePixelNear(700, 470, 0x83CA38, 36) And _
+			_OpenHomePixelNear(650, 485, 0xEFE8DB, 24)
+EndFunc   ;==>OpenBuilderBattleEntryReady
+
+Func OpenBuilderBattleEntryProve()
+	If Not OpenHomeCollectorsCapture() Then Return False
+	Return OpenBuilderBattleEntryReady()
+EndFunc   ;==>OpenBuilderBattleEntryProve
+
+Func OpenBuilderBattleFindNowRegionReady($iX, $iY)
+        If $iX < 560 Or $iX > 741 Or $iY < 416 Or $iY > 479 Then Return False
+        Return OpenBuilderBattleEntryReady()
+EndFunc   ;==>OpenBuilderBattleFindNowRegionReady
+
+Func OpenRegularBattleEntryReady()
+	If $g_hBitmap = 0 Then Return False
+	Return PrepareSearchCurrentRegularEntryReady(False)
+EndFunc   ;==>OpenRegularBattleEntryReady
+
+Func OpenRegularBattleEntryProve()
+	If Not OpenHomeCollectorsCapture() Then Return False
+	Return OpenRegularBattleEntryReady()
+EndFunc   ;==>OpenRegularBattleEntryProve
+
+Func OpenRegularBattleEntryOpenPointReady($iX, $iY)
+	If $g_hBitmap = 0 Or Not NoPremiumPermitTargetValid($NO_PREMIUM_ACTION_REGULAR_BATTLE_ENTRY_OPEN, $iX, $iY) Then Return False
+	Return _CheckPixel($aIsMain, False)
+EndFunc   ;==>OpenRegularBattleEntryOpenPointReady
+
+Func OpenRegularBattleEntryClosePointReady($iX, $iY)
+	If $g_hBitmap = 0 Or Not NoPremiumPermitTargetValid($NO_PREMIUM_ACTION_REGULAR_BATTLE_ENTRY_CLOSE, $iX, $iY) Then Return False
+	Return OpenRegularBattleEntryReady()
+EndFunc   ;==>OpenRegularBattleEntryClosePointReady
+
+Func OpenRegularBattleEntryIssueOpen()
+	If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
+	If Not OpenHomeCollectorsProveHome() Then Return SetError(3, 0, False)
+	If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, False)
+	If Not NoPremiumPointClick($NO_PREMIUM_ACTION_REGULAR_BATTLE_ENTRY_OPEN, $OPEN_REGULAR_BATTLE_ENTRY_OPEN_X, $OPEN_REGULAR_BATTLE_ENTRY_OPEN_Y, 120, "#OpenRegularBattleEntryOpen", False) Then
+		If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
+		Return SetError(4, 0, False)
+	EndIf
+	RunEventLogWrite("maintenance.regular-battle-entry.open-issued", "info", _
+			"One exact Home Attack input was issued; find_match_clicked=false; battle_started=false", _
+			"regular", $RUN_VERIFICATION_DIAGNOSTIC)
+	For $iAttempt = 1 To 12
+		If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
+		If OpenRegularBattleEntryProve() Then Return True
+		If _Sleep(500, True, True, False) Then Return SetError(2, 0, False)
+	Next
+	Return SetError(5, 0, False)
+EndFunc   ;==>OpenRegularBattleEntryIssueOpen
+
+Func OpenRegularBattleEntryIssueClose()
+	If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
+	If Not OpenRegularBattleEntryProve() Then Return SetError(3, 0, False)
+	If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, False)
+	If Not NoPremiumPointClick($NO_PREMIUM_ACTION_REGULAR_BATTLE_ENTRY_CLOSE, $OPEN_REGULAR_BATTLE_ENTRY_CLOSE_X, $OPEN_REGULAR_BATTLE_ENTRY_CLOSE_Y, 120, "#OpenRegularBattleEntryClose", False) Then
+		If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
+		Return SetError(4, 0, False)
+	EndIf
+	RunEventLogWrite("maintenance.regular-battle-entry.close-issued", "info", _
+			"One exact Multiplayer panel close input was issued; find_match_clicked=false; battle_started=false", _
+			"regular", $RUN_VERIFICATION_DIAGNOSTIC)
+	For $iAttempt = 1 To 12
+		If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
+		If OpenHomeCollectorsProveHome() Then Return True
+		If _Sleep(500, True, True, False) Then Return SetError(2, 0, False)
+	Next
+	Return SetError(5, 0, False)
+EndFunc   ;==>OpenRegularBattleEntryIssueClose
+
 Func _OpenHomePixelNear($iX, $iY, $iExpected, $iVariation = 32)
-	If $g_hBitmap = 0 Or $iX < 0 Or $iX >= $g_iGAME_WIDTH Or $iY < 0 Or $iY >= $g_iGAME_HEIGHT Then Return False
-	Return _ColorCheck(Hex(_OpenHomeCollectorBitmapPixel($g_hBitmap, $iX, $iY), 6), Hex($iExpected, 6), $iVariation)
+        If $g_hBitmap = 0 Or $iX < 0 Or $iX >= $g_iGAME_WIDTH Or $iY < 0 Or $iY >= $g_iGAME_HEIGHT Then Return False
+        Return _ColorCheck(Hex(_OpenHomeCollectorBitmapPixel($g_hBitmap, $iX, $iY), 6), Hex($iExpected, 6), $iVariation)
 EndFunc   ;==>_OpenHomePixelNear
 
 ; The startup Daily Reward overlay is fixed to the canonical 860x732 client surface. These anchors
@@ -223,8 +310,9 @@ Func OpenHomeDailyRewardClaimedOverlayReady()
 EndFunc   ;==>OpenHomeDailyRewardClaimedOverlayReady
 
 ; The returning-player summary blocks Home with a fixed red banner, neutral content panel, and one
-; green operator-only Okay control. Recognition is passive and language-independent: no OCR, ImgLoc,
-; click, or dismissal is permitted. The reviewed fixture masks the account header and opponent card.
+; green operator-only Okay control. Recognition is language-independent: no OCR or ImgLoc is used.
+; A launch-only flow may close only this exact non-premium Okay surface through
+; $NO_PREMIUM_ACTION_STARTUP_POPUP_CLOSE; it must never claim rewards or press confirmations.
 Func OpenHomeWelcomeBackOverlayReady()
 	If $g_hBitmap = 0 Then Return False
 	Return _OpenHomePixelNear(160, 170, 0xB03222, 36) And _
@@ -240,6 +328,25 @@ Func OpenHomeWelcomeBackOverlayReady()
 			_OpenHomePixelNear(440, 520, 0xD9F481, 44) And _
 			_OpenHomePixelNear(440, 558, 0x64AD32, 44)
 EndFunc   ;==>OpenHomeWelcomeBackOverlayReady
+
+Func OpenHomeWelcomeBackCloseAndProveHome(ByRef $bCloseIssued)
+	$bCloseIssued = False
+	If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
+	If Not OpenHomeCollectorsCapture() Then Return SetError(1, 0, False)
+	If Not OpenHomeWelcomeBackOverlayReady() Then Return SetError(0, 0, False)
+	If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, False)
+	If Not NoPremiumPointClick($NO_PREMIUM_ACTION_STARTUP_POPUP_CLOSE, 440, 540, 120, "#OpenHomeWelcomeBackClose", False) Then _
+		Return SetError(3, 0, False)
+	$bCloseIssued = True
+	For $iAttempt = 1 To 16
+		If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
+		If OpenHomeCollectorsProveHome() Then Return True
+		If OpenHomeDailyRewardOverlayReady() Or OpenHomeDailyRewardClaimedOverlayReady() Then Return SetError(7, 0, False)
+		If OpenHomeInactivityReloadDialogReady() Then Return SetError(8, 0, False)
+		If $iAttempt < 16 And _Sleep(500, True, True, False) Then Return SetError(2, 0, False)
+	Next
+	Return SetError(4, 0, False)
+EndFunc   ;==>OpenHomeWelcomeBackCloseAndProveHome
 
 ; Clash can place a foreground "Anyone there?" inactivity dialog over an otherwise valid startup
 ; Daily Reward panel. The dialog is recoverable and non-premium, but it must be handled before any
@@ -259,23 +366,45 @@ Func OpenHomeInactivityReloadPointReady($iX, $iY)
 	Return OpenHomeInactivityReloadDialogReady()
 EndFunc   ;==>OpenHomeInactivityReloadPointReady
 
-Func OpenHomeInactivityReloadIssue()
-	If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
-	If Not OpenHomeCollectorsCapture() Then Return SetError(1, 0, False)
-	If Not OpenHomeInactivityReloadDialogReady() Then Return SetError(0, 0, False)
-	If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, False)
-	Return NoPremiumPointClick($NO_PREMIUM_ACTION_RECOVERY_RELOAD_GAME, 281, 418, 120, "#OpenHomeInactivityReload", False)
+Func OpenHomeInactivityReloadIssue($bRequireRunState = True)
+        If RunControlStopRequested() Or ($bRequireRunState And Not $g_bRunState) Then Return SetError(2, 0, False)
+        If Not OpenHomeCollectorsCapture() Then Return SetError(1, 0, False)
+        If Not OpenHomeInactivityReloadDialogReady() Then Return SetError(0, 0, False)
+        If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, False)
+        Return NoPremiumPointClick($NO_PREMIUM_ACTION_RECOVERY_RELOAD_GAME, 281, 418, 120, "#OpenHomeInactivityReload", False)
 EndFunc   ;==>OpenHomeInactivityReloadIssue
 
-Func OpenHomeStartupRecoveryWait()
-	For $iAttempt = 1 To 60
-		If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
-		If OpenHomeCollectorsProveHome() Or OpenHomeDailyRewardOverlayReady() Or _
-				OpenHomeDailyRewardClaimedOverlayReady() Or OpenHomeWelcomeBackOverlayReady() Then Return True
+Func OpenHomeStartupRecoveryLaunchGame()
+	If RunControlStopRequested() Then Return SetError(2, 0, False)
+	Local $sLaunchOutput = AndroidAdbSendShellCommand("am start -n " & $g_sAndroidGamePackage & "/" & $g_sAndroidGameClass, 15000)
+	If @error Or StringInStr($sLaunchOutput, "Error:") Or StringInStr($sLaunchOutput, "Exception") Then Return SetError(1, 0, False)
+	Return True
+EndFunc   ;==>OpenHomeStartupRecoveryLaunchGame
+
+Func OpenHomeStartupRecoveryWait($bRequireRunState = True)
+	Local $bLaunchIssued = False
+        For $iAttempt = 1 To 60
+                If RunControlStopRequested() Or ($bRequireRunState And Not $g_bRunState) Then Return SetError(2, 0, False)
+                If OpenHomeCollectorsProveHome() Or OpenHomeDailyRewardOverlayReady() Or _
+                                OpenHomeDailyRewardClaimedOverlayReady() Or OpenHomeWelcomeBackOverlayReady() Then Return True
+		If Not $bLaunchIssued And $iAttempt >= 3 Then
+			If Not OpenHomeStartupRecoveryLaunchGame() Then Return SetError(5, 0, False)
+			$bLaunchIssued = True
+		EndIf
 		If _Sleep(1000, True, True, False) Then Return SetError(2, 0, False)
 	Next
 	Return SetError(4, 0, False)
 EndFunc   ;==>OpenHomeStartupRecoveryWait
+
+Func OpenHomeOrBuilderStartupRecoveryWait()
+	For $iAttempt = 1 To 60
+		If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
+		If OpenHomeCollectorsProveHome() Or OpenBuilderBaseProveMain() Or OpenHomeDailyRewardOverlayReady() Or _
+				OpenHomeDailyRewardClaimedOverlayReady() Or OpenHomeWelcomeBackOverlayReady() Then Return True
+		If _Sleep(1000, True, True, False) Then Return SetError(2, 0, False)
+	Next
+	Return SetError(4, 0, False)
+EndFunc   ;==>OpenHomeOrBuilderStartupRecoveryWait
 
 ; A Claim button is a 117x40 green control. Sampling four interior edges avoids its localized white
 ; label while rejecting the small green claimed check and the gray/brown inactive day controls.
@@ -290,9 +419,10 @@ EndFunc   ;==>_OpenHomeDailyRewardClaimCandidateReady
 ; actionable state, or >1 for an ambiguous state that must never receive input.
 Func OpenHomeDailyRewardFindClaim(ByRef $aClaim)
 	If Not IsArray($aClaim) Or UBound($aClaim) < 2 Or Not OpenHomeDailyRewardOverlayReady() Then Return 0
-	; The current client places the lower-row recognition center at y=485. The earlier y=477
-	; landed on the white label and sampled above the green control at y-16.
-	Local $aCandidates[7][2] = [[149, 326], [297, 326], [445, 326], [149, 485], [297, 485], [445, 485], [592, 485]]
+	; The current client places the lower-row recognition centers at y=485 except the expanded
+	; rightmost live offer, whose green control is centered at 628,483. The older 592,485 point
+	; lands its left-edge sample on the wood panel and fails the exact button predicate.
+	Local $aCandidates[7][2] = [[149, 326], [297, 326], [445, 326], [149, 485], [297, 485], [445, 485], [628, 483]]
 	Local $iMatches = 0
 	For $i = 0 To UBound($aCandidates) - 1
 		If Not _OpenHomeDailyRewardClaimCandidateReady($aCandidates[$i][0], $aCandidates[$i][1]) Then ContinueLoop
@@ -316,6 +446,26 @@ Func OpenHomeDailyRewardClaimPointReady($iX, $iY)
 	Local $iClaims = OpenHomeDailyRewardFindClaim($aClaim)
 	Return $iClaims = 1 And $aClaim[0] = Int($iX) And $aClaim[1] = Int($iY)
 EndFunc   ;==>OpenHomeDailyRewardClaimPointReady
+
+Func OpenHomeSelectedActionPanelReady()
+	If Not OpenHomeCollectorsCapture() Then Return False
+	If Not _CheckPixel($aIsMain, False) Then Return False
+	; Selected Home objects expose a bottom action card row. Require the Info card and title strip so a
+	; clean Home frame, shop HUD, chat button, or collector bubble cannot authorize a cleanup click.
+	Return _OpenHomePixelNear(196, 608, 0x387CB0, 44) And _
+			_OpenHomePixelNear(198, 586, 0x4F93C7, 60) And _
+			_OpenHomePixelNear(430, 550, 0xFFFFB7, 60)
+EndFunc   ;==>OpenHomeSelectedActionPanelReady
+
+Func OpenHomeClearSelectedActionPanel()
+	If Not OpenHomeSelectedActionPanelReady() Then Return True
+	If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
+	If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, False)
+	If Not NoPremiumPointClick($NO_PREMIUM_ACTION_HOME_CLEAR_SELECTION, 175, 10, 120, "#OpenHomeClearSelection", False) Then Return False
+	If _Sleep(350, True, True, False) Then Return SetError(2, 0, False)
+	If OpenHomeSelectedActionPanelReady() Then Return SetError(1, 0, False)
+	Return OpenHomeCollectorsProveHome()
+EndFunc   ;==>OpenHomeClearSelectedActionPanel
 
 Func OpenHomeDailyRewardClosePointReady($iX, $iY)
 	If Not NoPremiumPermitTargetValid($NO_PREMIUM_ACTION_DAILY_REWARD_CLOSE, $iX, $iY) Then Return False
@@ -356,6 +506,103 @@ Func OpenHomeDailyRewardCloseAndProveHome(ByRef $bCloseIssued)
 	Next
 	Return SetError(4, 0, False)
 EndFunc   ;==>OpenHomeDailyRewardCloseAndProveHome
+
+; Resolve a startup Daily Reward panel that blocks another planned route, such as a one-battle run.
+; This helper is intentionally narrower than the Daily Reward route: it may issue one exact Claim
+; and one exact close only when the reviewed clean-room predicates and no-premium guard agree.
+; It never reports a Home-maintenance route as completed and never clicks Okay/Confirm/conversion.
+Func OpenHomeStartupResolveDailyRewardBlocker(ByRef $sOutcome, ByRef $sError)
+	$sOutcome = "not-seen"
+	$sError = ""
+	If RunControlStopRequested() Or Not $g_bRunState Then
+		$sError = "Start cancelled before startup Daily Reward recovery"
+		Return SetError(2, 0, False)
+	EndIf
+
+	Local $bReloadIssued = OpenHomeInactivityReloadIssue()
+	Local $iReloadError = @error
+	If $bReloadIssued Then
+		SetLog("Run Planner: startup inactivity dialog recognized; reload issued before route startup", $COLOR_INFO)
+		If Not OpenHomeStartupRecoveryWait() Then
+			$sOutcome = "reload-unconfirmed"
+			$sError = "Startup reload recovery did not reach Home or a reviewed startup overlay; error=" & @error
+			Return SetError(3, 0, False)
+		EndIf
+	ElseIf $iReloadError = 2 Then
+		$sError = "Start cancelled during startup inactivity recovery"
+		Return SetError(2, 0, False)
+	ElseIf $iReloadError = 6 Then
+		$sOutcome = "gem-surface-blocked"
+		$sError = "Passive no-gem guard recognized a gem surface before startup recovery; no input was issued"
+		Return SetError(6, 0, False)
+	EndIf
+
+	Local $aClaim[2]
+	Local $iClaimButtons = OpenHomeDailyRewardCaptureClaim($aClaim)
+	If @error Then
+		$sError = "The startup Daily Reward framebuffer could not be captured"
+		Return SetError(1, 0, False)
+	EndIf
+	If Not OpenHomeDailyRewardOverlayReady() Then
+		If OpenHomeDailyRewardClaimedOverlayReady() Then
+			Local $bClaimedCloseIssued = False
+			If Not OpenHomeDailyRewardCloseAndProveHome($bClaimedCloseIssued) Then
+				$sOutcome = "claimed-close-unconfirmed"
+				$sError = "Startup Daily Reward was already claimed but Home Village was not re-proven"
+				Return SetError(4, 0, False)
+			EndIf
+			$sOutcome = "already-claimed-closed"
+			Return True
+		EndIf
+		Return True
+	EndIf
+
+	RunEventLogMaintenanceDailyRewardStarted()
+	If $iClaimButtons = 0 Then
+		Local $bNoClaimCloseIssued = False
+		If Not OpenHomeDailyRewardCloseAndProveHome($bNoClaimCloseIssued) Then
+			$sOutcome = "none-actionable-close-unconfirmed"
+			$sError = "Startup Daily Reward had no Claim button and Home Village was not re-proven"
+			Return SetError(4, 0, False)
+		EndIf
+		$sOutcome = "none-actionable-closed"
+		RunEventLogMaintenanceDailyRewardUnavailable("startup-none-actionable")
+		Return True
+	EndIf
+	If $iClaimButtons <> 1 Then
+		$sOutcome = "ambiguous"
+		$sError = "Startup Daily Reward recognition was ambiguous; claim_buttons=" & $iClaimButtons
+		RunEventLogMaintenanceDailyRewardUnconfirmed(False, $sError)
+		Return SetError(5, $iClaimButtons, False)
+	EndIf
+
+	Local $bClaimIssued = OpenHomeDailyRewardIssueClaim($aClaim[0], $aClaim[1])
+	Local $iClaimError = @error
+	If Not $bClaimIssued Then
+		If $iClaimError = 2 Or RunControlStopRequested() Or Not $g_bRunState Then
+			$sError = "Start cancelled before startup Daily Reward Claim"
+			Return SetError(2, 0, False)
+		EndIf
+		$sOutcome = "click-rejected"
+		$sError = $iClaimError = 6 ? _
+				"Passive no-gem guard recognized a gem surface; no startup Daily Reward Claim input was issued" : _
+				"The one startup Daily Reward Claim attempt was rejected after fresh recognition"
+		RunEventLogMaintenanceDailyRewardUnconfirmed(False, $sError)
+		Return SetError($iClaimError = 6 ? 6 : 5, 0, False)
+	EndIf
+
+	RunEventLogMaintenanceDailyRewardClickIssued(1)
+	Local $bCloseIssued = False
+	If Not OpenHomeDailyRewardCloseAndProveHome($bCloseIssued) Then
+		$sOutcome = "click-issued-close-unconfirmed"
+		$sError = "Startup Daily Reward Claim was issued but Home Village was not re-proven; the Claim will not be retried"
+		RunEventLogMaintenanceDailyRewardUnconfirmed(True, $sError)
+		Return SetError(4, 0, False)
+	EndIf
+	$sOutcome = "click-issued-closed"
+	SetLog("Run Planner: startup Daily Reward cleared before selected route; close_issued=" & String($bCloseIssued), $COLOR_SUCCESS)
+	Return True
+EndFunc   ;==>OpenHomeStartupResolveDailyRewardBlocker
 
 ; Current-client 860x732 Home Village cue for the in-game "Collect" label above a Loot Cart.
 ; Eight anti-aliased glyph pixels make the cue unique in the verified redacted Home fixture while

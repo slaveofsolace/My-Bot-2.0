@@ -104,7 +104,7 @@ Func OpenClanRequestOpenArmyOverview($sPermitAction = $NO_PREMIUM_ACTION_CLAN_RE
 	If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, False)
 	If RunControlStopRequested() Or Not $g_bRunState Then Return False
 	If Not NoPremiumPointClick($sPermitAction, $OPEN_CLAN_REQUEST_ARMY_X, _
-			$OPEN_CLAN_REQUEST_ARMY_Y, 120, "#OpenClanRequestArmy", True) Then Return False
+			$OPEN_CLAN_REQUEST_ARMY_Y, 120, "#OpenClanRequestArmy", False) Then Return False
 	If _Sleep(400, True, True, False) Then Return False
 	For $iAttempt = 1 To 10
 		If RunControlStopRequested() Or Not $g_bRunState Then Return False
@@ -136,7 +136,7 @@ Func OpenClanRequestOpenDialog($iRequestX, $iRequestY)
 	If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, 0)
 	If RunControlStopRequested() Or Not $g_bRunState Then Return 0
 	If Not NoPremiumPointClick($NO_PREMIUM_ACTION_CLAN_REQUEST_REQUEST, $OPEN_CLAN_REQUEST_BUTTON_X, _
-			$OPEN_CLAN_REQUEST_BUTTON_Y, 120, "#OpenClanRequestDialog", True) Then Return 0
+			$OPEN_CLAN_REQUEST_BUTTON_Y, 120, "#OpenClanRequestDialog", False) Then Return 0
 	If _Sleep(300, True, True, False) Then Return 0
 	For $iAttempt = 1 To 8
 		If RunControlStopRequested() Or Not $g_bRunState Then Return 0
@@ -154,7 +154,7 @@ Func OpenClanRequestIssueSend($iSendX, $iSendY)
 	If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, False)
 	If RunControlStopRequested() Or Not $g_bRunState Then Return False
 	Return NoPremiumPointClick($NO_PREMIUM_ACTION_CLAN_REQUEST_SEND, $OPEN_CLAN_REQUEST_SEND_X, _
-			$OPEN_CLAN_REQUEST_SEND_Y, 120, "#OpenClanRequestSend", True)
+			$OPEN_CLAN_REQUEST_SEND_Y, 120, "#OpenClanRequestSend", False)
 EndFunc   ;==>OpenClanRequestIssueSend
 
 ; Close only recognized request-owned overlays. A Stop authorizes no cleanup input.
@@ -165,7 +165,7 @@ Func OpenClanRequestCloseAndProveHome()
 			If RunControlStopRequested() Or Not $g_bRunState Then Return False
 			If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, False)
 			If Not NoPremiumPointClick($NO_PREMIUM_ACTION_CLAN_REQUEST_CANCEL, $OPEN_CLAN_REQUEST_CANCEL_X, _
-					$OPEN_CLAN_REQUEST_CANCEL_Y, 120, "#OpenClanRequestCancel", True) Then Return False
+					$OPEN_CLAN_REQUEST_CANCEL_Y, 120, "#OpenClanRequestCancel", False) Then Return False
 			If _Sleep(300, True, True, False) Then Return False
 			ContinueLoop
 		EndIf
@@ -173,7 +173,7 @@ Func OpenClanRequestCloseAndProveHome()
 			If RunControlStopRequested() Or Not $g_bRunState Then Return False
 			If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, False)
 			If Not NoPremiumPointClick($NO_PREMIUM_ACTION_CLAN_REQUEST_CLOSE, $OPEN_CLAN_REQUEST_CLOSE_X, _
-					$OPEN_CLAN_REQUEST_CLOSE_Y, 120, "#OpenClanRequestClose", True) Then Return False
+					$OPEN_CLAN_REQUEST_CLOSE_Y, 120, "#OpenClanRequestClose", False) Then Return False
 			If _Sleep(300, True, True, False) Then Return False
 			ContinueLoop
 		EndIf

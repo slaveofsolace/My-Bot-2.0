@@ -22,6 +22,14 @@ def read_source(relative_path: str, *, encoding: str = "utf-8-sig") -> str:
     return (ROOT / relative_path).read_text(encoding=encoding)
 
 
+def expected_start_identity(payload: dict) -> dict:
+    return {
+        "expected_run_mode": payload["run_mode"],
+        "expected_plan_revision": payload["plan_revision"],
+        "expected_plan_token": payload["plan_token"],
+    }
+
+
 def autoit_function(source: str, name: str) -> str:
     start = source.index(f"Func {name}(")
     end = source.index(f"EndFunc   ;==>{name}", start)
@@ -50,12 +58,14 @@ class RuntimeBoundaryRegressionTests(unittest.TestCase):
         for export in ("setMaxDegreeOfParallelism", "setProcessingPoolSize"):
             self.assertIsNone(
                 re.search(rf"\b{export}\s*\(", executable),
-                f"{export} must remain exclusive to launcher-supervised initialization",
+                f"{export} must not be called from ApplyConfig callbacks",
             )
 
         initialize = autoit_function(self.mbr_func, "MBRFuncInitialize")
-        self.assertEqual(initialize.count("setMaxDegreeOfParallelism("), 1)
-        self.assertEqual(initialize.count("setProcessingPoolSize("), 1)
+        self.assertEqual(initialize.count("setMaxDegreeOfParallelism("), 0)
+        self.assertEqual(initialize.count("setProcessingPoolSize("), 0)
+        self.assertIn("inherited max-degree initialization skipped", initialize)
+        self.assertIn("inherited processing-pool initialization skipped", initialize)
 
     def test_native_status_and_web_controls_publish_recognition_truth(self) -> None:
         recognition_available = autoit_function(self.mbr_func, "MBRFuncRecognitionAvailable")
@@ -116,21 +126,141 @@ class RuntimeBoundaryRegressionTests(unittest.TestCase):
         self.assertIn("$('controlSafeHomeRoute').onclick = prepareVerifiedHomeRoute;", click_handler)
         self.assertNotIn("else prepareVerifiedHomeRoute()", click_handler)
 
+    def test_control_status_surfaces_mini_supervisor_lifecycle_receipt(self) -> None:
+        self.assertIn("mini_supervisor", planner_ui.DIAGNOSTIC_ENGINE_FIELDS)
+        self.assertIn("supervisor_state", planner_ui.DIAGNOSTIC_ENGINE_FIELDS)
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            lifecycle_path = root / "mini-supervisor-lifecycle-v1.json"
+            status_path = root / "missing-status.json"
+            planner_ui.write_json_atomic(
+                {
+                    "schema": "my-bot-mini-supervisor-lifecycle-v1",
+                    "state": "ready-idle",
+                    "reason": "backend recovered in Idle; Start was not replayed",
+                    "controller_pid": 1234,
+                    "controller_created": "controller-created",
+                    "backend_pid": 5678,
+                    "backend_created": "backend-created",
+                    "backend_alive": True,
+                    "backend_window_attached": True,
+                    "profile": "MyVillage",
+                    "emulator": "BlueStacks5",
+                    "instance": "Pie64",
+                    "recovery_active": False,
+                    "recovery_delay_ms": 1500,
+                    "start_replayed": False,
+                    "account_profile_id": "must-not-export",
+                },
+                lifecycle_path,
+            )
+            with mock.patch.object(planner_ui, "MINI_LIFECYCLE_PATH", lifecycle_path), mock.patch.object(
+                planner_ui, "CONTROL_STATUS_PATH", status_path
+            ):
+                offline = planner_ui.control_status()
+
+            self.assertFalse(offline["connected"])
+            self.assertEqual(offline["supervisor_state"], "ready-idle")
+            mini = offline["mini_supervisor"]
+            self.assertTrue(mini["available"])
+            self.assertEqual(mini["state"], "ready-idle")
+            self.assertEqual(mini["backend_pid"], 5678)
+            self.assertIn("Start was not replayed", mini["message"])
+            self.assertNotIn("account_profile_id", mini)
+
+            lifecycle_path.write_text('{"schema": "wrong", "state": "running"}', encoding="utf-8")
+            with mock.patch.object(planner_ui, "MINI_LIFECYCLE_PATH", lifecycle_path):
+                ambiguous = planner_ui.mini_lifecycle_status()
+            self.assertFalse(ambiguous["available"])
+            self.assertEqual(ambiguous["state"], "ownership-ambiguous")
+
+    def test_dead_native_pid_fails_busy_status_without_erasing_terminal_receipts(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            status_path = root / "control-status.local.json"
+            command_path = root / "control-command.local.json"
+            starting = {
+                "state": "starting",
+                "message": "Preparing the run",
+                "bot_pid": 424242,
+                "engine_available": True,
+                "last_command": "start",
+                "last_outcome": "accepted",
+                "last_command_id": "dead-start",
+            }
+            with mock.patch.object(planner_ui, "CONTROL_STATUS_PATH", status_path), mock.patch.object(
+                planner_ui, "CONTROL_COMMAND_PATH", command_path
+            ), mock.patch.object(planner_ui, "native_bot_process_alive", return_value=False):
+                planner_ui.write_json_atomic(starting, status_path)
+                payload = planner_ui.control_status()
+                self.assertFalse(payload["connected"])
+                self.assertEqual(payload["state"], "offline")
+                self.assertEqual(payload["last_outcome"], "failed")
+                self.assertIn("process exited", payload["last_command_message"])
+                self.assertFalse(payload["engine_available"])
+                self.assertFalse(payload["recognition_available"])
+
+                start_payload, start_code = planner_ui.queue_control_command(
+                    "start",
+                    expected_run_mode="planned",
+                    expected_plan_revision=1,
+                    expected_plan_token="sha256:" + "0" * 64,
+                )
+                self.assertEqual(start_code, 409)
+                self.assertFalse(start_payload["ok"])
+                self.assertIn("native engine is offline", start_payload["problems"])
+                self.assertFalse(command_path.exists())
+
+                planner_ui.write_json_atomic(
+                    {
+                        "state": "idle",
+                        "message": "Template-free Home collectors completed; collector_clicks=1",
+                        "bot_pid": 424242,
+                        "engine_available": True,
+                        "last_command": "start",
+                        "last_outcome": "completed",
+                        "last_command_id": "completed-route",
+                    },
+                    status_path,
+                )
+                terminal = planner_ui.control_status()
+                self.assertTrue(terminal["connected"])
+                self.assertEqual(terminal["state"], "idle")
+                self.assertEqual(terminal["last_outcome"], "completed")
+                self.assertEqual(
+                    terminal["message"],
+                    "Template-free Home collectors completed; collector_clicks=1",
+                )
+
     def test_rights_gate_rejects_full_profile_without_writing_a_command(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             command_path = root / "control-command.local.json"
+            receipt_path = root / "run-plan.receipt.local.json"
             status = {
                 "connected": True,
                 "state": "idle",
                 "engine_available": True,
+                "emulator_attached": True,
+                "window_attached": True,
+                "adb_ready": True,
+                "game_ready": True,
                 "recognition_available": False,
                 "recognition_error": "licensed inherited recognition or a clean-room replacement is required",
             }
             with mock.patch.object(planner_ui, "PLAN_PATH", root / "missing-plan.json"), mock.patch.object(
+                planner_ui, "PLAN_RECEIPT_PATH", receipt_path
+            ), mock.patch.object(
                 planner_ui, "CONTROL_COMMAND_PATH", command_path
             ), mock.patch.object(planner_ui, "control_status", return_value=status):
-                payload, code = planner_ui.queue_control_command("start")
+                receipt = planner_ui.accepted_plan_receipt("native-profile", planner_ui.new_attempt_id(), 1, planner_ui.PLAN_ABSENCE_TOKEN)
+                planner_ui.write_plan_receipt_atomic(receipt)
+                payload, code = planner_ui.queue_control_command(
+                    "start",
+                    expected_run_mode="native-profile",
+                    expected_plan_revision=receipt["plan_revision"],
+                    expected_plan_token=receipt["plan_token"],
+                )
 
             self.assertEqual(code, 409)
             self.assertFalse(payload["ok"])
@@ -146,6 +276,10 @@ class RuntimeBoundaryRegressionTests(unittest.TestCase):
             status = {
                 "connected": True,
                 "state": "idle",
+                "emulator_attached": True,
+                "window_attached": True,
+                "adb_ready": True,
+                "game_ready": True,
                 "recognition_available": False,
                 "recognition_error": "licensed inherited recognition or a clean-room replacement is required",
             }
@@ -164,8 +298,55 @@ class RuntimeBoundaryRegressionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             plan_path = root / "run-plan.local.json"
+            receipt_path = root / "run-plan.receipt.local.json"
             command_path = root / "control-command.local.json"
-            plan_path.write_text(json.dumps({"run.strategy": "home.collectors"}), encoding="utf-8")
+            clean_room_plan = planner_ui.default_plan()
+            clean_room_plan.update(
+                {
+                    "run.surface": "regular",
+                    "run.strategy": "home.collectors",
+                    "run.attack_script": "profile-current",
+                    "run.duration_minutes": 0,
+                    "run.max_battles": 0,
+                    "run.stop_on_star_bonus": False,
+                    "run.max_failures": 0,
+                    "run.heroes": [],
+                    "run.diagnostic_mode": True,
+                    "target.gold": 0,
+                    "target.elixir": 0,
+                    "target.dark_elixir": 0,
+                    "army.source": "recipe",
+                    "army.recipe_name": "",
+                    "army.recipe_digest": "",
+                    "army.max_queue_units": 0,
+                    "army.manage_training": False,
+                    "army.wait_for_full": False,
+                    "army.train_spells": False,
+                    "army.train_sieges": False,
+                    "search.min_gold": 0,
+                    "search.min_elixir": 0,
+                    "search.min_dark": 0,
+                    "search.max_seconds": 0,
+                    "search.town_hall_filter": "any",
+                    "donate.mode": "off",
+                    "donate.keep_army": True,
+                    "donate.max_per_run": 0,
+                    "donate.request_when_short": False,
+                    "events.clan_games": False,
+                    "events.clan_games_point_cap": 0,
+                    "events.laboratory": "off",
+                    "events.collect_resources": True,
+                    "events.collect_daily_reward": False,
+                    "events.collect_loot_cart": False,
+                    "events.collect_treasury": False,
+                    "upgrade.policy": "disabled",
+                    "account.queue": "",
+                    "notify.channel": "log-only",
+                    "runtime.emulator": "bluestacks5",
+                    "runtime.instance": "Pie64",
+                    "pacing.retry_attempts": 0,
+                }
+            )
             status = {
                 "connected": True,
                 "state": "idle",
@@ -174,14 +355,64 @@ class RuntimeBoundaryRegressionTests(unittest.TestCase):
                 "recognition_error": "full-profile recognition is unavailable",
             }
             with mock.patch.object(planner_ui, "PLAN_PATH", plan_path), mock.patch.object(
+                planner_ui, "PLAN_RECEIPT_PATH", receipt_path
+            ), mock.patch.object(
                 planner_ui, "CONTROL_COMMAND_PATH", command_path
             ), mock.patch.object(planner_ui, "control_status", return_value=status):
-                payload, code = planner_ui.queue_control_command("start")
+                save_payload, save_code = planner_ui.save_plan(clean_room_plan)
+                self.assertEqual(save_code, 200)
+                payload, code = planner_ui.queue_control_command("start", **expected_start_identity(save_payload))
 
             self.assertEqual(code, 202)
             self.assertTrue(payload["accepted"])
             command = json.loads(command_path.read_text(encoding="utf-8"))
             self.assertEqual(command["run_mode"], "planned")
+
+    def test_start_refuses_saved_plan_that_fails_server_preflight(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            plan_path = root / "run-plan.local.json"
+            receipt_path = root / "run-plan.receipt.local.json"
+            command_path = root / "control-command.local.json"
+            bad_plan = planner_ui.default_plan()
+            bad_plan.update(
+                {
+                    "run.surface": "builder",
+                    "run.strategy": "legacy.standard",
+                    "run.max_battles": 1,
+                    "army.wait_for_full": True,
+                    "donate.keep_army": True,
+                    "runtime.emulator": "bluestacks5",
+                    "runtime.instance": "Pie64",
+                }
+            )
+            plan_path.write_text(json.dumps(bad_plan), encoding="utf-8")
+            status = {
+                "connected": True,
+                "state": "idle",
+                "engine_available": True,
+                "recognition_available": False,
+                "recognition_error": "full-profile recognition is unavailable",
+            }
+            with mock.patch.object(planner_ui, "PLAN_PATH", plan_path), mock.patch.object(
+                planner_ui, "PLAN_RECEIPT_PATH", receipt_path
+            ), mock.patch.object(
+                planner_ui, "CONTROL_COMMAND_PATH", command_path
+            ), mock.patch.object(planner_ui, "control_status", return_value=status):
+                token = planner_ui.plan_start_token("planned")
+                receipt = planner_ui.accepted_plan_receipt("planned", planner_ui.new_attempt_id(), 1, token)
+                planner_ui.write_plan_receipt_atomic(receipt)
+                payload, code = planner_ui.queue_control_command(
+                    "start",
+                    expected_run_mode="planned",
+                    expected_plan_revision=receipt["plan_revision"],
+                    expected_plan_token=receipt["plan_token"],
+                )
+
+            self.assertEqual(code, 409)
+            self.assertFalse(payload["ok"])
+            self.assertTrue(any("Builder Base Battles" in item or "Regular Battles" in item for item in payload["problems"]))
+            self.assertFalse(command_path.exists())
 
     def test_latched_android_binding_loss_fails_closed_before_any_dll_call(self) -> None:
         binding = autoit_function(self.mbr_func, "setAndroidPID")
@@ -352,11 +583,15 @@ class RuntimeBoundaryRegressionTests(unittest.TestCase):
             self.assertIn("selected instance is reserved, but its Android transport is unavailable", selector)
 
         rebind = autoit_function(self.synchronization, "RebindConfiguredAndroidInstanceLock")
+        reserve = autoit_function(self.synchronization, "ReserveConfiguredAndroidInstanceLock")
         action_acquire = autoit_function(self.synchronization, "AcquireExactAndroidInstanceLock")
         self.assertIn("Local $hNewMutex = CreateMutex($sIdentity)", rebind)
         self.assertNotIn("_AcquireExactAndroidInstanceMutexHandle($sIdentity, 1", rebind)
         self.assertNotIn("$g_hConfiguredAndroidInstanceMutex And", action_acquire)
         self.assertIn("_AcquireExactAndroidInstanceMutexHandle($sIdentity, $iTimeoutMs, $bStopAware)", action_acquire)
+        self.assertIn("_ConfiguredAndroidInstanceMutexName($sEmulator, $sInstance)", reserve)
+        self.assertIn("_ConfiguredAndroidInstanceMutexName($sEmulator, $sInstance)", rebind)
+        self.assertIn("_ExactAndroidInstanceMutexName($sEmulator, $sInstance)", action_acquire)
 
         restore = autoit_function(read_source("COCBot/functions/Run/RunExecution.au3"), "_RunExecutionRestoreProfile")
         failed_rebind = restore[restore.index("If Not UpdateAndroidConfig") :]
@@ -367,12 +602,18 @@ class RuntimeBoundaryRegressionTests(unittest.TestCase):
         self.assertIn("$g_bRunExecutionProfileSnapshotCaptured = False", restore[guarded_selectors:])
 
         mutex_name = autoit_function(self.synchronization, "_ExactAndroidInstanceMutexName")
+        configured_mutex_name = autoit_function(self.synchronization, "_ConfiguredAndroidInstanceMutexName")
         canonical = autoit_function(self.synchronization, "_CanonicalExactAndroidInstanceIdentity")
         self.assertIn('"Global\\MyBot.run.AndroidInstance.v1."', mutex_name)
+        self.assertIn('"Global\\MyBot.run.ConfiguredAndroidReservation.v1."', configured_mutex_name)
         self.assertIn("$sNormalizedEmulator", mutex_name)
         self.assertIn("$sNormalizedInstance", mutex_name)
+        self.assertIn("$sNormalizedEmulator", configured_mutex_name)
+        self.assertIn("$sNormalizedInstance", configured_mutex_name)
         self.assertIn("StringLen($sNormalizedEmulator)", mutex_name)
         self.assertIn("StringLen($sNormalizedInstance)", mutex_name)
+        self.assertIn("StringLen($sNormalizedEmulator)", configured_mutex_name)
+        self.assertIn("StringLen($sNormalizedInstance)", configured_mutex_name)
         self.assertIn('Case "ldplayer9"', canonical)
         self.assertIn('StringReplace($sNormalizedInstance, "leidian", "")', canonical)
         self.assertIn('Case "mumu"', canonical)
@@ -628,6 +869,7 @@ class RuntimeBoundaryRegressionTests(unittest.TestCase):
                 "ReleaseMutex",
                 "_CanonicalExactAndroidInstanceIdentity",
                 "_ExactAndroidInstanceMutexName",
+                "_ConfiguredAndroidInstanceMutexName",
                 "_AcquireExactAndroidInstanceMutexHandle",
                 "ReserveConfiguredAndroidInstanceLock",
                 "RebindConfiguredAndroidInstanceLock",
@@ -663,6 +905,8 @@ class RuntimeBoundaryRegressionTests(unittest.TestCase):
                 '\tIf Not AcquireExactAndroidInstanceLock("BlueStacks5", "Rebind A", $sReason, 1000) Then Exit 6',
                 '\tIf Not RebindConfiguredAndroidInstanceLock("BlueStacks5", "Rebind B", $sReason) Then Exit 5',
                 '\t$bAcquired = True',
+                'ElseIf $CmdLine[1] = "reserve-wait" Then',
+                '\t$bAcquired = ReserveConfiguredAndroidInstanceLock("BlueStacks5", $CmdLine[2], $sReason, 400)',
                 'Else',
                 '\t$bAcquired = AcquireExactAndroidInstanceLock("BlueStacks5", $CmdLine[2], $sReason, 400)',
                 'EndIf',
@@ -699,24 +943,33 @@ class RuntimeBoundaryRegressionTests(unittest.TestCase):
             )
             try:
                 self.assertTrue(wait_for(owner_marker), "rebind owner did not acquire both reservations")
-                for instance in ("Rebind A", "Rebind B"):
-                    marker = root / f"blocked-{instance[-1]}.marker"
-                    blocked = subprocess.run(
-                        [str(AUTOIT), "/ErrorStdOut", str(script), "wait", instance, "0", str(marker)],
-                        capture_output=True,
-                        text=True,
-                        timeout=2,
-                    )
-                    self.assertEqual(8, blocked.returncode, blocked.stdout + blocked.stderr)
-                    self.assertTrue(marker.read_text(encoding="utf-8").startswith("failed:"))
+                blocked_a_marker = root / "blocked-A.marker"
+                blocked_a = subprocess.run(
+                    [str(AUTOIT), "/ErrorStdOut", str(script), "wait", "Rebind A", "0", str(blocked_a_marker)],
+                    capture_output=True,
+                    text=True,
+                    timeout=2,
+                )
+                self.assertEqual(8, blocked_a.returncode, blocked_a.stdout + blocked_a.stderr)
+                self.assertTrue(blocked_a_marker.read_text(encoding="utf-8").startswith("failed:"))
+
+                blocked_b_marker = root / "blocked-B.marker"
+                blocked_b = subprocess.run(
+                    [str(AUTOIT), "/ErrorStdOut", str(script), "reserve-wait", "Rebind B", "0", str(blocked_b_marker)],
+                    capture_output=True,
+                    text=True,
+                    timeout=2,
+                )
+                self.assertEqual(8, blocked_b.returncode, blocked_b.stdout + blocked_b.stderr)
+                self.assertTrue(blocked_b_marker.read_text(encoding="utf-8").startswith("failed:"))
             finally:
                 owner_stdout, owner_stderr = owner.communicate(timeout=5)
             self.assertEqual(0, owner.returncode, owner_stdout + owner_stderr)
 
-            for instance in ("Rebind A", "Rebind B"):
+            for mode, instance in (("wait", "Rebind A"), ("reserve-wait", "Rebind B")):
                 marker = root / f"released-{instance[-1]}.marker"
                 released = subprocess.run(
-                    [str(AUTOIT), "/ErrorStdOut", str(script), "wait", instance, "0", str(marker)],
+                    [str(AUTOIT), "/ErrorStdOut", str(script), mode, instance, "0", str(marker)],
                     capture_output=True,
                     text=True,
                     timeout=2,

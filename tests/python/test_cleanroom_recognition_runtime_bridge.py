@@ -23,6 +23,15 @@ class CleanRoomRecognitionRuntimeBridgeTest(unittest.TestCase):
         self.assertEqual(render_contract(self.manifest), self.generated)
 
     def test_runtime_contract_is_inert_and_closed_world(self) -> None:
+        providers = self.manifest["providers"]
+        self.assertEqual(["CleanRoomLocal", "InheritedAuthorized", "Unavailable"], providers["states"])
+        self.assertEqual("Unavailable", providers["default_state"])
+        self.assertEqual("Unavailable", providers["full_profile_state"])
+        self.assertFalse(providers["clean_room_local"]["published_assets"])
+        self.assertFalse(providers["clean_room_local"]["supports_bot_start"])
+        self.assertFalse(providers["inherited_authorized"]["enabled"])
+        self.assertIn("written permission", providers["inherited_authorized"]["reason"])
+
         runtime = self.manifest["runtime_bridge"]
         self.assertEqual("read-only", runtime["mode"])
         self.assertFalse(runtime["legacy_dispatch_wired"])
@@ -72,6 +81,33 @@ class CleanRoomRecognitionRuntimeBridgeTest(unittest.TestCase):
             self.bridge,
         )
 
+    def test_provider_state_is_typed_and_never_enables_inherited_dispatch(self) -> None:
+        for token in (
+            "$CLEANROOM_RECOGNITION_PROVIDER_CLEANROOMLOCAL",
+            "$CLEANROOM_RECOGNITION_PROVIDER_INHERITEDAUTHORIZED",
+            "$CLEANROOM_RECOGNITION_PROVIDER_UNAVAILABLE",
+            "$CLEANROOM_RECOGNITION_PROVIDER_STATES",
+            "$CLEANROOM_RECOGNITION_DEFAULT_PROVIDER",
+            "$CLEANROOM_RECOGNITION_FULL_PROFILE_PROVIDER",
+            "$CLEANROOM_RECOGNITION_CLEANROOMLOCAL_SUPPORTS_BOT_START",
+            "$CLEANROOM_RECOGNITION_INHERITEDAUTHORIZED_ENABLED",
+        ):
+            self.assertIn(token, self.generated)
+        self.assertIn('"CleanRoomLocal|InheritedAuthorized|Unavailable"', self.generated)
+        self.assertIn('$CLEANROOM_RECOGNITION_INHERITEDAUTHORIZED_ENABLED = False', self.generated)
+        self.assertIn('$CLEANROOM_RECOGNITION_CLEANROOMLOCAL_SUPPORTS_BOT_START = False', self.generated)
+
+        provider = self.bridge[
+            self.bridge.index("Func CleanRoomRecognitionProviderState(") :
+            self.bridge.index("EndFunc   ;==>CleanRoomRecognitionProviderState")
+        ]
+        self.assertIn("$CLEANROOM_RECOGNITION_DEFAULT_PROVIDER", provider)
+        self.assertIn("$CLEANROOM_RECOGNITION_STATUS_READ_ONLY_PURE", provider)
+        self.assertIn("$CLEANROOM_RECOGNITION_STATUS_FIXTURE_REPLAY_ONLY", provider)
+        self.assertIn("$CLEANROOM_RECOGNITION_PROVIDER_CLEANROOMLOCAL", provider)
+        self.assertIn("$CLEANROOM_RECOGNITION_PROVIDER_UNAVAILABLE", provider)
+        self.assertNotIn("$CLEANROOM_RECOGNITION_PROVIDER_INHERITEDAUTHORIZED", provider)
+
     def test_legacy_recognition_dispatch_stays_blocked(self) -> None:
         mbr = (ROOT / "COCBot" / "functions" / "Other" / "MBRFunc.au3").read_text(encoding="utf-8-sig")
         availability_start = mbr.index("Func MBRFuncRecognitionAvailable()")
@@ -82,6 +118,15 @@ class CleanRoomRecognitionRuntimeBridgeTest(unittest.TestCase):
         dispatch = mbr[dispatch_start:dispatch_end]
         self.assertIn("Inherited ImgLoc recognition is disabled", dispatch)
         self.assertNotIn("CleanRoomRecognition", dispatch)
+        provider_start = mbr.index("Func MBRFuncRecognitionProviderState()")
+        provider_end = mbr.index("EndFunc", provider_start)
+        self.assertIn('Return "Unavailable"', mbr[provider_start:provider_end])
+
+        control = (ROOT / "COCBot" / "functions" / "Run" / "RunControlBridge.au3").read_text(encoding="utf-8-sig")
+        self.assertIn('"recognition_provider"', control)
+        self.assertIn("MBRFuncRecognitionProviderState()", control)
+        self.assertIn('"recognition_provider_reason"', control)
+        self.assertIn("MBRFuncRecognitionProviderReason()", control)
 
     def test_main_runtime_includes_bridge_without_startup_call(self) -> None:
         main = (ROOT / "MyBot.run.au3").read_text(encoding="utf-8-sig")

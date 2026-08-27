@@ -130,8 +130,8 @@ Func LootCartRouteRunAdapter($sDetectCartCallback, $sIssueCartCallback, $sDetect
 	EndIf
 	$oOutcome.Item("collect_state") = StringLower(String($oCollect.Item("state")))
 	If $oOutcome.Item("collect_state") = $LOOT_CART_STATE_COLLECT_MISSING Then _
-		Return _LootCartRouteFinish($oOutcome, $LOOT_CART_OUTCOME_UNCONFIRMED, _
-				"The Loot Cart opened but no exact Collect button was recognized", $sProveHomeCallback)
+		Return _LootCartRouteFinish($oOutcome, $LOOT_CART_OUTCOME_UNAVAILABLE, _
+				"A Loot Cart cue was probed but no exact Collect panel appeared; no Collect input was issued", $sProveHomeCallback)
 	If $oOutcome.Item("collect_state") <> $LOOT_CART_STATE_COLLECT_READY Then _
 		Return _LootCartRouteFinish($oOutcome, $LOOT_CART_OUTCOME_UNCONFIRMED, _
 				"Expected one exact Collect button after opening the Loot Cart", $sProveHomeCallback)

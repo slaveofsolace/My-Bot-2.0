@@ -29,6 +29,7 @@ class GameLaunchOnlyControlTests(unittest.TestCase):
         cls.action = source("COCBot/MBR GUI Action.au3")
         cls.android = source("COCBot/functions/Android/AndroidBluestacks5.au3")
         cls.bridge = source("COCBot/functions/Run/RunControlBridge.au3")
+        cls.collectors = source("COCBot/functions/Run/OpenHomeCollectors.au3")
         cls.events = source("COCBot/functions/Run/RunEventLog.au3")
         cls.event_schema = json.loads(source("config/run-event.schema.json"))
         cls.actuators = json.loads(source("config/actuator-registry.json"))
@@ -63,25 +64,32 @@ class GameLaunchOnlyControlTests(unittest.TestCase):
         for required in (
             '$g_sAndroidEmulator <> "BlueStacks5"',
             "GetAndroidProgramParameter()",
-            "LaunchAndroid(",
+            "LaunchBlueStacks5ProcessOnly(",
             "ConnectAndroidAdb(False, 3000)",
             "WaitForAndroidBootCompleted(",
             'AndroidAdbSendShellCommand("am start -n "',
             "GetAndroidProcessPID(Default, False)",
             "OpenHomeCollectorsProveHome()",
+            "BuilderMaintenanceRoutePrepared()",
+            "_CheckPixel($aIsOnBuilderBase, False)",
+            "Builder Base passively proven for the selected Builder maintenance route",
             "OpenHomeDailyRewardOverlayReady()",
             "OpenHomeDailyRewardFindClaim($aDailyRewardClaim)",
             "OpenHomeDailyRewardClaimedOverlayReady()",
             "OpenHomeInactivityReloadDialogReady()",
             "OpenHomeWelcomeBackOverlayReady()",
+            "OpenHomeWelcomeBackCloseAndProveHome($bWelcomeBackCloseIssued)",
             "_LaunchBlueStacks5FinalizePassiveProof(",
             "RunControlStopRequested()",
         ):
             self.assertIn(required, adapter)
         self.assertEqual(adapter.count('AndroidAdbSendShellCommand("am start -n "'), 1)
         for forbidden in (
+            "LaunchAndroid(",
+            "SetScreenAndroid",
             "RestartAndroidCoC",
             "OpenAndroid(",
+            "_OpenAndroid",
             "CloseAndroid",
             "RebootAndroid",
             "AndroidHomeButton",
@@ -100,6 +108,59 @@ class GameLaunchOnlyControlTests(unittest.TestCase):
             "NoPremiumPointClick",
         ):
             self.assertNotIn(forbidden, adapter)
+
+    def test_launch_only_may_close_welcome_back_through_reviewed_popup_permit(self) -> None:
+        adapter = function_body(self.android, "LaunchBlueStacks5CoCOnly")
+        helper = function_body(self.collectors, "OpenHomeWelcomeBackCloseAndProveHome")
+
+        for required in (
+            "Local $bWelcomeBackCloseIssued = False",
+            "OpenHomeWelcomeBackCloseAndProveHome($bWelcomeBackCloseIssued)",
+            "Welcome Back startup overlay closed by reviewed no-premium OK action; Home Village passively proven",
+            "reviewed OK close path did not re-prove Home",
+        ):
+            self.assertIn(required, adapter)
+
+        for required in (
+            "OpenHomeCollectorsCapture()",
+            "OpenHomeWelcomeBackOverlayReady()",
+            "OpenHomeNoGemInputReady()",
+            "NoPremiumPointClick($NO_PREMIUM_ACTION_STARTUP_POPUP_CLOSE, 440, 540",
+            "#OpenHomeWelcomeBackClose",
+            "OpenHomeCollectorsProveHome()",
+            "OpenHomeDailyRewardOverlayReady() Or OpenHomeDailyRewardClaimedOverlayReady()",
+            "OpenHomeInactivityReloadDialogReady()",
+        ):
+            self.assertIn(required, helper)
+
+        for forbidden in (
+            "OpenHomeDailyRewardIssueClaim",
+            "$NO_PREMIUM_ACTION_DAILY_REWARD_CLAIM",
+            "AndroidAdbSendShellCommand",
+            "ShellExecute",
+            "taskkill",
+        ):
+            self.assertNotIn(forbidden, helper)
+
+    def test_process_only_bluestacks_launcher_has_no_legacy_startup_side_effects(self) -> None:
+        launcher = function_body(self.android, "LaunchBlueStacks5ProcessOnly")
+        self.assertIn("Run($sProgramPath & $sCmdParam, $sPath)", launcher)
+        self.assertIn("ProcessExists($pid)", launcher)
+        for forbidden in (
+            "LaunchAndroid(",
+            "SetScreenAndroid",
+            "OpenAndroid(",
+            "_OpenAndroid",
+            "AndroidHomeButton",
+            "StartAndroidCoC",
+            "ConnectAndroidAdb",
+            "WaitForAndroidBootCompleted",
+            "AndroidAdbSendShellCommand",
+            "btnStop",
+            "BotStop",
+            "ShellExecute",
+        ):
+            self.assertNotIn(forbidden, launcher)
 
     def test_launch_only_reports_daily_reward_claim_candidate_without_clicking(self) -> None:
         adapter = function_body(self.android, "LaunchBlueStacks5CoCOnly")
@@ -227,8 +288,8 @@ class GameLaunchOnlyControlTests(unittest.TestCase):
     def test_browser_exposes_launch_only_and_retains_stop_during_stale_heartbeat(self) -> None:
         self.assertIn('id="controlGameLaunch"', self.html)
         self.assertIn("Return idle after passive game-ready proof", self.html)
-        self.assertIn("recognizes Home, Daily Reward, or Welcome Back startup overlays", self.html)
-        self.assertIn("never clicks them", self.html)
+        self.assertIn("may close the reviewed Welcome Back OK surface", self.html)
+        self.assertIn("never claims rewards", self.html)
         self.assertIn("$('controlGameLaunch').onclick = () => sendControl('launch-game')", self.javascript)
         self.assertIn("function primaryControlAction()", self.javascript)
         self.assertIn("return NATIVE_PROFILE_MODE && CONTROL.recognition_available !== true ? 'launch-game' : 'start';", self.javascript)
@@ -242,7 +303,7 @@ class GameLaunchOnlyControlTests(unittest.TestCase):
         self.assertIn("CONTROL.last_command !== 'launch-game'", self.javascript)
         self.assertIn("CONTROL.last_outcome !== 'passed'", self.javascript)
         self.assertIn("'daily reward', 'welcome back', 'inactivity', 'startup overlay'", self.javascript)
-        self.assertIn("Launch-only never clicks game UI", self.javascript)
+        self.assertIn("Launch-only never claims rewards", self.javascript)
         self.assertIn("Claim Daily Reward for the bounded no-gem route", self.javascript)
         self.assertIn("Home readiness is waiting on a known startup surface", self.javascript)
         self.assertIn("if (launchSurfaceMessage) emulatorText = 'Startup surface';", self.javascript)

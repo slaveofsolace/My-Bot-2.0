@@ -81,10 +81,10 @@ class EngineProbeLifecycleTests(unittest.TestCase):
         ordered = (
             '_MBRFuncPublishEngineReceipt("prepared")',
             '_MBRFuncPublishEngineReceipt("pool-entered")',
-            "setProcessingPoolSize(",
+            "inherited processing-pool initialization skipped",
             '_MBRFuncPublishEngineReceipt("pool-returned")',
             '_MBRFuncPublishEngineReceipt("max-entered")',
-            "setMaxDegreeOfParallelism(",
+            "inherited max-degree initialization skipped",
             '_MBRFuncPublishEngineReceipt("max-returned")',
             '_MBRFuncPublishEngineReceipt("android-entered")',
             "setAndroidPID(",
@@ -95,7 +95,8 @@ class EngineProbeLifecycleTests(unittest.TestCase):
         )
         offsets = [initialize.index(item) for item in ordered]
         self.assertEqual(offsets, sorted(offsets))
-        self.assertEqual(initialize.count("setProcessingPoolSize("), 1)
+        self.assertEqual(initialize.count("setProcessingPoolSize("), 0)
+        self.assertEqual(initialize.count("setMaxDegreeOfParallelism("), 0)
         self.assertLess(initialize.index("MBRFuncValidateEngineMarker("), offsets[0])
         self.assertLess(initialize.index("$g_bMBRFuncEngineSupervisorValid"), offsets[0])
 
@@ -104,6 +105,9 @@ class EngineProbeLifecycleTests(unittest.TestCase):
         processing_pool = function_body(self.parent, "setProcessingPoolSize")
         self.assertIn('DllCall("kernel32.dll", "dword", "GetActiveProcessorCount", "word", 0xFFFF)', resolver)
         self.assertIn('EnvGet("NUMBER_OF_PROCESSORS")', resolver)
+        self.assertIn("$iAutomaticPoolCap = 4", resolver)
+        self.assertIn("$iActiveProcessors > $iAutomaticPoolCap ? $iAutomaticPoolCap : $iActiveProcessors", resolver)
+        self.assertIn("$iEnvironmentProcessors > $iAutomaticPoolCap ? $iAutomaticPoolCap : $iEnvironmentProcessors", resolver)
         self.assertIn("Return 1", resolver)
         self.assertIn("_MBRFuncAutomaticProcessingPoolSize()", processing_pool)
         self.assertNotIn("$i = -1", processing_pool)
@@ -124,12 +128,22 @@ class EngineProbeLifecycleTests(unittest.TestCase):
             "$g_bAndroidAdbScreencap",
             "$g_bAndroidAdbClick",
             "_MBRFuncExactDetachedAdbSurfaceAvailable()",
-            '$g_sMBRFuncAndroidBindingMode = "detached-adb"',
+            '_MBRFuncRecordAndroidBinding("detached-adb", $iRequestedPid)',
+            '_MBRFuncRecordAndroidBinding("engine-only", 0)',
             "The exact detached ADB transport changed after managed initialization",
+            "managed Android PID export skipped during supervised Start",
+            "Managed Android PID export skipped during engine-only check",
             "$pid = 0",
             "exact ADB surface owns player PID",
         ):
             self.assertIn(required, binding)
+        recorder = function_body(self.parent, "_MBRFuncRecordAndroidBinding")
+        self.assertIn("$g_sMBRFuncAndroidBindingMode = $sMode", recorder)
+        self.assertIn("$g_sMBRFuncAndroidBindingEmulator = $g_sAndroidEmulator", recorder)
+        self.assertIn("$g_sMBRFuncAndroidBindingInstance = $g_sAndroidInstance", recorder)
+        self.assertIn("$g_iMBRFuncAndroidBindingPid = $iRequestedPid", recorder)
+        self.assertLess(binding.index("managed Android PID export skipped during supervised Start"), binding.index('DllCall($g_hLibMyBot, "str", "setAndroidPID"'))
+        self.assertLess(binding.index("Managed Android PID export skipped during engine-only check"), binding.index('DllCall($g_hLibMyBot, "str", "setAndroidPID"'))
         self.assertLess(binding.index("$pid = 0"), binding.index('DllCall($g_hLibMyBot, "str", "setAndroidPID"'))
         self.assertLess(binding.index('Case "detached-adb"'), binding.index('DllCall($g_hLibMyBot, "str", "setAndroidPID"'))
         self.assertIn('"GetBlueStacks5ModernAdbSurface" & "Position"', verifier)
@@ -137,6 +151,15 @@ class EngineProbeLifecycleTests(unittest.TestCase):
         self.assertIn("Local $iCallError = @error", verifier)
         self.assertNotIn("IsFunc(", verifier)
         self.assertNotIn("GetBlueStacks5ModernAdbSurfacePosition()", self.parent)
+
+    def test_supervised_start_skips_blocking_gui_metadata_export(self) -> None:
+        binding = function_body(self.parent, "SetBotGuiPID")
+        self.assertIn("_MBRFuncSupervisedStartInitializing()", binding)
+        self.assertIn("Managed GUI PID export skipped during supervised Start", binding)
+        self.assertLess(
+            binding.index("Managed GUI PID export skipped during supervised Start"),
+            binding.index('DllCall($g_hLibMyBot, "str", "SetBotGuiPID"'),
+        )
 
     def test_receipt_is_fixed_atomic_flushed_and_identity_bound(self) -> None:
         self.assertIn(

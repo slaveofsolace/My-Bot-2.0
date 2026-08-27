@@ -16,6 +16,9 @@
 Func _BotStartReject($sReason)
 	If $sReason = "" Then $sReason = "Start cancelled"
 	RunExecutionCancelPrepared($sReason)
+	; Publish the terminal Start outcome before btnStop() can tear down the backend/planner process.
+	; Otherwise the web UI can remain stuck on the earlier accepted command after a controlled reject.
+	RunControlReportStartOutcome(False, $sReason)
 	; A general Start owns the shared bot slot before emulator or managed-engine work. Release it at
 	; the rejection linearization point instead of waiting for the later Stop action to be dispatched.
 	; Terminal one-shot routes hold the same slot in their wrapper, so this is also a harmless no-op
@@ -23,7 +26,6 @@ Func _BotStartReject($sReason)
 	LockBotSlot(False)
 	If $g_iBotAction <> $eBotClose Then btnStop()
 	ReleaseExactAndroidInstanceLock()
-	RunControlReportStartOutcome(False, $sReason)
 	Return False
 EndFunc   ;==>_BotStartReject
 
@@ -221,8 +223,16 @@ Func _BotStartRunOneShot($iRoute, ByRef $sStartError)
 			$bResult = _BotStartOpenClanRequest($sStartError)
 		Case 6
 			$bResult = _BotStartExactRecipeTraining($sStartError)
+		Case 7
+			$bResult = _BotStartOpenBuilderCollectors($sStartError)
+		Case 8
+			$bResult = _BotStartRegularBattleEntryProof($sStartError)
+		Case 9
+			$bResult = _BotStartBuilderBattleEntryProof($sStartError)
+		Case 10
+			$bResult = _BotStartRegularBattleScout($sStartError)
 		Case Else
-			$bResult = _BotOpenCollectorsReject("Terminal Home route selection changed before execution")
+			$bResult = _BotOpenCollectorsReject("Terminal Home/Builder route selection changed before execution")
 	EndSwitch
 	ReleaseExactAndroidInstanceLock()
 	LockBotSlot(False)
@@ -294,6 +304,177 @@ Func _BotStartOpenHomeCollectors(ByRef $sStartError)
 	Return True
 EndFunc   ;==>_BotStartOpenHomeCollectors
 
+; Run one Builder Base collection pass without loading the restricted managed image engine. The route
+; may start from Home Village or an already-open Builder Base, but it must finish by re-proving Home.
+Func _BotStartOpenBuilderCollectors(ByRef $sStartError)
+	If RunControlStopRequested() Then Return _BotOpenCollectorsReject("Template-free Builder Base collectors cancelled before attachment", "cancelled")
+	If Not RunExecutionApplyPrepared($sStartError) Then Return _BotOpenCollectorsReject($sStartError)
+	Local $oIntent = RunExecutionPreparedIntent()
+	If Not IsObj($oIntent) Or Not BuilderMaintenanceRouteAccountMatches($oIntent, $g_sProfileCurrentName) Then _
+			Return _BotOpenCollectorsReject("The active profile no longer matches the account bound at Start")
+	Local $sAttachmentError = ""
+	If Not _BotOpenHomeEnsureExactBlueStacks($sAttachmentError) Then Return _BotOpenCollectorsReject($sAttachmentError)
+	If Not $g_bAndroidAdbScreencap Or Not AndroidControlAvailable() Or _
+			Not IsArray(GetBlueStacks5ModernAdbSurfacePosition()) Then _
+			Return _BotOpenCollectorsReject("The exact BlueStacks 5 framebuffer/control surface is not available")
+	Local $bReloadIssued = OpenHomeInactivityReloadIssue(False)
+	If @error Then Return _BotOpenCollectorsReject("Inactivity reload dialog could not be handled before Builder collection")
+	If $bReloadIssued And Not OpenHomeStartupRecoveryWait(False) Then _
+			Return _BotOpenCollectorsReject("Clash reload did not reach a recognized Home or startup overlay before Builder collection")
+	If Not OpenHomeCollectorsProveHome() And Not OpenBuilderBaseCollectorsProveBuilder() Then _
+			Return _BotOpenCollectorsReject("Neither Home Village nor Builder Base could be proven before Builder collection")
+	If RunControlStopRequested() Then Return _BotOpenCollectorsReject("Template-free Builder Base collectors cancelled before execution", "cancelled")
+
+	$g_bRunState = True
+	$g_bTogglePauseAllowed = False
+	If Not RunExecutionBegin($sStartError) Then Return _BotOpenCollectorsReject($sStartError)
+	RunControlReportStartOutcome(True, "Template-free Builder Base collectors started")
+	RunEventLogBuilderMaintenanceStarted()
+
+	Local $bCollected = OpenBuilderBaseCollectorsCollectOnePass(2)
+	Local $iCollectError = @error
+	Local $iCollectorClicks = @extended
+	If Not $bCollected Then
+		If $iCollectError = 2 Or RunControlStopRequested() Or Not $g_bRunState Then
+			RunExecutionComplete("stopped")
+			RunControlReportOneShotOutcome("stopped", "Template-free Builder Base collectors stopped")
+			Return False
+		EndIf
+		$sStartError = "Template-free Builder Base collectors failed"
+		Switch $iCollectError
+			Case 1
+				$sStartError &= ": starting village state was not proven"
+			Case 3
+				$sStartError &= ": Builder Base was not proven before input"
+			Case 4
+				$sStartError &= ": the selected Builder resource click was not accepted"
+			Case 5
+				$sStartError &= ": Builder Base did not become visible after the switch"
+			Case 6
+				$sStartError &= ": passive no-gem guard recognized a gem surface; no further input was issued"
+			Case 7
+				$sStartError &= ": Home Village was not re-proven after Builder Base collection; inputs will not be retried"
+			Case Else
+				$sStartError &= ": the bounded adapter returned an unknown outcome"
+		EndSwitch
+		RunEventLogBuilderMaintenanceUnconfirmed($iCollectorClicks, $sStartError)
+		RunEventLogRunFailed("builder", $RUN_VERIFICATION_DIAGNOSTIC, $sStartError)
+		RunExecutionCancelPrepared($sStartError)
+		RunControlReportOneShotOutcome("failed", $sStartError)
+		Return False
+	EndIf
+
+	RunEventLogBuilderMaintenanceHomeVerified($iCollectorClicks)
+	If $iCollectorClicks > 0 Then
+		RunEventLogBuilderMaintenanceCompleted($iCollectorClicks)
+	Else
+		RunEventLogBuilderMaintenanceNoneActionable()
+	EndIf
+	Local $sReason = $iCollectorClicks > 0 ? "builder-collectors-open-complete" : "builder-collectors-open-none-actionable"
+	RunExecutionComplete($sReason)
+	Local $sMessage = "Template-free Builder Base collectors completed; builder_resource_clicks=" & $iCollectorClicks
+	RunControlReportOneShotOutcome("completed", $sMessage)
+	SetLog("Run Planner: " & $sMessage, $COLOR_SUCCESS)
+	Return True
+EndFunc   ;==>_BotStartOpenBuilderCollectors
+
+Func _BotStartRegularBattleEntryProof(ByRef $sStartError)
+	If RunControlStopRequested() Then Return _BotOpenCollectorsReject("Regular battle entry proof cancelled before attachment", "cancelled")
+	If Not RunExecutionApplyPrepared($sStartError) Then Return _BotOpenCollectorsReject($sStartError)
+	Local $oIntent = RunExecutionPreparedIntent()
+	If Not IsObj($oIntent) Or Not RegularBattleEntryRouteAccountMatches($oIntent, $g_sProfileCurrentName) Then _
+			Return _BotOpenCollectorsReject("The active profile no longer matches the account bound at Start")
+	Local $sAttachmentError = ""
+	If Not _BotOpenHomeEnsureExactBlueStacks($sAttachmentError) Then Return _BotOpenCollectorsReject($sAttachmentError)
+	If Not $g_bAndroidAdbScreencap Or Not AndroidControlAvailable() Or _
+			Not IsArray(GetBlueStacks5ModernAdbSurfacePosition()) Then _
+			Return _BotOpenCollectorsReject("The exact BlueStacks 5 framebuffer/control surface is not available")
+	If Not OpenHomeCollectorsProveHome() Then
+		Local $bReloadIssued = OpenHomeInactivityReloadIssue(False)
+		If $bReloadIssued Then
+			If Not OpenHomeStartupRecoveryWait(False) Then _
+					Return _BotOpenCollectorsReject("Startup recovery did not reach Home before Regular battle entry proof")
+		EndIf
+	EndIf
+	If Not OpenHomeCollectorsProveHome() Then _
+			Return _BotOpenCollectorsReject("Home Village was not proven before Regular battle entry proof")
+	If Not RunExecutionBegin($sStartError) Then Return _BotOpenCollectorsReject($sStartError)
+	RunControlReportStartOutcome(True, "Regular battle entry proof started")
+	Local $bResult = RegularBattleEntryRouteExecute()
+	If $bResult Then
+		Local $sMessage = RunExecutionMessage()
+		If $sMessage = "" Then $sMessage = "Completed Regular battle entry proof"
+		RunControlReportOneShotOutcome("completed", $sMessage)
+		SetLog("Run Planner: " & $sMessage, $COLOR_SUCCESS)
+	EndIf
+	Return $bResult
+EndFunc   ;==>_BotStartRegularBattleEntryProof
+
+Func _BotStartRegularBattleScout(ByRef $sStartError)
+	If RunControlStopRequested() Then Return _BotOpenCollectorsReject("Regular battle scout cancelled before attachment", "cancelled")
+	If Not RunExecutionApplyPrepared($sStartError) Then Return _BotOpenCollectorsReject($sStartError)
+	Local $oIntent = RunExecutionPreparedIntent()
+	If Not IsObj($oIntent) Or Not RegularBattleEntryRouteAccountMatches($oIntent, $g_sProfileCurrentName) Then _
+			Return _BotOpenCollectorsReject("The active profile no longer matches the account bound at Start")
+	Local $sAttachmentError = ""
+	If Not _BotOpenHomeEnsureExactBlueStacks($sAttachmentError) Then Return _BotOpenCollectorsReject($sAttachmentError)
+	If Not $g_bAndroidAdbScreencap Or Not AndroidControlAvailable() Or _
+			Not IsArray(GetBlueStacks5ModernAdbSurfacePosition()) Then _
+			Return _BotOpenCollectorsReject("The exact BlueStacks 5 framebuffer/control surface is not available")
+	If Not OpenHomeCollectorsProveHome() Then
+		Local $bReloadIssued = OpenHomeInactivityReloadIssue(False)
+		If $bReloadIssued Then
+			If Not OpenHomeStartupRecoveryWait(False) Then _
+					Return _BotOpenCollectorsReject("Startup recovery did not reach Home before Regular battle scout")
+		EndIf
+	EndIf
+	If Not OpenHomeCollectorsProveHome() Then _
+			Return _BotOpenCollectorsReject("Home Village was not proven before Regular battle scout")
+	If Not RunExecutionBegin($sStartError) Then Return _BotOpenCollectorsReject($sStartError)
+	RunControlReportStartOutcome(True, "Regular battle scout started")
+	Local $bResult = RegularBattleScoutRouteExecute()
+	If $bResult Then
+		Local $sMessage = RunExecutionMessage()
+		If $sMessage = "" Then $sMessage = "Completed Regular battle scout"
+		RunControlReportOneShotOutcome("completed", $sMessage)
+		SetLog("Run Planner: " & $sMessage, $COLOR_SUCCESS)
+	EndIf
+	Return $bResult
+EndFunc   ;==>_BotStartRegularBattleScout
+
+Func _BotStartBuilderBattleEntryProof(ByRef $sStartError)
+	If RunControlStopRequested() Then Return _BotOpenCollectorsReject("Builder battle entry proof cancelled before attachment", "cancelled")
+	If Not RunExecutionApplyPrepared($sStartError) Then Return _BotOpenCollectorsReject($sStartError)
+	Local $oIntent = RunExecutionPreparedIntent()
+	If Not IsObj($oIntent) Or Not BuilderBattleEntryRouteAccountMatches($oIntent, $g_sProfileCurrentName) Then _
+			Return _BotOpenCollectorsReject("The active profile no longer matches the account bound at Start")
+	Local $sAttachmentError = ""
+	If Not _BotOpenHomeEnsureExactBlueStacks($sAttachmentError) Then Return _BotOpenCollectorsReject($sAttachmentError)
+	If Not $g_bAndroidAdbScreencap Or Not AndroidControlAvailable() Or _
+			Not IsArray(GetBlueStacks5ModernAdbSurfacePosition()) Then _
+			Return _BotOpenCollectorsReject("The exact BlueStacks 5 framebuffer/control surface is not available")
+	Local $bReloadIssued = OpenHomeInactivityReloadIssue(False)
+	If @error Then Return _BotOpenCollectorsReject("Inactivity reload dialog could not be handled before Builder battle entry proof")
+	If $bReloadIssued And Not OpenHomeStartupRecoveryWait(False) Then _
+			Return _BotOpenCollectorsReject("Clash reload did not reach a recognized Home or startup overlay before Builder battle entry proof")
+	If Not OpenHomeCollectorsProveHome() And Not OpenBuilderBaseCollectorsProveBuilder() Then _
+			Return _BotOpenCollectorsReject("Neither Home Village nor Builder Base could be proven before Builder battle entry proof")
+	If RunControlStopRequested() Then Return _BotOpenCollectorsReject("Builder battle entry proof cancelled before execution", "cancelled")
+
+	$g_bRunState = True
+	$g_bTogglePauseAllowed = False
+	If Not RunExecutionBegin($sStartError) Then Return _BotOpenCollectorsReject($sStartError)
+	RunControlReportStartOutcome(True, "Builder battle entry proof started")
+	Local $bResult = BuilderBattleEntryRouteExecute()
+	If $bResult Then
+		Local $sMessage = RunExecutionMessage()
+		If $sMessage = "" Then $sMessage = "Completed Builder battle entry proof"
+		RunControlReportOneShotOutcome("completed", $sMessage)
+		SetLog("Run Planner: " & $sMessage, $COLOR_SUCCESS)
+	EndIf
+	Return $bResult
+EndFunc   ;==>_BotStartBuilderBattleEntryProof
+
 Func _BotStartOpenHomeLootCart(ByRef $sStartError)
 	If RunControlStopRequested() Then Return _BotOpenCollectorsReject("Template-free Loot Cart cancelled before attachment", "cancelled")
 	If Not RunExecutionApplyPrepared($sStartError) Then Return _BotOpenCollectorsReject($sStartError)
@@ -313,6 +494,16 @@ Func _BotStartOpenHomeLootCart(ByRef $sStartError)
 	If Not RunExecutionBegin($sStartError) Then Return _BotOpenCollectorsReject($sStartError)
 	RunControlReportStartOutcome(True, "Template-free Loot Cart pass started")
 	RunEventLogMaintenanceLootCartStarted()
+	If Not OpenHomeClearSelectedActionPanel() Then
+		Local $iClearError = @error
+		$sStartError = $iClearError = 6 ? _
+				"Passive no-gem guard recognized a gem surface before clearing the selected Home object; no Loot Cart input was issued" : _
+				"The selected Home object panel could not be cleared before Loot Cart recognition"
+		RunEventLogRunFailed("regular", $RUN_VERIFICATION_DIAGNOSTIC, $sStartError)
+		RunExecutionCancelPrepared($sStartError)
+		RunControlReportOneShotOutcome("failed", $sStartError)
+		Return False
+	EndIf
 
 	Local $oLootCart = LootCartRouteRunAdapter("OpenHomeLootCartDetectCue", "OpenHomeLootCartIssueOpen", _
 			"OpenHomeLootCartDetectCollect", "OpenHomeLootCartIssueCollect", "_LootCartLiveStopRequested", _
@@ -456,6 +647,14 @@ Func _BotStartOpenDailyReward(ByRef $sStartError)
 	If Not RunExecutionBegin($sStartError) Then Return _BotOpenCollectorsReject($sStartError)
 	RunControlReportStartOutcome(True, "Template-free Daily Reward pass started")
 	RunEventLogMaintenanceDailyRewardStarted()
+	If Not OpenHomeClearSelectedActionPanel() Then
+		Local $iClearError = @error
+		$sStartError = $iClearError = 6 ? _
+				"Passive no-gem guard recognized a gem surface before clearing the selected Home object; no Daily Reward input was issued" : _
+				"The selected Home object panel could not be cleared before Daily Reward recognition"
+		RunEventLogRunFailed("regular", $RUN_VERIFICATION_DIAGNOSTIC, $sStartError)
+		Return _BotOpenDailyRewardFail($sStartError)
+	EndIf
 
 	Local $bReloadIssued = OpenHomeInactivityReloadIssue()
 	Local $iReloadError = @error
@@ -494,7 +693,7 @@ Func _BotStartOpenDailyReward(ByRef $sStartError)
 		EndIf
 		RunEventLogMaintenanceHomeVerified(0, "not-seen", "disabled", "disabled")
 		RunExecutionComplete("home-daily-reward-none-actionable")
-		RunControlReportOneShotOutcome("completed", "Daily Reward unavailable; no Claim input was issued")
+		RunControlReportOneShotOutcome("completed", "Template-free Daily Reward completed; state=not-seen; claim_attempts=0")
 		Return True
 	EndIf
 
@@ -510,7 +709,7 @@ Func _BotStartOpenDailyReward(ByRef $sStartError)
 		EndIf
 		RunEventLogMaintenanceHomeVerified(0, "none-actionable", "disabled", "disabled")
 		RunExecutionComplete("home-daily-reward-none-actionable")
-		RunControlReportOneShotOutcome("completed", "Daily Reward had no actionable Claim; Home Village re-proven; close_issued=" & String($bNoClaimCloseIssued))
+		RunControlReportOneShotOutcome("completed", "Template-free Daily Reward completed; state=none-actionable; claim_attempts=0; close_issued=" & String($bNoClaimCloseIssued))
 		Return True
 	EndIf
 
@@ -674,7 +873,9 @@ Func _BotStartExactRecipeTraining(ByRef $sStartError)
 	RunControlReportStartOutcome(True, "Exact saved-recipe training pass started")
 	RunEventLogExactTrainingStarted($sRecipeId, $iMaxQueueUnits)
 	If Not OpenClanRequestOpenArmyOverview($NO_PREMIUM_ACTION_EXACT_TRAINING_ARMY) Then
-		$sStartError = "Army Overview did not open for exact saved-recipe training; no queue input was issued"
+		$sStartError = $g_bNoPremiumPolicyTripped ? RunExecutionMessage() : _
+				"Army Overview did not open for exact saved-recipe training; no queue input was issued"
+		If $sStartError = "" Then $sStartError = "Exact saved-recipe training failed before Army Overview opened"
 		RunEventLogRunFailed("regular", $RUN_VERIFICATION_DIAGNOSTIC, $sStartError)
 		RunExecutionCancelPrepared($sStartError)
 		RunControlReportOneShotOutcome("failed", $sStartError)
@@ -688,6 +889,15 @@ Func _BotStartExactRecipeTraining(ByRef $sStartError)
 		$sStartError = "Exact saved-recipe training adapter returned no bounded outcome"
 	Else
 		Local $sOutcome = String($oOutcome.Item("state"))
+		If $g_bNoPremiumPolicyTripped Then
+			$sStartError = RunExecutionMessage()
+			If $sStartError = "" Then $sStartError = "Exact saved-recipe training was blocked by the no-gem input guard"
+			RunEventLogExactTrainingUnconfirmed($oOutcome.Item("queue_issued"), $sStartError)
+			RunEventLogRunFailed("regular", $RUN_VERIFICATION_DIAGNOSTIC, $sStartError)
+			RunExecutionCancelPrepared($sStartError)
+			RunControlReportOneShotOutcome("failed", $sStartError)
+			Return False
+		EndIf
 		If $sOutcome = $EXACT_TRAINING_OUTCOME_CANCELLED Or RunControlStopRequested() Or Not $g_bRunState Then
 			RunExecutionComplete("stopped")
 			RunControlReportOneShotOutcome("stopped", "Exact saved-recipe training stopped")
@@ -820,6 +1030,12 @@ Func BotStart($bAutostartDelay = 0)
 	If $iOpenCollectorsMode >= 1 And $iOpenCollectorsMode <= 4 Then _
 		Return FuncReturn(_BotStartRunOneShot($iOpenCollectorsMode, $sStartError))
 	If $iOpenCollectorsMode = -1 Then Return FuncReturn(_BotOpenCollectorsReject($sStartError))
+	Local $iOpenBuilderMode = OpenBuilderBaseCollectorsPreparedMode($oPreparedIntent, $sStartError)
+	If $iOpenBuilderMode = 1 Then Return FuncReturn(_BotStartRunOneShot(7, $sStartError))
+	If $iOpenBuilderMode = -1 Then Return FuncReturn(_BotOpenCollectorsReject($sStartError))
+	If RegularBattleEntryRouteSelected($oPreparedIntent) Then Return FuncReturn(_BotStartRunOneShot(8, $sStartError))
+	If RegularBattleScoutRouteSelected($oPreparedIntent) Then Return FuncReturn(_BotStartRunOneShot(10, $sStartError))
+	If BuilderBattleEntryRouteSelected($oPreparedIntent) Then Return FuncReturn(_BotStartRunOneShot(9, $sStartError))
 	If ClanRequestRouteSelected($oPreparedIntent) Then Return FuncReturn(_BotStartRunOneShot(5, $sStartError))
 	If ExactRecipeTrainingRouteSelected($oPreparedIntent) Then Return FuncReturn(_BotStartRunOneShot(6, $sStartError))
 	; Readiness belongs to this Start attempt. A previous run may have left the
@@ -854,6 +1070,14 @@ Func BotStart($bAutostartDelay = 0)
 		SetLog($sStartError, $COLOR_ERROR)
 		Return FuncReturn(_BotStartReject($sStartError))
 	EndIf
+	Local $sStartupRewardOutcome = ""
+	If Not OpenHomeStartupResolveDailyRewardBlocker($sStartupRewardOutcome, $sStartError) Then
+		If $sStartError = "" Then $sStartError = "Startup Daily Reward recovery failed"
+		SetLog($sStartError, $COLOR_ERROR)
+		Return FuncReturn(_BotStartReject($sStartError))
+	EndIf
+	If $sStartupRewardOutcome <> "" And $sStartupRewardOutcome <> "not-seen" Then _
+		SetLog("Run Planner: startup Daily Reward state before route=" & $sStartupRewardOutcome, $COLOR_INFO)
 
 	If Not MBRFuncInitialize() Then
 		$sStartError = MBRFuncEngineError()

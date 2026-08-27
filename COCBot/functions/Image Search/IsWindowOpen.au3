@@ -152,11 +152,11 @@ Func ClearScreen($Area = "Defaut", $MainVillage = True)
 		SetDebugLog("Clearing Screen", $COLOR_INFO)
 		Switch $Area
 			Case "Defaut"
-				ClickAway()
+				NoPremiumClickAway()
 			Case "Left"
-				ClickAway("Left")
+				NoPremiumClickAway("Left")
 			Case "Right"
-				ClickAway("Right")
+				NoPremiumClickAway("Right")
 		EndSwitch
 		If _Sleep(1500) Then Return
 	EndIf

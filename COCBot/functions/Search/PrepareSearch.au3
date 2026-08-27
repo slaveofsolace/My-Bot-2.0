@@ -259,6 +259,11 @@ Func _IsCurrentMultiplayerPanelOpen($bNeedCapture = True)
 			_ColorCheck(_GetPixelColor(60, 450 + $g_iMidOffsetY, False), Hex(0xF9AD2D, 6), 25) And _
 			_ColorCheck(_GetPixelColor(260, 450 + $g_iMidOffsetY, False), Hex(0xF9AD2D, 6), 25) And _
 			_ColorCheck(_GetPixelColor(75, 470 + $g_iMidOffsetY, False), Hex(0xF9AD2C, 6), 25)
+	Local $bCurrentButton = _
+			_ColorCheck(_GetPixelColor(60, 470 + $g_iMidOffsetY, False), Hex(0xFDC34B, 6), 35) And _
+			_ColorCheck(_GetPixelColor(260, 470 + $g_iMidOffsetY, False), Hex(0xFDC34B, 6), 35) And _
+			_ColorCheck(_GetPixelColor(75, 500 + $g_iMidOffsetY, False), Hex(0xF9AD2C, 6), 30)
+	$bButton = $bButton Or $bCurrentButton
 	If Not $bButton Then Return False
 
 	Local $bFindMatchLabel = _
@@ -266,9 +271,28 @@ Func _IsCurrentMultiplayerPanelOpen($bNeedCapture = True)
 			_ColorCheck(_GetPixelColor(138, 446 + $g_iMidOffsetY, False), Hex(0xFFFFFF, 6), 30) And _
 			_ColorCheck(_GetPixelColor(169, 446 + $g_iMidOffsetY, False), Hex(0xFFFFFF, 6), 30) And _
 			_ColorCheck(_GetPixelColor(199, 446 + $g_iMidOffsetY, False), Hex(0xFFFFFF, 6), 30)
+	Local $bCurrentFindMatchLabel = _
+			_ColorCheck(_GetPixelColor(135, 486 + $g_iMidOffsetY, False), Hex(0xFFFFFF, 6), 36) And _
+			_ColorCheck(_GetPixelColor(155, 486 + $g_iMidOffsetY, False), Hex(0xFFFFFF, 6), 36) And _
+			_ColorCheck(_GetPixelColor(138, 508 + $g_iMidOffsetY, False), Hex(0xFFFFFF, 6), 36) And _
+			_ColorCheck(_GetPixelColor(169, 508 + $g_iMidOffsetY, False), Hex(0xFFFFFF, 6), 36)
 
-	Return $bFindMatchLabel
+	Return $bFindMatchLabel Or $bCurrentFindMatchLabel
 EndFunc   ;==>_IsCurrentMultiplayerPanelOpen
+
+Func PrepareSearchCurrentRegularEntryReady($bNeedCapture = True)
+	Return _IsCurrentMultiplayerPanelOpen($bNeedCapture)
+EndFunc   ;==>PrepareSearchCurrentRegularEntryReady
+
+Func PrepareSearchCurrentRegularFindMatchRegionReady($iX, $iY)
+	If $iX < 54 Or $iX > 272 Or $iY < 461 Or $iY > 530 Then Return False
+	Return PrepareSearchCurrentRegularEntryReady(True)
+EndFunc   ;==>PrepareSearchCurrentRegularFindMatchRegionReady
+
+Func PrepareSearchCurrentArmyConfirmationAttackPointReady($iX, $iY)
+	If $iX <> 735 Or $iY <> 508 + $g_iMidOffsetY Then Return False
+	Return _IsCurrentArmyConfirmationOpen(False)
+EndFunc   ;==>PrepareSearchCurrentArmyConfirmationAttackPointReady
 
 ; The current client can show My Army between the Multiplayer card and matchmaking.
 ; This helper is bounded and proof-gated so older/direct-to-cloud clients remain unchanged.

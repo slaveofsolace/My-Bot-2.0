@@ -62,9 +62,35 @@ Func Initiate(ByRef $sStartError)
 ;~ 		If $g_bNotifyDeleteAllPushesOnStart Then _DeletePush()
 
 		AndroidShield("Initiate", True)
-		If Not checkMainScreen() Then
-			$sStartError = "Clash of Clans main screen could not be detected"
-			Return False
+		Local $bBuilderTerminalPreflight = BuilderMaintenanceRoutePrepared()
+		If $bBuilderTerminalPreflight Then
+			Local $bBuilderReloadIssued = OpenHomeInactivityReloadIssue()
+			Local $iBuilderReloadError = @error
+			If $bBuilderReloadIssued Then
+				SetLog("Run Planner: Builder startup inactivity dialog recognized; reload issued before Builder route recognition", $COLOR_INFO)
+				If Not OpenHomeOrBuilderStartupRecoveryWait() Then
+					$sStartError = "Builder startup reload recovery did not reach Home, Builder Base, or a reviewed startup overlay; error=" & @error
+					Return False
+				EndIf
+			ElseIf $iBuilderReloadError <> 0 Then
+				$sStartError = $iBuilderReloadError = 6 ? _
+						"Passive no-gem guard recognized a gem surface before Builder startup reload; no input was issued" : _
+						"Builder startup inactivity reload recovery was rejected; error=" & $iBuilderReloadError
+				Return False
+			EndIf
+			If OpenBuilderBaseProveMain() Then
+				SetLog("Run Planner: Builder Base route-ready screen detected", $COLOR_INFO)
+			ElseIf OpenHomeCollectorsProveHome() Then
+				SetLog("Run Planner: Home Village route-ready screen detected for Builder Base transfer", $COLOR_INFO)
+			Else
+				$sStartError = "Home Village or Builder Base main screen could not be detected"
+				Return False
+			EndIf
+		Else
+			If Not checkMainScreen() Then
+				$sStartError = "Clash of Clans main screen could not be detected"
+				Return False
+			EndIf
 		EndIf
 		$g_bMainWindowOk = True
 		If Not $g_bRunState Then
@@ -74,7 +100,7 @@ Func Initiate(ByRef $sStartError)
 
 		; A planned session is not "started" until the inherited detector has established which own
 		; village it would automate. Legacy profile starts retain their existing sequence below.
-		Local $bPlannedVillagePreflight = RunExecutionSessionId() <> ""
+		Local $bPlannedVillagePreflight = RunExecutionSessionId() <> "" And Not $bBuilderTerminalPreflight
 		If $bPlannedVillagePreflight Then
 			If Not RunExecutionSkipVillageZoomCalibration() Then
 				ZoomOut()
@@ -149,18 +175,18 @@ Func Initiate(ByRef $sStartError)
 		EndIf
 		If Not $g_bRunState Then Return True
 
-		If Not $bPlannedVillagePreflight Then
+		If Not $bPlannedVillagePreflight And Not $bBuilderTerminalPreflight Then
 			ZoomOut()
 			If Not $g_bRunState Then Return True
 		EndIf
 
 		If Not $g_bSearchMode Then
-			If Not $bPlannedVillagePreflight Then
+			If Not $bPlannedVillagePreflight And Not $bBuilderTerminalPreflight Then
 				BotDetectFirstTime()
 				If Not $g_bRunState Then Return True
 			EndIf
 
-			If $g_bCheckGameLanguage Then TestLanguage()
+			If $g_bCheckGameLanguage And Not $bBuilderTerminalPreflight Then TestLanguage()
 			If Not $g_bRunState Then Return True
 
 			runBot()

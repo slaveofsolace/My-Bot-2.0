@@ -1,0 +1,67 @@
+{
+  "schema_version": 2,
+  "fixture_id": "battle.regular.entry",
+  "captured_at": "2026-08-25T23:23:58Z",
+  "game_version": "ClashOfClans-current-2026-08-25",
+  "source_type": "emulator",
+  "width": 860,
+  "height": 732,
+  "sha256": "03c1ebd8e3578f55b7a4057c47aaf2b65d52ff9e4998d2b0ea2d62011f04620f",
+  "raw_sha256": "6f22c01167d33394f29295e641d6c12b8d7444afdc2f91409a8318b17b245247",
+  "redacted_sha256": "03c1ebd8e3578f55b7a4057c47aaf2b65d52ff9e4998d2b0ea2d62011f04620f",
+  "redacted": true,
+  "redaction_masks": [
+    {
+      "x": 0,
+      "y": 0,
+      "width": 860,
+      "height": 19,
+      "fill_hex": "#203040FF"
+    },
+    {
+      "x": 590,
+      "y": 19,
+      "width": 270,
+      "height": 657,
+      "fill_hex": "#203040FF"
+    },
+    {
+      "x": 0,
+      "y": 676,
+      "width": 860,
+      "height": 56,
+      "fill_hex": "#203040FF"
+    }
+  ],
+  "redaction_pixel_changes": 241890,
+  "frame_content": {
+    "total_pixels": 629520,
+    "non_black_pixels": 628603,
+    "distinct_visible_colors": 2
+  },
+  "privacy_review_method": "decoded-pixel-diff-v1",
+  "redaction_notes": "redacted-resource-bars-and-live-background",
+  "assertions": [
+    "The Multiplayer tab is the active battle-entry surface.",
+    "The Regular Battle card is visible with its ordinary Find a Match button and gold search-cost label.",
+    "The captured state is pre-search and pre-combat: no Find Match input, enemy-base search, deployment, result, or return-home action has occurred.",
+    "Live account/resource/background context outside the battle-entry panel is masked and must not be used for recognition."
+  ],
+  "replay_contract": {
+    "schema_version": 1,
+    "adapter": "production.battle-regular-entry-v1",
+    "expected_state": "battle.regular.entry",
+    "safe_regions": [
+      {
+        "id": "find-match",
+        "x": 54,
+        "y": 461,
+        "width": 219,
+        "height": 70
+      }
+    ]
+  },
+  "reviewed_by": "operator-review",
+  "reviewed_at": "2026-08-25T23:24:14Z",
+  "notes": "captured-after-product-launch-no-find-match-no-combat"
+}

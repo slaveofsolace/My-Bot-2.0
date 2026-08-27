@@ -1196,13 +1196,15 @@
               "value": "legacy.csv",
               "label": "Scripted (CSV)",
               "summary": "Runs a deployment script from the Strategies folder.",
-              "description": "Uses the CSV deployment scripts that ship with the bot. This is the most predictable option because the deployment order is written down rather than decided from the base layout. The exact-current supervised Start on this fork was rejected by the inherited ImgLoc runtime before matchmaking.",
-              "availability": "unsupported",
+              "description": "Uses the CSV deployment scripts that ship with the bot. This is the most predictable option because the deployment order is written down rather than decided from the base layout. Current-source battle start uses a narrow clean-room red-line detector while inherited ImgLoc exports remain disabled.",
+              "availability": "gated",
               "runtime_verified": false,
-              "disabled_reason": "Battle execution is disabled: inherited ImgLoc rejected this fork. Diagnostic acknowledgement cannot bypass the licensing boundary.",
+              "disabled_reason": "Scripted battle execution is supervised-only until an exact-current live battle receipt proves the route end-to-end.",
               "capability_ids": [],
               "prerequisites": [
-                "Licensed ImgLoc permission or a clean-room recognizer"
+                "Supervised diagnostic operator",
+                "Current trained army",
+                "Clean-room red-line detector"
               ],
               "recommended": false,
               "warning": ""
@@ -1211,13 +1213,15 @@
               "value": "legacy.standard",
               "label": "Standard deployment",
               "summary": "The built-in side and line deployment routine.",
-              "description": "An older-binary supervised run confirmed Standard could issue the trained-army and selected-Hero deployment, observe an empty troop bar, and return home. That single completion confirms the route and actuator, not strategy quality; it did not exercise planned ability or spell actions. The current reviewed local package passed install, repeated exact-current no-input managed-engine checks, and bot-owned BlueStacks and game launch with passive Home proof. Neither those orchestration checks nor current source proves managed Start or current-client battle gameplay.",
-              "availability": "unsupported",
+              "description": "An older-binary supervised run confirmed Standard could issue the trained-army and selected-Hero deployment, observe an empty troop bar, and return home. That single completion confirms the route and actuator, not strategy quality; it did not exercise planned ability or spell actions. Current-source battle start uses a narrow clean-room red-line detector while inherited ImgLoc exports remain disabled. The route is supervised-only until an exact-current live battle receipt proves gameplay.",
+              "availability": "gated",
               "runtime_verified": false,
-              "disabled_reason": "Battle execution is disabled: exact-current supervised readiness reached inherited ImgLoc, which rejected this fork before matchmaking. Diagnostic acknowledgement cannot bypass the licensing boundary.",
+              "disabled_reason": "Standard battle execution is supervised-only until exact-current live battle evidence exists.",
               "capability_ids": [],
               "prerequisites": [
-                "Licensed ImgLoc permission or a clean-room recognizer"
+                "Supervised diagnostic operator",
+                "Current trained army",
+                "Clean-room red-line detector"
               ],
               "recommended": false,
               "warning": "The historical gameplay receipt proves an older build only; the current package proves engine initialization and self-launch, not battle execution."
@@ -1226,16 +1230,56 @@
               "value": "smart.local",
               "label": "Smart Attack (research-guided)",
               "summary": "Concentrates the current army using a Town Hall-aware local policy.",
-              "description": "The deterministic Town Hall policy is versioned in config/game/smart-attack-strategies.json and executed locally. One older-binary bounded supervised TH17 run observed three zoom gestures, 240 red-line points, deterministic BL-side selection, 23-to-zero troop deployment, four selected Hero phase commands, Rage 3-to-zero, one Freeze decrement, and an automatic one-battle stop. The current reviewed local package passed install, repeated exact-current no-input managed-engine checks, and bot-owned BlueStacks and game launch with passive Home proof. Those orchestration checks do not verify managed Start, current-client gameplay, fixtures, live human review, strategy quality, or every Town Hall and army.",
-              "availability": "unsupported",
+              "description": "The deterministic Town Hall policy is versioned in config/game/smart-attack-strategies.json and executed locally. One older-binary bounded supervised TH17 run observed three zoom gestures, 240 red-line points, deterministic BL-side selection, 23-to-zero troop deployment, four selected Hero phase commands, Rage 3-to-zero, one Freeze decrement, and an automatic one-battle stop. The current reviewed local package passed install, repeated exact-current no-input managed-engine checks, and bot-owned BlueStacks and game launch with passive Home proof. Those orchestration checks do not verify every Town Hall, army, strategy quality, or live human review. Current-source battle start uses a narrow clean-room red-line detector while inherited ImgLoc exports remain disabled.",
+              "availability": "gated",
               "runtime_verified": false,
-              "disabled_reason": "Battle execution is disabled: exact-current supervised readiness reached inherited ImgLoc, which rejected this fork before matchmaking. Diagnostic acknowledgement cannot bypass the licensing boundary.",
+              "disabled_reason": "Smart battle execution is supervised-only until exact-current live battle evidence exists.",
               "capability_ids": [],
               "prerequisites": [
-                "Licensed ImgLoc permission or a clean-room recognizer"
+                "Supervised diagnostic operator",
+                "Current trained army",
+                "Clean-room red-line detector"
               ],
               "recommended": false,
               "warning": "Historical TH17 mechanics evidence exists; current exact-package engine and self-launch proof is not gameplay proof."
+            },
+            {
+              "value": "regular.battle-entry",
+              "label": "Regular battle entry proof",
+              "summary": "Open and close the current-client Multiplayer pre-search panel.",
+              "description": "Starts from Home Village, opens the Multiplayer panel, proves the Find a Match region, closes the panel, re-proves Home, and stops. It never starts search, never starts a battle, never deploys troops, never trains, never donates, never upgrades, never collects resources, and never uses gems.",
+              "availability": "gated",
+              "runtime_verified": false,
+              "disabled_reason": "This is a safe pre-search proof only; it requires an exact-current installed receipt before any live battle can be accepted.",
+              "capability_ids": [
+                "battle.regular-ranked-split"
+              ],
+              "prerequisites": [
+                "Exact BlueStacks 5 instance",
+                "A supervised diagnostic operator",
+                "Regular Multiplayer entry surface"
+              ],
+              "recommended": false,
+              "warning": "Diagnostic only: this proves the Find a Match surface and never starts search or a battle."
+            },
+            {
+              "value": "regular.battle-scout",
+              "label": "Regular battle scout",
+              "summary": "Enter one Regular match, capture the attack screen, surrender, return Home, then stop.",
+              "description": "Runs one bounded scout through reviewed exact points: Home Attack, current-client Find a Match, optional My Army Attack confirmation, attack-screen proof, exact surrender confirmation, Return Home, and Home re-proof. It never deploys troops, searches additional bases, upgrades, collects resources, trains, donates, opens social flows, or rotates accounts. Its purpose is to capture rights-safe battlefield evidence for the clean-room deployment recognizer.",
+              "availability": "gated",
+              "runtime_verified": false,
+              "disabled_reason": "Regular battle scout is route-wired but still needs an exact-current installed scout completion receipt.",
+              "capability_ids": [
+                "battle.regular-ranked-split"
+              ],
+              "prerequisites": [
+                "Exact BlueStacks 5 instance",
+                "A supervised diagnostic operator",
+                "Regular Multiplayer entry surface"
+              ],
+              "recommended": false,
+              "warning": "Diagnostic only: this taps Find a Match and enters one match, then exits without troop deployment."
             },
             {
               "value": "home.collectors",
@@ -1314,6 +1358,44 @@
               ],
               "recommended": false,
               "warning": ""
+            },
+            {
+              "value": "builder.collectors",
+              "label": "Builder Base collection",
+              "summary": "Run one clean-room Builder Base resource collection pass.",
+              "description": "Switches to Builder Base when needed, recognizes only reviewed Builder Gold/Elixir resource bubbles on the exact current client, issues at most two resource clicks, returns Home, and stops. It cannot attack, upgrade, clear obstacles, train, donate, enter Star Laboratory, collect the Gem Mine, rotate accounts, or use gems.",
+              "availability": "gated",
+              "runtime_verified": false,
+              "disabled_reason": "Current-client Builder Base collection requires an exact live receipt before it is considered accepted.",
+              "capability_ids": [
+                "builder-base.resources"
+              ],
+              "prerequisites": [
+                "Exact BlueStacks 5 instance",
+                "A supervised diagnostic operator",
+                "Current Builder Base resource bubbles"
+              ],
+              "recommended": false,
+              "warning": "Diagnostic only: one Builder Gold/Elixir collection pass may mutate ordinary Builder resources; Gem Mine collection is intentionally excluded."
+            },
+            {
+              "value": "builder.battle-entry",
+              "label": "Builder battle entry proof",
+              "summary": "Open and close the current-client Builder Battle pre-search panel.",
+              "description": "Switches to Builder Base when needed, opens the Builder Battle entry panel, proves the Find Now region, closes the panel, returns Home, and stops. It never starts search, never starts a battle, never deploys troops, never clears obstacles, never upgrades, never collects resources, and never uses gems.",
+              "availability": "gated",
+              "runtime_verified": false,
+              "disabled_reason": "This is a safe pre-search proof only; it requires an exact-current installed receipt before any Builder battle can be accepted.",
+              "capability_ids": [
+                "builder-base.battles"
+              ],
+              "prerequisites": [
+                "Exact BlueStacks 5 instance",
+                "A supervised diagnostic operator",
+                "Builder Battle entry surface"
+              ],
+              "recommended": false,
+              "warning": "Diagnostic only: this proves the pre-search surface and never starts search or a battle."
             },
             {
               "value": "builder.baby-dragon",
@@ -1907,7 +1989,7 @@
               "value": "bluestacks5",
               "label": "BlueStacks 5",
               "summary": "The inherited BlueStacks 5 backend.",
-              "description": "An older binary was exercised on BlueStacks 5.22.252.1008/Pie64 through exact window binding, ADB readiness, current-client game readiness, and bounded Start/Stop smoke tests. The current reviewed local package was installed and completed repeated no-input managed-engine checks. Its launch-only control then started the exact Pie64 instance, attached ADB and the emulator window, launched the game, recognized a returning-player interruption, and passively proved Home after operator dismissal. Managed Start and gameplay automation were not exercised.",
+              "description": "An older binary was exercised on BlueStacks 5.22.252.1008/Pie64 through exact window binding, ADB readiness, current-client game readiness, and bounded Start/Stop smoke tests. The current reviewed local package was installed and completed repeated no-input managed-engine checks. Its launch-only control then started the exact Pie64 instance, attached ADB and the emulator window, launched the game, recognized a returning-player interruption, and passively proved Home through the reviewed no-premium OK dismissal path. Managed Start and gameplay automation were not exercised.",
               "availability": "gated",
               "runtime_verified": false,
               "disabled_reason": "The current reviewed package proves exact Pie64 self-launch, ADB/window attachment, returning-player interruption recognition, and passive Home proof. Managed Start, capture/input gameplay fixtures, and live gameplay review remain unverified.",

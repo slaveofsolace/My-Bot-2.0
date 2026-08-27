@@ -191,16 +191,28 @@ Func RunIntentManagesTraining(ByRef $oIntent)
 EndFunc   ;==>RunIntentManagesTraining
 
 Func RunIntentPlannedTownHall(ByRef $oIntent)
-	Local $sError = ""
-	If Not RunIntentValidate($oIntent, $sError) Then Return SetError(1, 0, 0)
-	Return Int($oIntent.Item("planned_town_hall"))
+        Local $sError = ""
+        If Not RunIntentValidate($oIntent, $sError) Then Return SetError(1, 0, 0)
+        Return Int($oIntent.Item("planned_town_hall"))
 EndFunc   ;==>RunIntentPlannedTownHall
 
-; Every gate an intent must clear before a session may open. Diagnostic mode relaxes the evidence gate only;
-; the quota gate stays hard because attacking a surface with no attacks left is a client error, not a missing fixture.
+Func RunIntentRequiresBattleQuota(ByRef $oIntent)
+        Local $sError = ""
+        If Not RunIntentValidate($oIntent, $sError) Then Return SetError(1, 0, True)
+        Local $oPlan = $oIntent.Item("plan")
+        Local $sStrategy = StringLower(StringStripWS(String($oPlan.Item("strategy")), $STR_STRIPALL))
+        Switch $sStrategy
+                Case "builder.collectors"
+                        Return False
+        EndSwitch
+        Return True
+EndFunc   ;==>RunIntentRequiresBattleQuota
+
+; Every gate an intent must clear before a session may open. Diagnostic mode relaxes the evidence gate only.
+; Battle intents keep the quota gate hard; non-battle maintenance intents do not consume attack availability.
 Func RunIntentCanStart(ByRef $oIntent, ByRef $sReason)
-	$sReason = ""
-	If Not RunIntentValidate($oIntent, $sReason) Then Return False
+        $sReason = ""
+        If Not RunIntentValidate($oIntent, $sReason) Then Return False
 
 	Local $oRoute = $oIntent.Item("route")
 	Local $sRouteReason = ""
@@ -209,16 +221,18 @@ Func RunIntentCanStart(ByRef $oIntent, ByRef $sReason)
 		Return False
 	EndIf
 
-	Local $oQuota = $oIntent.Item("quota")
-	Local $sQuotaReason = ""
-	If Not BattleQuotaCanConsume($oQuota, $sQuotaReason) Then
-		$sReason = $sQuotaReason
-		Return False
-	EndIf
+        Local $oQuota = $oIntent.Item("quota")
+        Local $sQuotaReason = ""
+        If RunIntentRequiresBattleQuota($oIntent) Then
+                If Not BattleQuotaCanConsume($oQuota, $sQuotaReason) Then
+                        $sReason = $sQuotaReason
+                        Return False
+                EndIf
+        EndIf
 
-	; Carried through so callers can log what diagnostic mode is standing in for.
-	$sReason = $sRouteReason
-	Return True
+        ; Carried through so callers can log what diagnostic mode is standing in for.
+        $sReason = $sRouteReason
+        Return True
 EndFunc   ;==>RunIntentCanStart
 
 Func RunIntentOpenSession(ByRef $oIntent, $sSessionId, ByRef $sError)

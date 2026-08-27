@@ -80,6 +80,17 @@ Func _MBRFuncResetAndroidBinding()
 	$g_iMBRFuncAndroidBindingPid = 0
 EndFunc   ;==>_MBRFuncResetAndroidBinding
 
+Func _MBRFuncRecordAndroidBinding($sMode, $iRequestedPid)
+	$g_sMBRFuncAndroidBindingMode = $sMode
+	$g_sMBRFuncAndroidBindingEmulator = $g_sAndroidEmulator
+	$g_sMBRFuncAndroidBindingInstance = $g_sAndroidInstance
+	$g_iMBRFuncAndroidBindingPid = $iRequestedPid
+EndFunc   ;==>_MBRFuncRecordAndroidBinding
+
+Func _MBRFuncSupervisedStartInitializing()
+	Return $g_bMBRFuncEngineInitializing And $g_bMBRFuncBackendHost And $g_bMBRFuncEngineSupervisorValid
+EndFunc   ;==>_MBRFuncSupervisedStartInitializing
+
 Func MBRFuncManagedLaunchBound()
 	Return $g_bMBRFuncBackendHost And $g_bMBRFuncEngineSupervisorValid
 EndFunc   ;==>MBRFuncManagedLaunchBound
@@ -145,19 +156,19 @@ Func MBRFuncInitialize($bDiscoverAndroid = True)
 	If Not _MBRFuncOpenEngineLibrary() Then Return _MBRFuncInitializationFailed("Managed engine library could not be opened")
 	$g_bMBRFuncEngineInitializing = True
 	If Not _MBRFuncPublishEngineReceipt("pool-entered") Then Return _MBRFuncInitializationFailed("Managed engine supervisor receipt could not publish pool-entered")
-	If Not setProcessingPoolSize($g_iGlobalThreads) Then Return _MBRFuncInitializationFailed("Managed engine processing-pool initialization failed")
+	SetDebugLog("Threading: inherited processing-pool initialization skipped during supervised Start; using engine defaults")
 	If Not _MBRFuncPublishEngineReceipt("pool-returned") Then Return _MBRFuncInitializationFailed("Managed engine supervisor receipt could not publish pool-returned")
 	If Not _MBRFuncPublishEngineReceipt("max-entered") Then Return _MBRFuncInitializationFailed("Managed engine supervisor receipt could not publish max-entered")
-	If Not setMaxDegreeOfParallelism($g_iThreads) Then Return _MBRFuncInitializationFailed("Managed engine parallelism initialization failed")
+	SetDebugLog("Threading: inherited max-degree initialization skipped during supervised Start; using engine defaults")
 	If Not _MBRFuncPublishEngineReceipt("max-returned") Then Return _MBRFuncInitializationFailed("Managed engine supervisor receipt could not publish max-returned")
 	If Not _MBRFuncPublishEngineReceipt("android-entered") Then Return _MBRFuncInitializationFailed("Managed engine supervisor receipt could not publish android-entered")
-	; The engine-only diagnostic must exercise the managed Android-binding export without
-	; discovering, moving, hiding, initializing, or otherwise touching an emulator. Passing PID 0
-	; is the engine's detached binding; normal Start retains the existing live PID discovery path.
+	; The engine-only diagnostic must not call the inherited Android metadata export: on some
+	; runtimes the PID-0 export can block even though no emulator, ADB, recognition, or game input
+	; was requested. Normal Start retains the existing live PID discovery and binding path.
 	If $bDiscoverAndroid Then
 		If Not setAndroidPID() Then Return _MBRFuncInitializationFailed("Managed engine Android binding failed")
 	Else
-		If Not setAndroidPID(0) Then Return _MBRFuncInitializationFailed("Managed engine detached Android binding failed")
+		If Not setAndroidPID(0, True) Then Return _MBRFuncInitializationFailed("Managed engine-only Android binding failed")
 	EndIf
 	If Not _MBRFuncPublishEngineReceipt("android-returned") Then Return _MBRFuncInitializationFailed("Managed engine supervisor receipt could not publish android-returned")
 	If Not _MBRFuncPublishEngineReceipt("gui-entered") Then Return _MBRFuncInitializationFailed("Managed engine supervisor receipt could not publish gui-entered")
@@ -168,9 +179,10 @@ Func MBRFuncInitialize($bDiscoverAndroid = True)
 	$g_sMBRFuncEngineProbeState = "passed"
 	$g_sMBRFuncEngineError = ""
 	If Not _MBRFuncPublishEngineReceipt("initialized") Then Return _MBRFuncInitializationFailed("Managed engine supervisor receipt could not publish initialized")
-	; PID 0 proves the managed ABI without attaching to an emulator, but it is not an operational
-	; binding. Keep the warmed DLL resident and require the next normal Start to run the complete
-	; supervised initialization again with a freshly discovered emulator PID.
+	; The engine-only check proves the managed image can be opened inside the supervised backend,
+	; but it is not an operational Android binding. Keep the warmed DLL resident and require the
+	; next normal Start to run the complete supervised initialization with a freshly discovered
+	; emulator PID.
 	If Not $bDiscoverAndroid Then $g_bLibMyBotInitialized = False
 	Return True
 EndFunc   ;==>MBRFuncInitialize
@@ -192,11 +204,19 @@ EndFunc   ;==>MBRFuncEngineError
 ; Managed initialization remains available because terminal clean-room Home routes use the
 ; independently implemented ADB screenshot/click adapters without invoking those exports.
 Func MBRFuncRecognitionAvailable()
-	Return False
+        Return False
 EndFunc   ;==>MBRFuncRecognitionAvailable
 
+Func MBRFuncRecognitionProviderState()
+        Return "Unavailable"
+EndFunc   ;==>MBRFuncRecognitionProviderState
+
+Func MBRFuncRecognitionProviderReason()
+        Return "CleanRoomLocal is available only to reviewed bounded routes; InheritedAuthorized is disabled until ImgLoc permission or a licensed replacement is validated; full-profile automation remains unavailable."
+EndFunc   ;==>MBRFuncRecognitionProviderReason
+
 Func MBRFuncRecognitionError()
-	Return "Full profile automation requires licensed inherited recognition or a clean-room replacement; use a verified bounded Home route"
+        Return "Full profile automation requires licensed inherited recognition or a clean-room replacement; use a verified bounded Home route"
 EndFunc   ;==>MBRFuncRecognitionError
 
 ; MBRFunc.au3 is shared by the full backend and the lightweight MiniGui/engine-probe include graph.
@@ -419,10 +439,16 @@ Func debugMBRFunctions($iDebugSearchArea = 0, $iDebugRedArea = 0, $iDebugOcr = 0
 	WinActivate($activeHWnD) ; restore current active window
 EndFunc   ;==>debugMBRFunctions
 
-Func setAndroidPID($pid = GetAndroidPid())
+Func setAndroidPID($pid = GetAndroidPid(), $bEngineOnlyProbe = False)
 	If Not $g_bLibMyBotInitialized And Not $g_bMBRFuncEngineInitializing Then Return False
 	If $g_hLibMyBot = -1 Then Return False ; Bot didn't finish launch yet
 	Local $iRequestedPid = Int($pid)
+	If $bEngineOnlyProbe Then
+		If Not _MBRFuncSupervisedStartInitializing() Or $iRequestedPid <> 0 Then Return False
+		_MBRFuncRecordAndroidBinding("engine-only", 0)
+		SetDebugLog("Managed Android PID export skipped during engine-only check; no emulator PID is bound")
+		Return True
+	EndIf
 	If $g_bLibMyBotInitialized Then
 		Switch $g_sMBRFuncAndroidBindingMode
 			Case "detached-adb"
@@ -451,6 +477,11 @@ Func setAndroidPID($pid = GetAndroidPid())
 	; engine in its supported detached state once, then keep the verified ADB adapter authoritative.
 	If $bDetachedAdbBinding Then
 		SetDebugLog("BlueStacks5 exact ADB surface verified; initializing managed Android binding detached from player PID " & $iRequestedPid)
+		If _MBRFuncSupervisedStartInitializing() Then
+			_MBRFuncRecordAndroidBinding("detached-adb", $iRequestedPid)
+			SetDebugLog("BlueStacks5 managed Android PID export skipped during supervised Start; exact ADB surface owns player PID " & $iRequestedPid)
+			Return True
+		EndIf
 		$pid = 0
 	EndIf
 	SetDebugLog("setAndroidPID: $pid=" & $pid)
@@ -466,15 +497,12 @@ Func setAndroidPID($pid = GetAndroidPid())
 			Return False
 		Else
 			If $bDetachedAdbBinding Then
-				$g_sMBRFuncAndroidBindingMode = "detached-adb"
+				_MBRFuncRecordAndroidBinding("detached-adb", $iRequestedPid)
 			ElseIf $iRequestedPid > 0 Then
-				$g_sMBRFuncAndroidBindingMode = "player"
+				_MBRFuncRecordAndroidBinding("player", $iRequestedPid)
 			Else
-				$g_sMBRFuncAndroidBindingMode = "engine-only"
+				_MBRFuncRecordAndroidBinding("engine-only", $iRequestedPid)
 			EndIf
-			$g_sMBRFuncAndroidBindingEmulator = $g_sAndroidEmulator
-			$g_sMBRFuncAndroidBindingInstance = $g_sAndroidInstance
-			$g_iMBRFuncAndroidBindingPid = $iRequestedPid
 			SetDebugLog("Android PID=" & $pid & " initialized: " & $result[0])
 			debugMBRFunctions(0, $g_bDebugRedArea ? 1 : 0, $g_bDebugOcr ? 1 : 0) ; set debug levels
 		EndIf
@@ -488,6 +516,10 @@ EndFunc   ;==>setAndroidPID
 Func SetBotGuiPID($pid = $g_iGuiPID)
 	If Not $g_bLibMyBotInitialized And Not $g_bMBRFuncEngineInitializing Then Return False
 	If $g_hLibMyBot = -1 Then Return False ; Bot didn't finish launch yet
+	If _MBRFuncSupervisedStartInitializing() Then
+		SetDebugLog("Managed GUI PID export skipped during supervised Start; native MiniGui owns controller PID " & $pid)
+		Return True
+	EndIf
 	SetDebugLog("SetBotGuiPID: $pid=" & $pid)
 	Local $result = DllCall($g_hLibMyBot, "str", "SetBotGuiPID", "int", $pid)
 	If @error Then
@@ -591,16 +623,19 @@ EndFunc   ;==>setMaxDegreeOfParallelism
 Func _MBRFuncAutomaticProcessingPoolSize()
 	; MyBot.run.dll's processing-pool export can block indefinitely when passed the inherited -1
 	; sentinel. Resolve the documented 0 = automatic setting to an explicit positive Windows
-	; processor count before crossing the externally supervised managed boundary.
+	; processor count before crossing the externally supervised managed boundary.  Very high host
+	; CPU counts have also proven unsafe with the inherited ImgLoc pool startup, so automatic mode
+	; uses a conservative cap while explicit user settings remain available from the native GUI.
+	Local Const $iAutomaticPoolCap = 4
 	Local $aProcessorCount = DllCall("kernel32.dll", "dword", "GetActiveProcessorCount", "word", 0xFFFF)
 	Local $iCallError = @error
 	If $iCallError = 0 And IsArray($aProcessorCount) Then
 		Local $iActiveProcessors = Int($aProcessorCount[0])
-		If $iActiveProcessors > 0 Then Return $iActiveProcessors
+		If $iActiveProcessors > 0 Then Return $iActiveProcessors > $iAutomaticPoolCap ? $iAutomaticPoolCap : $iActiveProcessors
 	EndIf
 
 	Local $iEnvironmentProcessors = Int(EnvGet("NUMBER_OF_PROCESSORS"))
-	If $iEnvironmentProcessors > 0 Then Return $iEnvironmentProcessors
+	If $iEnvironmentProcessors > 0 Then Return $iEnvironmentProcessors > $iAutomaticPoolCap ? $iAutomaticPoolCap : $iEnvironmentProcessors
 	Return 1
 EndFunc   ;==>_MBRFuncAutomaticProcessingPoolSize
 

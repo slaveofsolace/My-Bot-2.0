@@ -33,10 +33,10 @@ Local $sInit = StringMid($sParent, $iInitStart, $iInitEnd - $iInitStart)
 Local $aOrdered[13] = [ _
 	'_MBRFuncPublishEngineReceipt("prepared")', _
 	'_MBRFuncPublishEngineReceipt("pool-entered")', _
-	"setProcessingPoolSize(", _
+	"inherited processing-pool initialization skipped", _
 	'_MBRFuncPublishEngineReceipt("pool-returned")', _
 	'_MBRFuncPublishEngineReceipt("max-entered")', _
-	"setMaxDegreeOfParallelism(", _
+	"inherited max-degree initialization skipped", _
 	'_MBRFuncPublishEngineReceipt("max-returned")', _
 	'_MBRFuncPublishEngineReceipt("android-entered")', _
 	"setAndroidPID(", _
@@ -91,7 +91,13 @@ Local $iAndroidPidStart = StringInStr($sParent, "Func setAndroidPID(", 1)
 Local $iAndroidPidEnd = StringInStr($sParent, "EndFunc", 1, 1, $iAndroidPidStart)
 Local $sAndroidPid = StringMid($sParent, $iAndroidPidStart, $iAndroidPidEnd - $iAndroidPidStart)
 AssertTrue(StringInStr($sAndroidPid, '$g_sAndroidEmulator = "BlueStacks5"', 1) > 0 And StringInStr($sAndroidPid, "$g_bAndroidAdbScreencap", 1) > 0 And StringInStr($sAndroidPid, "$g_bAndroidAdbClick", 1) > 0, "BlueStacks5 managed binding requires the verified ADB screenshot and click surface")
-AssertTrue(StringInStr($sAndroidPid, "$pid = 0", 1) > 0 And StringInStr($sAndroidPid, "exact ADB surface owns player PID", 1) > 0, "BlueStacks5 managed binding stays detached from the player process")
+AssertTrue(StringInStr($sAndroidPid, "$pid = 0", 1) > 0 And StringInStr($sAndroidPid, "exact ADB surface owns player PID", 1) > 0 And StringInStr($sAndroidPid, '_MBRFuncRecordAndroidBinding("detached-adb", $iRequestedPid)', 1) > 0, "BlueStacks5 managed binding stays detached from the player process")
+AssertTrue(StringInStr($sAndroidPid, "managed Android PID export skipped during supervised Start", 1) < StringInStr($sAndroidPid, 'DllCall($g_hLibMyBot, "str", "setAndroidPID"', 1), "supervised Start skips the blocking Android metadata export before DllCall")
+AssertTrue(StringInStr($sAndroidPid, '_MBRFuncRecordAndroidBinding("engine-only", 0)', 1) > 0 And StringInStr($sAndroidPid, "Managed Android PID export skipped during engine-only check", 1) < StringInStr($sAndroidPid, 'DllCall($g_hLibMyBot, "str", "setAndroidPID"', 1), "engine-only check skips the blocking Android metadata export before DllCall")
+Local $iGuiPidStart = StringInStr($sParent, "Func SetBotGuiPID(", 1)
+Local $iGuiPidEnd = StringInStr($sParent, "EndFunc", 1, 1, $iGuiPidStart)
+Local $sGuiPid = StringMid($sParent, $iGuiPidStart, $iGuiPidEnd - $iGuiPidStart)
+AssertTrue(StringInStr($sGuiPid, "Managed GUI PID export skipped during supervised Start", 1) < StringInStr($sGuiPid, 'DllCall($g_hLibMyBot, "str", "SetBotGuiPID"', 1), "supervised Start skips the blocking GUI metadata export before DllCall")
 Local $iManagedBoundStart = StringInStr($sParent, "Func MBRFuncManagedLaunchBound()", 1)
 Local $iManagedBoundEnd = StringInStr($sParent, "EndFunc", 1, 1, $iManagedBoundStart)
 Local $sManagedBound = StringMid($sParent, $iManagedBoundStart, $iManagedBoundEnd - $iManagedBoundStart)

@@ -48,6 +48,7 @@ class NoPremiumSourcePolicyTests(unittest.TestCase):
         cls.android = source("COCBot/functions/Android/Android.au3")
         cls.drag = source("COCBot/functions/Other/ClickDrag.au3")
         cls.policy = source("COCBot/functions/Run/NoPremiumPermitPolicy.au3")
+        cls.event = source("COCBot/functions/Run/RunEvent.au3")
 
     def test_policy_is_compile_time_enabled_and_terminal(self) -> None:
         self.assertIn("Global Const $NO_PREMIUM_POLICY_ENABLED = True", self.click)
@@ -66,6 +67,7 @@ class NoPremiumSourcePolicyTests(unittest.TestCase):
             self.assertIn(token, blocked)
         for forbidden in ("Click(", "ClickP(", "_ControlClick(", "AndroidClick(", "CloseWindow"):
             self.assertNotIn(forbidden, blocked)
+        self.assertIn('"safety.premium-blocked"', self.event)
 
     def test_passive_surface_recognizer_covers_gem_and_shop_anchors(self) -> None:
         recognizer = autoit_function(self.click, "NoPremiumSurfaceState")
@@ -168,6 +170,8 @@ class NoPremiumSourcePolicyTests(unittest.TestCase):
             "$NO_PREMIUM_ACTION_DAILY_REWARD_CLAIM",
             "$NO_PREMIUM_ACTION_TREASURY_CLOSE",
             "$NO_PREMIUM_ACTION_CLAN_REQUEST_SEND",
+            "$NO_PREMIUM_ACTION_HOME_CLEAR_SCREEN",
+            "$NO_PREMIUM_ACTION_STARTUP_POPUP_CLOSE",
             "no exact reviewed action and target permit",
         ):
             self.assertIn(token, recognizer)
@@ -219,6 +223,7 @@ class NoPremiumSourcePolicyTests(unittest.TestCase):
             "COCBot/functions/Run/OpenHomeCollectors.au3",
             "COCBot/functions/Run/OpenHomeTreasury.au3",
             "COCBot/functions/Run/OpenClanRequest.au3",
+            "COCBot/functions/Run/OpenBuilderBaseCollectors.au3",
         ):
             text = source(relative)
             route_callers[relative] = autoit_callers(text, "NoPremiumPointClick")
@@ -226,10 +231,14 @@ class NoPremiumSourcePolicyTests(unittest.TestCase):
             {
                 "OpenHomeCollectorsCollectOnePass",
                 "OpenHomeInactivityReloadIssue",
+                "OpenHomeWelcomeBackCloseAndProveHome",
                 "OpenHomeDailyRewardIssueClaim",
                 "OpenHomeDailyRewardCloseAndProveHome",
+                "OpenHomeClearSelectedActionPanel",
                 "OpenHomeLootCartIssueOpen",
                 "OpenHomeLootCartIssueCollect",
+                "OpenRegularBattleEntryIssueOpen",
+                "OpenRegularBattleEntryIssueClose",
             },
             route_callers["COCBot/functions/Run/OpenHomeCollectors.au3"],
         )
@@ -246,6 +255,20 @@ class NoPremiumSourcePolicyTests(unittest.TestCase):
             },
             route_callers["COCBot/functions/Run/OpenClanRequest.au3"],
         )
+        self.assertEqual(
+            {
+                "OpenBuilderBaseSwitchToBuilder",
+                "OpenBuilderBaseReturnHome",
+                "OpenBuilderBaseCollectorsCollectOnePass",
+                "OpenBuilderBattleEntryIssueOpen",
+                "OpenBuilderBattleEntryIssueClose",
+            },
+            route_callers["COCBot/functions/Run/OpenBuilderBaseCollectors.au3"],
+        )
+        self.assertEqual(
+            {"_checkObstacles"},
+            autoit_callers(source("COCBot/functions/Main Screen/checkObstacles.au3"), "NoPremiumPointClick"),
+        )
         clan_request_active = active_autoit(source("COCBot/functions/Run/OpenClanRequest.au3"))
         self.assertNotRegex(clan_request_active, r"(?<![A-Za-z_])Click\(")
 
@@ -259,16 +282,25 @@ class NoPremiumSourcePolicyTests(unittest.TestCase):
                 "COCBot/functions/Run/OpenHomeCollectors.au3",
                 "COCBot/functions/Run/OpenHomeTreasury.au3",
                 "COCBot/functions/Run/OpenClanRequest.au3",
+                "COCBot/functions/Run/OpenBuilderBaseCollectors.au3",
+                "COCBot/functions/Run/RunExecution.au3",
+                "COCBot/functions/Main Screen/checkObstacles.au3",
             },
             all_callers,
         )
+
+        clear = autoit_function(self.click, "NoPremiumClickAway")
+        self.assertIn("$NO_PREMIUM_ACTION_HOME_CLEAR_SCREEN", clear)
+        self.assertIn("NoPremiumPointClick(", clear)
+        self.assertNotIn("Random(", clear)
+        self.assertNotRegex(autoit_function(source("COCBot/functions/Image Search/IsWindowOpen.au3"), "ClearScreen"), r"(?<![A-Za-z_])ClickAway\(")
 
     def test_action_contract_is_exact_point_bound_and_rejects_generic_routes(self) -> None:
         known = autoit_function(self.policy, "NoPremiumPermitActionKnown")
         target = autoit_function(self.policy, "NoPremiumPermitTargetValid")
         point = autoit_function(self.policy, "NoPremiumPermitPointMatches")
         age = autoit_function(self.policy, "NoPremiumPermitAgeValid")
-        self.assertEqual(17, len(re.findall(r'^Global Const \$NO_PREMIUM_ACTION_', self.policy, re.MULTILINE)))
+        self.assertEqual(33, len(re.findall(r'^Global Const \$NO_PREMIUM_ACTION_', self.policy, re.MULTILINE)))
         for forbidden in ('"home"', '"builder-home"', '"full-profile"', '"confirm"'):
             self.assertNotIn(forbidden, known)
         for exact in (
@@ -282,10 +314,58 @@ class NoPremiumSourcePolicyTests(unittest.TestCase):
             "$iX = 545 And $iY = 478",
             "$iX = 316 And $iY = 478",
             "$iX = 792 And $iY = 187",
+            "$iX = 145 And $iY = 620",
+            "$iX >= 500 And $iX <= 530 And $iY >= 405 And $iY <= 435",
+            "$iX >= 320 And $iX <= 350 And $iY >= 395 And $iY <= 420",
+            "$iX = 821 And $iY = 465",
+            "$iX >= 235 And $iX <= 245 And $iY >= 10 And $iY <= 30",
+            "$iX >= 640 And $iX <= 650 And $iY >= 10 And $iY <= 30",
+            "$iX >= 360 And $iX <= 510 And $iY >= 450 And $iY <= 540",
+            "$iX = 175 And $iY = 10",
+            "$iX = 62 And $iY = 685",
+            "$iX = 820 And $iY = 42",
+            "$iX = 160 And $iY = 470",
+            "$iX = 735 And $iY = 508 + _NoPremiumPermitMidOffsetY()",
+            "$iX = 70 And $iY = 545 + _NoPremiumPermitBottomOffsetY()",
+            "$iX = 535 And $iY = 435 + _NoPremiumPermitMidOffsetY()",
+            "$iX = 430 And $iY = 566 + _NoPremiumPermitMidOffsetY()",
+            "$iX = 62 And $iY = 685",
+            "$iX = 748 And $iY = 204",
         ):
             self.assertIn(exact, target)
         self.assertIn("$NO_PREMIUM_ACTION_EXACT_TRAINING_ARMY", known)
+        self.assertIn("$NO_PREMIUM_ACTION_BUILDER_SWITCH", known)
+        self.assertIn("$NO_PREMIUM_ACTION_BUILDER_COLLECT_GOLD", known)
+        self.assertIn("$NO_PREMIUM_ACTION_BUILDER_COLLECT_ELIXIR", known)
+        self.assertIn("$NO_PREMIUM_ACTION_BUILDER_RETURN_HOME", known)
+        self.assertIn("$NO_PREMIUM_ACTION_REGULAR_BATTLE_ENTRY_OPEN", known)
+        self.assertIn("$NO_PREMIUM_ACTION_REGULAR_BATTLE_ENTRY_CLOSE", known)
+        self.assertIn("$NO_PREMIUM_ACTION_REGULAR_BATTLE_SCOUT_FIND_MATCH", known)
+        self.assertIn("$NO_PREMIUM_ACTION_REGULAR_BATTLE_SCOUT_CONFIRM_ARMY", known)
+        self.assertIn("$NO_PREMIUM_ACTION_REGULAR_BATTLE_SCOUT_END_BATTLE", known)
+        self.assertIn("$NO_PREMIUM_ACTION_REGULAR_BATTLE_SCOUT_CONFIRM_SURRENDER", known)
+        self.assertIn("$NO_PREMIUM_ACTION_REGULAR_BATTLE_SCOUT_RETURN_HOME", known)
+        self.assertIn("$NO_PREMIUM_ACTION_BUILDER_BATTLE_ENTRY_OPEN", known)
+        self.assertIn("$NO_PREMIUM_ACTION_BUILDER_BATTLE_ENTRY_CLOSE", known)
+        self.assertIn("$NO_PREMIUM_ACTION_HOME_CLEAR_SCREEN", known)
+        self.assertIn("$NO_PREMIUM_ACTION_STARTUP_POPUP_CLOSE", known)
+        self.assertIn("$NO_PREMIUM_ACTION_HOME_CLEAR_SELECTION", known)
         self.assertIn("Case $NO_PREMIUM_ACTION_EXACT_TRAINING_ARMY", target)
+        self.assertIn("Case $NO_PREMIUM_ACTION_BUILDER_SWITCH", target)
+        self.assertIn("Case $NO_PREMIUM_ACTION_BUILDER_COLLECT_GOLD", target)
+        self.assertIn("Case $NO_PREMIUM_ACTION_BUILDER_COLLECT_ELIXIR", target)
+        self.assertIn("Case $NO_PREMIUM_ACTION_BUILDER_RETURN_HOME", target)
+        self.assertIn("Case $NO_PREMIUM_ACTION_REGULAR_BATTLE_ENTRY_OPEN", target)
+        self.assertIn("Case $NO_PREMIUM_ACTION_REGULAR_BATTLE_ENTRY_CLOSE", target)
+        self.assertIn("Case $NO_PREMIUM_ACTION_REGULAR_BATTLE_SCOUT_FIND_MATCH", target)
+        self.assertIn("Case $NO_PREMIUM_ACTION_REGULAR_BATTLE_SCOUT_CONFIRM_ARMY", target)
+        self.assertIn("Case $NO_PREMIUM_ACTION_REGULAR_BATTLE_SCOUT_END_BATTLE", target)
+        self.assertIn("Case $NO_PREMIUM_ACTION_REGULAR_BATTLE_SCOUT_CONFIRM_SURRENDER", target)
+        self.assertIn("Case $NO_PREMIUM_ACTION_REGULAR_BATTLE_SCOUT_RETURN_HOME", target)
+        self.assertIn("Case $NO_PREMIUM_ACTION_BUILDER_BATTLE_ENTRY_OPEN", target)
+        self.assertIn("Case $NO_PREMIUM_ACTION_BUILDER_BATTLE_ENTRY_CLOSE", target)
+        self.assertIn("Case $NO_PREMIUM_ACTION_HOME_CLEAR_SCREEN", target)
+        self.assertIn("Case $NO_PREMIUM_ACTION_STARTUP_POPUP_CLOSE", target)
         self.assertIn("Int($iExpectedX) = Int($iActualX)", point)
         self.assertIn("Int($iExpectedY) = Int($iActualY)", point)
         self.assertIn("$iAgeMs >= 0", age)

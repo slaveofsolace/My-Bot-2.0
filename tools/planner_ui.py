@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import ctypes
 import hashlib
 import http.client
 import json
@@ -62,11 +63,13 @@ UI_JS = ROOT / "ui/planner.js"
 UI_FAVICON = ROOT / "ui/favicon.svg"
 
 PLAN_PATH = ROOT / "config/run-plan.local.json"
+PLAN_RECEIPT_PATH = ROOT / "config/run-plan.receipt.local.json"
 EVENTS_PATH = ROOT / "logs/run-events.jsonl"
 PROFILES_ROOT = ROOT / "Profiles"
 CONTROL_COMMAND_PATH = ROOT / "config/control-command.local.json"
 CONTROL_STATUS_PATH = ROOT / "config/control-status.local.json"
 ENGINE_INIT_RECEIPT_PATH = Path(os.environ.get("LOCALAPPDATA", "")) / "My Bot 2.0" / "engine-init-owner-v1.json"
+MINI_LIFECYCLE_PATH = Path(os.environ.get("LOCALAPPDATA", "")) / "My Bot 2.0" / "mini-supervisor-lifecycle-v1.json"
 ENGINE_INIT_CANCEL_PATH = ROOT / "config/engine-init-cancel.local.json"
 ENGINE_INIT_RECEIPT_MAX_BYTES = 4096
 ENGINE_INIT_ACTIVE_PHASES = {
@@ -91,11 +94,19 @@ CONTROL_STATUS_BUSY_MAX_AGE_SECONDS = 45.0
 CONTROL_STATUS_READ_RETRY_SECONDS = 0.02
 CONTROL_STATUS_READ_ATTEMPTS = 5
 CONTROL_BUSY_STATES = {"starting", "stopping", "closing"}
+MINI_LIFECYCLE_MAX_AGE_SECONDS = 10.0
+MINI_LIFECYCLE_STATES = {
+    "prepared", "starting", "ready-idle", "running", "paused", "stopping", "recovering", "stopped", "failed",
+    "ownership-ambiguous",
+}
+CONTROL_TERMINAL_OUTCOMES = {"completed", "passed", "rejected", "failed", "stopped", "paused", "resumed", "no-op"}
 ENGINE_INIT_CANCEL_CONTEXT_WAIT_SECONDS = 3.0
 ENGINE_INIT_CANCEL_CONTEXT_POLL_SECONDS = 0.025
 CONTROL_ACTIONS = {"start", "stop", "pause", "resume", "check-engine", "launch-game"}
 CONTROL_LOCK = threading.Lock()
 PLAN_ABSENCE_TOKEN = "absent"
+PLAN_RECEIPT_SCHEMA_VERSION = 1
+_LAST_PLAN_REJECTION: dict[str, object] | None = None
 LOCAL_HOSTS = {"127.0.0.1", "localhost"}
 DIAGNOSTIC_ARTIFACTS = {
     "native_app": ROOT / "MyBot.run.exe",
@@ -105,8 +116,13 @@ DIAGNOSTIC_ARTIFACTS = {
 DIAGNOSTIC_ENGINE_FIELDS = {
     "connected", "state", "authorization_ready", "engine_available", "engine_probe_state", "recognition_available", "recognition_error", "product_name",
     "product_version", "engine_version", "plan_active", "plan_message", "session_id",
-    "emulator", "emulator_attached", "window_attached", "adb_ready", "game_ready", "bot_pid", "last_command", "last_outcome", "last_command_message",
-    "message", "last_seen_at", "age_seconds",
+    "emulator", "emulator_attached", "window_attached", "adb_ready", "game_ready", "bot_pid", "bot_process_alive", "last_command", "last_outcome", "last_command_message",
+    "message", "last_seen_at", "age_seconds", "supervisor_state", "mini_supervisor",
+}
+MINI_LIFECYCLE_FIELDS = {
+    "state", "reason", "recorded_at_local", "controller_pid", "controller_created", "backend_pid", "backend_created",
+    "backend_alive", "backend_window_attached", "profile", "emulator", "instance", "recovery_active",
+    "recovery_delay_ms", "start_replayed",
 }
 DIAGNOSTIC_EVENT_FIELDS = {"timestamp_ms", "type", "severity", "message", "surface_id", "verification_state"}
 
@@ -151,6 +167,51 @@ def read_json(path: Path, default):
         return json.loads(path.read_text(encoding="utf-8-sig"))
     except (OSError, json.JSONDecodeError):
         return default
+
+
+def native_bot_process_alive(pid) -> bool | None:
+    """Return whether a reported native bot PID is still alive without enumerating the host."""
+    if isinstance(pid, bool):
+        return None
+    try:
+        value = int(pid)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    if value <= 0:
+        return None
+    if os.name != "nt":
+        try:
+            os.kill(value, 0)
+        except ProcessLookupError:
+            return False
+        except PermissionError:
+            return True
+        except OSError:
+            return False
+        return True
+
+    process_query_limited_information = 0x1000
+    still_active = 259
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    handle = kernel32.OpenProcess(process_query_limited_information, False, value)
+    if not handle:
+        return False
+    try:
+        exit_code = ctypes.c_ulong()
+        if not kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code)):
+            return False
+        return exit_code.value == still_active
+    finally:
+        kernel32.CloseHandle(handle)
+
+
+def control_status_terminal_receipt(document: dict) -> bool:
+    """A recent terminal receipt may remain after the native owner has shut down cleanly."""
+    return (
+        document.get("state") == "idle"
+        and document.get("last_command") in CONTROL_ACTIONS
+        and document.get("last_outcome") in CONTROL_TERMINAL_OUTCOMES
+    )
 
 
 def _path_is_reparse(path: Path) -> bool:
@@ -227,6 +288,49 @@ def wait_for_engine_init_cancel_context(expected_start_request_id: str) -> dict 
         if remaining <= 0:
             return None
         time.sleep(min(ENGINE_INIT_CANCEL_CONTEXT_POLL_SECONDS, remaining))
+
+
+def mini_lifecycle_status() -> dict:
+    result = {
+        "available": False,
+        "state": "stopped",
+        "message": "Mini supervisor lifecycle receipt is unavailable",
+        "path": str(MINI_LIFECYCLE_PATH),
+        "last_seen_at": None,
+        "age_seconds": None,
+    }
+    if not MINI_LIFECYCLE_PATH.is_absolute():
+        result["message"] = "Mini supervisor lifecycle path is unavailable"
+        return result
+    try:
+        modified = MINI_LIFECYCLE_PATH.stat().st_mtime
+    except OSError:
+        return result
+    document = read_json(MINI_LIFECYCLE_PATH, None)
+    if not isinstance(document, dict) or document.get("schema") != "my-bot-mini-supervisor-lifecycle-v1":
+        result.update(state="ownership-ambiguous", message="Mini supervisor lifecycle receipt is unreadable")
+        return result
+    state = document.get("state")
+    if state not in MINI_LIFECYCLE_STATES:
+        state = "ownership-ambiguous"
+    age = max(0.0, datetime.now(timezone.utc).timestamp() - modified)
+    filtered = {
+        key: document[key]
+        for key in MINI_LIFECYCLE_FIELDS
+        if key in document and isinstance(document[key], (str, int, float, bool, type(None)))
+    }
+    filtered.update(
+        available=age <= MINI_LIFECYCLE_MAX_AGE_SECONDS and state != "ownership-ambiguous",
+        state=state,
+        path=str(MINI_LIFECYCLE_PATH),
+        last_seen_at=datetime.fromtimestamp(modified, timezone.utc).isoformat(),
+        age_seconds=round(age, 2),
+    )
+    if filtered["available"]:
+        filtered["message"] = document.get("reason") or f"Mini supervisor is {state}"
+    else:
+        filtered["message"] = "Mini supervisor lifecycle receipt is stale or ambiguous"
+    return filtered
 
 
 def metadata_document() -> dict:
@@ -397,6 +501,15 @@ def validate_plan(submitted: dict) -> tuple[dict, list[str], list[str]]:
 
     for key, setting in known.items():
         clean.setdefault(key, normalized_default(setting))
+    strategy = str(clean.get("run.strategy", "")).strip().lower()
+    if strategy != "army.exact-recipe":
+        for stale_key in ("army.recipe_name", "army.recipe_digest"):
+            if clean.get(stale_key):
+                adjustments.append(f"{stale_key}: cleared because the selected strategy does not use exact saved recipes")
+            clean[stale_key] = ""
+        if int(clean.get("army.max_queue_units", 0) or 0) != 0:
+            adjustments.append("army.max_queue_units: cleared because the selected strategy does not use exact saved recipes")
+        clean["army.max_queue_units"] = 0
     return clean, adjustments, rejected
 
 
@@ -415,7 +528,12 @@ def engine_preflight(plan: dict) -> list[str]:
             continue
         selected = plan.get(setting_id)
         option = next((item for item in setting.get("options", []) if item.get("value") == selected), None)
-        if option and option.get("availability") in {"planned", "unsupported"}:
+        builder_collection_surface = (
+            setting_id == "run.surface"
+            and selected == "builder"
+            and str(plan.get("run.strategy", "")).strip().lower() in {"builder.collectors", "builder.battle-entry"}
+        )
+        if option and option.get("availability") in {"planned", "unsupported"} and not builder_collection_surface:
             problems.append(f"{setting_id}: {option.get('label', selected)} is not implemented by the native engine")
         elif option and option.get("availability") == "gated" and not bool(plan.get("run.diagnostic_mode")):
             problems.append(
@@ -428,20 +546,23 @@ def engine_preflight(plan: dict) -> list[str]:
     script = str(plan.get("run.attack_script", "")).strip()
     planned_town_hall = int(plan.get("run.town_hall", 0))
     home_maintenance = strategy == "home.collectors"
+    builder_collectors = strategy == "builder.collectors"
+    regular_battle_entry = strategy == "regular.battle-entry"
+    regular_battle_scout = strategy == "regular.battle-scout"
+    builder_battle_entry = strategy == "builder.battle-entry"
     clan_request_only = strategy == "home.clan-request"
     exact_recipe_training = strategy == "army.exact-recipe"
-    if surface != "regular":
-        problems.append("run.surface: the native engine is currently wired only to Regular Battles")
-    if strategy not in {"legacy.csv", "legacy.standard", "smart.local", "home.collectors", "home.clan-request", "army.exact-recipe"}:
+    if surface != "regular" and not ((builder_collectors or builder_battle_entry) and surface == "builder"):
+        problems.append("run.surface: the native engine is currently wired only to Regular Battles and bounded Builder proof routes")
+    if strategy not in {"legacy.csv", "legacy.standard", "smart.local", "regular.battle-entry", "regular.battle-scout", "home.collectors", "builder.collectors", "builder.battle-entry", "home.clan-request", "army.exact-recipe"}:
         problems.append(f"run.strategy: {strategy or 'blank'} has no native execution adapter")
-    if strategy in {"legacy.csv", "legacy.standard", "smart.local"}:
-        problems.append(
-            "run.strategy: battle routes are unavailable in this fork because the inherited ImgLoc runtime "
-            "rejected exact-current supervised readiness; licensed permission or a clean-room recognizer is "
-            "required, and diagnostic mode cannot bypass this gate"
-        )
     if strategy != "legacy.csv" and script.lower() != "profile-current":
         problems.append("run.attack_script: a named CSV requires the Scripted strategy")
+    if strategy in {"legacy.csv", "legacy.standard"}:
+        problems.append(
+            "run.strategy: inherited ImgLoc runtime rejected exact-current battle recognition; "
+            "use the clean-room Smart local route for supervised battle Start"
+        )
 
     recipe_name = str(plan.get("army.recipe_name", "")).strip().lower()
     recipe_digest = str(plan.get("army.recipe_digest", "")).strip().lower()
@@ -485,6 +606,126 @@ def engine_preflight(plan: dict) -> list[str]:
             problems.append("upgrade.policy: Home maintenance requires upgrades disabled")
         if str(plan.get("account.queue", "")).strip():
             problems.append("account.queue: Home maintenance cannot rotate accounts")
+    elif regular_battle_entry or regular_battle_scout:
+        route_label = "Regular battle scout" if regular_battle_scout else "Regular battle entry proof"
+        if surface != "regular":
+            problems.append(f"run.surface: {route_label} requires the Regular/Home surface")
+        if not bool(plan.get("run.diagnostic_mode")):
+            problems.append(f"run.diagnostic_mode: {route_label} requires supervised diagnostic acknowledgement")
+        if any(
+            bool(plan.get(key))
+            for key in (
+                "events.collect_resources",
+                "events.collect_daily_reward",
+                "events.collect_loot_cart",
+                "events.collect_treasury",
+            )
+        ):
+            problems.append(f"events: {route_label} cannot collect resources, rewards, Loot Cart, or Treasury")
+        if manages_training or bool(plan.get("army.wait_for_full")) or bool(plan.get("army.train_spells")) or bool(plan.get("army.train_sieges")):
+            problems.append(f"army: {route_label} cannot manage, train, or inspect an army")
+        if plan.get("run.heroes"):
+            problems.append(f"run.heroes: {route_label} cannot deploy or inspect Heroes")
+        if regular_battle_entry and (int(plan.get("run.duration_minutes", 0)) != 0 or int(plan.get("run.max_battles", 0)) != 0 or bool(plan.get("run.stop_on_star_bonus")) or int(plan.get("run.max_failures", 0)) != 0):
+            problems.append("run: Regular battle entry proof is one pre-search pass; duration, battles, star bonus, and failure limits must be 0/off")
+        if regular_battle_scout and (int(plan.get("run.duration_minutes", 0)) != 0 or int(plan.get("run.max_battles", 0)) != 1 or bool(plan.get("run.stop_on_star_bonus")) or int(plan.get("run.max_failures", 0)) != 0):
+            problems.append("run: Regular battle scout enters exactly one match; duration must be 0, Max battles 1, star bonus off, failures 0")
+        if any(int(plan.get(key, 0)) != 0 for key in ("target.gold", "target.elixir", "target.dark_elixir")):
+            problems.append(f"targets: {route_label} cannot use battle-loot targets")
+        if any(int(plan.get(key, 0)) != 0 for key in ("search.min_gold", "search.min_elixir", "search.min_dark", "search.max_seconds")) or str(plan.get("search.town_hall_filter", "")).strip().lower() != "any":
+            problems.append(f"search: {route_label} cannot configure matchmaking search")
+        if plan.get("donate.mode") != "off" or bool(plan.get("donate.request_when_short")) or int(plan.get("donate.max_per_run", 0)) != 0:
+            problems.append(f"donate: {route_label} requires donations and requests off")
+        if bool(plan.get("events.clan_games")) or int(plan.get("events.clan_games_point_cap", 0)) != 0:
+            problems.append(f"events.clan_games: {route_label} cannot enter Clan Games")
+        if str(plan.get("events.laboratory", "")).strip().lower() != "off":
+            problems.append(f"events.laboratory: {route_label} requires Laboratory off")
+        if str(plan.get("upgrade.policy", "")).strip().lower() != "disabled":
+            problems.append(f"upgrade.policy: {route_label} requires upgrades disabled")
+        if str(plan.get("account.queue", "")).strip():
+            problems.append(f"account.queue: {route_label} cannot rotate accounts")
+        if int(plan.get("pacing.retry_attempts", 0)) != 0:
+            problems.append(f"pacing.retry_attempts: {route_label} requires retries set to 0")
+        if str(plan.get("notify.channel", "")).strip().lower() != "log-only":
+            problems.append(f"notify.channel: Only Bot log notifications are wired for {route_label}")
+        if str(plan.get("runtime.emulator", "")).strip().lower() != "bluestacks5":
+            problems.append(f"runtime.emulator: {route_label} currently requires BlueStacks 5")
+        if not str(plan.get("runtime.instance", "")).strip():
+            problems.append(f"runtime.instance: choose the exact emulator instance for {route_label}")
+    elif builder_collectors:
+        if surface != "builder":
+            problems.append("run.surface: Builder Base collection requires the Builder Base surface")
+        if not bool(plan.get("run.diagnostic_mode")):
+            problems.append("run.diagnostic_mode: Builder Base collection requires supervised diagnostic acknowledgement")
+        if not bool(plan.get("events.collect_resources")) or bool(plan.get("events.collect_daily_reward")) or bool(plan.get("events.collect_loot_cart")) or bool(plan.get("events.collect_treasury")):
+            problems.append("events: Builder Base collection requires only Builder resource collection")
+        if manages_training or bool(plan.get("army.wait_for_full")) or bool(plan.get("army.train_spells")) or bool(plan.get("army.train_sieges")):
+            problems.append("army: Builder Base collection requires training, army wait, spells, and sieges off")
+        if plan.get("run.heroes"):
+            problems.append("run.heroes: Builder Base collection requires no selected Heroes")
+        if int(plan.get("run.duration_minutes", 0)) != 0 or int(plan.get("run.max_battles", 0)) != 0 or bool(plan.get("run.stop_on_star_bonus")) or int(plan.get("run.max_failures", 0)) != 0:
+            problems.append("run: Builder Base collection is one pass; duration, battles, star bonus, and failure limits must be 0/off")
+        if any(int(plan.get(key, 0)) != 0 for key in ("target.gold", "target.elixir", "target.dark_elixir", "search.min_gold", "search.min_elixir", "search.min_dark", "search.max_seconds")):
+            problems.append("search/targets: Builder Base collection cannot configure matchmaking or battle-loot targets")
+        if str(plan.get("donate.mode", "")).strip().lower() != "off" or bool(plan.get("donate.request_when_short")) or int(plan.get("donate.max_per_run", 0)) != 0:
+            problems.append("donate: Builder Base collection requires donations and requests off")
+        if bool(plan.get("events.clan_games")) or int(plan.get("events.clan_games_point_cap", 0)) != 0:
+            problems.append("events.clan_games: Builder Base collection cannot enter Clan Games")
+        if str(plan.get("events.laboratory", "")).strip().lower() != "off":
+            problems.append("events.laboratory: Builder Base collection requires Laboratory off")
+        if str(plan.get("upgrade.policy", "")).strip().lower() != "disabled":
+            problems.append("upgrade.policy: Builder Base collection requires upgrades disabled")
+        if str(plan.get("account.queue", "")).strip():
+            problems.append("account.queue: Builder Base collection cannot rotate accounts")
+        if int(plan.get("pacing.break_every_minutes", 0)) != 0:
+            problems.append("pacing.break_every_minutes: Builder Base collection requires scheduled breaks off")
+        if str(plan.get("runtime.emulator", "")).strip().lower() != "bluestacks5":
+            problems.append("runtime.emulator: Builder Base collection currently requires BlueStacks 5")
+        if not str(plan.get("runtime.instance", "")).strip():
+            problems.append("runtime.instance: Builder Base collection requires an exact emulator instance")
+    elif builder_battle_entry:
+        if surface != "builder":
+            problems.append("run.surface: Builder battle entry proof requires the Builder Base surface")
+        if not bool(plan.get("run.diagnostic_mode")):
+            problems.append("run.diagnostic_mode: Builder battle entry proof requires supervised diagnostic acknowledgement")
+        if any(
+            bool(plan.get(key))
+            for key in (
+                "events.collect_resources",
+                "events.collect_daily_reward",
+                "events.collect_loot_cart",
+                "events.collect_treasury",
+            )
+        ):
+            problems.append("events: Builder battle entry proof cannot collect resources, Home rewards, Loot Cart, or Treasury")
+        if manages_training or bool(plan.get("army.wait_for_full")) or bool(plan.get("army.train_spells")) or bool(plan.get("army.train_sieges")):
+            problems.append("army: Builder battle entry proof requires training, army wait, spells, and sieges off")
+        if plan.get("run.heroes"):
+            problems.append("run.heroes: Builder battle entry proof cannot select or deploy Heroes")
+        if int(plan.get("run.duration_minutes", 0)) != 0 or int(plan.get("run.max_battles", 0)) != 0 or bool(plan.get("run.stop_on_star_bonus")) or int(plan.get("run.max_failures", 0)) != 0:
+            problems.append("run: Builder battle entry proof is one pre-search pass; duration, battles, star bonus, and failure limits must be 0/off")
+        if any(int(plan.get(key, 0)) != 0 for key in ("target.gold", "target.elixir", "target.dark_elixir")):
+            problems.append("targets: Builder battle entry proof cannot use battle-loot targets")
+        if any(int(plan.get(key, 0)) != 0 for key in ("search.min_gold", "search.min_elixir", "search.min_dark", "search.max_seconds")) or str(plan.get("search.town_hall_filter", "")).strip().lower() != "any":
+            problems.append("search: Builder battle entry proof cannot configure matchmaking search")
+        if plan.get("donate.mode") != "off" or bool(plan.get("donate.request_when_short")) or int(plan.get("donate.max_per_run", 0)) != 0:
+            problems.append("donate: Builder battle entry proof requires donations and requests off")
+        if bool(plan.get("events.clan_games")) or int(plan.get("events.clan_games_point_cap", 0)) != 0:
+            problems.append("events.clan_games: Builder battle entry proof cannot enter Clan Games")
+        if str(plan.get("events.laboratory", "")).strip().lower() != "off":
+            problems.append("events.laboratory: Builder battle entry proof requires Laboratory off")
+        if str(plan.get("upgrade.policy", "")).strip().lower() != "disabled":
+            problems.append("upgrade.policy: Builder battle entry proof requires upgrades disabled")
+        if str(plan.get("account.queue", "")).strip():
+            problems.append("account.queue: Builder battle entry proof cannot rotate accounts")
+        if int(plan.get("pacing.retry_attempts", 0)) != 0:
+            problems.append("pacing.retry_attempts: Builder battle entry proof requires retries set to 0")
+        if str(plan.get("notify.channel", "")).strip().lower() != "log-only":
+            problems.append("notify.channel: Only Bot log notifications are wired for Builder battle entry proof")
+        if str(plan.get("runtime.emulator", "")).strip().lower() != "bluestacks5":
+            problems.append("runtime.emulator: Builder battle entry proof currently requires BlueStacks 5")
+        if not str(plan.get("runtime.instance", "")).strip():
+            problems.append("runtime.instance: choose the exact emulator instance for Builder battle entry proof")
     elif clan_request_only:
         if not bool(plan.get("run.diagnostic_mode")):
             problems.append("run.diagnostic_mode: Clan request requires supervised diagnostic acknowledgement")
@@ -591,10 +832,10 @@ def engine_preflight(plan: dict) -> list[str]:
         problems.append("runtime.instance: choose a specific emulator before selecting an instance")
     if emulator == "bluestacks5" and not instance:
         problems.append("runtime.instance: choose the exact BlueStacks 5 instance")
-    if (home_maintenance or clan_request_only or exact_recipe_training) and (emulator == "auto" or not instance):
-        route_label = "Home maintenance" if home_maintenance else ("Clan request" if clan_request_only else "Exact recipe training")
+    if (home_maintenance or clan_request_only or exact_recipe_training or regular_battle_entry or regular_battle_scout or builder_battle_entry) and (emulator == "auto" or not instance):
+        route_label = "Home maintenance" if home_maintenance else ("Clan request" if clan_request_only else ("Regular battle scout" if regular_battle_scout else ("Regular battle entry proof" if regular_battle_entry else ("Builder battle entry proof" if builder_battle_entry else "Exact recipe training"))))
         problems.append(f"runtime.instance: {route_label} requires the exact non-Auto emulator and instance")
-    if (home_maintenance or clan_request_only or exact_recipe_training) and instance and not re.fullmatch(r"[A-Za-z0-9_. -]{1,64}", instance):
+    if (home_maintenance or clan_request_only or exact_recipe_training or regular_battle_entry or regular_battle_scout or builder_battle_entry) and instance and not re.fullmatch(r"[A-Za-z0-9_. -]{1,64}", instance):
         problems.append("runtime.instance: the Home route instance name contains unsupported characters")
 
     if not bool(plan.get("donate.keep_army")):
@@ -647,31 +888,43 @@ def write_json_atomic(document: dict, destination: Path) -> None:
     write_plan_atomic(document, destination)
 
 
-def plan_status() -> dict:
-    """Report what is on disk.
-
-    A file that exists but cannot be parsed is reported as "unreadable", not "saved". The AutoIt
-    loader is strict and would refuse such a file, and a status that disagrees with the reader is
-    worse than no status at all.
-    """
-    if not PLAN_PATH.exists():
-        return {"exists": False, "state": "defaults", "mode": "native-profile", "written_at": None}
-    try:
-        written = datetime.fromtimestamp(PLAN_PATH.stat().st_mtime, timezone.utc).isoformat()
-    except OSError:
-        written = None
-    parsed = read_json(PLAN_PATH, None)
-    if not isinstance(parsed, dict):
-        return {"exists": True, "state": "unreadable", "mode": "planned", "written_at": written}
-    return {"exists": True, "state": "saved", "mode": "planned", "written_at": written}
+def new_attempt_id() -> str:
+    return uuid.uuid4().hex
 
 
-def plan_start_token(run_mode: str) -> str | None:
-    """Return the exact applied-plan identity while the caller holds CONTROL_LOCK."""
-    if run_mode == "native-profile":
-        return PLAN_ABSENCE_TOKEN if not PLAN_PATH.exists() else None
-    if run_mode != "planned":
+def planner_service_identity() -> str:
+    return f"{os.getpid()}:{SERVICE_BUILD_SHA256}"
+
+
+def read_plan_receipt() -> dict:
+    receipt = read_json(PLAN_RECEIPT_PATH, {})
+    return receipt if isinstance(receipt, dict) else {}
+
+
+def receipt_revision_floor(receipt: dict | None = None) -> int:
+    source = receipt if isinstance(receipt, dict) else read_plan_receipt()
+    for key in ("plan_revision", "last_plan_revision"):
+        value = source.get(key)
+        if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+            return value
+    return 0
+
+
+def next_plan_revision() -> int:
+    return receipt_revision_floor() + 1
+
+
+def normalize_plan_revision(value) -> int | None:
+    if isinstance(value, bool):
         return None
+    if isinstance(value, int) and value >= 0:
+        return value
+    if isinstance(value, str) and re.fullmatch(r"0|[1-9][0-9]{0,18}", value):
+        return int(value)
+    return None
+
+
+def plan_file_token() -> str | None:
     try:
         raw = PLAN_PATH.read_bytes()
         parsed = json.loads(raw.decode("utf-8-sig"))
@@ -682,20 +935,162 @@ def plan_start_token(run_mode: str) -> str | None:
     return f"sha256:{hashlib.sha256(raw).hexdigest()}"
 
 
+def write_plan_receipt_atomic(receipt: dict) -> None:
+    write_json_atomic(receipt, PLAN_RECEIPT_PATH)
+
+
+def accepted_plan_receipt(run_mode: str, attempt_id: str, plan_revision: int, plan_token: str) -> dict:
+    return {
+        "schema_version": PLAN_RECEIPT_SCHEMA_VERSION,
+        "state": "accepted",
+        "attempt_id": attempt_id,
+        "run_mode": run_mode,
+        "plan_revision": plan_revision,
+        "plan_token": plan_token,
+        "service_identity": planner_service_identity(),
+        "recorded_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def plan_status() -> dict:
+    """Report the exact applied plan plus its durable Start receipt.
+
+    A readable plan is not automatically runnable. Start requires the latest accepted receipt to
+    match the current mode, revision, and token, so rejected edits and backend restarts cannot replay
+    an older plan.
+    """
+    receipt = read_plan_receipt()
+    receipt_state = receipt.get("state") if isinstance(receipt.get("state"), str) else "missing"
+    if not PLAN_PATH.exists():
+        status = {"exists": False, "state": "defaults", "mode": "native-profile", "written_at": None}
+        current_token = PLAN_ABSENCE_TOKEN
+    else:
+        try:
+            written = datetime.fromtimestamp(PLAN_PATH.stat().st_mtime, timezone.utc).isoformat()
+        except OSError:
+            written = None
+        parsed = read_json(PLAN_PATH, None)
+        if not isinstance(parsed, dict):
+            return {
+                "exists": True,
+                "state": "unreadable",
+                "mode": "planned",
+                "written_at": written,
+                "receipt_state": receipt_state,
+                "runnable": False,
+                "runnable_problem": "the applied plan is unreadable",
+            }
+        status = {"exists": True, "state": "saved", "mode": "planned", "written_at": written}
+        current_token = plan_file_token()
+
+    status.update({
+        "receipt_state": receipt_state,
+        "runnable": False,
+        "attempt_id": None,
+        "plan_revision": None,
+        "plan_token": None,
+        "runnable_problem": "the applied plan has not been accepted for Start",
+    })
+    if receipt_state == "rejected":
+        problems = receipt.get("problems")
+        status["attempt_id"] = receipt.get("attempt_id")
+        status["last_plan_revision"] = receipt_revision_floor(receipt)
+        status["runnable_problem"] = "the most recent plan save failed; fix and save a valid plan before Start"
+        if isinstance(problems, list):
+            status["problems"] = [str(item) for item in problems]
+        return status
+
+    if receipt_state != "accepted":
+        return status
+    if receipt.get("schema_version") != PLAN_RECEIPT_SCHEMA_VERSION:
+        status["runnable_problem"] = "the accepted plan receipt has an unsupported schema"
+        return status
+    if receipt.get("service_identity") != planner_service_identity():
+        status["runnable_problem"] = "the accepted plan receipt belongs to a previous planner service"
+        return status
+    if receipt.get("run_mode") != status["mode"]:
+        status["runnable_problem"] = "the accepted plan receipt targets a different run mode"
+        return status
+    receipt_revision = normalize_plan_revision(receipt.get("plan_revision"))
+    receipt_token = receipt.get("plan_token")
+    if receipt_revision is None:
+        status["runnable_problem"] = "the accepted plan receipt is missing a valid revision"
+        return status
+    if status["mode"] == "planned" and not isinstance(receipt_token, str):
+        status["runnable_problem"] = "the accepted plan receipt is missing a plan token"
+        return status
+    if receipt_token != current_token:
+        status["runnable_problem"] = "the applied plan bytes no longer match the accepted receipt"
+        return status
+
+    status.update({
+        "runnable": True,
+        "attempt_id": receipt.get("attempt_id"),
+        "plan_revision": receipt_revision,
+        "plan_token": receipt_token,
+        "runnable_problem": "",
+    })
+    return status
+
+
+def plan_start_token(run_mode: str) -> str | None:
+    """Return the exact applied-plan identity while the caller holds CONTROL_LOCK."""
+    if run_mode == "native-profile":
+        return PLAN_ABSENCE_TOKEN if not PLAN_PATH.exists() else None
+    if run_mode != "planned":
+        return None
+    return plan_file_token()
+
+
+def remember_plan_rejection(problems: list[str], attempt_id: str | None = None) -> str:
+    """Persist a failed save so Start cannot replay an older applied plan after service restart."""
+    global _LAST_PLAN_REJECTION
+    recorded_attempt_id = attempt_id or new_attempt_id()
+    previous = read_plan_receipt()
+    last_revision = receipt_revision_floor(previous)
+    _LAST_PLAN_REJECTION = {
+        "attempt_id": recorded_attempt_id,
+        "problems": list(problems),
+        "recorded_at": datetime.now(timezone.utc).isoformat(),
+    }
+    receipt = {
+        "schema_version": PLAN_RECEIPT_SCHEMA_VERSION,
+        "state": "rejected",
+        "attempt_id": recorded_attempt_id,
+        "last_plan_revision": last_revision,
+        "problems": list(problems),
+        "recorded_at": _LAST_PLAN_REJECTION["recorded_at"],
+    }
+    try:
+        write_plan_receipt_atomic(receipt)
+    except OSError as exc:
+        _LAST_PLAN_REJECTION["receipt_error"] = str(exc)
+    return recorded_attempt_id
+
+
+def clear_plan_rejection() -> None:
+    global _LAST_PLAN_REJECTION
+    _LAST_PLAN_REJECTION = None
+
+
 def save_plan(submitted: dict) -> tuple[dict, int]:
     """Validate and replace the applied plan at the shared control linearization point."""
     with CONTROL_LOCK:
+        attempt_id = new_attempt_id()
         clean, adjustments, rejected = validate_plan(submitted)
 
         # An unknown setting means the caller and this server disagree about what exists. Saving
         # the rest would silently drop intent, so refuse the whole document and write nothing.
         if rejected:
-            return {"ok": False, "problems": rejected, "written": None}, 400
+            remember_plan_rejection(rejected, attempt_id)
+            return {"ok": False, "attempt_id": attempt_id, "problems": rejected, "written": None}, 400
 
         preflight = engine_preflight(clean)
         if preflight:
+            remember_plan_rejection(preflight, attempt_id)
             return {
                 "ok": False,
+                "attempt_id": attempt_id,
                 "problems": preflight,
                 "written": None,
                 "plan": clean,
@@ -704,31 +1099,60 @@ def save_plan(submitted: dict) -> tuple[dict, int]:
         try:
             write_plan_atomic(clean)
         except OSError:
-            return {"ok": False, "problems": ["the plan could not be written atomically"]}, 500
+            problems = ["the plan could not be written atomically"]
+            remember_plan_rejection(problems, attempt_id)
+            return {"ok": False, "attempt_id": attempt_id, "problems": problems}, 500
+        plan_token = plan_start_token("planned")
+        if plan_token is None:
+            problems = ["the written plan could not be hashed for Start"]
+            remember_plan_rejection(problems, attempt_id)
+            return {"ok": False, "attempt_id": attempt_id, "problems": problems}, 500
+        plan_revision = next_plan_revision()
+        try:
+            write_plan_receipt_atomic(accepted_plan_receipt("planned", attempt_id, plan_revision, plan_token))
+        except OSError:
+            problems = ["the plan receipt could not be written atomically"]
+            remember_plan_rejection(problems, attempt_id)
+            return {"ok": False, "attempt_id": attempt_id, "problems": problems}, 500
+        clear_plan_rejection()
+        status = plan_status()
         return {
             "ok": True,
+            "attempt_id": attempt_id,
+            "run_mode": "planned",
+            "plan_revision": plan_revision,
+            "plan_token": plan_token,
             "problems": adjustments,
             "written": displayed_path(PLAN_PATH),
             "plan": clean,
-            "status": plan_status(),
+            "status": status,
         }, 200
 
 
 def activate_native_profile_mode() -> tuple[dict, int]:
     """Recoverably disable the applied plan so full-profile Start owns emulator/game startup."""
     with CONTROL_LOCK:
+        attempt_id = new_attempt_id()
         native = control_status()
         if native.get("connected") is not True or native.get("state") != "idle":
             return {
                 "ok": False,
+                "attempt_id": attempt_id,
                 "problems": [
                     "full profile automation requires a fresh connected idle native engine"
                 ],
             }, 409
 
-        if native.get("recognition_available") is not True:
+        native_profile_cold_bootstrap = (
+            native.get("emulator_attached") is not True
+            and native.get("window_attached") is not True
+            and native.get("adb_ready") is not True
+            and native.get("game_ready") is not True
+        )
+        if native.get("recognition_available") is not True and not native_profile_cold_bootstrap:
             return {
                 "ok": False,
+                "attempt_id": attempt_id,
                 "problems": [
                     native.get("recognition_error")
                     or "Full profile automation requires a licensed or clean-room recognizer; the applied bounded plan was left unchanged"
@@ -736,9 +1160,19 @@ def activate_native_profile_mode() -> tuple[dict, int]:
             }, 409
 
         if not PLAN_PATH.exists():
+            plan_revision = next_plan_revision()
+            try:
+                write_plan_receipt_atomic(accepted_plan_receipt("native-profile", attempt_id, plan_revision, PLAN_ABSENCE_TOKEN))
+            except OSError:
+                return {"ok": False, "attempt_id": attempt_id, "problems": ["the native profile receipt could not be written atomically"]}, 500
+            clear_plan_rejection()
             return {
                 "ok": True,
+                "attempt_id": attempt_id,
                 "mode": "native-profile",
+                "run_mode": "native-profile",
+                "plan_revision": plan_revision,
+                "plan_token": PLAN_ABSENCE_TOKEN,
                 "backup": None,
                 "status": plan_status(),
             }, 200
@@ -746,21 +1180,31 @@ def activate_native_profile_mode() -> tuple[dict, int]:
         try:
             plan_entry = PLAN_PATH.lstat()
         except OSError:
-            return {"ok": False, "problems": ["the applied plan could not be inspected"]}, 500
+            return {"ok": False, "attempt_id": attempt_id, "problems": ["the applied plan could not be inspected"]}, 500
         if not stat.S_ISREG(plan_entry.st_mode):
-            return {"ok": False, "problems": ["the applied plan is not a regular file"]}, 409
+            return {"ok": False, "attempt_id": attempt_id, "problems": ["the applied plan is not a regular file"]}, 409
         if not isinstance(read_json(PLAN_PATH, None), dict):
-            return {"ok": False, "problems": ["the applied plan is unreadable and was left untouched"]}, 409
+            return {"ok": False, "attempt_id": attempt_id, "problems": ["the applied plan is unreadable and was left untouched"]}, 409
 
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
         backup = PLAN_PATH.with_name(f"{PLAN_PATH.stem}.backup-{stamp}-{uuid.uuid4().hex[:8]}.json")
         try:
             os.replace(PLAN_PATH, backup)
         except OSError:
-            return {"ok": False, "problems": ["the applied plan could not be backed up atomically"]}, 500
+            return {"ok": False, "attempt_id": attempt_id, "problems": ["the applied plan could not be backed up atomically"]}, 500
+        plan_revision = next_plan_revision()
+        try:
+            write_plan_receipt_atomic(accepted_plan_receipt("native-profile", attempt_id, plan_revision, PLAN_ABSENCE_TOKEN))
+        except OSError:
+            return {"ok": False, "attempt_id": attempt_id, "problems": ["the native profile receipt could not be written atomically"]}, 500
+        clear_plan_rejection()
         return {
             "ok": True,
+            "attempt_id": attempt_id,
             "mode": "native-profile",
+            "run_mode": "native-profile",
+            "plan_revision": plan_revision,
+            "plan_token": PLAN_ABSENCE_TOKEN,
             "backup": displayed_path(backup),
             "status": plan_status(),
         }, 200
@@ -807,6 +1251,7 @@ def control_status() -> dict:
     but old file must never make the browser claim that a dead engine is online.
     """
     engine_init_cancellable = engine_init_cancel_context() is not None
+    mini_supervisor = mini_lifecycle_status()
     offline = {
         "connected": False,
         "authorization_ready": False,
@@ -822,6 +1267,8 @@ def control_status() -> dict:
         "last_seen_at": None,
         "age_seconds": None,
         "engine_init_cancellable": engine_init_cancellable,
+        "supervisor_state": mini_supervisor.get("state", "stopped"),
+        "mini_supervisor": mini_supervisor,
     }
     modified = None
     document = None
@@ -856,6 +1303,21 @@ def control_status() -> dict:
         document["recognition_error"] = (
             "Native recognition state is unavailable because the engine heartbeat is stale"
         )
+    bot_process_alive = native_bot_process_alive(document.get("bot_pid"))
+    document["bot_process_alive"] = bot_process_alive
+    if document["connected"] and bot_process_alive is False and not control_status_terminal_receipt(document):
+        document["connected"] = False
+        document["state"] = "offline"
+        message = "Native engine process exited before publishing a terminal run outcome"
+        document["message"] = message
+        document["engine_available"] = False
+        document["recognition_available"] = False
+        document["recognition_error"] = (
+            "Native recognition state is unavailable because the engine process exited"
+        )
+        if document.get("last_outcome") in {"accepted", "started"}:
+            document["last_outcome"] = "failed"
+            document["last_command_message"] = message
     native_attached = (
         document.get("window_attached") is True
         if "window_attached" in document
@@ -867,15 +1329,38 @@ def control_status() -> dict:
     document["adb_ready"] = bool(window_attached and document.get("adb_ready") is True)
     document["game_ready"] = bool(document["adb_ready"] and document.get("game_ready") is True)
     document["engine_init_cancellable"] = engine_init_cancellable
+    document["mini_supervisor"] = mini_supervisor
+    document["supervisor_state"] = str(mini_supervisor.get("state") or document.get("state") or "ownership-ambiguous")
     return document
 
 
-def queue_control_command(action: str, expected_start_request_id: str = "") -> tuple[dict, int]:
+def queue_control_command(
+    action: str,
+    expected_start_request_id: str = "",
+    expected_run_mode: str = "",
+    expected_plan_revision=None,
+    expected_plan_token: str = "",
+) -> tuple[dict, int]:
     if action not in CONTROL_ACTIONS:
         return {"ok": False, "problems": ["unsupported control action"]}, 400
     if expected_start_request_id:
         if action != "stop" or re.fullmatch(r"[A-Za-z0-9._-]{1,80}", expected_start_request_id) is None:
             return {"ok": False, "problems": ["expected_start_request_id is invalid for this action"]}, 400
+    normalized_expected_revision = normalize_plan_revision(expected_plan_revision)
+    if action == "start":
+        if expected_run_mode not in {"planned", "native-profile"}:
+            return {"ok": False, "problems": ["Start requires expected_run_mode for the accepted plan"]}, 400
+        if normalized_expected_revision is None:
+            return {"ok": False, "problems": ["Start requires expected_plan_revision for the accepted plan"]}, 400
+        expected_token_valid = (
+            expected_run_mode == "planned"
+            and isinstance(expected_plan_token, str)
+            and re.fullmatch(r"sha256:[0-9a-f]{64}", expected_plan_token) is not None
+        ) or (expected_run_mode == "native-profile" and expected_plan_token == PLAN_ABSENCE_TOKEN)
+        if not expected_token_valid:
+            return {"ok": False, "problems": ["Start requires expected_plan_token for the accepted plan"]}, 400
+    elif expected_run_mode or expected_plan_revision is not None or expected_plan_token:
+        return {"ok": False, "problems": ["plan identity fields are valid only for Start"]}, 400
     status = control_status()
     init_context = engine_init_cancel_context() if action == "stop" else None
     expected_init_request_id = expected_start_request_id
@@ -911,11 +1396,55 @@ def queue_control_command(action: str, expected_start_request_id: str = "") -> t
         if action == "start":
             current_plan = plan_status()
             run_mode = current_plan.get("mode")
+            if current_plan.get("runnable") is not True:
+                problems = [current_plan.get("runnable_problem") or "the applied plan is not accepted for Start"]
+                if isinstance(current_plan.get("problems"), list):
+                    problems.extend(str(item) for item in current_plan["problems"])
+                return {"ok": False, "problems": problems, "status": status, "plan": current_plan}, 409
+            if run_mode != expected_run_mode:
+                return {
+                    "ok": False,
+                    "problems": ["the accepted plan mode changed before Start"],
+                    "status": status,
+                    "plan": current_plan,
+                }, 409
+            if current_plan.get("plan_revision") != normalized_expected_revision:
+                return {
+                    "ok": False,
+                    "problems": ["the accepted plan revision changed before Start"],
+                    "status": status,
+                    "plan": current_plan,
+                }, 409
+            if current_plan.get("plan_token") != expected_plan_token:
+                return {
+                    "ok": False,
+                    "problems": ["the accepted plan token changed before Start"],
+                    "status": status,
+                    "plan": current_plan,
+                }, 409
             if run_mode not in {"planned", "native-profile"}:
                 return {"ok": False, "problems": ["the selected run mode is invalid"]}, 409
             if run_mode == "planned" and current_plan.get("state") != "saved":
                 return {"ok": False, "problems": ["the applied plan is not readable"]}, 409
-            if run_mode == "native-profile" and status.get("recognition_available") is not True:
+            if run_mode == "planned":
+                preflight = engine_preflight(read_plan())
+                if preflight:
+                    return {
+                        "ok": False,
+                        "problems": preflight,
+                        "status": status,
+                    }, 409
+            native_profile_cold_bootstrap = (
+                status.get("emulator_attached") is not True
+                and status.get("window_attached") is not True
+                and status.get("adb_ready") is not True
+                and status.get("game_ready") is not True
+            )
+            if (
+                run_mode == "native-profile"
+                and status.get("recognition_available") is not True
+                and not native_profile_cold_bootstrap
+            ):
                 return {
                     "ok": False,
                     "problems": [
@@ -935,6 +1464,7 @@ def queue_control_command(action: str, expected_start_request_id: str = "") -> t
             # to the server-observed mode so a stale cached plan can never replace the operator's
             # explicit Full profile choice.
             command["run_mode"] = run_mode
+            command["plan_revision"] = current_plan["plan_revision"]
             command["plan_token"] = plan_token
         native_command_queued = False
         # A supervised Stop must replace any command that could otherwise be replayed by the
@@ -977,6 +1507,7 @@ def queue_control_command(action: str, expected_start_request_id: str = "") -> t
         "accepted": True,
         "request_id": request_id,
         "action": action,
+        "plan": current_plan if action == "start" else None,
         "native_command_queued": native_command_queued,
         "supervisor_cancel_status": supervisor_cancel_status,
         "written": displayed_path(CONTROL_COMMAND_PATH) if native_command_queued else None,
@@ -1313,7 +1844,22 @@ class Handler(BaseHTTPRequestHandler):
             if not isinstance(expected_start_request_id, str):
                 self._json({"ok": False, "problems": ["expected_start_request_id must be a string"]}, 400)
                 return
-            payload, code = queue_control_command(action.strip().lower(), expected_start_request_id)
+            expected_run_mode = submitted.get("expected_run_mode", "")
+            if not isinstance(expected_run_mode, str):
+                self._json({"ok": False, "problems": ["expected_run_mode must be a string"]}, 400)
+                return
+            expected_plan_revision = submitted.get("expected_plan_revision")
+            expected_plan_token = submitted.get("expected_plan_token", "")
+            if not isinstance(expected_plan_token, str):
+                self._json({"ok": False, "problems": ["expected_plan_token must be a string"]}, 400)
+                return
+            payload, code = queue_control_command(
+                action.strip().lower(),
+                expected_start_request_id,
+                expected_run_mode.strip(),
+                expected_plan_revision,
+                expected_plan_token.strip().lower(),
+            )
             self._json(payload, code)
             return
 
@@ -1350,8 +1896,8 @@ def selftest() -> int:
     diagnostic_plan["run.diagnostic_note"] = "selftest operator acknowledgement"
     diagnostic_problems = engine_preflight(diagnostic_plan)
     check(
-        any("ImgLoc" in problem and "cannot bypass" in problem for problem in diagnostic_problems),
-        "the acknowledged default battle plan remains blocked by the non-bypassable ImgLoc gate",
+        any("inherited ImgLoc runtime rejected exact-current" in item for item in diagnostic_problems),
+        "the acknowledged default inherited battle plan remains blocked until the clean-room route is selected",
     )
 
     preset_contract = metadata_document().get("presets", {})
@@ -1393,8 +1939,8 @@ def selftest() -> int:
         )
         preset_problems = engine_preflight(candidate)
         check(
-            any("ImgLoc" in problem and "cannot bypass" in problem for problem in preset_problems),
-            f"{preset_id} remains a non-runnable research preset behind the ImgLoc gate",
+            not preset_problems,
+            f"{preset_id} passes planner preflight when the operator preserves diagnostic acknowledgement",
         )
         check(not (set(values) & preserved), f"{preset_id} does not overwrite preserved settings")
 
@@ -1444,18 +1990,24 @@ def selftest() -> int:
         check(read_json(target, {}) == {"sentinel": True}, "interrupted replacement preserves the previous plan")
         check(not list(target.parent.glob(".*.tmp")), "failed writes leave no temporary plan behind")
 
-    global PLAN_PATH, EVENTS_PATH, CONTROL_COMMAND_PATH, CONTROL_STATUS_PATH
-    global ENGINE_INIT_RECEIPT_PATH, ENGINE_INIT_CANCEL_PATH, SERVICE_OWNER_TOKEN
-    original_plan, original_events = PLAN_PATH, EVENTS_PATH
+    global PLAN_PATH, PLAN_RECEIPT_PATH, EVENTS_PATH, CONTROL_COMMAND_PATH, CONTROL_STATUS_PATH
+    global ENGINE_INIT_RECEIPT_PATH, MINI_LIFECYCLE_PATH, ENGINE_INIT_CANCEL_PATH, SERVICE_OWNER_TOKEN
+    original_plan, original_receipt, original_events = PLAN_PATH, PLAN_RECEIPT_PATH, EVENTS_PATH
     original_control_command, original_control_status = CONTROL_COMMAND_PATH, CONTROL_STATUS_PATH
-    original_engine_receipt, original_engine_cancel = ENGINE_INIT_RECEIPT_PATH, ENGINE_INIT_CANCEL_PATH
+    original_engine_receipt, original_mini_lifecycle, original_engine_cancel = (
+        ENGINE_INIT_RECEIPT_PATH,
+        MINI_LIFECYCLE_PATH,
+        ENGINE_INIT_CANCEL_PATH,
+    )
     original_service_owner_token = SERVICE_OWNER_TOKEN
     with tempfile.TemporaryDirectory() as folder:
         PLAN_PATH = Path(folder) / "plan.json"
+        PLAN_RECEIPT_PATH = Path(folder) / "plan-receipt.json"
         EVENTS_PATH = Path(folder) / "events.jsonl"
         CONTROL_COMMAND_PATH = Path(folder) / "control-command.json"
         CONTROL_STATUS_PATH = Path(folder) / "control-status.json"
         ENGINE_INIT_RECEIPT_PATH = Path(folder) / "engine-init-owner.json"
+        MINI_LIFECYCLE_PATH = Path(folder) / "mini-supervisor-lifecycle.json"
         ENGINE_INIT_CANCEL_PATH = Path(folder) / "engine-init-cancel.json"
         SERVICE_OWNER_TOKEN = "selftest-owner"
         EVENTS_PATH.write_text(
@@ -1593,6 +2145,12 @@ def selftest() -> int:
             response = connection.getresponse()
             payload = json.loads(response.read())
             check(response.status == 200 and payload["ok"] and set(payload["plan"]) == setting_ids, "valid partial plan is normalized and written")
+            accepted_plan_identity = {
+                "expected_run_mode": payload["run_mode"],
+                "expected_plan_revision": payload["plan_revision"],
+                "expected_plan_token": payload["plan_token"],
+            }
+            check(payload["status"]["runnable"] and payload["status"]["plan_revision"] == payload["plan_revision"], "valid Apply returns a runnable plan receipt")
 
             saved_before_refusal = PLAN_PATH.read_bytes()
             connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
@@ -1603,21 +2161,87 @@ def selftest() -> int:
             check(response.status == 422 and payload["ok"] is False, "engine-incompatible plan is refused before save")
             check(PLAN_PATH.read_bytes() == saved_before_refusal, "engine preflight refusal preserves the previous plan")
 
+            write_json_atomic({"state": "idle", "message": "Native engine is ready", "bot_pid": os.getpid(), "engine_available": True}, CONTROL_STATUS_PATH)
             connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
-            body = json.dumps({"action": "start"}).encode()
+            body = json.dumps({"action": "start", **accepted_plan_identity}).encode()
+            connection.request("POST", "/api/control/command", body=body, headers={"Content-Type": "application/json"})
+            response = connection.getresponse()
+            payload = json.loads(response.read())
+            check(
+                response.status == 409
+                and payload["ok"] is False
+                and "most recent plan save failed" in payload["problems"][0]
+                and not CONTROL_COMMAND_PATH.exists(),
+                "Start is refused after a failed plan save instead of replaying the previous plan",
+            )
+            clear_plan_rejection()
+            connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
+            body = json.dumps({"action": "start", **accepted_plan_identity}).encode()
+            connection.request("POST", "/api/control/command", body=body, headers={"Content-Type": "application/json"})
+            response = connection.getresponse()
+            payload = json.loads(response.read())
+            check(
+                response.status == 409
+                and payload["ok"] is False
+                and "most recent plan save failed" in payload["problems"][0]
+                and not CONTROL_COMMAND_PATH.exists(),
+                "persisted rejected receipt survives an in-memory latch reset",
+            )
+
+            connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
+            body = json.dumps({
+                "run.strategy": "home.collectors",
+                "run.town_hall": 0,
+                "run.duration_minutes": 0,
+                "run.max_battles": 0,
+                "run.max_failures": 0,
+                "run.heroes": [],
+                "run.diagnostic_mode": True,
+                "run.diagnostic_note": "selftest safe collectors plan after failed save",
+                "army.manage_training": False,
+                "army.wait_for_full": False,
+                "army.train_spells": False,
+                "army.train_sieges": False,
+                "pacing.retry_attempts": 0,
+                "donate.mode": "off",
+                "donate.request_when_short": False,
+                "events.clan_games": False,
+                "events.collect_resources": True,
+                "events.collect_loot_cart": False,
+                "events.collect_treasury": False,
+                "events.collect_daily_reward": False,
+                "events.laboratory": "off",
+                "upgrade.policy": "disabled",
+                "account.queue": "",
+                "runtime.emulator": "bluestacks5",
+                "runtime.instance": "Pie64",
+            }).encode()
+            connection.request("POST", "/api/plan", body=body, headers={"Content-Type": "application/json"})
+            response = connection.getresponse()
+            payload = json.loads(response.read())
+            check(response.status == 200 and payload["ok"], "a valid plan clears the failed-save Start latch")
+            accepted_plan_identity = {
+                "expected_run_mode": payload["run_mode"],
+                "expected_plan_revision": payload["plan_revision"],
+                "expected_plan_token": payload["plan_token"],
+            }
+            CONTROL_STATUS_PATH.unlink(missing_ok=True)
+
+            connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
+            body = json.dumps({"action": "start", **accepted_plan_identity}).encode()
             connection.request("POST", "/api/control/command", body=body, headers={"Content-Type": "application/json"})
             response = connection.getresponse()
             payload = json.loads(response.read())
             check(response.status == 409 and payload["ok"] is False, "control command is refused while native engine is offline")
 
-            write_json_atomic({"state": "idle", "message": "Managed engine probe timed out", "bot_pid": 123, "engine_available": False}, CONTROL_STATUS_PATH)
+            write_json_atomic({"state": "idle", "message": "Managed engine probe timed out", "bot_pid": os.getpid(), "engine_available": False}, CONTROL_STATUS_PATH)
             connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
             connection.request("POST", "/api/control/command", body=body, headers={"Content-Type": "application/json"})
             response = connection.getresponse()
             payload = json.loads(response.read())
             check(response.status == 409 and "timed out" in payload["problems"][0], "Start is refused when the native engine reports unavailable")
 
-            write_json_atomic({"state": "idle", "message": "Native engine is ready", "bot_pid": 123, "engine_available": True, "authorization_ready": False}, CONTROL_STATUS_PATH)
+            write_json_atomic({"state": "idle", "message": "Native engine is ready", "bot_pid": os.getpid(), "engine_available": True, "authorization_ready": False}, CONTROL_STATUS_PATH)
             connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
             connection.request("POST", "/api/control/command", body=body, headers={"Content-Type": "application/json"})
             response = connection.getresponse()
@@ -1626,14 +2250,14 @@ def selftest() -> int:
             check(CONTROL_COMMAND_PATH.exists(), "compatibility-status Start is queued for the native engine")
             CONTROL_COMMAND_PATH.unlink(missing_ok=True)
 
-            write_json_atomic({"state": "idle", "message": "Native engine is ready", "bot_pid": 123, "engine_available": True, "authorization_ready": True}, CONTROL_STATUS_PATH)
+            write_json_atomic({"state": "idle", "message": "Native engine is ready", "bot_pid": os.getpid(), "engine_available": True, "authorization_ready": True}, CONTROL_STATUS_PATH)
             connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
             connection.request("GET", "/api/control/status")
             response = connection.getresponse()
             payload = json.loads(response.read())
             check(response.status == 200 and payload["connected"] and payload["state"] == "idle", "fresh native heartbeat is reported online")
 
-            write_json_atomic({"state": "starting", "message": "Preparing the run", "bot_pid": 123}, CONTROL_STATUS_PATH)
+            write_json_atomic({"state": "starting", "message": "Preparing the run", "bot_pid": os.getpid()}, CONTROL_STATUS_PATH)
             stale_busy_time = datetime.now(timezone.utc).timestamp() - (CONTROL_STATUS_MAX_AGE_SECONDS + 2)
             os.utime(CONTROL_STATUS_PATH, (stale_busy_time, stale_busy_time))
             connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
@@ -1642,7 +2266,7 @@ def selftest() -> int:
             payload = json.loads(response.read())
             check(response.status == 200 and payload["connected"] and payload["state"] == "starting", "busy startup keeps a bounded heartbeat grace")
 
-            write_json_atomic({"state": "idle", "message": "Native engine is ready", "bot_pid": 123}, CONTROL_STATUS_PATH)
+            write_json_atomic({"state": "idle", "message": "Native engine is ready", "bot_pid": os.getpid()}, CONTROL_STATUS_PATH)
             os.utime(CONTROL_STATUS_PATH, (stale_busy_time, stale_busy_time))
             connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
             connection.request("GET", "/api/control/status")
@@ -1650,13 +2274,13 @@ def selftest() -> int:
             payload = json.loads(response.read())
             check(response.status == 200 and not payload["connected"] and payload["state"] == "offline", "idle heartbeat still fails closed at the normal threshold")
 
-            write_json_atomic({"state": "starting", "message": "Preparing the run", "bot_pid": 123}, CONTROL_STATUS_PATH)
-            with mock.patch(f"{__name__}.read_json", side_effect=[None, {"state": "starting", "message": "Preparing the run", "bot_pid": 123}]) as status_read:
+            write_json_atomic({"state": "starting", "message": "Preparing the run", "bot_pid": os.getpid()}, CONTROL_STATUS_PATH)
+            with mock.patch(f"{__name__}.read_json", side_effect=[None, {"state": "starting", "message": "Preparing the run", "bot_pid": os.getpid()}]) as status_read:
                 payload = control_status()
             check(payload["connected"] and payload["state"] == "starting" and status_read.call_count == 2, "status replacement race is retried once")
 
             connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
-            body = json.dumps({"action": "start"}).encode()
+            body = json.dumps({"action": "start", **accepted_plan_identity}).encode()
             connection.request("POST", "/api/control/command", body=body, headers={"Content-Type": "application/json"})
             response = connection.getresponse()
             payload = json.loads(response.read())
@@ -1668,14 +2292,24 @@ def selftest() -> int:
             check(response.status == 409, "a pending control command is never overwritten")
 
             queued = read_json(CONTROL_COMMAND_PATH, {})
-            check(queued.get("action") == "start" and bool(queued.get("request_id")), "queued command carries action and request id")
+            check(
+                queued.get("action") == "start"
+                and bool(queued.get("request_id"))
+                and queued.get("plan_revision") == accepted_plan_identity["expected_plan_revision"]
+                and queued.get("plan_token") == accepted_plan_identity["expected_plan_token"],
+                "queued command carries action, request id, and exact plan receipt",
+            )
         finally:
             server.shutdown()
             server.server_close()
             thread.join(timeout=3)
-    PLAN_PATH, EVENTS_PATH = original_plan, original_events
+    PLAN_PATH, PLAN_RECEIPT_PATH, EVENTS_PATH = original_plan, original_receipt, original_events
     CONTROL_COMMAND_PATH, CONTROL_STATUS_PATH = original_control_command, original_control_status
-    ENGINE_INIT_RECEIPT_PATH, ENGINE_INIT_CANCEL_PATH = original_engine_receipt, original_engine_cancel
+    ENGINE_INIT_RECEIPT_PATH, MINI_LIFECYCLE_PATH, ENGINE_INIT_CANCEL_PATH = (
+        original_engine_receipt,
+        original_mini_lifecycle,
+        original_engine_cancel,
+    )
     SERVICE_OWNER_TOKEN = original_service_owner_token
 
     print(f"\n{'selftest passed' if not failures else str(len(failures)) + ' check(s) failed'}")

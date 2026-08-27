@@ -3,6 +3,7 @@ let PLAN = {};
 let SAVED = {};
 let FILTER = '';
 let PLAN_WRITTEN = false;
+let RUNNABLE_PLAN_RECEIPT = null;
 let NATIVE_PROFILE_MODE = false;
 let BOOT_READY = false;
 let ACTIVE_VIEW = 'run';
@@ -34,6 +35,95 @@ const STRATEGY_SAFETY_PATCHES = {
       'donate.request_when_short': false,
       'events.clan_games': false, 'events.clan_games_point_cap': 0,
       'events.laboratory': 'off', 'events.collect_resources': true, 'events.collect_daily_reward': false,
+      'events.collect_loot_cart': false,
+      'events.collect_treasury': false,
+      'notify.on_stop': true, 'notify.on_error': true, 'notify.channel': 'log-only',
+      'pacing.action_delay_ms': 180, 'pacing.settle_ms': 650, 'pacing.retry_attempts': 0,
+      'pacing.break_every_minutes': 0, 'pacing.break_minutes': 5,
+    },
+  },
+  'builder.collectors': {
+    label: 'Builder Base collection safety settings',
+    values: {
+      'run.surface': 'builder', 'run.strategy': 'builder.collectors', 'run.attack_script': 'profile-current',
+      'run.town_hall': 0, 'run.heroes': [], 'run.duration_minutes': 0, 'run.max_battles': 0,
+      'run.stop_on_star_bonus': false, 'run.max_failures': 0,
+      'target.gold': 0, 'target.elixir': 0, 'target.dark_elixir': 0,
+      'upgrade.policy': 'disabled', 'account.queue': '',
+      'army.source': 'recipe', 'army.recipe_name': '', 'army.recipe_digest': '', 'army.max_queue_units': 0,
+      'army.manage_training': false, 'army.wait_for_full': false, 'army.train_spells': false, 'army.train_sieges': false,
+      'search.min_gold': 0, 'search.min_elixir': 0, 'search.min_dark': 0,
+      'search.max_seconds': 0, 'search.town_hall_filter': 'any',
+      'donate.mode': 'off', 'donate.keep_army': true, 'donate.max_per_run': 0,
+      'donate.request_when_short': false,
+      'events.clan_games': false, 'events.clan_games_point_cap': 0,
+      'events.laboratory': 'off', 'events.collect_resources': true, 'events.collect_daily_reward': false,
+      'events.collect_loot_cart': false,
+      'events.collect_treasury': false,
+      'notify.on_stop': true, 'notify.on_error': true, 'notify.channel': 'log-only',
+      'pacing.action_delay_ms': 180, 'pacing.settle_ms': 650, 'pacing.retry_attempts': 0,
+      'pacing.break_every_minutes': 0, 'pacing.break_minutes': 5,
+    },
+  },
+  'builder.battle-entry': {
+    label: 'Builder battle-entry proof safety settings',
+    values: {
+      'run.surface': 'builder', 'run.strategy': 'builder.battle-entry', 'run.attack_script': 'profile-current',
+      'run.town_hall': 0, 'run.heroes': [], 'run.duration_minutes': 0, 'run.max_battles': 0,
+      'run.stop_on_star_bonus': false, 'run.max_failures': 0,
+      'target.gold': 0, 'target.elixir': 0, 'target.dark_elixir': 0,
+      'upgrade.policy': 'disabled', 'account.queue': '',
+      'army.source': 'recipe', 'army.recipe_name': '', 'army.recipe_digest': '', 'army.max_queue_units': 0,
+      'army.manage_training': false, 'army.wait_for_full': false, 'army.train_spells': false, 'army.train_sieges': false,
+      'search.min_gold': 0, 'search.min_elixir': 0, 'search.min_dark': 0,
+      'search.max_seconds': 0, 'search.town_hall_filter': 'any',
+      'donate.mode': 'off', 'donate.keep_army': true, 'donate.max_per_run': 0, 'donate.request_when_short': false,
+      'events.clan_games': false, 'events.clan_games_point_cap': 0,
+      'events.laboratory': 'off', 'events.collect_resources': false, 'events.collect_daily_reward': false,
+      'events.collect_loot_cart': false,
+      'events.collect_treasury': false,
+      'notify.on_stop': true, 'notify.on_error': true, 'notify.channel': 'log-only',
+      'pacing.action_delay_ms': 180, 'pacing.settle_ms': 650, 'pacing.retry_attempts': 0,
+      'pacing.break_every_minutes': 0, 'pacing.break_minutes': 5,
+    },
+  },
+  'regular.battle-entry': {
+    label: 'Regular battle-entry proof safety settings',
+    values: {
+      'run.surface': 'regular', 'run.strategy': 'regular.battle-entry', 'run.attack_script': 'profile-current',
+      'run.town_hall': 0, 'run.heroes': [], 'run.duration_minutes': 0, 'run.max_battles': 0,
+      'run.stop_on_star_bonus': false, 'run.max_failures': 0,
+      'target.gold': 0, 'target.elixir': 0, 'target.dark_elixir': 0,
+      'upgrade.policy': 'disabled', 'account.queue': '',
+      'army.source': 'recipe', 'army.recipe_name': '', 'army.recipe_digest': '', 'army.max_queue_units': 0,
+      'army.manage_training': false, 'army.wait_for_full': false, 'army.train_spells': false, 'army.train_sieges': false,
+      'search.min_gold': 0, 'search.min_elixir': 0, 'search.min_dark': 0,
+      'search.max_seconds': 0, 'search.town_hall_filter': 'any',
+      'donate.mode': 'off', 'donate.keep_army': true, 'donate.max_per_run': 0, 'donate.request_when_short': false,
+      'events.clan_games': false, 'events.clan_games_point_cap': 0,
+      'events.laboratory': 'off', 'events.collect_resources': false, 'events.collect_daily_reward': false,
+      'events.collect_loot_cart': false,
+      'events.collect_treasury': false,
+      'notify.on_stop': true, 'notify.on_error': true, 'notify.channel': 'log-only',
+      'pacing.action_delay_ms': 180, 'pacing.settle_ms': 650, 'pacing.retry_attempts': 0,
+      'pacing.break_every_minutes': 0, 'pacing.break_minutes': 5,
+    },
+  },
+  'regular.battle-scout': {
+    label: 'Regular battle-scout safety settings',
+    values: {
+      'run.surface': 'regular', 'run.strategy': 'regular.battle-scout', 'run.attack_script': 'profile-current',
+      'run.town_hall': 0, 'run.heroes': [], 'run.duration_minutes': 0, 'run.max_battles': 1,
+      'run.stop_on_star_bonus': false, 'run.max_failures': 0,
+      'target.gold': 0, 'target.elixir': 0, 'target.dark_elixir': 0,
+      'upgrade.policy': 'disabled', 'account.queue': '',
+      'army.source': 'recipe', 'army.recipe_name': '', 'army.recipe_digest': '', 'army.max_queue_units': 0,
+      'army.manage_training': false, 'army.wait_for_full': false, 'army.train_spells': false, 'army.train_sieges': false,
+      'search.min_gold': 0, 'search.min_elixir': 0, 'search.min_dark': 0,
+      'search.max_seconds': 0, 'search.town_hall_filter': 'any',
+      'donate.mode': 'off', 'donate.keep_army': true, 'donate.max_per_run': 0, 'donate.request_when_short': false,
+      'events.clan_games': false, 'events.clan_games_point_cap': 0,
+      'events.laboratory': 'off', 'events.collect_resources': false, 'events.collect_daily_reward': false,
       'events.collect_loot_cart': false,
       'events.collect_treasury': false,
       'notify.on_stop': true, 'notify.on_error': true, 'notify.channel': 'log-only',
@@ -110,6 +200,7 @@ let CONTROL_TIMER = null;
 let EVENTS_TIMER = null;
 let LOG_REFRESH_TIMER = null;
 let LAST_INSTANCE_SIGNATURE = '';
+let SERVICE_IDENTITY = '';
 
 const CONTROL_TERMINAL_OUTCOMES = new Set(['completed', 'passed', 'rejected', 'failed', 'stopped', 'paused', 'resumed', 'no-op']);
 const CONTROL_QUEUE_TIMEOUT_MS = 45_000;
@@ -175,7 +266,7 @@ const SURFACE_DEFINITIONS = [
     view: 'plan',
     group: 'match',
     title: 'Builder Base',
-    description: 'Builder Base is visible here only as a blocked route until current-client adapters exist.',
+    description: 'Builder Base exposes the bounded clean-room collection route. Battles and upgrades stay blocked until current-client adapters exist.',
     settingIds: ['run.surface', 'run.strategy'],
     blocked: true,
   },
@@ -245,7 +336,7 @@ const CAPABILITY_GROUPS = [
   },
   {
     label: 'Builder Base and Capital',
-    ids: ['builder-base.upgrades', 'builder-base.battles', 'builder-base.additional-builder', 'clan-capital.upgrades'],
+    ids: ['builder-base.resources', 'builder-base.upgrades', 'builder-base.battles', 'builder-base.additional-builder', 'clan-capital.upgrades'],
   },
   {
     label: 'Events, accounts, and recovery',
@@ -268,6 +359,44 @@ const presetById = id => presetItems().find(preset => preset.id === id);
 const clone = value => structuredClone(value);
 const surfaceById = id => SURFACE_DEFINITIONS.find(surface => surface.id === id);
 const activeSurface = () => surfaceById(ACTIVE_SURFACE) || surfaceById('overview');
+
+function receiptFromPlanStatus(planStatus) {
+  if (!planStatus || planStatus.runnable !== true) return null;
+  const mode = planStatus.mode;
+  const revision = Number(planStatus.plan_revision);
+  const token = String(planStatus.plan_token || '');
+  if (!['planned', 'native-profile'].includes(mode) || !Number.isInteger(revision) || revision < 0) return null;
+  if (mode === 'planned' && !/^sha256:[0-9a-f]{64}$/.test(token)) return null;
+  if (mode === 'native-profile' && token !== 'absent') return null;
+  return {
+    expected_run_mode: mode,
+    expected_plan_revision: revision,
+    expected_plan_token: token,
+  };
+}
+
+function receiptFromAcceptedPayload(payload) {
+  if (!payload?.ok) return null;
+  const mode = payload.run_mode || payload.mode;
+  const revision = Number(payload.plan_revision);
+  const token = String(payload.plan_token || '');
+  if (!['planned', 'native-profile'].includes(mode) || !Number.isInteger(revision) || revision < 0) return null;
+  if (mode === 'planned' && !/^sha256:[0-9a-f]{64}$/.test(token)) return null;
+  if (mode === 'native-profile' && token !== 'absent') return null;
+  return {
+    expected_run_mode: mode,
+    expected_plan_revision: revision,
+    expected_plan_token: token,
+  };
+}
+
+function clearRunnablePlanReceipt() {
+  RUNNABLE_PLAN_RECEIPT = null;
+}
+
+function applyRunnablePlanReceipt(receipt) {
+  RUNNABLE_PLAN_RECEIPT = receipt ? { ...receipt } : null;
+}
 
 function resolveSurface(token) {
   const id = SURFACE_ALIASES[token] || token || 'overview';
@@ -629,6 +758,7 @@ function renderPresetPreview(loadedChanges = null) {
 function applySelectedPreset() {
   const preset = presetById(SELECTED_PRESET);
   if (!preset) return;
+  clearRunnablePlanReceipt();
   LOADED_SAFETY_PATCH = null;
   const changes = presetChanges(preset);
   const preserved = new Set(META?.presets?.preserved_settings || []);
@@ -648,6 +778,7 @@ function applySelectedPreset() {
 function applyStrategySafetyPatch(strategyId) {
   const patch = STRATEGY_SAFETY_PATCHES[strategyId];
   if (!patch) return false;
+  clearRunnablePlanReceipt();
   const preserved = new Set(META?.presets?.preserved_settings || []);
   const changes = settingChanges(patch.values, preserved);
   markPresetCustom();
@@ -713,7 +844,10 @@ function planSurfaceSections(surface) {
 
 function builderBaseUnavailableReason() {
   const surface = optionOf(findSetting('run.surface'), 'builder');
-  const strategy = optionOf(findSetting('run.strategy'), 'builder.baby-dragon');
+  const selectedStrategy = ['builder.collectors', 'builder.battle-entry'].includes(PLAN['run.strategy'])
+    ? PLAN['run.strategy']
+    : 'builder.baby-dragon';
+  const strategy = optionOf(findSetting('run.strategy'), selectedStrategy);
   const reasons = [surface?.disabled_reason, strategy?.disabled_reason].filter(Boolean);
   return reasons.length
     ? reasons.join(' ')
@@ -740,11 +874,18 @@ function renderPlanSurfaceChrome(surface = activeSurface()) {
   }
   const title = context.querySelector('strong');
   const text = context.querySelector('p');
-  title.textContent = planSurface.blocked ? 'Unavailable in this build' : `${planSurface.title} surface`;
+  const builderCollectors = planSurface.id === 'builder' && PLAN['run.strategy'] === 'builder.collectors';
+  const builderBattleEntry = planSurface.id === 'builder' && PLAN['run.strategy'] === 'builder.battle-entry';
+  const blocked = planSurface.blocked && !builderCollectors && !builderBattleEntry;
+  title.textContent = blocked ? 'Unavailable in this build' : `${planSurface.title} surface`;
   text.textContent = planSurface.id === 'builder'
-    ? `${builderBaseUnavailableReason()} The controls below are shown for review only; Start remains blocked.`
+    ? (builderCollectors
+      ? 'Builder Base collection is available as one bounded supervised pass: switch to Builder Base, collect ordinary Builder Gold/Elixir bubbles, then return Home. Builder battles, Builder upgrades, Gem Mine, and other routes remain unavailable until separately proven.'
+      : builderBattleEntry
+      ? 'Builder battle-entry proof is available as one bounded supervised pass: switch to Builder Base, open the pre-search panel, prove Find Now, close it, and return Home. It never starts search or a battle.'
+      : `${builderBaseUnavailableReason()} The controls below are shown for review only; Start remains blocked.`)
     : `${planSurface.description} These controls use the same persisted planner values as Run Planner.`;
-  context.className = `surface-context${planSurface.blocked ? ' is-blocked' : ''}`;
+  context.className = `surface-context${blocked ? ' is-blocked' : ''}`;
   context.hidden = false;
 }
 
@@ -1142,6 +1283,7 @@ function buildSettingHelp(setting) {
 }
 
 function refreshAfterChange(setting, focusId = '') {
+  clearRunnablePlanReceipt();
   drawPlanPanel();
   updatePlanGroupNav();
   renderPresetPreview();
@@ -1215,15 +1357,16 @@ function clientProblems(plan = PLAN) {
     }
   }
 
-  if (plan['run.surface'] !== 'regular') addProblem(problems, 'Only Regular Battles can start through the native engine.', 'run.surface');
   const homeMaintenance = plan['run.strategy'] === 'home.collectors';
+  const builderCollectors = plan['run.strategy'] === 'builder.collectors';
+  const regularBattleEntry = plan['run.strategy'] === 'regular.battle-entry';
+  const regularBattleScout = plan['run.strategy'] === 'regular.battle-scout';
+  const builderBattleEntry = plan['run.strategy'] === 'builder.battle-entry';
   const clanRequestOnly = plan['run.strategy'] === 'home.clan-request';
   const exactRecipeTraining = plan['run.strategy'] === 'army.exact-recipe';
-  if (!['legacy.csv', 'legacy.standard', 'smart.local', 'home.collectors', 'home.clan-request', 'army.exact-recipe'].includes(plan['run.strategy'])) {
+  if (plan['run.surface'] !== 'regular' && !((builderCollectors || builderBattleEntry) && plan['run.surface'] === 'builder')) addProblem(problems, 'Only Regular Battles and bounded Builder proof routes can start through the native engine.', 'run.surface');
+  if (!['legacy.csv', 'legacy.standard', 'smart.local', 'regular.battle-entry', 'regular.battle-scout', 'home.collectors', 'builder.collectors', 'builder.battle-entry', 'home.clan-request', 'army.exact-recipe'].includes(plan['run.strategy'])) {
     addProblem(problems, 'The selected deployment routine has no native adapter.', 'run.strategy');
-  }
-  if (['legacy.csv', 'legacy.standard', 'smart.local'].includes(plan['run.strategy'])) {
-    addProblem(problems, 'Battle routes are unavailable in this fork because the inherited ImgLoc runtime rejected exact-current supervised readiness. Licensed permission or a clean-room recognizer is required; Allow unverified cannot bypass this gate.', 'run.strategy');
   }
   if (plan['run.strategy'] !== 'legacy.csv' && plan['run.attack_script'] !== 'profile-current') {
     addProblem(problems, 'Standard and Smart deployment require “Use profile selection.”', 'run.attack_script');
@@ -1270,6 +1413,60 @@ function clientProblems(plan = PLAN) {
     if (plan['events.laboratory'] !== 'off') addProblem(problems, 'Home maintenance requires Laboratory off.', 'events.laboratory');
     if (plan['upgrade.policy'] !== 'disabled') addProblem(problems, 'Home maintenance requires upgrades disabled.', 'upgrade.policy');
     if (String(plan['account.queue'] || '').trim()) addProblem(problems, 'Home maintenance cannot rotate accounts.', 'account.queue');
+  } else if (builderCollectors) {
+    if (plan['run.surface'] !== 'builder') addProblem(problems, 'Builder Base collection requires the Builder Base surface.', 'run.surface');
+    if (emulator !== 'bluestacks5' || !instance) addProblem(problems, 'Builder Base collection requires the exact BlueStacks 5 instance.', 'runtime.instance');
+    if (instance && !/^[A-Za-z0-9_. -]{1,64}$/.test(instance)) addProblem(problems, 'The Builder route instance name contains unsupported characters.', 'runtime.instance');
+    if (!plan['run.diagnostic_mode']) addProblem(problems, 'Builder Base collection requires supervised diagnostic acknowledgement.', 'run.diagnostic_mode');
+    if (plan['events.collect_resources'] !== true || plan['events.collect_daily_reward'] || plan['events.collect_loot_cart'] || plan['events.collect_treasury']) addProblem(problems, 'Builder Base collection requires only Builder resource collection.', 'events.collect_resources');
+    if (plan['army.manage_training'] || plan['army.wait_for_full'] || plan['army.train_spells'] || plan['army.train_sieges']) addProblem(problems, 'Builder Base collection requires training, army wait, spells, and sieges off.', 'army.manage_training');
+    if (asList(plan['run.heroes']).length) addProblem(problems, 'Builder Base collection requires no selected Heroes.', 'run.heroes');
+    if (Number(plan['run.duration_minutes']) !== 0 || Number(plan['run.max_battles']) !== 0 || plan['run.stop_on_star_bonus'] || Number(plan['run.max_failures']) !== 0) addProblem(problems, 'Builder Base collection is one pass; duration, battles, star bonus, and failure limits must be 0/off.', 'run.max_battles');
+    if (['target.gold', 'target.elixir', 'target.dark_elixir', 'search.min_gold', 'search.min_elixir', 'search.min_dark', 'search.max_seconds'].some((key) => Number(plan[key]) !== 0)) addProblem(problems, 'Builder Base collection cannot configure matchmaking or battle-loot targets.', 'search.min_gold');
+    if (plan['donate.mode'] !== 'off' || plan['donate.request_when_short'] || Number(plan['donate.max_per_run']) !== 0) addProblem(problems, 'Builder Base collection requires donations and requests off.', 'donate.mode');
+    if (plan['events.clan_games'] || Number(plan['events.clan_games_point_cap']) !== 0) addProblem(problems, 'Builder Base collection cannot enter Clan Games.', 'events.clan_games');
+    if (plan['events.laboratory'] !== 'off') addProblem(problems, 'Builder Base collection requires Laboratory off.', 'events.laboratory');
+    if (plan['upgrade.policy'] !== 'disabled') addProblem(problems, 'Builder Base collection requires upgrades disabled.', 'upgrade.policy');
+    if (String(plan['account.queue'] || '').trim()) addProblem(problems, 'Builder Base collection cannot rotate accounts.', 'account.queue');
+    if (Number(plan['pacing.break_every_minutes']) !== 0) addProblem(problems, 'Builder Base collection requires scheduled breaks off.', 'pacing.break_every_minutes');
+  } else if (regularBattleEntry || regularBattleScout) {
+    const label = regularBattleScout ? 'Regular battle scout' : 'Regular battle entry proof';
+    if (plan['run.surface'] !== 'regular') addProblem(problems, 'Regular battle entry proof requires the Regular/Home surface.', 'run.surface');
+    if (emulator !== 'bluestacks5' || !instance) addProblem(problems, `${label} requires the exact BlueStacks 5 instance.`, 'runtime.instance');
+    if (instance && !/^[A-Za-z0-9_. -]{1,64}$/.test(instance)) addProblem(problems, 'The Regular battle-entry instance name contains unsupported characters.', 'runtime.instance');
+    if (!plan['run.diagnostic_mode']) addProblem(problems, `${label} requires supervised diagnostic acknowledgement.`, 'run.diagnostic_mode');
+    if (plan['events.collect_resources'] || plan['events.collect_daily_reward'] || plan['events.collect_loot_cart'] || plan['events.collect_treasury']) addProblem(problems, `${label} cannot collect resources, rewards, Loot Cart, or Treasury.`, 'events.collect_resources');
+    if (plan['army.manage_training'] || plan['army.wait_for_full'] || plan['army.train_spells'] || plan['army.train_sieges']) addProblem(problems, `${label} cannot manage, train, or inspect an army.`, 'army.manage_training');
+    if (asList(plan['run.heroes']).length) addProblem(problems, `${label} cannot deploy or inspect Heroes.`, 'run.heroes');
+    if (regularBattleEntry && (Number(plan['run.duration_minutes']) !== 0 || Number(plan['run.max_battles']) !== 0 || plan['run.stop_on_star_bonus'] || Number(plan['run.max_failures']) !== 0)) addProblem(problems, 'Regular battle entry proof is one pre-search pass; duration, battles, star bonus, and failure limits must be 0/off.', 'run.max_battles');
+    if (regularBattleScout && (Number(plan['run.duration_minutes']) !== 0 || Number(plan['run.max_battles']) !== 1 || plan['run.stop_on_star_bonus'] || Number(plan['run.max_failures']) !== 0)) addProblem(problems, 'Regular battle scout enters exactly one match; duration must be 0, Max battles 1, star bonus off, failures 0.', 'run.max_battles');
+    if (['target.gold', 'target.elixir', 'target.dark_elixir'].some((key) => Number(plan[key]) !== 0)) addProblem(problems, `${label} cannot use battle-loot targets.`, 'target.gold');
+    if (['search.min_gold', 'search.min_elixir', 'search.min_dark', 'search.max_seconds'].some((key) => Number(plan[key]) !== 0) || plan['search.town_hall_filter'] !== 'any') addProblem(problems, `${label} cannot configure matchmaking search.`, 'search.min_gold');
+    if (plan['donate.mode'] !== 'off' || plan['donate.request_when_short'] || Number(plan['donate.max_per_run']) !== 0) addProblem(problems, `${label} requires donations and requests off.`, 'donate.mode');
+    if (plan['events.clan_games'] || Number(plan['events.clan_games_point_cap']) !== 0) addProblem(problems, `${label} cannot enter Clan Games.`, 'events.clan_games');
+    if (plan['events.laboratory'] !== 'off') addProblem(problems, `${label} requires Laboratory off.`, 'events.laboratory');
+    if (plan['upgrade.policy'] !== 'disabled') addProblem(problems, `${label} requires upgrades disabled.`, 'upgrade.policy');
+    if (String(plan['account.queue'] || '').trim()) addProblem(problems, `${label} cannot rotate accounts.`, 'account.queue');
+    if (Number(plan['pacing.retry_attempts']) !== 0) addProblem(problems, `${label} requires retries set to 0.`, 'pacing.retry_attempts');
+    if (PLAN['notify.channel'] !== 'log-only') addProblem(problems, `Only Bot log notifications are wired for ${label}.`, 'notify.channel');
+  } else if (builderBattleEntry) {
+    if (plan['run.surface'] !== 'builder') addProblem(problems, 'Builder battle entry proof requires the Builder Base surface.', 'run.surface');
+    if (emulator !== 'bluestacks5' || !instance) addProblem(problems, 'Builder battle entry proof requires the exact BlueStacks 5 instance.', 'runtime.instance');
+    if (instance && !/^[A-Za-z0-9_. -]{1,64}$/.test(instance)) addProblem(problems, 'The Builder battle-entry instance name contains unsupported characters.', 'runtime.instance');
+    if (!plan['run.diagnostic_mode']) addProblem(problems, 'Builder battle entry proof requires supervised diagnostic acknowledgement.', 'run.diagnostic_mode');
+    if (plan['events.collect_resources'] || plan['events.collect_daily_reward'] || plan['events.collect_loot_cart'] || plan['events.collect_treasury']) addProblem(problems, 'Builder battle entry proof cannot collect resources, Home rewards, Loot Cart, or Treasury.', 'events.collect_resources');
+    if (plan['army.manage_training'] || plan['army.wait_for_full'] || plan['army.train_spells'] || plan['army.train_sieges']) addProblem(problems, 'Builder battle entry proof requires training, army wait, spells, and sieges off.', 'army.manage_training');
+    if (asList(plan['run.heroes']).length) addProblem(problems, 'Builder battle entry proof cannot select or deploy Heroes.', 'run.heroes');
+    if (Number(plan['run.duration_minutes']) !== 0 || Number(plan['run.max_battles']) !== 0 || plan['run.stop_on_star_bonus'] || Number(plan['run.max_failures']) !== 0) addProblem(problems, 'Builder battle entry proof is one pre-search pass; duration, battles, star bonus, and failure limits must be 0/off.', 'run.max_battles');
+    if (['target.gold', 'target.elixir', 'target.dark_elixir'].some((key) => Number(plan[key]) !== 0)) addProblem(problems, 'Builder battle entry proof cannot use battle-loot targets.', 'target.gold');
+    if (['search.min_gold', 'search.min_elixir', 'search.min_dark', 'search.max_seconds'].some((key) => Number(plan[key]) !== 0) || plan['search.town_hall_filter'] !== 'any') addProblem(problems, 'Builder battle entry proof cannot configure matchmaking search.', 'search.min_gold');
+    if (plan['donate.mode'] !== 'off' || plan['donate.request_when_short'] || Number(plan['donate.max_per_run']) !== 0) addProblem(problems, 'Builder battle entry proof requires donations and requests off.', 'donate.mode');
+    if (plan['events.clan_games'] || Number(plan['events.clan_games_point_cap']) !== 0) addProblem(problems, 'Builder battle entry proof cannot enter Clan Games.', 'events.clan_games');
+    if (plan['events.laboratory'] !== 'off') addProblem(problems, 'Builder battle entry proof requires Laboratory off.', 'events.laboratory');
+    if (plan['upgrade.policy'] !== 'disabled') addProblem(problems, 'Builder battle entry proof requires upgrades disabled.', 'upgrade.policy');
+    if (String(plan['account.queue'] || '').trim()) addProblem(problems, 'Builder battle entry proof cannot rotate accounts.', 'account.queue');
+    if (Number(plan['pacing.retry_attempts']) !== 0) addProblem(problems, 'Builder battle entry proof requires retries set to 0.', 'pacing.retry_attempts');
+    if (PLAN['notify.channel'] !== 'log-only') addProblem(problems, 'Only Bot log notifications are wired for Builder battle entry proof.', 'notify.channel');
   } else if (clanRequestOnly) {
     if (!plan['run.diagnostic_mode']) addProblem(problems, 'Clan request requires supervised diagnostic acknowledgement.', 'run.diagnostic_mode');
     if (plan['army.manage_training'] || plan['army.wait_for_full'] || plan['army.train_spells'] || plan['army.train_sieges']) addProblem(problems, 'Clan request requires training, army wait, spells, and sieges off.', 'army.manage_training');
@@ -1613,7 +1810,7 @@ function launchGameSurfaceMessage(adbReady, gameReady) {
   const recognizedOverlay = ['daily reward', 'welcome back', 'inactivity', 'startup overlay']
     .some((token) => lowered.includes(token));
   if (recognizedOverlay && lowered.includes('daily reward')) {
-    return 'Daily Reward is open after launch. Launch-only never clicks game UI; use Run Planner → Home maintenance → Claim Daily Reward for the bounded no-gem route, or close it manually.';
+    return 'Daily Reward is open after launch. Launch-only never claims rewards; use Run Planner → Home maintenance → Claim Daily Reward for the bounded no-gem route, or close it manually.';
   }
   if (recognizedOverlay && detail) return detail;
   return 'Launch succeeded and Clash is attached; Home readiness is waiting on a known startup surface.';
@@ -1682,14 +1879,15 @@ function renderControl() {
   const recognitionError = CONTROL.recognition_error
     || 'Full profile automation requires licensed inherited recognition or a clean-room replacement.';
   $('controlStart').textContent = primaryLaunchOnly ? 'Launch game safely' : 'Start run';
+  const startReceiptMissing = !primaryLaunchOnly && !RUNNABLE_PLAN_RECEIPT;
   $('controlStart').title = primaryLaunchOnly
     ? `${recognitionError} Launch-only starts the exact emulator/game, proves a startup surface, and returns idle without bot actions.`
     : NATIVE_PROFILE_MODE
-      ? 'Start the active native profile; BlueStacks and Clash of Clans will be launched if needed'
+      ? (startReceiptMissing ? 'Activate Full profile before Start so the run has an exact receipt' : 'Start the active native profile; BlueStacks and Clash of Clans will be launched if needed')
     : savedProblems.length
       ? 'Resolve and apply the saved plan issues before starting'
-      : hasUnsavedPlan ? 'Apply the visible plan before starting' : 'Start the applied plan';
-  $('controlStart').disabled = !BOOT_READY || busy || hasUnsavedPlan || !connected
+      : hasUnsavedPlan || startReceiptMissing ? 'Apply the visible plan before starting' : 'Start the applied plan';
+  $('controlStart').disabled = !BOOT_READY || busy || hasUnsavedPlan || startReceiptMissing || !connected
     || (!primaryLaunchOnly && !engineAvailable) || state !== 'idle';
   $('controlNativeMode').textContent = NATIVE_PROFILE_MODE ? 'Full profile automation active' : 'Use full profile automation';
   $('controlNativeMode').title = !recognitionAvailable
@@ -1925,6 +2123,11 @@ async function sendControl(action) {
     renderControl();
     return;
   }
+  if (action === 'start' && !RUNNABLE_PLAN_RECEIPT) {
+    setControlNotice('Apply a valid plan or activate Full profile before Start. No prior plan was replayed.', 'warning');
+    renderControl();
+    return;
+  }
   setControlNotice('', 'info', false);
   CONTROL_PENDING = { action, request_id: null, queued_at: Date.now(), accepted_at: null };
   renderControl();
@@ -1935,6 +2138,7 @@ async function sendControl(action) {
       body: JSON.stringify({
         action,
         ...(replacingStart ? { expected_start_request_id: previousPending.request_id } : {}),
+        ...(action === 'start' ? RUNNABLE_PLAN_RECEIPT : {}),
       }),
     });
     const payload = await response.json();
@@ -1960,6 +2164,7 @@ async function activateNativeProfileMode() {
   if (!BOOT_READY || CONTROL_PENDING || NATIVE_PROFILE_MODE) return;
   const button = $('controlNativeMode');
   button.disabled = true;
+  clearRunnablePlanReceipt();
   try {
     const response = await fetch('/api/plan/native', {
       method: 'POST',
@@ -1973,6 +2178,7 @@ async function activateNativeProfileMode() {
     }
     NATIVE_PROFILE_MODE = true;
     PLAN_WRITTEN = false;
+    applyRunnablePlanReceipt(receiptFromAcceptedPayload(payload));
     const backup = payload.backup ? ` The applied plan was backed up to ${payload.backup}.` : '';
     setControlNotice(`Full profile automation is active.${backup} Start will use the selected native profile through current recognition and no-premium gates.`, 'info');
     setSaveStatus('Full profile automation is active. Apply the visible plan to return to a bounded planned route.', 'warn');
@@ -2036,6 +2242,7 @@ function capabilityLabel(id) {
     'village.laboratory': 'Laboratory research',
     'village.town-hall-18': 'Town Hall 18 recognition',
     'village.guardians': 'Guardians',
+    'builder-base.resources': 'Builder Base resources',
     'builder-base.upgrades': 'Builder Base upgrades',
     'builder-base.battles': 'Builder Base battles',
     'builder-base.additional-builder': 'Additional Builder',
@@ -2327,6 +2534,7 @@ async function savePlan() {
     });
     const payload = await response.json();
     if (!response.ok || !payload.ok) {
+      clearRunnablePlanReceipt();
       setSaveStatus((payload.problems || ['The plan was refused.']).join('; '), 'bad');
       updateDirty();
       return false;
@@ -2335,6 +2543,7 @@ async function savePlan() {
     SAVED = clone(PLAN);
     PLAN_WRITTEN = true;
     NATIVE_PROFILE_MODE = false;
+    applyRunnablePlanReceipt(receiptFromAcceptedPayload(payload));
     const matched = matchingPresetForPlan();
     SELECTED_PRESET = matched?.id || 'custom';
     $('presetSelect').value = SELECTED_PRESET;
@@ -2351,6 +2560,7 @@ async function savePlan() {
     announceControl('Plan applied. Start remains a separate action in Run.');
     return true;
   } catch {
+    clearRunnablePlanReceipt();
     setSaveStatus('Could not reach the planner service. No plan receipt was returned.', 'bad');
     updateDirty();
     return false;
@@ -2360,6 +2570,7 @@ async function savePlan() {
 $('apply').onclick = savePlan;
 $('reset').onclick = () => {
   if (!BOOT_READY) return;
+  clearRunnablePlanReceipt();
   for (const setting of allSettings()) PLAN[setting.id] = clone(defaultFor(setting));
   markPresetCustom();
   drawPlanPanel();
@@ -2484,8 +2695,12 @@ async function boot() {
     SAVED = clone(plan);
     enforceNativeFixedValues(PLAN);
     CONTROL = health.engine || CONTROL;
+    const nextServiceIdentity = `${health.service_pid || ''}|${health.build_sha256 || ''}`;
+    if (SERVICE_IDENTITY && SERVICE_IDENTITY !== nextServiceIdentity) clearRunnablePlanReceipt();
+    SERVICE_IDENTITY = nextServiceIdentity;
+    applyRunnablePlanReceipt(receiptFromPlanStatus(health.plan));
     LAST_INSTANCE_SIGNATURE = [CONTROL.connected, CONTROL.emulator, CONTROL.instance].join('|');
-    PLAN_WRITTEN = health.plan?.state === 'saved';
+    PLAN_WRITTEN = health.plan?.mode === 'planned' && health.plan?.runnable === true;
     NATIVE_PROFILE_MODE = health.plan?.mode === 'native-profile';
     FILTER = '';
     $('filter').value = '';

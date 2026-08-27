@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "as_of": "2026-08-20",
+  "as_of": "2026-08-27",
   "scope": "Every intended tracked or untracked non-test AutoIt function that directly owns a game-input, process-control, window-control, managed-engine, or dynamic-dispatch call.",
   "policy_definitions": {
     "capability": "A closed-world implementation owns the actuator and is named by capability id; runtime evidence is still required.",
@@ -30,8 +30,8 @@
     "dynamic_dispatch": ["DynamicCall"]
   },
   "owner_fingerprint": {
-    "count": 465,
-    "sha256": "378f7acd6e48ec15c4a9ed859a807f0205a4fc0da647a44b998a155d84fb4033"
+    "count": 481,
+    "sha256": "761e7354a4dee4a89c61f753660d92e0ae87b23fbc28a5e56ee14c460faa979e"
   },
   "mappings": [
     {
@@ -234,6 +234,13 @@
       "reason": "The terminal Home adapter owns collector, Loot Cart, and Daily Reward action sinks."
     },
     {
+      "id": "capability.builder-collection",
+      "policy": "capability",
+      "path_globs": ["COCBot/functions/Run/OpenBuilderBaseCollectors.au3"],
+      "capability_ids": ["builder-base.resources"],
+      "reason": "The terminal clean-room Builder Base adapter owns only the bounded switch, ordinary Builder Gold/Elixir resource clicks, and Home-return inputs."
+    },
+    {
       "id": "capability.treasury",
       "policy": "capability",
       "path_globs": ["COCBot/functions/Run/OpenHomeTreasury.au3", "COCBot/functions/Run/TreasuryRoute.au3"],
@@ -246,6 +253,13 @@
       "path_globs": ["COCBot/functions/Run/RunExecution.au3"],
       "capability_ids": ["village.loot-cart", "village.treasury", "village.clan-request"],
       "reason": "RunExecution binds terminal routes to the reviewed live callbacks and exact plan identity."
+    },
+    {
+      "id": "infra.run-execution-contract",
+      "policy": "infrastructure",
+      "path_globs": ["COCBot/functions/Run/RunExecutionContract.au3"],
+      "capability_ids": ["orchestration.run-plan", "orchestration.run-session"],
+      "reason": "The run-execution contract owns dynamic dispatch only for closed-world route validation; it does not issue game input."
     },
     {
       "id": "blocked.one-unit-donation-adapter",

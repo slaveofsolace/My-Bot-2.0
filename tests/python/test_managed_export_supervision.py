@@ -11,8 +11,6 @@ MAIN = ROOT / "MyBot.run.au3"
 MBR_FUNC = ROOT / "COCBot" / "functions" / "Other" / "MBRFunc.au3"
 
 SENSITIVE_WRAPPERS = (
-    "setProcessingPoolSize",
-    "setMaxDegreeOfParallelism",
     "setAndroidPID",
     "SetBotGuiPID",
 )
@@ -120,6 +118,58 @@ class ManagedExportSupervisionTests(unittest.TestCase):
                 self.assertEqual(match.group(1).lower(), wrapper.lower())
 
         self.assertEqual(observed_initializer_calls, expected_initializer_calls)
+
+    def test_supervised_initializer_skips_blocking_processing_pool_export(self) -> None:
+        initializer = function_body(self.mbr_func, "MBRFuncInitialize")
+        pool_entered = initializer.index('_MBRFuncPublishEngineReceipt("pool-entered")')
+        skip_notice = initializer.index("inherited processing-pool initialization skipped", pool_entered)
+        pool_returned = initializer.index('_MBRFuncPublishEngineReceipt("pool-returned")', skip_notice)
+        self.assertLess(pool_entered, skip_notice)
+        self.assertLess(skip_notice, pool_returned)
+        self.assertNotIn("setProcessingPoolSize(", initializer)
+
+    def test_supervised_initializer_skips_blocking_max_degree_export(self) -> None:
+        initializer = function_body(self.mbr_func, "MBRFuncInitialize")
+        max_entered = initializer.index('_MBRFuncPublishEngineReceipt("max-entered")')
+        skip_notice = initializer.index("inherited max-degree initialization skipped", max_entered)
+        max_returned = initializer.index('_MBRFuncPublishEngineReceipt("max-returned")', skip_notice)
+        self.assertLess(max_entered, skip_notice)
+        self.assertLess(skip_notice, max_returned)
+        self.assertNotIn("setMaxDegreeOfParallelism(", initializer)
+
+    def test_supervised_android_binding_skips_blocking_metadata_export(self) -> None:
+        binding = function_body(self.mbr_func, "setAndroidPID")
+        supervised_gate = binding.index("_MBRFuncSupervisedStartInitializing()")
+        record = binding.index('_MBRFuncRecordAndroidBinding("detached-adb", $iRequestedPid)', supervised_gate)
+        skip_notice = binding.index("managed Android PID export skipped during supervised Start", record)
+        skip_return = binding.index("Return True", skip_notice)
+        managed_call = binding.index('DllCall($g_hLibMyBot, "str", "setAndroidPID"')
+        self.assertLess(supervised_gate, record)
+        self.assertLess(record, skip_notice)
+        self.assertLess(skip_notice, skip_return)
+        self.assertLess(skip_return, managed_call)
+
+    def test_engine_only_probe_skips_blocking_android_metadata_export(self) -> None:
+        binding = function_body(self.mbr_func, "setAndroidPID")
+        probe_gate = binding.index("$bEngineOnlyProbe")
+        record = binding.index('_MBRFuncRecordAndroidBinding("engine-only", 0)', probe_gate)
+        skip_notice = binding.index("Managed Android PID export skipped during engine-only check", record)
+        skip_return = binding.index("Return True", skip_notice)
+        managed_call = binding.index('DllCall($g_hLibMyBot, "str", "setAndroidPID"')
+        self.assertLess(probe_gate, record)
+        self.assertLess(record, skip_notice)
+        self.assertLess(skip_notice, skip_return)
+        self.assertLess(skip_return, managed_call)
+
+    def test_supervised_gui_binding_skips_blocking_metadata_export(self) -> None:
+        binding = function_body(self.mbr_func, "SetBotGuiPID")
+        supervised_gate = binding.index("_MBRFuncSupervisedStartInitializing()")
+        skip_notice = binding.index("Managed GUI PID export skipped during supervised Start", supervised_gate)
+        skip_return = binding.index("Return True", skip_notice)
+        managed_call = binding.index('DllCall($g_hLibMyBot, "str", "SetBotGuiPID"')
+        self.assertLess(supervised_gate, skip_notice)
+        self.assertLess(skip_notice, skip_return)
+        self.assertLess(skip_return, managed_call)
 
     def test_public_image_call_wrapper_fails_closed_until_initialization_completed(self) -> None:
         public_wrapper = function_body(self.mbr_func, "DllCallMyBot")

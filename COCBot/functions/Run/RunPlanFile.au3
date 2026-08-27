@@ -18,6 +18,7 @@ Global Const $RUN_PLAN_FILE_LIST_SEPARATOR = "|"
 
 ; Written by tools/planner_ui.py, read here. Local to one machine, so it is not in version control.
 Global Const $RUN_PLAN_FILE_NAME = "config\run-plan.local.json"
+Global Const $RUN_PLAN_RECEIPT_FILE_NAME = "config\run-plan.receipt.local.json"
 
 ; Guards a hand-edited or truncated file: a plan is a couple of kilobytes, so anything past this is not one.
 Global Const $RUN_PLAN_FILE_MAX_BYTES = 262144
@@ -25,6 +26,10 @@ Global Const $RUN_PLAN_FILE_MAX_BYTES = 262144
 Func RunPlanFileDefaultPath()
 	Return @ScriptDir & "\" & $RUN_PLAN_FILE_NAME
 EndFunc   ;==>RunPlanFileDefaultPath
+
+Func RunPlanReceiptDefaultPath()
+	Return @ScriptDir & "\" & $RUN_PLAN_RECEIPT_FILE_NAME
+EndFunc   ;==>RunPlanReceiptDefaultPath
 
 ; A cheap token that changes whenever the file does, so the GUI can poll without re-parsing. Missing file returns "",
 ; which is a value the token can hold like any other, so appearing and disappearing both register as changes.

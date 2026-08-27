@@ -40,6 +40,7 @@ Global $g_hFrmBot = 0 ; The main GUI window
 #include "COCBot\functions\Other\ExtMsgBox.au3"
 #include "COCBot\functions\Other\MBRFunc.au3"
 #include "COCBot\functions\Run\CleanRoomRecognitionBridge.au3"
+#include "COCBot\functions\Run\CleanRoomRedlineDetector.au3"
 #include "COCBot\functions\Run\CollectorBubbleRecognizer.au3"
 #include "COCBot\functions\Android\Android.au3"
 #include "COCBot\functions\Android\Distributors.au3"
@@ -55,6 +56,9 @@ Global $g_hFrmBot = 0 ; The main GUI window
 #include "COCBot\functions\Run\OpenHomeCollectors.au3"
 #include "COCBot\functions\Run\OpenHomeTreasury.au3"
 #include "COCBot\functions\Run\OpenClanRequest.au3"
+#include "COCBot\functions\Run\OpenBuilderBaseCollectors.au3"
+#include "COCBot\functions\Run\RegularBattleEntryRoute.au3"
+#include "COCBot\functions\Run\BuilderBattleEntryRoute.au3"
 #include "COCBot\functions\Run\RunControlBridge.au3"
 ; MBR References.au3 must be last include
 #include "COCBot\MBR References.au3"
@@ -831,6 +835,27 @@ Func runBot() ;Bot that runs everything in order
 	If ExactRecipeTrainingRouteActive() Then
 		RunExecutionComplete("army-exact-recipe-no-loop-dispatch")
 		RunControlReportOneShotOutcome("completed", "Exact saved-recipe training route handled at Start")
+		Return
+	EndIf
+
+	; Regular battle entry proof opens and verifies the current-client Find a Match panel, then stops before
+	; search/deployment. Dispatch it before the real one-battle path.
+	If RegularBattleEntryRouteActive() Then
+		RegularBattleEntryRouteExecute()
+		Return
+	EndIf
+
+	; Regular battle scout enters exactly one match, captures evidence, then surrenders and returns Home
+	; without deployment. Dispatch it before the inherited one-battle path.
+	If RegularBattleScoutRouteActive() Then
+		RegularBattleScoutRouteExecute()
+		Return
+	EndIf
+
+	; Builder battle entry proof opens and verifies the current-client Find Now panel, then stops before
+	; search/deployment. Dispatch it before the inherited Builder battle loop.
+	If BuilderBattleEntryRouteActive() Then
+		BuilderBattleEntryRouteExecute()
 		Return
 	EndIf
 

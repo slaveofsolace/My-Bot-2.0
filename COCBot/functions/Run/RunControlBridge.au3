@@ -13,6 +13,7 @@ Global Const $RUN_CONTROL_STATUS_FILE_NAME = "config\control-status.local.json"
 Global Const $RUN_CONTROL_MAX_COMMAND_BYTES = 8192
 Global Const $RUN_CONTROL_COMMAND_TTL_SECONDS = 30
 Global Const $RUN_CONTROL_CLOCK_SKEW_SECONDS = 5
+Global Const $RUN_CONTROL_TERMINAL_OUTCOME_TTL_SECONDS = 120
 
 Global $g_bRunControlReady = False
 Global $g_sRunControlLastCommandId = ""
@@ -27,6 +28,8 @@ Global $g_sRunControlPendingStartRequestId = ""
 Global $g_sRunControlActiveStartRequestId = ""
 Global $g_sRunControlPendingStartMode = ""
 Global $g_sRunControlActiveStartMode = ""
+Global $g_sRunControlPendingStartPlanRevision = ""
+Global $g_sRunControlActiveStartPlanRevision = ""
 Global $g_sRunControlPendingStartPlanToken = ""
 Global $g_sRunControlActiveStartPlanToken = ""
 Global $g_hRunControlOwnerMutex = 0
@@ -59,6 +62,12 @@ Func RunControlCurrentStartMode()
 	If Not StringRegExp($g_sRunControlActiveStartMode, "^(planned|native-profile)$") Then Return ""
 	Return $g_sRunControlActiveStartMode
 EndFunc   ;==>RunControlCurrentStartMode
+
+Func RunControlCurrentStartPlanRevision()
+	If Not $g_bRunControlStartInProgress Then Return ""
+	If Not StringRegExp($g_sRunControlActiveStartPlanRevision, "^(0|[1-9][0-9]{0,18})$") Then Return ""
+	Return $g_sRunControlActiveStartPlanRevision
+EndFunc   ;==>RunControlCurrentStartPlanRevision
 
 Func RunControlCurrentStartPlanToken()
 	If Not $g_bRunControlStartInProgress Then Return ""
@@ -101,6 +110,38 @@ Func _RunControlBool($bValue)
 	Return $bValue ? "true" : "false"
 EndFunc   ;==>_RunControlBool
 
+Func _RunControlOutcomeIsTerminal($sOutcome)
+	Return StringRegExp(StringLower(String($sOutcome)), "^(completed|failed|passed|rejected|stopped)$") = 1
+EndFunc   ;==>_RunControlOutcomeIsTerminal
+
+Func _RunControlRestoreRecentTerminalOutcome()
+	Local $sPath = RunControlStatusPath()
+	If Not FileExists($sPath) Then Return False
+	Local $sTimestampError = ""
+	Local $iAgeSeconds = _RunControlCommandAgeSeconds($sPath, $sTimestampError)
+	If $sTimestampError <> "" Then Return False
+	If $iAgeSeconds < -$RUN_CONTROL_CLOCK_SKEW_SECONDS Then Return False
+	If $iAgeSeconds > $RUN_CONTROL_TERMINAL_OUTCOME_TTL_SECONDS Then Return False
+	Local $sLoadError = ""
+	Local $oStatus = RunPlanFileLoad($sPath, $sLoadError)
+	If @error Or Not IsObj($oStatus) Then Return False
+	If Not $oStatus.Exists("last_outcome") Or Not $oStatus.Exists("last_command") Then Return False
+	Local $sOutcome = StringLower(StringStripWS(String($oStatus.Item("last_outcome")), $STR_STRIPALL))
+	If Not _RunControlOutcomeIsTerminal($sOutcome) Then Return False
+	Local $sCommand = StringLower(StringStripWS(String($oStatus.Item("last_command")), $STR_STRIPALL))
+	If Not StringRegExp($sCommand, "^(start|launch-game|check-engine|stop)$") Then Return False
+	Local $sRequestId = ""
+	If $oStatus.Exists("last_command_id") Then $sRequestId = StringStripWS(String($oStatus.Item("last_command_id")), $STR_STRIPALL)
+	If $sRequestId <> "" And Not StringRegExp($sRequestId, "^[A-Za-z0-9._-]{1,80}$") Then Return False
+	Local $sMessage = ""
+	If $oStatus.Exists("last_command_message") Then $sMessage = StringLeft(String($oStatus.Item("last_command_message")), 1024)
+	$g_sRunControlLastCommandId = $sRequestId
+	$g_sRunControlLastCommand = $sCommand
+	$g_sRunControlLastOutcome = $sOutcome
+	$g_sRunControlMessage = $sMessage
+	Return True
+EndFunc   ;==>_RunControlRestoreRecentTerminalOutcome
+
 Func _RunControlStateMessage($sState)
 	Switch $sState
 		Case "idle"
@@ -139,10 +180,12 @@ Func RunControlWriteStatus($bForce = False)
 	$sJson &= _RunEventJsonString("paused") & ":" & _RunControlBool($g_bBotPaused) & ","
 	$sJson &= _RunEventJsonString("authorization_ready") & ":" & _RunControlBool(ForumAuthorizationReady()) & ","
 	$sJson &= _RunEventJsonString("engine_available") & ":" & _RunControlBool(MBRFuncEngineAvailable()) & ","
-	$sJson &= _RunEventJsonString("engine_probe_state") & ":" & _RunEventJsonString(MBRFuncEngineProbeState()) & ","
-	$sJson &= _RunEventJsonString("recognition_available") & ":" & _RunControlBool(MBRFuncRecognitionAvailable()) & ","
-	$sJson &= _RunEventJsonString("recognition_error") & ":" & _RunEventJsonString(MBRFuncRecognitionError()) & ","
-	$sJson &= _RunEventJsonString("plan_active") & ":" & _RunControlBool(RunExecutionPlanActive()) & ","
+        $sJson &= _RunEventJsonString("engine_probe_state") & ":" & _RunEventJsonString(MBRFuncEngineProbeState()) & ","
+        $sJson &= _RunEventJsonString("recognition_available") & ":" & _RunControlBool(MBRFuncRecognitionAvailable()) & ","
+        $sJson &= _RunEventJsonString("recognition_error") & ":" & _RunEventJsonString(MBRFuncRecognitionError()) & ","
+        $sJson &= _RunEventJsonString("recognition_provider") & ":" & _RunEventJsonString(MBRFuncRecognitionProviderState()) & ","
+        $sJson &= _RunEventJsonString("recognition_provider_reason") & ":" & _RunEventJsonString(MBRFuncRecognitionProviderReason()) & ","
+        $sJson &= _RunEventJsonString("plan_active") & ":" & _RunControlBool(RunExecutionPlanActive()) & ","
 	$sJson &= _RunEventJsonString("plan_message") & ":" & _RunEventJsonString(RunExecutionMessage()) & ","
 	$sJson &= _RunEventJsonString("session_id") & ":" & _RunEventJsonString(RunExecutionSessionId()) & ","
 	$sJson &= _RunEventJsonString("profile") & ":" & _RunEventJsonString($g_sProfileCurrentName) & ","
@@ -219,6 +262,8 @@ Func RunControlReportStartOutcome($bStarted, $sMessage)
 	$g_sRunControlPendingStartRequestId = ""
 	$g_sRunControlActiveStartMode = ""
 	$g_sRunControlPendingStartMode = ""
+	$g_sRunControlActiveStartPlanRevision = ""
+	$g_sRunControlPendingStartPlanRevision = ""
 	$g_sRunControlActiveStartPlanToken = ""
 	$g_sRunControlPendingStartPlanToken = ""
 	If $g_bRunControlStopRequested Then
@@ -246,6 +291,8 @@ Func RunControlReportEngineCheckOutcome(ByRef $bPassed, ByRef $sMessage)
 	$g_sRunControlPendingStartRequestId = ""
 	$g_sRunControlActiveStartMode = ""
 	$g_sRunControlPendingStartMode = ""
+	$g_sRunControlActiveStartPlanRevision = ""
+	$g_sRunControlPendingStartPlanRevision = ""
 	$g_sRunControlActiveStartPlanToken = ""
 	$g_sRunControlPendingStartPlanToken = ""
 	$g_bRunState = False
@@ -274,6 +321,8 @@ Func RunControlReportGameLaunchOutcome(ByRef $bPassed, ByRef $sMessage)
 	$g_sRunControlPendingStartRequestId = ""
 	$g_sRunControlActiveStartMode = ""
 	$g_sRunControlPendingStartMode = ""
+	$g_sRunControlActiveStartPlanRevision = ""
+	$g_sRunControlPendingStartPlanRevision = ""
 	$g_sRunControlActiveStartPlanToken = ""
 	$g_sRunControlPendingStartPlanToken = ""
 	$g_bRunState = False
@@ -296,6 +345,8 @@ Func RunControlReportRunFailure($sMessage)
 	$g_sRunControlPendingStartRequestId = ""
 	$g_sRunControlActiveStartMode = ""
 	$g_sRunControlPendingStartMode = ""
+	$g_sRunControlActiveStartPlanRevision = ""
+	$g_sRunControlPendingStartPlanRevision = ""
 	$g_sRunControlActiveStartPlanToken = ""
 	$g_sRunControlPendingStartPlanToken = ""
 	; Preserve an accepted Stop until BotStop publishes its terminal stopped outcome. A bounded
@@ -322,6 +373,8 @@ Func RunControlReportOneShotOutcome($sOutcome, $sMessage)
 	$g_sRunControlPendingStartRequestId = ""
 	$g_sRunControlActiveStartMode = ""
 	$g_sRunControlPendingStartMode = ""
+	$g_sRunControlActiveStartPlanRevision = ""
+	$g_sRunControlPendingStartPlanRevision = ""
 	$g_sRunControlActiveStartPlanToken = ""
 	$g_sRunControlPendingStartPlanToken = ""
 	$g_bBotPaused = False
@@ -343,10 +396,12 @@ Func RunControlBeginStart()
 	If StringRegExp($g_sRunControlPendingStartRequestId, "^[A-Za-z0-9._-]{1,80}$") Then
 		$g_sRunControlActiveStartRequestId = $g_sRunControlPendingStartRequestId
 		$g_sRunControlActiveStartMode = $g_sRunControlPendingStartMode
+		$g_sRunControlActiveStartPlanRevision = $g_sRunControlPendingStartPlanRevision
 		$g_sRunControlActiveStartPlanToken = $g_sRunControlPendingStartPlanToken
 	Else
 		$g_sRunControlActiveStartRequestId = _RunControlNewLocalStartRequestId()
 		$g_sRunControlActiveStartMode = ""
+		$g_sRunControlActiveStartPlanRevision = ""
 		$g_sRunControlActiveStartPlanToken = ""
 		$g_sRunControlLastCommandId = $g_sRunControlActiveStartRequestId
 		$g_sRunControlLastCommand = "start"
@@ -355,6 +410,7 @@ Func RunControlBeginStart()
 	EndIf
 	$g_sRunControlPendingStartRequestId = ""
 	$g_sRunControlPendingStartMode = ""
+	$g_sRunControlPendingStartPlanRevision = ""
 	$g_sRunControlPendingStartPlanToken = ""
 	; A completed one-shot must never leave Pause armed for the next Start.
 	$g_bBotPaused = False
@@ -371,6 +427,8 @@ Func RunControlReportStopComplete()
 	$g_sRunControlPendingStartRequestId = ""
 	$g_sRunControlActiveStartMode = ""
 	$g_sRunControlPendingStartMode = ""
+	$g_sRunControlActiveStartPlanRevision = ""
+	$g_sRunControlPendingStartPlanRevision = ""
 	$g_sRunControlActiveStartPlanToken = ""
 	$g_sRunControlPendingStartPlanToken = ""
 	$g_bBotPaused = False
@@ -484,10 +542,16 @@ Func _RunControlConsumeCommand()
 	EndIf
 	Local $sRunMode = ""
 	If $oCommand.Exists("run_mode") Then $sRunMode = StringLower(StringStripWS(String($oCommand.Item("run_mode")), $STR_STRIPALL))
+	Local $sPlanRevision = ""
+	If $oCommand.Exists("plan_revision") Then $sPlanRevision = StringStripWS(String($oCommand.Item("plan_revision")), $STR_STRIPALL)
 	Local $sPlanToken = ""
 	If $oCommand.Exists("plan_token") Then $sPlanToken = StringLower(StringStripWS(String($oCommand.Item("plan_token")), $STR_STRIPALL))
 	If $sAction = "start" And Not StringRegExp($sRunMode, "^(planned|native-profile)$") Then
 		_RunControlAcknowledge($sRequestId, $sAction, "rejected", "Start command is missing a valid run_mode")
+		Return
+	EndIf
+	If $sAction = "start" And Not StringRegExp($sPlanRevision, "^(0|[1-9][0-9]{0,18})$") Then
+		_RunControlAcknowledge($sRequestId, $sAction, "rejected", "Start command is missing a valid plan_revision")
 		Return
 	EndIf
 	If $sAction = "start" And (($sRunMode = "planned" And Not StringRegExp($sPlanToken, "^sha256:[0-9a-f]{64}$")) Or _
@@ -497,6 +561,10 @@ Func _RunControlConsumeCommand()
 	EndIf
 	If $sAction <> "start" And $sRunMode <> "" Then
 		_RunControlAcknowledge($sRequestId, $sAction, "rejected", "run_mode is valid only for Start")
+		Return
+	EndIf
+	If $sAction <> "start" And $sPlanRevision <> "" Then
+		_RunControlAcknowledge($sRequestId, $sAction, "rejected", "plan_revision is valid only for Start")
 		Return
 	EndIf
 	If $sAction <> "start" And $sPlanToken <> "" Then
@@ -519,6 +587,7 @@ Func _RunControlConsumeCommand()
 			$g_bRunControlGameLaunchRequested = False
 			$g_sRunControlPendingStartRequestId = $sRequestId
 			$g_sRunControlPendingStartMode = $sRunMode
+			$g_sRunControlPendingStartPlanRevision = $sPlanRevision
 			$g_sRunControlPendingStartPlanToken = $sPlanToken
 			$g_iBotAction = $eBotStart
 			_RunControlAcknowledge($sRequestId, $sAction, "accepted", "Start requested by control center")
@@ -536,6 +605,7 @@ Func _RunControlConsumeCommand()
 			$g_bRunControlGameLaunchRequested = False
 			$g_sRunControlPendingStartRequestId = $sRequestId
 			$g_sRunControlPendingStartMode = ""
+			$g_sRunControlPendingStartPlanRevision = ""
 			$g_sRunControlPendingStartPlanToken = ""
 			$g_iBotAction = $eBotStart
 			_RunControlAcknowledge($sRequestId, $sAction, "accepted", "Managed engine check requested by control center")
@@ -549,12 +619,14 @@ Func _RunControlConsumeCommand()
 			$g_bRunControlGameLaunchRequested = True
 			$g_sRunControlPendingStartRequestId = $sRequestId
 			$g_sRunControlPendingStartMode = ""
+			$g_sRunControlPendingStartPlanRevision = ""
 			$g_sRunControlPendingStartPlanToken = ""
 			$g_iBotAction = $eBotStart
 			_RunControlAcknowledge($sRequestId, $sAction, "accepted", "BlueStacks and Clash of Clans launch requested by control center")
 		Case "stop"
 			$g_sRunControlPendingStartRequestId = ""
 			$g_sRunControlPendingStartMode = ""
+			$g_sRunControlPendingStartPlanRevision = ""
 			$g_sRunControlPendingStartPlanToken = ""
 			If Not $g_bRunState And $g_iBotAction <> $eBotStart Then
 				_RunControlAcknowledge($sRequestId, $sAction, "no-op", "Engine is already idle")
@@ -597,7 +669,8 @@ Func RunControlPoll()
 	Static $bPolling = False
 	If Not $g_bRunControlReady Or $bPolling Then Return
 	$bPolling = True
-	If $g_bRunControlStopRequested Then $g_bRunState = False
+	; Consume the current command before applying a prior Stop flag. A fresh Start command
+	; deliberately clears stale stop state; applying the old flag first kills the new run.
 	_RunControlConsumeCommand()
 	If $g_bRunControlStopRequested Then $g_bRunState = False
 	RunControlWriteStatus()
@@ -618,7 +691,9 @@ Func RunControlInitialize()
 		Return False
 	EndIf
 	$g_bRunControlReady = True
-	If $g_sRunControlLastOutcome <> "rejected" Then $g_sRunControlMessage = "Native engine is ready"
+	Local $bRestoredTerminalOutcome = False
+	If $g_sRunControlLastOutcome = "" Then $bRestoredTerminalOutcome = _RunControlRestoreRecentTerminalOutcome()
+	If Not $bRestoredTerminalOutcome And $g_sRunControlLastOutcome <> "rejected" Then $g_sRunControlMessage = "Native engine is ready"
 	RunControlWriteStatus(True)
 	; Idle startup can spend time outside the main sleep pump (browser launch, emulator checks,
 	; notification setup). The lightweight registered poll keeps the browser heartbeat and Start
@@ -640,7 +715,7 @@ Func RunControlShutdown()
 	$g_sRunControlActiveStartPlanToken = ""
 	$g_sRunControlPendingStartPlanToken = ""
 	If $g_hRunControlOwnerMutex = 0 Then Return
-	FileDelete(RunControlStatusPath())
+	If Not _RunControlOutcomeIsTerminal($g_sRunControlLastOutcome) Then FileDelete(RunControlStatusPath())
 	ReleaseMutex($g_hRunControlOwnerMutex)
 	$g_hRunControlOwnerMutex = 0
 EndFunc   ;==>RunControlShutdown

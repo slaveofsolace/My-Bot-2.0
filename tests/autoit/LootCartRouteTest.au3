@@ -98,7 +98,7 @@ AssertTrue($g_iHomeCalls = 1 And $oUnavailable.Item("home_proven"), "unavailable
 
 FixtureReset($LOOT_CART_STATE_AVAILABLE, $LOOT_CART_STATE_COLLECT_MISSING)
 Local $oMissingCollect = FixtureRun()
-AssertTrue($oMissingCollect.Item("state") = $LOOT_CART_OUTCOME_UNCONFIRMED, "missing Collect button is unconfirmed")
+AssertTrue($oMissingCollect.Item("state") = $LOOT_CART_OUTCOME_UNAVAILABLE, "missing Collect button is unavailable")
 AssertTrue($oMissingCollect.Item("cart_issued") And Not $oMissingCollect.Item("collect_issued"), "missing Collect preserves exact input truth")
 AssertTrue($g_iCartCalls = 1 And $g_iCollectCalls = 0, "missing Collect never uses a fallback input")
 AssertTrue($g_iHomeCalls = 1, "missing Collect uses only passive Home proof after the cart input")

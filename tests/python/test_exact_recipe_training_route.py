@@ -55,6 +55,12 @@ class ExactRecipeTrainingRouteContractTests(unittest.TestCase):
         self.assertIn("OpenClanRequestArmyOverviewReady(False)", gui_action)
         self.assertIn('"OpenClanRequestCloseAndProveHome"', gui_action)
         self.assertIn("Return ExactRecipeTrainingObservationCreate($EXACT_TRAINING_STATE_UNAVAILABLE)", gui_action)
+        self.assertIn("$g_bNoPremiumPolicyTripped ? RunExecutionMessage()", gui_action)
+        self.assertIn("Exact saved-recipe training was blocked by the no-gem input guard", gui_action)
+        self.assertLess(
+            gui_action.index("If $g_bNoPremiumPolicyTripped Then"),
+            gui_action.index("If $sOutcome = $EXACT_TRAINING_OUTCOME_CANCELLED"),
+        )
         self.assertIn("Func _ExactTrainingLiveIssueQueue($iX, $iY)", gui_action)
         self.assertIn("Return SetError(1, 0, False)", gui_action)
         self.assertIn("Exact saved-recipe training unavailable; no queue input was issued", gui_action)

@@ -134,7 +134,7 @@ class OpenHomeCollectorsTest(unittest.TestCase):
         self.assertNotIn("$g_sImg", route)
         self.assertLess(route.index("ForceCaptureRegion()"), route.index("AndroidScreencap("))
         self.assertIn("AndroidScreencap(", route)
-        self.assertEqual(route.count("NoPremiumPointClick("), 6)
+        self.assertEqual(route.count("NoPremiumPointClick("), 10)
 
     def test_every_click_is_bounded_by_stop_and_home_proof(self):
         route = source("COCBot/functions/Run/OpenHomeCollectors.au3")
@@ -240,19 +240,48 @@ class OpenHomeCollectorsTest(unittest.TestCase):
             self.assertIn(f"0x{color:06X}", claim_source)
         self.assertIn("Local $aCandidates[7][2]", find_source)
         self.assertIn("[149, 485]", find_source)
-        self.assertIn("[592, 485]", find_source)
+        self.assertIn("[628, 483]", find_source)
+        self.assertNotIn("[592, 485]", find_source)
         self.assertNotIn("[149, 477]", find_source)
         self.assertNotIn("ImgLoc", overlay_source + claim_source + find_source)
+
+    def test_startup_daily_reward_blocker_reuses_claim_guard_before_battle_start(self):
+        route = source("COCBot/functions/Run/OpenHomeCollectors.au3")
+        resolver = autoit_function(route, "OpenHomeStartupResolveDailyRewardBlocker")
+        gui = source("COCBot/MBR GUI Action.au3")
+        start = autoit_function(gui, "BotStart")
+        self.assertIn("OpenHomeDailyRewardIssueClaim($aClaim[0], $aClaim[1])", resolver)
+        self.assertIn("OpenHomeDailyRewardCloseAndProveHome($bCloseIssued)", resolver)
+        self.assertIn("RunEventLogMaintenanceDailyRewardUnconfirmed", resolver)
+        self.assertIn("OpenHomeStartupResolveDailyRewardBlocker($sStartupRewardOutcome, $sStartError)", start)
+        self.assertLess(start.index("_BotEnsureConfiguredAndroidAndGame"), start.index("OpenHomeStartupResolveDailyRewardBlocker"))
+        self.assertLess(start.index("OpenHomeStartupResolveDailyRewardBlocker"), start.index("MBRFuncInitialize"))
+
+    def test_start_reject_reports_terminal_outcome_before_stop_teardown(self):
+        gui = source("COCBot/MBR GUI Action.au3")
+        reject = autoit_function(gui, "_BotStartReject")
+        self.assertIn("RunControlReportStartOutcome(False, $sReason)", reject)
+        self.assertIn("btnStop()", reject)
+        lines = reject.splitlines()
+        outcome_line = next(i for i, line in enumerate(lines) if line.strip() == "RunControlReportStartOutcome(False, $sReason)")
+        stop_line = next(i for i, line in enumerate(lines) if line.strip().startswith("If $g_iBotAction") and "btnStop()" in line)
+        self.assertLess(outcome_line, stop_line)
 
     def test_inactivity_reload_dialog_uses_clean_room_anchors_and_exact_point(self):
         route = source("COCBot/functions/Run/OpenHomeCollectors.au3")
         predicate = autoit_function(route, "OpenHomeInactivityReloadDialogReady")
         issue = autoit_function(route, "OpenHomeInactivityReloadIssue")
+        wait = autoit_function(route, "OpenHomeStartupRecoveryWait")
         for color in (0x424242, 0x689591, 0x67938F):
             self.assertIn(f"0x{color:06X}", predicate)
         self.assertIn("$NO_PREMIUM_ACTION_RECOVERY_RELOAD_GAME", issue)
+        self.assertIn("$bRequireRunState = True", issue)
+        self.assertIn("$bRequireRunState = True", wait)
         self.assertIn("281, 418", issue)
         self.assertIn("OpenHomeNoGemInputReady()", issue)
+        self.assertIn("OpenHomeStartupRecoveryLaunchGame()", wait)
+        self.assertIn('AndroidAdbSendShellCommand("am start -n "', route)
+        self.assertNotIn("AndroidHomeButton", route)
         self.assertNotIn("ImgLoc", predicate + issue)
         for forbidden in ("Click(", "PureClick(", "GemClick("):
             self.assertNotIn(forbidden, issue.replace("NoPremiumPointClick(", ""))
@@ -279,6 +308,22 @@ class OpenHomeCollectorsTest(unittest.TestCase):
         self.assertNotIn('", True)', cleanup)
         for forbidden in ("Okay", "Confirm", "GemClick", "findMultiple", "findImage"):
             self.assertNotIn(forbidden, issue + cleanup)
+
+    def test_selected_home_action_panel_cleanup_is_exact_and_no_gem_bounded(self):
+        route = source("COCBot/functions/Run/OpenHomeCollectors.au3")
+        predicate = autoit_function(route, "OpenHomeSelectedActionPanelReady")
+        cleanup = autoit_function(route, "OpenHomeClearSelectedActionPanel")
+
+        for color in (0x387CB0, 0x4F93C7, 0xFFFFB7):
+            self.assertIn(f"0x{color:06X}", predicate)
+        self.assertIn("_CheckPixel($aIsMain, False)", predicate)
+        self.assertIn("$NO_PREMIUM_ACTION_HOME_CLEAR_SELECTION", cleanup)
+        self.assertIn("175, 10", cleanup)
+        self.assertIn("OpenHomeNoGemInputReady()", cleanup)
+        self.assertIn("OpenHomeSelectedActionPanelReady()", cleanup)
+        self.assertIn('"#OpenHomeClearSelection", False)', cleanup)
+        for forbidden in ("ClickAway", "Click(", "PureClick(", "GemClick(", "CloseWindow"):
+            self.assertNotIn(forbidden, cleanup.replace("NoPremiumPointClick(", ""))
 
     def test_daily_reward_claimed_close_matches_the_verified_positive_fixture(self):
         width, height, pixel = png_rgb(
@@ -338,6 +383,7 @@ class OpenHomeCollectorsTest(unittest.TestCase):
             "GetBlueStacks5ModernAdbSurfacePosition()",
             "OpenHomeCollectorsProveHome()",
             "LootCartRouteRunAdapter",
+            "OpenHomeClearSelectedActionPanel",
         ):
             self.assertIn(proof, loot_runner)
         for forbidden in (
@@ -386,6 +432,7 @@ class OpenHomeCollectorsTest(unittest.TestCase):
             "OpenHomeDailyRewardCaptureClaim",
             "OpenHomeDailyRewardIssueClaim",
             "OpenHomeDailyRewardCloseAndProveHome",
+            "OpenHomeClearSelectedActionPanel",
             "RunEventLogMaintenanceDailyRewardClickIssued",
             "RunEventLogMaintenanceHomeVerified",
         ):
@@ -421,6 +468,49 @@ class OpenHomeCollectorsTest(unittest.TestCase):
         self.assertNotIn("BotStop", outcome)
         self.assertNotIn("ResumeAndroid", outcome)
 
+    def test_terminal_outcome_survives_native_restart_without_stale_online_claim(self):
+        bridge = source("COCBot/functions/Run/RunControlBridge.au3")
+        self.assertIn("Global Const $RUN_CONTROL_TERMINAL_OUTCOME_TTL_SECONDS = 120", bridge)
+
+        terminal_predicate = autoit_function(bridge, "_RunControlOutcomeIsTerminal")
+        for outcome in ("completed", "failed", "passed", "rejected", "stopped"):
+            self.assertIn(outcome, terminal_predicate)
+        self.assertNotIn("accepted", terminal_predicate)
+        self.assertNotIn("started", terminal_predicate)
+
+        restore = autoit_function(bridge, "_RunControlRestoreRecentTerminalOutcome")
+        for contract in (
+            "RunControlStatusPath()",
+            "_RunControlCommandAgeSeconds($sPath, $sTimestampError)",
+            "$RUN_CONTROL_TERMINAL_OUTCOME_TTL_SECONDS",
+            "RunPlanFileLoad($sPath, $sLoadError)",
+            '"last_command_message"',
+            "$g_sRunControlLastCommandId = $sRequestId",
+            "$g_sRunControlLastCommand = $sCommand",
+            "$g_sRunControlLastOutcome = $sOutcome",
+            "$g_sRunControlMessage = $sMessage",
+        ):
+            self.assertIn(contract, restore)
+        self.assertIn("^[A-Za-z0-9._-]{1,80}$", restore)
+        self.assertIn("^(start|launch-game|check-engine|stop)$", restore)
+
+        initialize = autoit_function(bridge, "RunControlInitialize")
+        self.assertIn("Local $bRestoredTerminalOutcome = False", initialize)
+        self.assertIn(
+            "If $g_sRunControlLastOutcome = \"\" Then $bRestoredTerminalOutcome = _RunControlRestoreRecentTerminalOutcome()",
+            initialize,
+        )
+        self.assertIn(
+            "If Not $bRestoredTerminalOutcome And $g_sRunControlLastOutcome <> \"rejected\" Then $g_sRunControlMessage = \"Native engine is ready\"",
+            initialize,
+        )
+
+        shutdown = autoit_function(bridge, "RunControlShutdown")
+        self.assertIn(
+            "If Not _RunControlOutcomeIsTerminal($g_sRunControlLastOutcome) Then FileDelete(RunControlStatusPath())",
+            shutdown,
+        )
+
     def test_one_shot_home_inputs_use_their_declared_transport(self):
         for relative, expected_count in (
             ("COCBot/functions/Run/OpenHomeCollectors.au3", 3),
@@ -431,6 +521,9 @@ class OpenHomeCollectorsTest(unittest.TestCase):
                 for line in source(relative).splitlines()
                 if "NoPremiumPointClick(" in line and "#OpenHomeDailyReward" not in line
                 and "#OpenHomeInactivityReload" not in line
+                and "#OpenHomeWelcomeBackClose" not in line
+                and "#OpenHomeClearSelection" not in line
+                and "#OpenRegularBattleEntry" not in line
             ]
             self.assertEqual(expected_count, len(click_lines), relative)
             self.assertTrue(all(", True)" in line for line in click_lines), click_lines)
@@ -439,10 +532,16 @@ class OpenHomeCollectorsTest(unittest.TestCase):
         direct_adb_lines = [
             line
             for line in daily.splitlines()
-            if ("#OpenHomeDailyReward" in line or "#OpenHomeInactivityReload" in line)
+            if (
+                "#OpenHomeDailyReward" in line
+                or "#OpenHomeInactivityReload" in line
+                or "#OpenHomeWelcomeBackClose" in line
+                or "#OpenHomeClearSelection" in line
+                or "#OpenRegularBattleEntry" in line
+            )
             and "NoPremiumPointClick(" in line
         ]
-        self.assertEqual(3, len(direct_adb_lines))
+        self.assertEqual(7, len(direct_adb_lines))
         self.assertTrue(all(", False)" in line for line in direct_adb_lines), direct_adb_lines)
 
         click = autoit_function(source("COCBot/functions/Other/Click.au3"), "Click")

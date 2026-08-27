@@ -8,6 +8,7 @@
 #pragma compile(Out, My Bot 2.0.exe)
 
 #include <Crypt.au3>
+#include <FileConstants.au3>
 #include <GUIConstantsEx.au3>
 #include <Misc.au3>
 #include <MsgBoxConstants.au3>
@@ -41,6 +42,7 @@ Global Const $g_iDockTransitionPollMs = 1000
 Global Const $g_iDockStablePollMs = 5000
 Global Const $g_iErrorAlreadyExists = 183
 Global Const $g_sRecoveryLogPath = $g_sUserDataRoot & "\launcher-recovery.log"
+Global Const $g_sRecoveryReceiptPath = $g_sUserDataRoot & "\launcher-recovery-receipt-v1.json"
 Global Const $g_sPlannerServiceName = "my-bot-control-center"
 Global Const $g_sPlannerScriptPath = @ScriptDir & "\tools\planner_ui.py"
 Global Const $g_sPlannerOwnershipSchema = "my-bot-planner-owner-v1"
@@ -49,6 +51,7 @@ Global Const $g_sEngineInitOwnershipSchema = "engine-init-supervisor-v1"
 Global Const $g_sEngineInitCancelSchema = "engine-init-cancel-v1"
 Global Const $g_sEngineInitOwnershipReceipt = $g_sUserDataRoot & "\engine-init-owner-v1.json"
 Global Const $g_sEngineInitCancelPath = @ScriptDir & "\config\engine-init-cancel.local.json"
+Global Const $g_sControlStatusPath = @ScriptDir & "\config\control-status.local.json"
 Global Const $g_sEngineSupervisorTokenEnv = "MYBOT_ENGINE_INIT_TOKEN"
 Global Const $g_sEngineSupervisorLauncherPidEnv = "MYBOT_ENGINE_INIT_LAUNCHER_PID"
 Global Const $g_sEngineSupervisorLauncherCreatedEnv = "MYBOT_ENGINE_INIT_LAUNCHER_CREATED"
@@ -304,10 +307,94 @@ Func _RecoverBotStack()
 	Local $hController = _FindControllerWindow()
 	Local $bControllerClosed = Not $hController
 	Local $bBackendClosed = _CountExactPathProcesses("MyBot.run.exe", $g_sHostPath) = 0
+	Local $iControllerResidual = $bControllerClosed ? 0 : 1
+	Local $iBackendResidual = _CountExactPathProcesses("MyBot.run.exe", $g_sHostPath)
+	Local $iAdbResidual = _CountLiveVerifiedAdbChildren($aOwnedAdbChildren)
+	Local $iPlannerResidual = $bPlannerClosed ? 0 : 1
+	Local $iLaunchOnlyResidual = $bLaunchOnlyEmulatorClosed ? 0 : 1
 	Local $bRecovered = $bControllerClosed And $bBackendClosed And $bPlannerClosed And $bAdbChildrenClosed And $bLaunchOnlyEmulatorClosed
-	_RecoveryLog("recovery completed; controller_closed=" & $bControllerClosed & "; backend_closed=" & $bBackendClosed & "; planner_closed=" & $bPlannerClosed & "; adb_children_closed=" & $bAdbChildrenClosed & "; launch_only_emulator_closed=" & $bLaunchOnlyEmulatorClosed)
+	Local $sFailureReason = _RecoveryFailureReason($bControllerClosed, $bBackendClosed, $bPlannerClosed, $bAdbChildrenClosed, $bLaunchOnlyEmulatorClosed)
+	_RecoveryWriteReceipt("operator-recovery", $bRecovered, $bRecovered ? 0 : 6, $sFailureReason, _
+		_RecoveryComponentReceipt("controller", "exact-path:" & $g_sControllerPath, True, $bControllerClosed, $iControllerResidual, _
+			$bControllerClosed ? "" : "Mini controller window still belongs to this installation"), _
+		_RecoveryComponentReceipt("backend", "exact-path:" & $g_sHostPath, True, $bBackendClosed, $iBackendResidual, _
+			$bBackendClosed ? "" : "MyBot.run.exe still exists at the exact installation path"), _
+		_RecoveryComponentReceipt("planner", "receipt:" & $g_sPlannerOwnershipReceipt, FileExists($g_sPlannerOwnershipReceipt), $bPlannerClosed, $iPlannerResidual, _
+			$bPlannerClosed ? "" : "planner service receipt or loopback owner could not be closed safely"), _
+		_RecoveryComponentReceipt("adb_children", "backend-child-snapshot:" & $aOwnedAdbChildren[0][0], $aOwnedAdbChildren[0][0] > 0, $bAdbChildrenClosed, $iAdbResidual, _
+			$bAdbChildrenClosed ? "" : "one or more exact backend ADB children remained alive or changed identity"), _
+		_RecoveryComponentReceipt("launch_only_emulator", "receipt:" & $g_sLaunchOnlyEmulatorOwnershipReceipt, FileExists($g_sLaunchOnlyEmulatorOwnershipReceipt), $bLaunchOnlyEmulatorClosed, $iLaunchOnlyResidual, _
+			$bLaunchOnlyEmulatorClosed ? "" : "launch-only emulator ownership receipt could not be consumed safely"))
+	_RecoveryLog("recovery completed; controller_closed=" & $bControllerClosed & "; backend_closed=" & $bBackendClosed & "; planner_closed=" & $bPlannerClosed & "; adb_children_closed=" & $bAdbChildrenClosed & "; launch_only_emulator_closed=" & $bLaunchOnlyEmulatorClosed & "; receipt=" & $g_sRecoveryReceiptPath)
 	Return $bRecovered
 EndFunc   ;==>_RecoverBotStack
+
+Func _RecoveryFailureReason($bControllerClosed, $bBackendClosed, $bPlannerClosed, $bAdbChildrenClosed, $bLaunchOnlyEmulatorClosed)
+	If $bControllerClosed And $bBackendClosed And $bPlannerClosed And $bAdbChildrenClosed And $bLaunchOnlyEmulatorClosed Then Return ""
+	Local $sReason = ""
+	If Not $bControllerClosed Then $sReason &= "controller;"
+	If Not $bBackendClosed Then $sReason &= "backend;"
+	If Not $bPlannerClosed Then $sReason &= "planner;"
+	If Not $bAdbChildrenClosed Then $sReason &= "adb_children;"
+	If Not $bLaunchOnlyEmulatorClosed Then $sReason &= "launch_only_emulator;"
+	Return StringTrimRight($sReason, 1)
+EndFunc   ;==>_RecoveryFailureReason
+
+Func _RecoveryJsonBool($bValue)
+	Return $bValue ? "true" : "false"
+EndFunc   ;==>_RecoveryJsonBool
+
+Func _RecoveryComponentReceipt($sName, $sSelectedIdentity, $bCloseAttempted, $bClosed, $iResidualCount, $sReason)
+	Local $sResult = $bClosed ? "closed" : "failed"
+	If Not $bCloseAttempted Then $sResult = $bClosed ? "not_present" : "not_attempted"
+	Local $sJson = "{"
+	$sJson &= _EngineSupervisorJsonString("name") & ":" & _EngineSupervisorJsonString($sName) & ","
+	$sJson &= _EngineSupervisorJsonString("selected_identity") & ":" & _EngineSupervisorJsonString($sSelectedIdentity) & ","
+	$sJson &= _EngineSupervisorJsonString("close_attempted") & ":" & _RecoveryJsonBool($bCloseAttempted) & ","
+	$sJson &= _EngineSupervisorJsonString("result") & ":" & _EngineSupervisorJsonString($sResult) & ","
+	$sJson &= _EngineSupervisorJsonString("residual_processes") & ":" & Int($iResidualCount) & ","
+	$sJson &= _EngineSupervisorJsonString("reason") & ":" & _EngineSupervisorJsonString($sReason)
+	$sJson &= "}"
+	Return $sJson
+EndFunc   ;==>_RecoveryComponentReceipt
+
+Func _RecoveryWriteReceipt($sScope, $bRecovered, $iExitCode, $sFailureReason, $sController, $sBackend, $sPlanner, $sAdbChildren, $sLaunchOnlyEmulator)
+	If Not FileExists($g_sUserDataRoot) Then DirCreate($g_sUserDataRoot)
+	Local $sTemporary = $g_sRecoveryReceiptPath & "." & @AutoItPID & ".tmp"
+	Local $sJson = "{"
+	$sJson &= _EngineSupervisorJsonString("schema_version") & ":1,"
+	$sJson &= _EngineSupervisorJsonString("schema") & ":" & _EngineSupervisorJsonString("my-bot-launcher-recovery-receipt-v1") & ","
+	$sJson &= _EngineSupervisorJsonString("scope") & ":" & _EngineSupervisorJsonString($sScope) & ","
+	$sJson &= _EngineSupervisorJsonString("install_root") & ":" & _EngineSupervisorJsonString(@ScriptDir) & ","
+	$sJson &= _EngineSupervisorJsonString("launcher_path") & ":" & _EngineSupervisorJsonString(@ScriptFullPath) & ","
+	$sJson &= _EngineSupervisorJsonString("launcher_pid") & ":" & @AutoItPID & ","
+	$sJson &= _EngineSupervisorJsonString("created_at_local") & ":" & _EngineSupervisorJsonString(@YEAR & "-" & @MON & "-" & @MDAY & "T" & @HOUR & ":" & @MIN & ":" & @SEC) & ","
+	$sJson &= _EngineSupervisorJsonString("recovered") & ":" & _RecoveryJsonBool($bRecovered) & ","
+	$sJson &= _EngineSupervisorJsonString("exit_code") & ":" & Int($iExitCode) & ","
+	$sJson &= _EngineSupervisorJsonString("failure_reason") & ":" & _EngineSupervisorJsonString($sFailureReason) & ","
+	$sJson &= _EngineSupervisorJsonString("components") & ":{"
+	$sJson &= _EngineSupervisorJsonString("controller") & ":" & $sController & ","
+	$sJson &= _EngineSupervisorJsonString("backend") & ":" & $sBackend & ","
+	$sJson &= _EngineSupervisorJsonString("planner") & ":" & $sPlanner & ","
+	$sJson &= _EngineSupervisorJsonString("adb_children") & ":" & $sAdbChildren & ","
+	$sJson &= _EngineSupervisorJsonString("launch_only_emulator") & ":" & $sLaunchOnlyEmulator
+	$sJson &= "}}"
+	FileDelete($sTemporary)
+	Local $hFile = FileOpen($sTemporary, BitOR($FO_OVERWRITE, $FO_CREATEPATH, $FO_UTF8_NOBOM))
+	If $hFile = -1 Then Return False
+	Local $bWritten = FileWrite($hFile, $sJson & @LF)
+	FileFlush($hFile)
+	FileClose($hFile)
+	If Not $bWritten Then
+		FileDelete($sTemporary)
+		Return False
+	EndIf
+	If Not FileMove($sTemporary, $g_sRecoveryReceiptPath, $FC_OVERWRITE) Then
+		FileDelete($sTemporary)
+		Return False
+	EndIf
+	Return True
+EndFunc   ;==>_RecoveryWriteReceipt
 
 Func _SnapshotOwnedAdbChildren($iExpectedBackendPid = 0, $sExpectedBackendCreated = "")
 	Local $aChildren[1][4]
@@ -551,6 +638,19 @@ Func _CloseVerifiedAdbChildren(ByRef $aChildren)
 	Return $bAllClosed
 EndFunc   ;==>_CloseVerifiedAdbChildren
 
+Func _CountLiveVerifiedAdbChildren(ByRef $aChildren)
+	Local $iLive = 0
+	For $i = 1 To $aChildren[0][0]
+		Local $iPid = $aChildren[$i][0]
+		If Not ProcessExists($iPid) Then ContinueLoop
+		If _ProcessCreationId($iPid) <> $aChildren[$i][1] Then ContinueLoop
+		If _ProcessParentPid($iPid) <> $aChildren[$i][3] Then ContinueLoop
+		If Not _ProcessNameMatches($iPid, $aChildren[$i][2]) Then ContinueLoop
+		$iLive += 1
+	Next
+	Return $iLive
+EndFunc   ;==>_CountLiveVerifiedAdbChildren
+
 Func _ReadLaunchOnlyEmulatorOwnershipReceipt()
 	If Not FileExists($g_sLaunchOnlyEmulatorOwnershipReceipt) Then Return ""
 	If Not _LaunchOnlyEmulatorReceiptPathSafe(True) Then Return ""
@@ -690,6 +790,82 @@ Func _EngineSupervisorSequence($sJson)
 	If @error Or Not IsArray($aValue) Or UBound($aValue) <> 1 Then Return -1
 	Return Int($aValue[0])
 EndFunc   ;==>_EngineSupervisorSequence
+
+Func _EngineSupervisorJsonString($sValue)
+	Local $sText = String($sValue)
+	$sText = StringReplace($sText, "\", "\\")
+	$sText = StringReplace($sText, '"', '\"')
+	$sText = StringReplace($sText, @CRLF, "\n")
+	$sText = StringReplace($sText, @CR, "\n")
+	$sText = StringReplace($sText, @LF, "\n")
+	$sText = StringReplace($sText, @TAB, "\t")
+	Return '"' & $sText & '"'
+EndFunc   ;==>_EngineSupervisorJsonString
+
+Func _EngineSupervisorWriteAbortStatus($sStartRequestId, $sReason, $sPhase, $iBackendPid)
+	If Not _EngineSupervisorPathSafe($g_sControlStatusPath, False) Then Return False
+	Local $sMessage = "Managed engine initialization failed"
+	If $sPhase <> "" Then $sMessage &= " at " & $sPhase
+	If $sReason <> "" Then $sMessage &= ": " & $sReason
+	Local $sTemporary = $g_sControlStatusPath & "." & @AutoItPID & ".tmp"
+	Local $sJson = "{"
+	$sJson &= _EngineSupervisorJsonString("schema_version") & ":1,"
+	$sJson &= _EngineSupervisorJsonString("product_name") & ":" & _EngineSupervisorJsonString("My Bot 2.0") & ","
+	$sJson &= _EngineSupervisorJsonString("product_version") & ":" & _EngineSupervisorJsonString("2.0.0") & ","
+	$sJson &= _EngineSupervisorJsonString("engine_version") & ":" & _EngineSupervisorJsonString("8.2.0") & ","
+	$sJson &= _EngineSupervisorJsonString("state") & ":" & _EngineSupervisorJsonString("failed") & ","
+	$sJson &= _EngineSupervisorJsonString("run_state") & ":false,"
+	$sJson &= _EngineSupervisorJsonString("paused") & ":false,"
+	$sJson &= _EngineSupervisorJsonString("authorization_ready") & ":true,"
+	$sJson &= _EngineSupervisorJsonString("engine_available") & ":false,"
+	$sJson &= _EngineSupervisorJsonString("engine_probe_state") & ":" & _EngineSupervisorJsonString("failed") & ","
+	$sJson &= _EngineSupervisorJsonString("recognition_available") & ":false,"
+	$sJson &= _EngineSupervisorJsonString("recognition_error") & ":" & _EngineSupervisorJsonString($sMessage) & ","
+	$sJson &= _EngineSupervisorJsonString("plan_active") & ":false,"
+	$sJson &= _EngineSupervisorJsonString("plan_message") & ":" & _EngineSupervisorJsonString($sMessage) & ","
+	$sJson &= _EngineSupervisorJsonString("session_id") & ":" & _EngineSupervisorJsonString("") & ","
+	$sJson &= _EngineSupervisorJsonString("profile") & ":" & _EngineSupervisorJsonString("") & ","
+	$sJson &= _EngineSupervisorJsonString("emulator") & ":" & _EngineSupervisorJsonString("") & ","
+	$sJson &= _EngineSupervisorJsonString("instance") & ":" & _EngineSupervisorJsonString("") & ","
+	$sJson &= _EngineSupervisorJsonString("emulator_attached") & ":false,"
+	$sJson &= _EngineSupervisorJsonString("window_attached") & ":false,"
+	$sJson &= _EngineSupervisorJsonString("adb_ready") & ":false,"
+	$sJson &= _EngineSupervisorJsonString("game_ready") & ":false,"
+	$sJson &= _EngineSupervisorJsonString("bot_pid") & ":" & Int($iBackendPid) & ","
+	$sJson &= _EngineSupervisorJsonString("last_command_id") & ":" & _EngineSupervisorJsonString($sStartRequestId) & ","
+	$sJson &= _EngineSupervisorJsonString("last_command") & ":" & _EngineSupervisorJsonString($sStartRequestId = "" ? "check-engine" : "start") & ","
+	$sJson &= _EngineSupervisorJsonString("last_outcome") & ":" & _EngineSupervisorJsonString("failed") & ","
+	$sJson &= _EngineSupervisorJsonString("last_command_message") & ":" & _EngineSupervisorJsonString($sMessage) & ","
+	$sJson &= _EngineSupervisorJsonString("message") & ":" & _EngineSupervisorJsonString($sMessage)
+	$sJson &= "}"
+	Local $hFile = FileOpen($sTemporary, BitOR($FO_OVERWRITE, $FO_CREATEPATH, $FO_UTF8_NOBOM))
+	If $hFile = -1 Then Return False
+	Local $bWritten = FileWrite($hFile, $sJson & @LF)
+	FileFlush($hFile)
+	FileClose($hFile)
+	If Not $bWritten Then
+		FileDelete($sTemporary)
+		Return False
+	EndIf
+	If Not FileMove($sTemporary, $g_sControlStatusPath, $FC_OVERWRITE) Then
+		FileDelete($sTemporary)
+		Return False
+	EndIf
+	Return True
+EndFunc   ;==>_EngineSupervisorWriteAbortStatus
+
+Func _EngineSupervisorCloseOwnedControllerAfterAbort()
+	If $g_iEngineSupervisorControllerPid <= 0 Then Return True
+	If Not ProcessExists($g_iEngineSupervisorControllerPid) Then Return True
+	If _ProcessCreationId($g_iEngineSupervisorControllerPid) <> $g_sEngineSupervisorControllerCreated Then Return False
+	If StringLower(_ProcessImagePath($g_iEngineSupervisorControllerPid)) <> StringLower($g_sControllerPath) Then Return False
+	If Not ProcessClose($g_iEngineSupervisorControllerPid) And ProcessExists($g_iEngineSupervisorControllerPid) Then Return False
+	For $i = 1 To 100
+		If Not ProcessExists($g_iEngineSupervisorControllerPid) Then Return True
+		Sleep(50)
+	Next
+	Return Not ProcessExists($g_iEngineSupervisorControllerPid)
+EndFunc   ;==>_EngineSupervisorCloseOwnedControllerAfterAbort
 
 Func _ReadPlannerOwnershipReceipt()
 	If Not FileExists($g_sPlannerOwnershipReceipt) Then Return ""
@@ -1040,6 +1216,7 @@ Func _EngineSupervisorAbort($sReceipt, $iBackendPid, $sReason)
 			$sCurrent <> $sReceipt Or $iCurrentBackend <> $iBackendPid Then
 		Return _EngineSupervisorRecordFailure("abort refused because exact backend ownership changed; reason=" & $sReason)
 	EndIf
+	Local $bStatusWritten = _EngineSupervisorWriteAbortStatus($sCurrentStartRequest, $sReason, $sCurrentPhase, $iBackendPid)
 	_RecoveryLog("engine init supervisor closing verified backend; pid=" & $iBackendPid & "; phase=" & $sCurrentPhase & "; reason=" & $sReason)
 	Local $bCloseIssued = ProcessClose($iBackendPid)
 	If Not $bCloseIssued And ProcessExists($iBackendPid) Then Return _EngineSupervisorRecordFailure("the single verified backend close attempt failed; pid=" & $iBackendPid)
@@ -1048,14 +1225,14 @@ Func _EngineSupervisorAbort($sReceipt, $iBackendPid, $sReason)
 		Sleep(50)
 	Next
 	If ProcessExists($iBackendPid) Then Return _EngineSupervisorRecordFailure("backend remained alive after the single verified close attempt; pid=" & $iBackendPid)
-	Local $bPlannerClosed = _CloseOwnedPlannerService()
+	Local $bControllerClosed = _EngineSupervisorCloseOwnedControllerAfterAbort()
 	If Not _EngineSupervisorPathSafe($g_sEngineInitOwnershipReceipt, True) Or FileRead($g_sEngineInitOwnershipReceipt) <> $sCurrent Then _
 		Return _EngineSupervisorRecordFailure("backend stopped but its ownership receipt changed before cleanup")
 	Local $bReceiptRemoved = _EngineSupervisorDeleteSafeFile($g_sEngineInitOwnershipReceipt)
 	Local $bCancelRemoved = _EngineSupervisorDeleteSafeFile($g_sEngineInitCancelPath)
-	_RecoveryLog("engine init supervisor stopped retry; backend_gone=true; planner_closed=" & $bPlannerClosed & _
-		"; receipt_removed=" & $bReceiptRemoved & "; cancel_removed=" & $bCancelRemoved)
-	If Not $bPlannerClosed Or Not $bReceiptRemoved Or Not $bCancelRemoved Then _
+	_RecoveryLog("engine init supervisor stopped retry; backend_gone=true; controller_closed=" & $bControllerClosed & _
+		"; planner_kept_for_status=true; status_written=" & $bStatusWritten & "; receipt_removed=" & $bReceiptRemoved & "; cancel_removed=" & $bCancelRemoved)
+	If Not $bControllerClosed Or Not $bReceiptRemoved Or Not $bCancelRemoved Then _
 		Return _EngineSupervisorRecordFailure("backend stopped but supervised cleanup was incomplete")
 	; Keep the abort latch and generation identity until a different exact backend generation appears.
 	; This prevents a stale receipt or PID reuse race from issuing another close, while the launcher

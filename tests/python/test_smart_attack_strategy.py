@@ -64,43 +64,52 @@ class SmartAttackStrategyTests(unittest.TestCase):
         smart = next(option for option in options if option["value"] == "smart.local")
         standard = next(option for option in options if option["value"] == "legacy.standard")
         scripted = next(option for option in options if option["value"] == "legacy.csv")
-        self.assertEqual(scripted["availability"], "unsupported")
-        self.assertIn("imgloc rejected this fork", scripted["disabled_reason"].lower())
-        self.assertEqual(standard["availability"], "unsupported")
+        self.assertEqual(scripted["availability"], "gated")
+        self.assertIn("supervised-only", scripted["disabled_reason"].lower())
+        self.assertIn("clean-room red-line detector", scripted["description"].lower())
+        self.assertEqual(standard["availability"], "gated")
         self.assertFalse(standard["runtime_verified"])
         self.assertIn("older-binary", standard["description"].lower())
-        self.assertIn("current reviewed local package", standard["description"].lower())
-        self.assertIn("exact-current no-input managed-engine checks", standard["description"].lower())
-        self.assertIn("bot-owned bluestacks and game launch", standard["description"].lower())
-        self.assertIn("managed start", standard["description"].lower())
-        self.assertIn("imgloc", standard["disabled_reason"].lower())
-        self.assertIn("cannot bypass", standard["disabled_reason"].lower())
-        self.assertEqual(smart["availability"], "unsupported")
+        self.assertIn("clean-room red-line detector", standard["description"].lower())
+        self.assertIn("inherited imgloc exports remain disabled", standard["description"].lower())
+        self.assertIn("live battle evidence", standard["disabled_reason"].lower())
+        self.assertEqual(smart["availability"], "gated")
         self.assertFalse(smart["runtime_verified"])
         self.assertIn("local", smart["description"].lower())
         self.assertIn("older-binary bounded supervised th17 run", smart["description"].lower())
         self.assertIn("strategy quality", smart["description"].lower())
-        self.assertIn("current reviewed local package", smart["description"].lower())
-        self.assertIn("exact-current no-input managed-engine checks", smart["description"].lower())
-        self.assertIn("bot-owned bluestacks and game launch", smart["description"].lower())
-        self.assertIn("managed start", smart["description"].lower())
+        self.assertIn("clean-room red-line detector", smart["description"].lower())
+        self.assertIn("inherited imgloc exports remain disabled", smart["description"].lower())
         self.assertIn("historical", smart["warning"].lower())
-        self.assertIn("imgloc", smart["disabled_reason"].lower())
-        self.assertIn("cannot bypass", smart["disabled_reason"].lower())
+        self.assertIn("live battle evidence", smart["disabled_reason"].lower())
 
-    def test_every_generic_battle_strategy_fails_closed_before_start(self):
-        for strategy in ("legacy.csv", "legacy.standard", "smart.local"):
+    def test_inherited_battle_strategies_cannot_bypass_imgloc_blocker(self):
+        for strategy in ("legacy.csv", "legacy.standard"):
             with self.subTest(strategy=strategy):
                 plan = planner_ui.default_plan()
                 plan["run.strategy"] = strategy
                 problems = planner_ui.engine_preflight(plan)
-                self.assertTrue(any("inherited ImgLoc runtime rejected exact-current" in item for item in problems))
+                self.assertTrue(any("needs Allow unverified" in item for item in problems))
+                plan["run.diagnostic_mode"] = True
+                plan["run.diagnostic_note"] = "selftest operator acknowledgement"
+                diagnostic_problems = planner_ui.engine_preflight(plan)
+                self.assertTrue(
+                    any("inherited ImgLoc runtime rejected exact-current" in item for item in diagnostic_problems)
+                )
+
+        plan = planner_ui.default_plan()
+        plan["run.strategy"] = "smart.local"
+        problems = planner_ui.engine_preflight(plan)
+        self.assertTrue(any("needs Allow unverified" in item for item in problems))
+        plan["run.diagnostic_mode"] = True
+        plan["run.diagnostic_note"] = "selftest operator acknowledgement"
+        self.assertEqual([], planner_ui.engine_preflight(plan))
 
         contract = (ROOT / "COCBot/functions/Run/RunExecutionContract.au3").read_text(encoding="utf-8-sig")
         browser = (ROOT / "ui/planner.js").read_text(encoding="utf-8-sig")
-        self.assertIn("Licensed permission or a clean-room recognizer is required", contract)
-        self.assertIn("diagnostic mode cannot bypass this gate", contract)
-        self.assertIn("Allow unverified cannot bypass this gate", browser)
+        self.assertIn('Call("CleanRoomRedlineDetectorRuntimeReady")', contract)
+        self.assertIn("inherited ImgLoc remains disabled", contract)
+        self.assertIn("inherited ImgLoc runtime rejected exact-current", (ROOT / "tools/planner_ui.py").read_text(encoding="utf-8-sig"))
 
     def test_each_town_hall_preset_uses_its_smart_policy_and_exact_hero_plan(self):
         catalog = json.loads((ROOT / "config/game/smart-attack-strategies.json").read_text(encoding="utf-8"))

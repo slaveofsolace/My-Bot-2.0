@@ -163,7 +163,9 @@ class PlannerWorkbenchContract(unittest.TestCase):
 
     def test_targeted_surfaces_are_filtered_aliases_not_copied_controls(self):
         self.assertIn("settingIds: ['run.surface', 'run.strategy']", JS)
-        self.assertIn("Builder Base is visible here only as a blocked route", JS)
+        self.assertIn("Builder Base exposes the bounded clean-room collection route", JS)
+        self.assertIn("Builder Base collection is available as one bounded supervised pass", JS)
+        self.assertIn("Builder battles, Builder upgrades, Gem Mine", JS)
         self.assertIn("builderBaseUnavailableReason()", JS)
         self.assertIn("The controls below are shown for review only; Start remains blocked.", JS)
         self.assertIn("sectionIds: ['search', 'limits', 'resources']", JS)

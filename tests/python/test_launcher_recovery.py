@@ -110,6 +110,55 @@ class LauncherRecoveryContractTests(unittest.TestCase):
         self.assertIn(recovery_gate, LAUNCHER)
         self.assertLess(LAUNCHER.index(recovery_gate), LAUNCHER.index("If Not _ValidateInstallation()"))
 
+    def test_failed_recovery_exit_has_structured_receipt(self):
+        recovery_gate = LAUNCHER.index('If _CommandLineHas("/recover") Or _CommandLineHas("/repair") Then')
+        failed_exit = LAUNCHER.index("Exit 6", recovery_gate)
+        install_gate = LAUNCHER.index("If Not _ValidateInstallation()", failed_exit)
+        self.assertLess(failed_exit, install_gate)
+        self.assertIn('Global Const $g_sRecoveryReceiptPath = $g_sUserDataRoot & "\\launcher-recovery-receipt-v1.json"', LAUNCHER)
+
+        recovery = autoit_function(LAUNCHER, "_RecoverBotStack")
+        self.assertIn('_RecoveryWriteReceipt("operator-recovery"', recovery)
+        self.assertIn("$bRecovered ? 0 : 6", recovery)
+        self.assertIn("_RecoveryFailureReason(", recovery)
+        self.assertIn("_CountLiveVerifiedAdbChildren($aOwnedAdbChildren)", recovery)
+        for component in (
+            "controller",
+            "backend",
+            "planner",
+            "adb_children",
+            "launch_only_emulator",
+        ):
+            self.assertIn(f'_RecoveryComponentReceipt("{component}"', recovery)
+
+        component_receipt = autoit_function(LAUNCHER, "_RecoveryComponentReceipt")
+        for field in (
+            "selected_identity",
+            "close_attempted",
+            "result",
+            "residual_processes",
+            "reason",
+        ):
+            self.assertIn(f'_EngineSupervisorJsonString("{field}")', component_receipt)
+        self.assertIn('"not_present"', component_receipt)
+        self.assertIn('"failed"', component_receipt)
+
+        writer = autoit_function(LAUNCHER, "_RecoveryWriteReceipt")
+        for field in (
+            "my-bot-launcher-recovery-receipt-v1",
+            "scope",
+            "install_root",
+            "launcher_pid",
+            "recovered",
+            "exit_code",
+            "failure_reason",
+            "components",
+        ):
+            self.assertIn(field, writer)
+        self.assertIn("FileOpen($sTemporary, BitOR($FO_OVERWRITE, $FO_CREATEPATH, $FO_UTF8_NOBOM))", writer)
+        self.assertIn("FileFlush($hFile)", writer)
+        self.assertIn("FileMove($sTemporary, $g_sRecoveryReceiptPath, $FC_OVERWRITE)", writer)
+
     def test_only_exact_checkout_process_paths_are_closed(self):
         self.assertIn('StringLower(_ProcessImagePath($iPid)) <> StringLower($sExpectedPath)', LAUNCHER)
         self.assertIn('_CloseExactPathProcesses("MyBot.run.MiniGui.exe", $g_sControllerPath)', LAUNCHER)
@@ -661,16 +710,21 @@ class LauncherRecoveryContractTests(unittest.TestCase):
 
     def test_engine_supervisor_revalidates_before_exact_backend_close_and_never_retries(self):
         abort = autoit_function(LAUNCHER, "_EngineSupervisorAbort")
+        status_at = abort.index("_EngineSupervisorWriteAbortStatus")
         close_at = abort.index("ProcessClose($iBackendPid)")
         latch_at = abort.index("$g_bEngineSupervisorAbortAttempted = True")
         self.assertLess(latch_at, close_at)
+        self.assertLess(status_at, close_at)
         self.assertEqual(abort.count("ProcessClose($iBackendPid)"), 1)
         self.assertIn("If $g_bEngineSupervisorAbortAttempted Then Return False", abort)
         self.assertIn("_EngineSupervisorReadReceipt", abort[:close_at])
         self.assertIn("$sCurrent <> $sReceipt", abort[:close_at])
         self.assertIn("$iCurrentBackend <> $iBackendPid", abort[:close_at])
-        self.assertIn("_CloseOwnedPlannerService()", abort[close_at:])
+        self.assertIn("_EngineSupervisorCloseOwnedControllerAfterAbort()", abort[close_at:])
+        self.assertNotIn("_CloseOwnedPlannerService()", abort)
         self.assertIn("backend_gone=true", abort)
+        self.assertIn("planner_kept_for_status=true", abort)
+        self.assertIn("status_written=", abort)
         self.assertNotIn("Run(", abort)
         self.assertNotIn("ShellExecute", abort)
         self.assertNotIn("BlueStacks", abort)
@@ -678,6 +732,36 @@ class LauncherRecoveryContractTests(unittest.TestCase):
         self.assertIn("$g_bEngineSupervisorFailureLatched = True", failure)
         self.assertIn("$g_sEngineSupervisorFailure = $sReason", failure)
         self.assertIn("_RecoveryLog", failure)
+
+    def test_engine_supervisor_abort_writes_terminal_control_status(self):
+        writer = autoit_function(LAUNCHER, "_EngineSupervisorWriteAbortStatus")
+        self.assertIn("$g_sControlStatusPath", LAUNCHER)
+        self.assertIn("config\\control-status.local.json", LAUNCHER)
+        self.assertIn("_EngineSupervisorPathSafe($g_sControlStatusPath, False)", writer)
+        self.assertIn('"state") & ":" & _EngineSupervisorJsonString("failed")', writer)
+        self.assertIn('"last_outcome") & ":" & _EngineSupervisorJsonString("failed")', writer)
+        self.assertIn('"last_command_message")', writer)
+        self.assertIn('"Managed engine initialization failed"', writer)
+        self.assertIn('"recognition_error")', writer)
+        self.assertIn("FileOpen($sTemporary", writer)
+        self.assertIn("$FO_UTF8_NOBOM", writer)
+        self.assertIn("FileMove($sTemporary, $g_sControlStatusPath, $FC_OVERWRITE)", writer)
+        self.assertIn("FileDelete($sTemporary)", writer)
+        self.assertNotIn("Run(", writer)
+        self.assertNotIn("ShellExecute", writer)
+        self.assertNotIn("ProcessClose", writer)
+
+    def test_engine_supervisor_closes_exact_controller_to_stop_abort_retry(self):
+        closer = autoit_function(LAUNCHER, "_EngineSupervisorCloseOwnedControllerAfterAbort")
+        self.assertIn("$g_iEngineSupervisorControllerPid", closer)
+        self.assertIn("$g_sEngineSupervisorControllerCreated", closer)
+        self.assertIn("_ProcessCreationId($g_iEngineSupervisorControllerPid)", closer)
+        self.assertIn("_ProcessImagePath($g_iEngineSupervisorControllerPid)", closer)
+        self.assertIn("$g_sControllerPath", closer)
+        self.assertIn("ProcessClose($g_iEngineSupervisorControllerPid)", closer)
+        self.assertNotIn("taskkill", closer.lower())
+        self.assertNotIn("ShellExecute", closer)
+        self.assertNotIn("Run(", closer)
 
     def test_engine_supervisor_keeps_controller_binding_across_backend_generations(self):
         token = "7a" * 32
