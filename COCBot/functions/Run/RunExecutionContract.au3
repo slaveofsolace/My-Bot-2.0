@@ -10,6 +10,7 @@
 #include "ClanRequestRoute.au3"
 #include "ExactRecipeTrainingRoute.au3"
 #include "BuilderMaintenanceRoute.au3"
+#include "RegularBattleEntryRoute.au3"
 #include "BuilderBattleEntryRoute.au3"
 #include "LootCartRoute.au3"
 #include "TreasuryRoute.au3"
@@ -39,6 +40,7 @@ Func RunExecutionContractValidate(ByRef $oIntent, ByRef $sError)
         If ClanRequestRouteSelected($oIntent) Then Return ClanRequestRouteValidate($oIntent, $sError)
         If ExactRecipeTrainingRouteSelected($oIntent) Then Return ExactRecipeTrainingRouteValidate($oIntent, $sError)
         If BuilderMaintenanceRouteSelected($oIntent) Then Return BuilderMaintenanceRouteValidate($oIntent, $sError)
+	If RegularBattleEntryRouteSelected($oIntent) Then Return RegularBattleEntryRouteValidate($oIntent, $sError)
 	If BuilderBattleEntryRouteSelected($oIntent) Then Return BuilderBattleEntryRouteValidate($oIntent, $sError)
 
         Local $sSurface = StringLower(StringStripWS(String($oIntent.Item("surface_id")), $STR_STRIPALL))

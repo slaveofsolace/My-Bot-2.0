@@ -334,6 +334,16 @@ def main() -> int:
                                    "gated", [], ["Supervised diagnostic operator", "Current trained army", "Clean-room red-line detector"],
                                    disabled_reason="Smart battle execution is supervised-only until exact-current live battle evidence exists.",
                                     warning="Historical TH17 mechanics evidence exists; current exact-package engine and self-launch proof is not gameplay proof."),
+                             option("regular.battle-entry", "Regular battle entry proof",
+                                    "Open and close the current-client Multiplayer pre-search panel.",
+                                    "Starts from Home Village, opens the Multiplayer panel, proves the Find a Match region, "
+                                    "closes the panel, re-proves Home, and stops. It never starts search, never starts a battle, "
+                                    "never deploys troops, never trains, never donates, never upgrades, never collects resources, "
+                                    "and never uses gems.",
+                                    "gated", ["battle.regular-ranked-split"],
+                                    ["Exact BlueStacks 5 instance", "A supervised diagnostic operator", "Regular Multiplayer entry surface"],
+                                    disabled_reason="This is a safe pre-search proof only; it requires an exact-current installed receipt before any live battle can be accepted.",
+                                    warning="Diagnostic only: this proves the Find a Match surface and never starts search or a battle."),
                              option("home.collectors", "Home maintenance",
                                     "Run selected one-shot Home Village collection tasks without matchmaking.",
                                     "Runs a bounded Home pass for collectors, the Loot Cart, a Treasury not-full check, and, when explicitly "

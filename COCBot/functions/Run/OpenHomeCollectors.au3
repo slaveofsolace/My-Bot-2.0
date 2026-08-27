@@ -13,6 +13,10 @@ Global Const $OPEN_HOME_MODE_LOOT_CART = 2
 Global Const $OPEN_HOME_MODE_DAILY_REWARD = 3
 Global Const $OPEN_HOME_MODE_TREASURY = 4
 Global Const $OPEN_HOME_MODE_REJECTED = -1
+Global Const $OPEN_REGULAR_BATTLE_ENTRY_OPEN_X = 65
+Global Const $OPEN_REGULAR_BATTLE_ENTRY_OPEN_Y = 608
+Global Const $OPEN_REGULAR_BATTLE_ENTRY_CLOSE_X = 820
+Global Const $OPEN_REGULAR_BATTLE_ENTRY_CLOSE_Y = 42
 
 ; Return 0 for another route, 1 for exact resource collectors, 2 for an exact Loot Cart pass, 3 for the
 ; startup Daily Reward, 4 for the bounded Treasury adapter, and -1 for an invalid Home selection. This
@@ -210,13 +214,71 @@ Func OpenBuilderBattleEntryProve()
 EndFunc   ;==>OpenBuilderBattleEntryProve
 
 Func OpenBuilderBattleFindNowRegionReady($iX, $iY)
-	If $iX < 560 Or $iX > 741 Or $iY < 416 Or $iY > 479 Then Return False
-	Return OpenBuilderBattleEntryReady()
+        If $iX < 560 Or $iX > 741 Or $iY < 416 Or $iY > 479 Then Return False
+        Return OpenBuilderBattleEntryReady()
 EndFunc   ;==>OpenBuilderBattleFindNowRegionReady
 
+Func OpenRegularBattleEntryReady()
+	If $g_hBitmap = 0 Then Return False
+	Return PrepareSearchCurrentRegularEntryReady(False)
+EndFunc   ;==>OpenRegularBattleEntryReady
+
+Func OpenRegularBattleEntryProve()
+	If Not OpenHomeCollectorsCapture() Then Return False
+	Return OpenRegularBattleEntryReady()
+EndFunc   ;==>OpenRegularBattleEntryProve
+
+Func OpenRegularBattleEntryOpenPointReady($iX, $iY)
+	If $g_hBitmap = 0 Or Not NoPremiumPermitTargetValid($NO_PREMIUM_ACTION_REGULAR_BATTLE_ENTRY_OPEN, $iX, $iY) Then Return False
+	Return _CheckPixel($aIsMain, False)
+EndFunc   ;==>OpenRegularBattleEntryOpenPointReady
+
+Func OpenRegularBattleEntryClosePointReady($iX, $iY)
+	If $g_hBitmap = 0 Or Not NoPremiumPermitTargetValid($NO_PREMIUM_ACTION_REGULAR_BATTLE_ENTRY_CLOSE, $iX, $iY) Then Return False
+	Return OpenRegularBattleEntryReady()
+EndFunc   ;==>OpenRegularBattleEntryClosePointReady
+
+Func OpenRegularBattleEntryIssueOpen()
+	If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
+	If Not OpenHomeCollectorsProveHome() Then Return SetError(3, 0, False)
+	If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, False)
+	If Not NoPremiumPointClick($NO_PREMIUM_ACTION_REGULAR_BATTLE_ENTRY_OPEN, $OPEN_REGULAR_BATTLE_ENTRY_OPEN_X, $OPEN_REGULAR_BATTLE_ENTRY_OPEN_Y, 120, "#OpenRegularBattleEntryOpen", False) Then
+		If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
+		Return SetError(4, 0, False)
+	EndIf
+	RunEventLogWrite("maintenance.regular-battle-entry.open-issued", "info", _
+			"One exact Home Attack input was issued; find_match_clicked=false; battle_started=false", _
+			"regular", $RUN_VERIFICATION_DIAGNOSTIC)
+	For $iAttempt = 1 To 12
+		If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
+		If OpenRegularBattleEntryProve() Then Return True
+		If _Sleep(500, True, True, False) Then Return SetError(2, 0, False)
+	Next
+	Return SetError(5, 0, False)
+EndFunc   ;==>OpenRegularBattleEntryIssueOpen
+
+Func OpenRegularBattleEntryIssueClose()
+	If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
+	If Not OpenRegularBattleEntryProve() Then Return SetError(3, 0, False)
+	If Not OpenHomeNoGemInputReady() Then Return SetError(6, 0, False)
+	If Not NoPremiumPointClick($NO_PREMIUM_ACTION_REGULAR_BATTLE_ENTRY_CLOSE, $OPEN_REGULAR_BATTLE_ENTRY_CLOSE_X, $OPEN_REGULAR_BATTLE_ENTRY_CLOSE_Y, 120, "#OpenRegularBattleEntryClose", False) Then
+		If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
+		Return SetError(4, 0, False)
+	EndIf
+	RunEventLogWrite("maintenance.regular-battle-entry.close-issued", "info", _
+			"One exact Multiplayer panel close input was issued; find_match_clicked=false; battle_started=false", _
+			"regular", $RUN_VERIFICATION_DIAGNOSTIC)
+	For $iAttempt = 1 To 12
+		If RunControlStopRequested() Or Not $g_bRunState Then Return SetError(2, 0, False)
+		If OpenHomeCollectorsProveHome() Then Return True
+		If _Sleep(500, True, True, False) Then Return SetError(2, 0, False)
+	Next
+	Return SetError(5, 0, False)
+EndFunc   ;==>OpenRegularBattleEntryIssueClose
+
 Func _OpenHomePixelNear($iX, $iY, $iExpected, $iVariation = 32)
-	If $g_hBitmap = 0 Or $iX < 0 Or $iX >= $g_iGAME_WIDTH Or $iY < 0 Or $iY >= $g_iGAME_HEIGHT Then Return False
-	Return _ColorCheck(Hex(_OpenHomeCollectorBitmapPixel($g_hBitmap, $iX, $iY), 6), Hex($iExpected, 6), $iVariation)
+        If $g_hBitmap = 0 Or $iX < 0 Or $iX >= $g_iGAME_WIDTH Or $iY < 0 Or $iY >= $g_iGAME_HEIGHT Then Return False
+        Return _ColorCheck(Hex(_OpenHomeCollectorBitmapPixel($g_hBitmap, $iX, $iY), 6), Hex($iExpected, 6), $iVariation)
 EndFunc   ;==>_OpenHomePixelNear
 
 ; The startup Daily Reward overlay is fixed to the canonical 860x732 client surface. These anchors

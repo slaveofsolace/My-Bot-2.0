@@ -23,6 +23,8 @@ Global Const $NO_PREMIUM_ACTION_BUILDER_SWITCH = "builder-base.switch"
 Global Const $NO_PREMIUM_ACTION_BUILDER_COLLECT_GOLD = "builder-base.collect-gold"
 Global Const $NO_PREMIUM_ACTION_BUILDER_COLLECT_ELIXIR = "builder-base.collect-elixir"
 Global Const $NO_PREMIUM_ACTION_BUILDER_RETURN_HOME = "builder-base.return-home"
+Global Const $NO_PREMIUM_ACTION_REGULAR_BATTLE_ENTRY_OPEN = "regular.battle-entry.open"
+Global Const $NO_PREMIUM_ACTION_REGULAR_BATTLE_ENTRY_CLOSE = "regular.battle-entry.close"
 Global Const $NO_PREMIUM_ACTION_BUILDER_BATTLE_ENTRY_OPEN = "builder-base.battle-entry.open"
 Global Const $NO_PREMIUM_ACTION_BUILDER_BATTLE_ENTRY_CLOSE = "builder-base.battle-entry.close"
 Global Const $NO_PREMIUM_ACTION_HOME_CLEAR_SCREEN = "home.clear-screen"
@@ -43,6 +45,7 @@ Func NoPremiumPermitActionKnown($sAction)
                         $NO_PREMIUM_ACTION_EXACT_TRAINING_ARMY, _
                         $NO_PREMIUM_ACTION_BUILDER_SWITCH, $NO_PREMIUM_ACTION_BUILDER_COLLECT_GOLD, _
                         $NO_PREMIUM_ACTION_BUILDER_COLLECT_ELIXIR, $NO_PREMIUM_ACTION_BUILDER_RETURN_HOME, _
+                        $NO_PREMIUM_ACTION_REGULAR_BATTLE_ENTRY_OPEN, $NO_PREMIUM_ACTION_REGULAR_BATTLE_ENTRY_CLOSE, _
                         $NO_PREMIUM_ACTION_BUILDER_BATTLE_ENTRY_OPEN, $NO_PREMIUM_ACTION_BUILDER_BATTLE_ENTRY_CLOSE, _
                         $NO_PREMIUM_ACTION_HOME_CLEAR_SCREEN, $NO_PREMIUM_ACTION_STARTUP_POPUP_CLOSE, _
                         $NO_PREMIUM_ACTION_HOME_CLEAR_SELECTION
@@ -106,6 +109,10 @@ Func NoPremiumPermitTargetValid($sAction, $iX, $iY)
 			Return $iX >= 320 And $iX <= 350 And $iY >= 395 And $iY <= 420
                 Case $NO_PREMIUM_ACTION_BUILDER_RETURN_HOME
                         Return $iX = 821 And $iY = 465
+                Case $NO_PREMIUM_ACTION_REGULAR_BATTLE_ENTRY_OPEN
+                        Return $iX = 65 And $iY = 608
+                Case $NO_PREMIUM_ACTION_REGULAR_BATTLE_ENTRY_CLOSE
+                        Return $iX = 820 And $iY = 42
                 Case $NO_PREMIUM_ACTION_BUILDER_BATTLE_ENTRY_OPEN
                         Return $iX = 62 And $iY = 685
                 Case $NO_PREMIUM_ACTION_BUILDER_BATTLE_ENTRY_CLOSE

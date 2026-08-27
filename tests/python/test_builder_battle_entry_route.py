@@ -155,12 +155,12 @@ class BuilderBattleEntryRouteTests(unittest.TestCase):
     def test_builder_battle_entry_start_uses_terminal_one_shot_before_engine_initialization(self):
         action = source("COCBot/MBR GUI Action.au3")
         bot_start = autoit_function(action, "BotStart")
-        self.assertIn("If BuilderBattleEntryRouteSelected($oPreparedIntent) Then Return FuncReturn(_BotStartRunOneShot(8, $sStartError))", bot_start)
+        self.assertIn("If BuilderBattleEntryRouteSelected($oPreparedIntent) Then Return FuncReturn(_BotStartRunOneShot(9, $sStartError))", bot_start)
         self.assertLess(bot_start.index("BuilderBattleEntryRouteSelected($oPreparedIntent)"), bot_start.index("MBRFuncProbeEngine"))
         self.assertLess(bot_start.index("BuilderBattleEntryRouteSelected($oPreparedIntent)"), bot_start.index("MBRFuncInitialize"))
 
         selector = autoit_function(action, "_BotStartRunOneShot")
-        self.assertIn("Case 8", selector)
+        self.assertIn("Case 9", selector)
         self.assertIn("_BotStartBuilderBattleEntryProof($sStartError)", selector)
 
         builder_start = autoit_function(action, "_BotStartBuilderBattleEntryProof")

@@ -57,6 +57,7 @@ Global $g_hFrmBot = 0 ; The main GUI window
 #include "COCBot\functions\Run\OpenHomeTreasury.au3"
 #include "COCBot\functions\Run\OpenClanRequest.au3"
 #include "COCBot\functions\Run\OpenBuilderBaseCollectors.au3"
+#include "COCBot\functions\Run\RegularBattleEntryRoute.au3"
 #include "COCBot\functions\Run\BuilderBattleEntryRoute.au3"
 #include "COCBot\functions\Run\RunControlBridge.au3"
 ; MBR References.au3 must be last include
@@ -834,6 +835,13 @@ Func runBot() ;Bot that runs everything in order
 	If ExactRecipeTrainingRouteActive() Then
 		RunExecutionComplete("army-exact-recipe-no-loop-dispatch")
 		RunControlReportOneShotOutcome("completed", "Exact saved-recipe training route handled at Start")
+		Return
+	EndIf
+
+	; Regular battle entry proof opens and verifies the current-client Find a Match panel, then stops before
+	; search/deployment. Dispatch it before the real one-battle path.
+	If RegularBattleEntryRouteActive() Then
+		RegularBattleEntryRouteExecute()
 		Return
 	EndIf
 
