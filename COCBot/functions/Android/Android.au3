@@ -4342,12 +4342,12 @@ Func GetAndroidProcessPID($sPackage = Default, $bForeground = True, $iRetryCount
 	If AndroidInvalidState() Then Return 0
 
 	If $g_iAndroidVersionAPI = $g_iAndroidPie Then
-		$cmd = "set result=$(ps -A -o USER,PID,NAME|grep """ & $g_sAndroidGamePackage & """ >&2)"
+		$cmd = "set result=$(ps -A -o USER,PID,NAME|grep """ & $sPackage & """ >&2)"
 		; ps -A|grep "com.supercell.clashofclans" >&2
 		;USER           PID  PPID     VSZ    RSS WCHAN            ADDR S NAME
 		;u0_a69        8572   104 4358212 265080 __do_sys_+          0 S com.supercell.clashofclans
 	Else
-		$cmd = "set result=$(ps -p|grep """ & $g_sAndroidGamePackage & """ >&2)"
+		$cmd = "set result=$(ps -p|grep """ & $sPackage & """ >&2)"
 	EndIf
 
 	Local $output = AndroidAdbSendShellCommand($cmd)
@@ -4358,7 +4358,7 @@ Func GetAndroidProcessPID($sPackage = Default, $bForeground = True, $iRetryCount
 
 	SetError(0)
 	If $error = 0 Then
-		SetDebugLog("$g_sAndroidGamePackage: " & $g_sAndroidGamePackage)
+		SetDebugLog("Android package: " & $sPackage)
 		SetDebugLog("GetAndroidProcessPID StdOut :" & $output)
 		$output = StringStripWS($output, 7)
 		Local $aPkgList[0][26] ; adjust to any suffisent size to accommodate
@@ -4366,8 +4366,8 @@ Func GetAndroidProcessPID($sPackage = Default, $bForeground = True, $iRetryCount
 		_ArrayAdd($aPkgList, $output, 0, " ", @LF, $ARRAYFILL_FORCE_STRING)
 
 		Local $CorrectSCHED = "0"
-		Switch $g_sAndroidGamePackage
-			Case $g_sAndroidGamePackage = "com.tencent.tmgp.supercell.clashofclans"
+		Switch $sPackage
+			Case $sPackage = "com.tencent.tmgp.supercell.clashofclans"
 				; scheduling policy : SCHED_BATCH = 3
 				$CorrectSCHED = "3"
 			Case Else
@@ -4377,7 +4377,7 @@ Func GetAndroidProcessPID($sPackage = Default, $bForeground = True, $iRetryCount
 
 		For $i = 1 To UBound($aPkgList)
 			$iCols = _ArraySearch($aPkgList, "", 0, 0, 0, 0, 1, $i, True)
-			If $iCols > 9 And $aPkgList[$i - 1][$iCols - 1] = $g_sAndroidGamePackage Then
+			If $iCols > 9 And $aPkgList[$i - 1][$iCols - 1] = $sPackage Then
 				; process running
 				If $bForeground = True And $aPkgList[$i - 1][8] <> $CorrectSCHED Then
 					; not foreground
@@ -4389,15 +4389,16 @@ Func GetAndroidProcessPID($sPackage = Default, $bForeground = True, $iRetryCount
 					SetDebugLog("Android process " & $sPackage & " not running in foreground")
 					Return 0
 				EndIf
+				$g_iAdroidProcNotRunning = 0
 				Return Int($aPkgList[$i - 1][1])
 			EndIf
 
-			If $iCols = 3 And $aPkgList[$i - 1][$iCols - 1] = $g_sAndroidGamePackage Then ; ps -A
+			If $iCols = 3 And $aPkgList[$i - 1][$iCols - 1] = $sPackage Then ; ps -A
 				;$sDumpsys = AndroidAdbSendShellCommand("dumpsys window windows | grep -E 'mCurrentFocus.*" & $g_sAndroidGamePackage & "'")
 				$sDumpsys = AndroidAdbSendShellCommand("dumpsys window windows | grep -E 'mCurrentFocus'")
 				;SetLog("Dumpsys : " & $sDumpsys)
 
-				If $bForeground = True And StringInStr($sDumpsys, $g_sAndroidGamePackage) = 0 Then
+				If $bForeground = True And StringInStr($sDumpsys, $sPackage) = 0 Then
 					; not foreground
 					If $iRetryCount < $iRetryMax Then
 						; retry 2 times
@@ -4407,9 +4408,19 @@ Func GetAndroidProcessPID($sPackage = Default, $bForeground = True, $iRetryCount
 					SetLog("Android process " & $sPackage & " not running in foreground")
 					Return 0
 				EndIf
+				$g_iAdroidProcNotRunning = 0
 				Return Int($aPkgList[$i - 1][1]) ; return PID
 			EndIf
 		Next
+	EndIf
+
+	; Current BlueStacks 5 Android builds expose a reliable pidof surface even when the
+	; inherited ps column layout changes. Reuse the bounded modern detector before counting
+	; a miss so a renderer/client update cannot create an emulator restart loop.
+	Local $iModernPid = GetAndroidProcessPID1($sPackage, $bForeground)
+	If $iModernPid > 0 Then
+		$g_iAdroidProcNotRunning = 0
+		Return $iModernPid
 	EndIf
 
 	If $iRetryCount < $iRetryMax Then
@@ -4421,7 +4432,16 @@ Func GetAndroidProcessPID($sPackage = Default, $bForeground = True, $iRetryCount
 	SetLog("Android process " & $sPackage & " not running")
 	If $g_bDebugAndroid Then SaveDebugImage("GetAndroidProcessPID")
 	$g_iAdroidProcNotRunning += 1
-	If $g_iAdroidProcNotRunning = 10 Then ; HArchH arbitrary limit
+	If $g_iAdroidProcNotRunning >= 10 Then ; HArchH arbitrary limit
+		Local $sManagedFailure = "Clash of Clans process readiness could not be confirmed after bounded retries; the run stopped without restarting BlueStacks"
+		If IsDeclared("g_bRunControlStartInProgress") And Eval("g_bRunControlStartInProgress") = True Then
+			SetLog($sManagedFailure, $COLOR_ERROR)
+			Call("RunControlReportOneShotOutcome", "failed", $sManagedFailure)
+			If @error = 0 Then
+				$g_iAdroidProcNotRunning = 0
+				Return SetError(1, 0, 0)
+			EndIf
+		EndIf
 		SetLog("Too many not running errors.  Restarting emulator.", $COLOR_INFO)
 		$g_iAdroidProcNotRunning = 0
 		If _sleep(2000) Then Return False

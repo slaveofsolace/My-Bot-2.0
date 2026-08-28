@@ -68,7 +68,7 @@ class GameLaunchOnlyControlTests(unittest.TestCase):
             "ConnectAndroidAdb(False, 3000)",
             "WaitForAndroidBootCompleted(",
             'AndroidAdbSendShellCommand("am start -n "',
-            "GetAndroidProcessPID(Default, False)",
+            "GetAndroidProcessPID1(Default, False)",
             "OpenHomeCollectorsProveHome()",
             "BuilderMaintenanceRoutePrepared()",
             "_CheckPixel($aIsOnBuilderBase, False)",
@@ -83,6 +83,7 @@ class GameLaunchOnlyControlTests(unittest.TestCase):
             "RunControlStopRequested()",
         ):
             self.assertIn(required, adapter)
+        self.assertNotIn("GetAndroidProcessPID(Default, False)", adapter)
         self.assertEqual(adapter.count('AndroidAdbSendShellCommand("am start -n "'), 1)
         for forbidden in (
             "LaunchAndroid(",

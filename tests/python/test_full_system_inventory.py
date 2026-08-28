@@ -22,7 +22,7 @@ class FullSystemInventoryTests(unittest.TestCase):
                 "control_actions": 6,
                 "infrastructure_routes": 8,
                 "actuator_owners": 481,
-                "actuator_sites": 1196,
+                "actuator_sites": 1197,
                 "exact_current_capabilities_ready": 0,
                 "capability_truth_statuses": {"BLOCKED_EXTERNAL": 53, "FIXTURE_PROVEN": 8},
                 "fixture_truth_statuses": {"BLOCKED_EXTERNAL": 47, "FIXTURE_PROVEN": 10},

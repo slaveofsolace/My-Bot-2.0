@@ -641,6 +641,37 @@ class NativeProfileAutoLaunchTests(unittest.TestCase):
         self.assertIn("reload-rejected", body)
         self.assertIn("reload-unconfirmed", body)
 
+    def test_current_client_process_probe_cannot_restart_managed_web_run(self):
+        android = (ROOT / "COCBot" / "functions" / "Android" / "Android.au3").read_text(
+            encoding="utf-8-sig"
+        )
+        bluestacks = (
+            ROOT / "COCBot" / "functions" / "Android" / "AndroidBluestacks5.au3"
+        ).read_text(encoding="utf-8-sig")
+        start = android.index("Func GetAndroidProcessPID(")
+        probe = android[start:android.index("EndFunc", start)]
+        launch_start = bluestacks.index("Func LaunchBlueStacks5CoCOnly(")
+        launch = bluestacks[launch_start:bluestacks.index("EndFunc", launch_start)]
+
+        self.assertIn("GetAndroidProcessPID1($sPackage, $bForeground)", probe)
+        self.assertLess(
+            probe.index("GetAndroidProcessPID1($sPackage, $bForeground)"),
+            probe.index("$g_iAdroidProcNotRunning += 1"),
+        )
+        self.assertIn("$g_iAdroidProcNotRunning = 0", probe)
+        self.assertIn("$g_iAdroidProcNotRunning >= 10", probe)
+        self.assertLess(
+            probe.index('IsDeclared("g_bRunControlStartInProgress")'),
+            probe.index("RestartBOT()"),
+        )
+        self.assertIn('Eval("g_bRunControlStartInProgress") = True', probe)
+        self.assertIn(
+            'Call("RunControlReportOneShotOutcome", "failed", $sManagedFailure)',
+            probe,
+        )
+        self.assertIn("GetAndroidProcessPID1(Default, False)", launch)
+        self.assertNotIn("GetAndroidProcessPID(Default, False)", launch)
+
     def test_full_profile_start_applies_and_restores_narrow_no_gem_overlay(self):
         execution = (ROOT / "COCBot" / "functions" / "Run" / "RunExecution.au3").read_text(
             encoding="utf-8-sig"

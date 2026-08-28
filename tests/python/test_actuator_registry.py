@@ -18,7 +18,7 @@ class ActuatorRegistryTests(unittest.TestCase):
         self.assertEqual(481, report["owners"])
         self.assertEqual(73, report["sink_functions"])
         self.assertEqual(
-            "761e7354a4dee4a89c61f753660d92e0ae87b23fbc28a5e56ee14c460faa979e",
+            "57220dc0604fb2533aef102fb9767953786e33fb22eacc7d94e689412ca1b3fc",
             report["fingerprint"],
         )
         self.assertEqual(report["owners"], len(report["classifications"]))

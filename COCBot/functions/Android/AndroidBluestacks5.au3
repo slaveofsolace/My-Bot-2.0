@@ -382,7 +382,9 @@ Func LaunchBlueStacks5CoCOnly(ByRef $sReason)
 			$sReason = "BlueStacks and Clash of Clans launch cancelled while waiting for passive game-ready proof"
 			Return False
 		EndIf
-		If GetAndroidProcessPID(Default, False) <> 0 Then
+		; Launch readiness must remain side-effect free. The inherited process probe can call
+		; RestartBOT after repeated blank output, which races this bounded 90-second wait.
+		If GetAndroidProcessPID1(Default, False) <> 0 Then
                         ; OpenHomeCollectorsProveHome() refreshes the current ADB frame before checking Home.
                         ; If a known startup overlay blocks Home, recognize it from that same fresh frame. Launch-only
                         ; may close the Welcome Back Okay surface through the reviewed startup-popup permit, but it

@@ -1239,6 +1239,23 @@ def main() -> int:
     legacy_title_offset = handle_body.find("If $bFindByTitle = True Then")
     if fallback_offset < 0 or legacy_title_offset < 0 or fallback_offset > legacy_title_offset:
         errors.append("modern BlueStacks discovery no longer precedes the legacy title path's early return")
+    process_probe = android_source.split("Func GetAndroidProcessPID(", 1)
+    process_probe_body = process_probe[1].split("EndFunc", 1)[0] if len(process_probe) > 1 else ""
+    modern_pid_offset = process_probe_body.find("GetAndroidProcessPID1($sPackage, $bForeground)")
+    miss_offset = process_probe_body.find("$g_iAdroidProcNotRunning += 1")
+    managed_failure_offset = process_probe_body.find('IsDeclared("g_bRunControlStartInProgress")')
+    restart_offset = process_probe_body.find("RestartBOT()")
+    if modern_pid_offset < 0 or miss_offset < 0 or modern_pid_offset > miss_offset:
+        errors.append("current-client pidof fallback no longer precedes the inherited process-miss counter")
+    if managed_failure_offset < 0 or restart_offset < 0 or managed_failure_offset > restart_offset:
+        errors.append("managed web Start can restart BlueStacks before publishing a terminal process failure")
+    for required in (
+        'IsDeclared("g_bRunControlStartInProgress")',
+        'Eval("g_bRunControlStartInProgress") = True',
+        'Call("RunControlReportOneShotOutcome", "failed", $sManagedFailure)',
+    ):
+        if required not in process_probe_body:
+            errors.append(f"managed process-readiness failure no longer requires {required}")
     surface_body = bluestacks_source.split("Func GetBlueStacks5ModernAdbSurfacePosition()", 1)
     surface_body = surface_body[1].split("EndFunc", 1)[0] if len(surface_body) > 1 else ""
     for required in (
@@ -1259,6 +1276,12 @@ def main() -> int:
     ):
         if required not in open_blusestacks_body:
             errors.append(f"BlueStacks duplicate-launch recovery no longer requires {required}")
+    launch_game_body = bluestacks_source.split("Func LaunchBlueStacks5CoCOnly(", 1)
+    launch_game_body = launch_game_body[1].split("EndFunc", 1)[0] if len(launch_game_body) > 1 else ""
+    if "GetAndroidProcessPID1(Default, False)" not in launch_game_body:
+        errors.append("BlueStacks launch readiness no longer uses the side-effect-free current PID probe")
+    if "GetAndroidProcessPID(Default, False)" in launch_game_body:
+        errors.append("BlueStacks launch readiness can still invoke the inherited emulator restart counter")
     for required in (
         "$g_bChkBackgroundMode",
         "$g_bAndroidAdbScreencap",
