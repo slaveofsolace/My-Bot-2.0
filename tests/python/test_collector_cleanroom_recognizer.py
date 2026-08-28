@@ -43,11 +43,13 @@ class CollectorCleanRoomRecognizerTests(unittest.TestCase):
         for token in ("DllCallMyBot", "FindTile", "SearchMultipleTiles", "ShellExecute", ".html"):
             self.assertNotIn(token, self.recognizer)
 
-    def test_public_inherited_recognition_wrapper_never_invokes_export(self) -> None:
-        self.assertIn("Inherited ImgLoc recognition is disabled in this fork", self.mbr)
-        self.assertIn("clean-room recognizer is required", self.mbr)
-        self.assertNotIn("_DllCallMyBot(", self.mbr)
-        self.assertNotIn("SuspendAndroid", self.mbr)
+    def test_full_profile_inherited_wrapper_is_managed_while_bounded_collector_stays_clean_room(self) -> None:
+        self.assertIn("Not MBRFuncRecognitionAvailable()", self.mbr)
+        self.assertIn("_DllCallMyBot($sFunc", self.mbr)
+        self.assertIn("Not MBRFuncManagedLaunchBound()", self.mbr)
+        self.assertIn("SuspendAndroid", self.mbr)
+        self.assertNotIn("DllCallMyBot", self.collect)
+        self.assertNotIn("DllCallMyBot", self.recognizer)
 
     def test_bounded_home_proof_skips_protected_chat_template(self) -> None:
         self.assertIn("RunExecutionSkipPendingNotifications()", self.main_screen)

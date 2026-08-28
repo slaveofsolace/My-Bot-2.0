@@ -114,7 +114,7 @@ DIAGNOSTIC_ARTIFACTS = {
     "managed_engine": ROOT / "lib/MyBot.run.dll",
 }
 DIAGNOSTIC_ENGINE_FIELDS = {
-    "connected", "state", "authorization_ready", "engine_available", "engine_probe_state", "recognition_available", "recognition_error", "product_name",
+    "connected", "state", "authorization_ready", "engine_available", "engine_probe_state", "recognition_available", "recognition_error", "recognition_provider", "recognition_provider_reason", "product_name",
     "product_version", "engine_version", "plan_active", "plan_message", "session_id",
     "emulator", "emulator_attached", "window_attached", "adb_ready", "game_ready", "bot_pid", "bot_process_alive", "last_command", "last_outcome", "last_command_message",
     "message", "last_seen_at", "age_seconds", "supervisor_state", "mini_supervisor",
@@ -1143,19 +1143,13 @@ def activate_native_profile_mode() -> tuple[dict, int]:
                 ],
             }, 409
 
-        native_profile_cold_bootstrap = (
-            native.get("emulator_attached") is not True
-            and native.get("window_attached") is not True
-            and native.get("adb_ready") is not True
-            and native.get("game_ready") is not True
-        )
-        if native.get("recognition_available") is not True and not native_profile_cold_bootstrap:
+        if native.get("recognition_available") is not True or native.get("recognition_provider") != "InheritedLocalRuntime":
             return {
                 "ok": False,
                 "attempt_id": attempt_id,
                 "problems": [
                     native.get("recognition_error")
-                    or "Full profile automation requires a licensed or clean-room recognizer; the applied bounded plan was left unchanged"
+                    or "Full profile automation requires the exact launcher-owned LocalRuntime; the applied bounded plan was left unchanged"
                 ],
             }, 409
 
@@ -1434,22 +1428,18 @@ def queue_control_command(
                         "problems": preflight,
                         "status": status,
                     }, 409
-            native_profile_cold_bootstrap = (
-                status.get("emulator_attached") is not True
-                and status.get("window_attached") is not True
-                and status.get("adb_ready") is not True
-                and status.get("game_ready") is not True
-            )
             if (
                 run_mode == "native-profile"
-                and status.get("recognition_available") is not True
-                and not native_profile_cold_bootstrap
+                and (
+                    status.get("recognition_available") is not True
+                    or status.get("recognition_provider") != "InheritedLocalRuntime"
+                )
             ):
                 return {
                     "ok": False,
                     "problems": [
                         status.get("recognition_error")
-                        or "Full profile automation requires a licensed or clean-room recognizer; apply a verified bounded route"
+                        or "Full profile automation requires the exact launcher-owned LocalRuntime; restart the installed bot"
                     ],
                     "status": status,
                 }, 409

@@ -96,7 +96,7 @@ class NativeProfileAutoLaunchTests(unittest.TestCase):
                     mock.patch.object(
                         planner_ui,
                         "control_status",
-                        return_value={"connected": True, "state": "idle", "recognition_available": True},
+                        return_value={"connected": True, "state": "idle", "recognition_available": True, "recognition_provider": "InheritedLocalRuntime"},
                     ):
                 payload, code = planner_ui.activate_native_profile_mode()
                 self.assertEqual(code, 200)
@@ -124,6 +124,7 @@ class NativeProfileAutoLaunchTests(unittest.TestCase):
                 "state": "idle",
                 "engine_available": True,
                 "recognition_available": True,
+                "recognition_provider": "InheritedLocalRuntime",
             }
             with mock.patch.object(planner_ui, "PLAN_PATH", plan_path), \
                     mock.patch.object(planner_ui, "PLAN_RECEIPT_PATH", receipt_path), \
@@ -184,7 +185,7 @@ class NativeProfileAutoLaunchTests(unittest.TestCase):
             self.assertIn("clean-room recognizer required", payload["problems"])
             self.assertFalse(command_path.exists())
 
-    def test_web_start_allows_native_profile_cold_bootstrap_before_recognition_exists(self):
+    def test_web_start_allows_native_profile_cold_bootstrap_with_managed_local_provider(self):
         with tempfile.TemporaryDirectory() as folder:
             receipt_path = Path(folder) / "run-plan.receipt.local.json"
             command_path = Path(folder) / "control-command.local.json"
@@ -196,8 +197,9 @@ class NativeProfileAutoLaunchTests(unittest.TestCase):
                 "window_attached": False,
                 "adb_ready": False,
                 "game_ready": False,
-                "recognition_available": False,
-                "recognition_error": "no frame available yet",
+                "recognition_available": True,
+                "recognition_provider": "InheritedLocalRuntime",
+                "recognition_error": "",
             }
             with mock.patch.object(planner_ui, "PLAN_PATH", Path(folder) / "missing-plan.json"), \
                     mock.patch.object(planner_ui, "PLAN_RECEIPT_PATH", receipt_path), \
@@ -476,7 +478,7 @@ class NativeProfileAutoLaunchTests(unittest.TestCase):
                 results["native"] = planner_ui.activate_native_profile_mode()
                 native_finished.set()
 
-            status = {"connected": True, "state": "idle", "recognition_available": True}
+            status = {"connected": True, "state": "idle", "recognition_available": True, "recognition_provider": "InheritedLocalRuntime"}
             with mock.patch.object(planner_ui, "PLAN_PATH", plan_path), mock.patch.object(
                 planner_ui, "PLAN_RECEIPT_PATH", receipt_path
             ), mock.patch.object(

@@ -92,7 +92,10 @@ Func _MBRFuncSupervisedStartInitializing()
 EndFunc   ;==>_MBRFuncSupervisedStartInitializing
 
 Func MBRFuncManagedLaunchBound()
-	Return $g_bMBRFuncBackendHost And $g_bMBRFuncEngineSupervisorValid
+	If Not $g_bMBRFuncBackendHost Or Not $g_bMBRFuncEngineSupervisorValid Then Return False
+	Local $iLauncherPid = Int($g_sMBRFuncEngineLauncherPidText)
+	If $iLauncherPid <= 0 Or Not ProcessExists($iLauncherPid) Then Return False
+	Return _MBRFuncProcessCreationId($iLauncherPid) = $g_sMBRFuncEngineLauncherCreated
 EndFunc   ;==>MBRFuncManagedLaunchBound
 
 Func MBRFunc($Start = True, $bInitialize = True)
@@ -199,24 +202,24 @@ Func MBRFuncEngineError()
 	Return $g_sMBRFuncEngineError
 EndFunc   ;==>MBRFuncEngineError
 
-; The inherited public image-search exports are intentionally unavailable until authoritative
-; redistribution/operation permission is recorded or a clean-room recognizer owns those routes.
-; Managed initialization remains available because terminal clean-room Home routes use the
-; independently implemented ADB screenshot/click adapters without invoking those exports.
+; Full-profile recognition is a local-runtime capability, not a redistribution claim. The exact
+; installed launcher must own the backend and its immutable process identity; direct script runs,
+; probes, copied binaries, stale launchers, and public packages remain unable to authorize it.
 Func MBRFuncRecognitionAvailable()
-        Return False
+	Return MBRFuncManagedLaunchBound() And $g_bMBRFuncEngineAvailable
 EndFunc   ;==>MBRFuncRecognitionAvailable
 
 Func MBRFuncRecognitionProviderState()
-        Return "Unavailable"
+	Return MBRFuncRecognitionAvailable() ? "InheritedLocalRuntime" : "Unavailable"
 EndFunc   ;==>MBRFuncRecognitionProviderState
 
 Func MBRFuncRecognitionProviderReason()
-        Return "CleanRoomLocal is available only to reviewed bounded routes; InheritedAuthorized is disabled until ImgLoc permission or a licensed replacement is validated; full-profile automation remains unavailable."
+	If MBRFuncRecognitionAvailable() Then Return "The exact launcher-owned LocalRuntime may use its installed inherited recognizer. This does not authorize public binary redistribution."
+	Return "Full-profile recognition is unavailable outside the exact launcher-owned LocalRuntime; use the installed My Bot 2.0 entrypoint."
 EndFunc   ;==>MBRFuncRecognitionProviderReason
 
 Func MBRFuncRecognitionError()
-        Return "Full profile automation requires licensed inherited recognition or a clean-room replacement; use a verified bounded Home route"
+	Return "Full profile automation requires the exact launcher-owned LocalRuntime; restart My Bot 2.0 from its installed entrypoint"
 EndFunc   ;==>MBRFuncRecognitionError
 
 ; MBRFunc.au3 is shared by the full backend and the lightweight MiniGui/engine-probe include graph.
@@ -403,6 +406,23 @@ Func MBRFuncProbeEngine(ByRef $sError, $iTimeoutMs = 15000)
 	Return True
 EndFunc   ;==>MBRFuncProbeEngine
 
+; Private MyBot.run.dll dispatcher. This is the pinned upstream call shape, retained behind the
+; managed LocalRuntime ownership check in DllCallMyBot(). It never launches a process or browser.
+Func _DllCallMyBot($sFunc, $sType1 = Default, $vParam1 = Default, $sType2 = Default, $vParam2 = Default, $sType3 = Default, $vParam3 = Default, $sType4 = Default, $vParam4 = Default, $sType5 = Default, $vParam5 = Default _
+		, $sType6 = Default, $vParam6 = Default, $sType7 = Default, $vParam7 = Default, $sType8 = Default, $vParam8 = Default, $sType9 = Default, $vParam9 = Default, $sType10 = Default, $vParam10 = Default)
+	If $sType1 = Default Then Return DllCall($g_hLibMyBot, "str", $sFunc)
+	If $sType2 = Default Then Return DllCall($g_hLibMyBot, "str", $sFunc, $sType1, $vParam1)
+	If $sType3 = Default Then Return DllCall($g_hLibMyBot, "str", $sFunc, $sType1, $vParam1, $sType2, $vParam2)
+	If $sType4 = Default Then Return DllCall($g_hLibMyBot, "str", $sFunc, $sType1, $vParam1, $sType2, $vParam2, $sType3, $vParam3)
+	If $sType5 = Default Then Return DllCall($g_hLibMyBot, "str", $sFunc, $sType1, $vParam1, $sType2, $vParam2, $sType3, $vParam3, $sType4, $vParam4)
+	If $sType6 = Default Then Return DllCall($g_hLibMyBot, "str", $sFunc, $sType1, $vParam1, $sType2, $vParam2, $sType3, $vParam3, $sType4, $vParam4, $sType5, $vParam5)
+	If $sType7 = Default Then Return DllCall($g_hLibMyBot, "str", $sFunc, $sType1, $vParam1, $sType2, $vParam2, $sType3, $vParam3, $sType4, $vParam4, $sType5, $vParam5, $sType6, $vParam6)
+	If $sType8 = Default Then Return DllCall($g_hLibMyBot, "str", $sFunc, $sType1, $vParam1, $sType2, $vParam2, $sType3, $vParam3, $sType4, $vParam4, $sType5, $vParam5, $sType6, $vParam6, $sType7, $vParam7)
+	If $sType9 = Default Then Return DllCall($g_hLibMyBot, "str", $sFunc, $sType1, $vParam1, $sType2, $vParam2, $sType3, $vParam3, $sType4, $vParam4, $sType5, $vParam5, $sType6, $vParam6, $sType7, $vParam7, $sType8, $vParam8)
+	If $sType10 = Default Then Return DllCall($g_hLibMyBot, "str", $sFunc, $sType1, $vParam1, $sType2, $vParam2, $sType3, $vParam3, $sType4, $vParam4, $sType5, $vParam5, $sType6, $vParam6, $sType7, $vParam7, $sType8, $vParam8, $sType9, $vParam9)
+	Return DllCall($g_hLibMyBot, "str", $sFunc, $sType1, $vParam1, $sType2, $vParam2, $sType3, $vParam3, $sType4, $vParam4, $sType5, $vParam5, $sType6, $vParam6, $sType7, $vParam7, $sType8, $vParam8, $sType9, $vParam9, $sType10, $vParam10)
+EndFunc   ;==>_DllCallMyBot
+
 Func DllCallMyBotIsActive()
 	Return $g_bLibMyBotActive
 EndFunc   ;==>DllCallMyBotIsActive
@@ -410,15 +430,57 @@ EndFunc   ;==>DllCallMyBotIsActive
 ; Public DllCall MyBot.run.dll function call
 Func DllCallMyBot($sFunc, $sType1 = Default, $vParam1 = Default, $sType2 = Default, $vParam2 = Default, $sType3 = Default, $vParam3 = Default, $sType4 = Default, $vParam4 = Default, $sType5 = Default, $vParam5 = Default _
 		, $sType6 = Default, $vParam6 = Default, $sType7 = Default, $vParam7 = Default, $sType8 = Default, $vParam8 = Default, $sType9 = Default, $vParam9 = Default, $sType10 = Default, $vParam10 = Default)
-	If Not $g_bLibMyBotInitialized Then
+	If Not $g_bLibMyBotInitialized Or Not MBRFuncRecognitionAvailable() Then
 		Local $aUnavailable[1] = [""]
 		Return SetError(1, 0, $aUnavailable)
 	EndIf
-	; This fork is not licensed to patch around the inherited recognizer's anti-copycat guard. Do not
-	; invoke any public recognition export: it can generate and open lib/<message-id>.html. Callers
-	; receive the same critical-error shape and must stop or use an independently implemented adapter.
-	Local $aBlocked[1] = ["-2|Inherited ImgLoc recognition is disabled in this fork; licensed permission or a clean-room recognizer is required"]
-	Return SetError(1, 0, $aBlocked)
+	$g_bLibMyBotActive = True
+	Local $aResult
+	Local $sFileOrFolder = Default
+	Switch $sFunc
+		Case "SearchMultipleTilesBetweenLevels", "FindTile", "SearchTile", "SearchMultipleTilesLevel", "SearchMultipleTiles", "RecheckTile", "DoOCR"
+			If StringLeft($vParam2, 1) <> "-" Then
+				$sFileOrFolder = $vParam2
+				$vParam2 = "-" & _Base64Encode(StringToBinary($vParam2, 4), 1024)
+			EndIf
+	EndSwitch
+	If $g_bDebugBetaVersion And $sFileOrFolder <> Default And StringInStr($sFileOrFolder, "\") And FileExists($sFileOrFolder) = 0 Then SetLog("Cannot access path: " & $sFileOrFolder, $COLOR_ERROR)
+	Local $bWasSuspended = SuspendAndroid()
+	Local $hDeadline = TimerInit()
+	$aResult = _DllCallMyBot($sFunc, $sType1, $vParam1, $sType2, $vParam2, $sType3, $vParam3, $sType4, $vParam4, $sType5, $vParam5, $sType6, $vParam6, $sType7, $vParam7, $sType8, $vParam8, $sType9, $vParam9, $sType10, $vParam10)
+	Local $iCallError = @error
+	Local $iCallExtended = @extended
+	Local $i = 1
+	While Not $iCallError And IsArray($aResult) And UBound($aResult) > 0 And $aResult[0] = "<GetAsyncResult>"
+		If TimerDiff($hDeadline) > 45000 Or Not MBRFuncManagedLaunchBound() Then
+			SuspendAndroid($bWasSuspended)
+			$g_bLibMyBotActive = False
+			Local $aTimedOut[1] = ["-2|Managed recognition timed out or lost launcher ownership"]
+			Return SetError(1, 1, $aTimedOut)
+		EndIf
+		If Mod($i + 5, 10) = 0 Then
+			SetDebugLog("Waiting for DLL async function " & $sFunc & " ...")
+			ResumeAndroid()
+		EndIf
+		$i += 1
+		If _Sleep(100) Then
+			ResumeAndroid()
+			$aResult[0] = ""
+			$g_bLibMyBotActive = False
+			Return SetError(0, 0, $aResult)
+		EndIf
+		SuspendAndroid()
+		$aResult = _DllCallMyBot("GetAsyncResult")
+		$iCallError = @error
+		$iCallExtended = @extended
+	WEnd
+	SuspendAndroid($bWasSuspended)
+	$g_bLibMyBotActive = False
+	If IsArray($aResult) And UBound($aResult) > 0 And StringLeft(String($aResult[0]), 3) = "-2|" Then
+		MBRFuncMarkUnavailable("The installed inherited recognizer refused the managed LocalRuntime call; restart My Bot 2.0 and review the native log")
+		Return SetError(1, $iCallExtended, $aResult)
+	EndIf
+	Return SetError($iCallError, $iCallExtended, $aResult)
 EndFunc   ;==>DllCallMyBot
 
 Func debugMBRFunctions($iDebugSearchArea = 0, $iDebugRedArea = 0, $iDebugOcr = 0)

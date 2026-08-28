@@ -683,10 +683,32 @@ def main() -> int:
 
     public_imgloc = mbr_source.split("Func DllCallMyBot(", 1)
     public_imgloc_body = public_imgloc[1].split("EndFunc", 1)[0] if len(public_imgloc) > 1 else ""
-    if "_DllCallMyBot(" in public_imgloc_body or "SuspendAndroid" in public_imgloc_body:
-        errors.append("public inherited recognition can invoke the protected ImgLoc export")
-    if "Return SetError(1, 0, $aBlocked)" not in public_imgloc_body:
-        errors.append("blocked inherited recognition no longer reports an actionable call failure")
+    recognition_available = mbr_source.split("Func MBRFuncRecognitionAvailable()", 1)
+    recognition_available_body = recognition_available[1].split("EndFunc", 1)[0] if len(recognition_available) > 1 else ""
+    managed_bound = mbr_source.split("Func MBRFuncManagedLaunchBound()", 1)
+    managed_bound_body = managed_bound[1].split("EndFunc", 1)[0] if len(managed_bound) > 1 else ""
+    for required in (
+        "$g_bMBRFuncBackendHost",
+        "$g_bMBRFuncEngineSupervisorValid",
+        "ProcessExists($iLauncherPid)",
+        "_MBRFuncProcessCreationId($iLauncherPid)",
+    ):
+        if required not in managed_bound_body:
+            errors.append(f"managed inherited recognition ownership no longer requires {required}")
+    for required in ("MBRFuncManagedLaunchBound()", "$g_bMBRFuncEngineAvailable"):
+        if required not in recognition_available_body:
+            errors.append(f"managed inherited recognition availability no longer requires {required}")
+    public_guard = public_imgloc_body.find("Not MBRFuncRecognitionAvailable()")
+    public_dispatch = public_imgloc_body.find("_DllCallMyBot($sFunc")
+    if public_guard < 0 or public_dispatch < 0 or public_guard >= public_dispatch:
+        errors.append("public inherited recognition is not gated before its single managed dispatch")
+    for required in (
+        "Return SetError(1, 0, $aUnavailable)",
+        "Not MBRFuncManagedLaunchBound()",
+        "Managed recognition timed out or lost launcher ownership",
+    ):
+        if required not in public_imgloc_body:
+            errors.append(f"managed inherited recognition no longer fails closed via {required}")
 
     for source_path in (ROOT / "COCBot").rglob("*.au3"):
         if source_path == MBR_FUNC:

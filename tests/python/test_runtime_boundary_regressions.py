@@ -70,9 +70,9 @@ class RuntimeBoundaryRegressionTests(unittest.TestCase):
     def test_native_status_and_web_controls_publish_recognition_truth(self) -> None:
         recognition_available = autoit_function(self.mbr_func, "MBRFuncRecognitionAvailable")
         recognition_error = autoit_function(self.mbr_func, "MBRFuncRecognitionError")
-        self.assertIn("Return False", recognition_available)
-        self.assertIn("clean-room replacement", recognition_error)
-        self.assertIn("verified bounded Home route", recognition_error)
+        self.assertIn("MBRFuncManagedLaunchBound()", recognition_available)
+        self.assertIn("$g_bMBRFuncEngineAvailable", recognition_available)
+        self.assertIn("exact launcher-owned LocalRuntime", recognition_error)
 
         status = autoit_function(self.control_bridge, "RunControlWriteStatus")
         self.assertIn('"recognition_available"', status)
@@ -81,7 +81,7 @@ class RuntimeBoundaryRegressionTests(unittest.TestCase):
         self.assertIn("MBRFuncRecognitionError()", status)
 
         self.assertTrue(
-            {"recognition_available", "recognition_error"}.issubset(planner_ui.DIAGNOSTIC_ENGINE_FIELDS)
+            {"recognition_available", "recognition_error", "recognition_provider", "recognition_provider_reason"}.issubset(planner_ui.DIAGNOSTIC_ENGINE_FIELDS)
         )
         with tempfile.TemporaryDirectory() as folder, mock.patch.object(
             planner_ui, "CONTROL_STATUS_PATH", Path(folder) / "missing-status.json"
@@ -92,14 +92,12 @@ class RuntimeBoundaryRegressionTests(unittest.TestCase):
 
         for contract in (
             "const nativeProfileBlocked = NATIVE_PROFILE_MODE && !recognitionAvailable;",
-            "const primaryLaunchOnly = nativeProfileBlocked;",
-            "$('controlStart').textContent = primaryLaunchOnly ? 'Launch game safely' : 'Start run';",
-            "(!primaryLaunchOnly && !engineAvailable)",
-            "Launch game safely or use a bounded route",
+            "$('controlStart').textContent = 'Start bot';",
+            "(NATIVE_PROFILE_MODE ? nativeProfileBlocked : (hasUnsavedPlan || startReceiptMissing))",
+            "Start remains disabled instead of silently running a diagnostic-only command.",
             "let safeHomeReason = 'Load Home collection settings for review. Nothing is applied or started.';",
             "$('controlSafeHomeRoute').disabled = !BOOT_READY || busy || !connected || state !== 'idle';",
             "|| !recognitionAvailable || NATIVE_PROFILE_MODE;",
-            "The primary action is launch-only; apply a verified bounded route before bot actions.",
         ):
             self.assertIn(contract, self.planner_js)
 
@@ -119,9 +117,11 @@ class RuntimeBoundaryRegressionTests(unittest.TestCase):
                 "function capabilityLabel", self.planner_js.index("$('controlNativeMode').onclick")
             )
         ]
-        self.assertIn("$('controlStart').onclick = () => sendControl(primaryControlAction());", self.planner_js)
-        self.assertIn("function primaryControlAction()", self.planner_js)
-        self.assertIn("return NATIVE_PROFILE_MODE && CONTROL.recognition_available !== true ? 'launch-game' : 'start';", self.planner_js)
+        self.assertIn("$('controlStart').onclick = startBot;", self.planner_js)
+        self.assertIn("async function startBot()", self.planner_js)
+        self.assertIn("const activated = await activateNativeProfileMode();", self.planner_js)
+        self.assertIn("await sendControl('start');", self.planner_js)
+        self.assertNotIn("primaryControlAction", self.planner_js)
         self.assertIn("$('controlNativeMode').onclick = activateNativeProfileMode;", click_handler)
         self.assertIn("$('controlSafeHomeRoute').onclick = prepareVerifiedHomeRoute;", click_handler)
         self.assertNotIn("else prepareVerifiedHomeRoute()", click_handler)

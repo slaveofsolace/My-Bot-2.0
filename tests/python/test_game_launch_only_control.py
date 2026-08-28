@@ -285,15 +285,17 @@ class GameLaunchOnlyControlTests(unittest.TestCase):
             self.assertTrue(payload["native_command_queued"])
             self.assertEqual("stop", json.loads(command.read_text(encoding="utf-8"))["action"])
 
-    def test_browser_exposes_launch_only_and_retains_stop_during_stale_heartbeat(self) -> None:
+    def test_browser_keeps_launch_only_diagnostic_separate_from_start_bot(self) -> None:
         self.assertIn('id="controlGameLaunch"', self.html)
         self.assertIn("Return idle after passive game-ready proof", self.html)
         self.assertIn("may close the reviewed Welcome Back OK surface", self.html)
         self.assertIn("never claims rewards", self.html)
         self.assertIn("$('controlGameLaunch').onclick = () => sendControl('launch-game')", self.javascript)
-        self.assertIn("function primaryControlAction()", self.javascript)
-        self.assertIn("return NATIVE_PROFILE_MODE && CONTROL.recognition_available !== true ? 'launch-game' : 'start';", self.javascript)
-        self.assertIn("$('controlStart').textContent = primaryLaunchOnly ? 'Launch game safely' : 'Start run';", self.javascript)
+        self.assertIn("async function startBot()", self.javascript)
+        self.assertIn("$('controlStart').textContent = 'Start bot';", self.javascript)
+        self.assertIn("$('controlStart').onclick = startBot;", self.javascript)
+        self.assertIn("await sendControl('start');", self.javascript)
+        self.assertNotIn("primaryControlAction", self.javascript)
         self.assertIn("['start', 'check-engine', 'launch-game'].includes(CONTROL_PENDING?.action)", self.javascript)
         self.assertIn("(!connected && !managedInitCanBeStopped)", self.javascript)
         self.assertIn("expected_start_request_id: previousPending.request_id", self.javascript)
