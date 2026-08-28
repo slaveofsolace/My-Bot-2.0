@@ -117,7 +117,7 @@ DIAGNOSTIC_ENGINE_FIELDS = {
     "connected", "state", "authorization_ready", "engine_available", "engine_probe_state", "recognition_available", "recognition_error", "recognition_provider", "recognition_provider_reason", "product_name",
     "product_version", "engine_version", "plan_active", "plan_message", "session_id",
     "emulator", "emulator_attached", "window_attached", "adb_ready", "game_ready", "bot_pid", "bot_process_alive", "last_command", "last_outcome", "last_command_message",
-    "message", "last_seen_at", "age_seconds", "supervisor_state", "mini_supervisor",
+    "message", "last_seen_at", "age_seconds", "supervisor_state", "mini_supervisor", "recovery_required",
 }
 MINI_LIFECYCLE_FIELDS = {
     "state", "reason", "recorded_at_local", "controller_pid", "controller_created", "backend_pid", "backend_created",
@@ -288,6 +288,60 @@ def wait_for_engine_init_cancel_context(expected_start_request_id: str) -> dict 
         if remaining <= 0:
             return None
         time.sleep(min(ENGINE_INIT_CANCEL_CONTEXT_POLL_SECONDS, remaining))
+
+
+def write_engine_init_cancel(
+    context: dict,
+    stop_request_id: str,
+    requested_at: str,
+) -> bool:
+    """Write one exact-owner supervisor cancellation without exposing its token."""
+    try:
+        write_json_atomic(
+            {
+                "schema": "engine-init-cancel-v1",
+                "token": context["token"],
+                "expected_start_request_id": context["start_request_id"],
+                "stop_request_id": stop_request_id,
+                "requested_at": requested_at,
+            },
+            ENGINE_INIT_CANCEL_PATH,
+        )
+    except (KeyError, OSError):
+        return False
+    return True
+
+
+def defer_engine_init_cancel(
+    expected_start_request_id: str,
+    stop_request_id: str,
+    requested_at: str,
+) -> None:
+    """Bridge the short Start-receipt race without delaying the loopback Stop response."""
+    context = wait_for_engine_init_cancel_context(expected_start_request_id)
+    if context is None:
+        return
+    with CONTROL_LOCK:
+        existing = read_json(ENGINE_INIT_CANCEL_PATH, None)
+        if isinstance(existing, dict):
+            # A pending cancellation is immutable. Replacing it could redirect a late Stop to a
+            # different engine generation, so leave either an identical receipt or an ambiguity
+            # for exact-owner recovery to resolve.
+            return
+        write_engine_init_cancel(context, stop_request_id, requested_at)
+
+
+def schedule_engine_init_cancel(
+    expected_start_request_id: str,
+    stop_request_id: str,
+    requested_at: str,
+) -> None:
+    threading.Thread(
+        target=defer_engine_init_cancel,
+        args=(expected_start_request_id, stop_request_id, requested_at),
+        name=f"mybot-stop-{stop_request_id[:12]}",
+        daemon=True,
+    ).start()
 
 
 def mini_lifecycle_status() -> dict:
@@ -1288,11 +1342,30 @@ def control_status() -> dict:
     document = dict(document)
     document["last_seen_at"] = datetime.fromtimestamp(modified, timezone.utc).isoformat()
     document["age_seconds"] = round(age, 2)
-    max_age = CONTROL_STATUS_BUSY_MAX_AGE_SECONDS if document.get("state") in CONTROL_BUSY_STATES else CONTROL_STATUS_MAX_AGE_SECONDS
+    native_state = document.get("state")
+    max_age = CONTROL_STATUS_BUSY_MAX_AGE_SECONDS if native_state in CONTROL_BUSY_STATES else CONTROL_STATUS_MAX_AGE_SECONDS
     document["connected"] = age <= max_age
+    stop_terminal_timeout = (
+        not document["connected"]
+        and native_state == "stopping"
+        and document.get("last_command") == "stop"
+        and document.get("last_outcome") == "accepted"
+    )
     if not document["connected"]:
-        document["state"] = "offline"
-        document["message"] = "Native engine heartbeat is stale"
+        if stop_terminal_timeout:
+            message = (
+                "Stop was accepted, but the native engine did not publish a terminal "
+                "acknowledgement within the bounded timeout; the exact backend supervisor is taking over"
+            )
+            document["state"] = "failed"
+            document["last_outcome"] = "failed"
+            document["last_command_message"] = message
+            document["message"] = message
+            document["engine_available"] = False
+            document["recovery_required"] = True
+        else:
+            document["state"] = "offline"
+            document["message"] = "Native engine heartbeat is stale"
         document["recognition_available"] = False
         document["recognition_error"] = (
             "Native recognition state is unavailable because the engine heartbeat is stale"
@@ -1324,7 +1397,11 @@ def control_status() -> dict:
     document["game_ready"] = bool(document["adb_ready"] and document.get("game_ready") is True)
     document["engine_init_cancellable"] = engine_init_cancellable
     document["mini_supervisor"] = mini_supervisor
-    document["supervisor_state"] = str(mini_supervisor.get("state") or document.get("state") or "ownership-ambiguous")
+    document["supervisor_state"] = (
+        "failed"
+        if stop_terminal_timeout
+        else str(mini_supervisor.get("state") or document.get("state") or "ownership-ambiguous")
+    )
     return document
 
 
@@ -1368,6 +1445,24 @@ def queue_control_command(
         and re.fullmatch(r"[A-Za-z0-9._-]{1,80}", status["last_command_id"])
     ):
         expected_init_request_id = status["last_command_id"]
+    if (
+        action == "stop"
+        and status.get("state") == "stopping"
+        and status.get("last_command") == "stop"
+        and status.get("last_outcome") == "accepted"
+        and isinstance(status.get("last_command_id"), str)
+        and re.fullmatch(r"[A-Za-z0-9._-]{1,80}", status["last_command_id"])
+    ):
+        return {
+            "ok": True,
+            "accepted": True,
+            "duplicate": True,
+            "request_id": status["last_command_id"],
+            "action": "stop",
+            "native_command_queued": False,
+            "supervisor_cancel_status": "already-accepted",
+            "written": None,
+        }, 202
     if not status.get("connected") and init_context is None and not expected_init_request_id:
         return {"ok": False, "problems": ["native engine is offline"], "status": status}, 409
     if action in {"start", "check-engine"} and not status.get("engine_available", True):
@@ -1375,6 +1470,27 @@ def queue_control_command(
 
     with CONTROL_LOCK:
         command_pending = CONTROL_COMMAND_PATH.exists()
+        if command_pending and action == "stop":
+            pending_command = read_json(CONTROL_COMMAND_PATH, None)
+            if isinstance(pending_command, dict) and pending_command.get("action") == "stop":
+                pending_expected = pending_command.get("expected_start_request_id", "")
+                pending_request_id = pending_command.get("request_id")
+                if (
+                    pending_expected == expected_init_request_id
+                    and isinstance(pending_request_id, str)
+                    and re.fullmatch(r"[A-Za-z0-9._-]{1,80}", pending_request_id)
+                ):
+                    return {
+                        "ok": True,
+                        "accepted": True,
+                        "duplicate": True,
+                        "request_id": pending_request_id,
+                        "action": "stop",
+                        "native_command_queued": True,
+                        "supervisor_cancel_status": "already-pending",
+                        "written": displayed_path(CONTROL_COMMAND_PATH),
+                    }, 202
+                return {"ok": False, "problems": ["another Stop is awaiting the native engine"]}, 409
         # Stop has priority over an unconsumed Start or engine check. Replacing that pending file is
         # safe even before the backend publishes an initialization receipt; no managed call has
         # started yet. Once a receipt exists, the separate launcher cancel remains authoritative.
@@ -1456,6 +1572,8 @@ def queue_control_command(
             command["run_mode"] = run_mode
             command["plan_revision"] = current_plan["plan_revision"]
             command["plan_token"] = plan_token
+        elif action == "stop" and expected_init_request_id:
+            command["expected_start_request_id"] = expected_init_request_id
         native_command_queued = False
         # A supervised Stop must replace any command that could otherwise be replayed by the
         # controller's replacement backend after the launcher closes the blocked generation.
@@ -1468,30 +1586,20 @@ def queue_control_command(
                 if action != "stop" or init_context is None:
                     return {"ok": False, "problems": ["the control command could not be queued atomically"]}, 500
 
-        # The synchronous first managed-engine call blocks the AutoIt message loop. Mirror Stop
-        # through the launcher's separately owned channel. A failure here must not turn an already
-        # durable native Stop into a false HTTP 500; report the two delivery paths independently.
-        if action == "stop" and init_context is None and expected_init_request_id:
-            init_context = wait_for_engine_init_cancel_context(expected_init_request_id)
-
         supervisor_cancel_status = "not-active"
         if action == "stop" and init_context is not None:
-            try:
-                write_json_atomic(
-                    {
-                        "schema": "engine-init-cancel-v1",
-                        "token": init_context["token"],
-                        "expected_start_request_id": init_context["start_request_id"],
-                        "stop_request_id": request_id,
-                        "requested_at": command["requested_at"],
-                    },
-                    ENGINE_INIT_CANCEL_PATH,
-                )
+            if write_engine_init_cancel(init_context, request_id, command["requested_at"]):
                 supervisor_cancel_status = "queued"
-            except OSError:
+            else:
                 supervisor_cancel_status = "unavailable"
                 if not native_command_queued:
                     return {"ok": False, "problems": ["the supervisor Stop could not be queued atomically"]}, 500
+        elif action == "stop" and expected_init_request_id and status.get("state") in {"starting", "offline"}:
+            # The receipt can appear shortly after Start is consumed, but the loopback response is
+            # the operator's acknowledgement boundary and must never wait for that race. Continue
+            # the exact-request recheck in a daemon owned by this service.
+            schedule_engine_init_cancel(expected_init_request_id, request_id, command["requested_at"])
+            supervisor_cancel_status = "pending"
     return {
         "ok": True,
         "accepted": True,

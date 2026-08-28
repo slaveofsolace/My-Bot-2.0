@@ -30,8 +30,8 @@
     "dynamic_dispatch": ["DynamicCall"]
   },
   "owner_fingerprint": {
-    "count": 481,
-    "sha256": "57220dc0604fb2533aef102fb9767953786e33fb22eacc7d94e689412ca1b3fc"
+    "count": 483,
+    "sha256": "f9e523deaa4b3afd5d690a32c47e7083348627015338b114fe158d7c62ecae8a"
   },
   "mappings": [
     {

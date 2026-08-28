@@ -176,12 +176,11 @@ class EngineInitOnlyControlTests(unittest.TestCase):
             self.assertEqual(json.loads(command.read_text(encoding="utf-8"))["action"], "stop")
             self.assertFalse(cancel.exists())
 
-    def test_stop_rechecks_for_a_consumed_engine_check_receipt(self) -> None:
+    def test_stop_schedules_consumed_engine_check_receipt_without_blocking_response(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             command = root / "control-command.json"
             cancel = root / "engine-init-cancel.json"
-            context = {"token": "a" * 64, "start_request_id": "accepted-check"}
             with (
                 mock.patch.object(planner_ui, "CONTROL_COMMAND_PATH", command),
                 mock.patch.object(planner_ui, "ENGINE_INIT_CANCEL_PATH", cancel),
@@ -191,15 +190,35 @@ class EngineInitOnlyControlTests(unittest.TestCase):
                     return_value={"connected": True, "state": "starting"},
                 ),
                 mock.patch.object(planner_ui, "engine_init_cancel_context", return_value=None),
-                mock.patch.object(planner_ui, "wait_for_engine_init_cancel_context", return_value=context) as wait,
+                mock.patch.object(planner_ui, "schedule_engine_init_cancel") as schedule,
             ):
                 payload, status = planner_ui.queue_control_command("stop", "accepted-check")
 
             self.assertEqual(status, 202)
-            wait.assert_called_once_with("accepted-check")
-            self.assertEqual(payload["supervisor_cancel_status"], "queued")
-            cancellation = json.loads(cancel.read_text(encoding="utf-8"))
+            self.assertEqual(payload["supervisor_cancel_status"], "pending")
+            schedule.assert_called_once_with(
+                "accepted-check",
+                payload["request_id"],
+                mock.ANY,
+            )
+            self.assertFalse(cancel.exists())
+
+    def test_deferred_receipt_recheck_writes_one_exact_request_cancel(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            cancel = Path(folder) / "engine-init-cancel.json"
+            context = {"token": "a" * 64, "start_request_id": "accepted-check"}
+            with (
+                mock.patch.object(planner_ui, "ENGINE_INIT_CANCEL_PATH", cancel),
+                mock.patch.object(planner_ui, "wait_for_engine_init_cancel_context", return_value=context),
+            ):
+                planner_ui.defer_engine_init_cancel("accepted-check", "stop-1", "2026-08-28T00:00:00Z")
+                first = cancel.read_bytes()
+                planner_ui.defer_engine_init_cancel("accepted-check", "stop-2", "2026-08-28T00:00:01Z")
+
+            cancellation = json.loads(first)
+            self.assertEqual(cancel.read_bytes(), first)
             self.assertEqual(cancellation["expected_start_request_id"], "accepted-check")
+            self.assertEqual(cancellation["stop_request_id"], "stop-1")
             self.assertEqual(cancellation["token"], "a" * 64)
 
     def test_receipt_recheck_is_bounded_and_request_bound(self) -> None:

@@ -14,6 +14,7 @@ LAUNCHER = (ROOT / "My Bot 2.0.au3").read_text(encoding="utf-8-sig")
 PLANNER_CONTROL = (ROOT / "COCBot" / "GUI" / "MBR GUI Control Run Planner.au3").read_text(encoding="utf-8-sig")
 PLANNER_UI = (ROOT / "tools" / "planner_ui.py").read_text(encoding="utf-8-sig")
 MBRFUNC = (ROOT / "COCBot" / "functions" / "Other" / "MBRFunc.au3").read_text(encoding="utf-8-sig")
+MINIGUI = (ROOT / "MyBot.run.MiniGui.au3").read_text(encoding="utf-8-sig")
 AUTOIT = pathlib.Path(r"C:\Program Files (x86)\AutoIt3\AutoIt3.exe")
 
 
@@ -96,12 +97,17 @@ def engine_cancel_matches(receipt, cancel):
         cancel.get("schema") == "engine-init-cancel-v1",
         cancel.get("token") == receipt.get("token"),
         cancel.get("expected_start_request_id") == start_request_id,
+        bool(cancel.get("stop_request_id")),
     ))
 
 
 def engine_generation_key(receipt):
-    """PID reuse is a new generation only when the exact creation identity also changes."""
-    return receipt.get("backend_pid"), receipt.get("backend_created")
+    """A new accepted Start is a new generation even when the idle backend process is reused."""
+    return (
+        receipt.get("backend_pid"),
+        receipt.get("backend_created"),
+        receipt.get("start_request_id"),
+    )
 
 
 class LauncherRecoveryContractTests(unittest.TestCase):
@@ -109,6 +115,271 @@ class LauncherRecoveryContractTests(unittest.TestCase):
         recovery_gate = 'If _CommandLineHas("/recover") Or _CommandLineHas("/repair") Then'
         self.assertIn(recovery_gate, LAUNCHER)
         self.assertLess(LAUNCHER.index(recovery_gate), LAUNCHER.index("If Not _ValidateInstallation()"))
+
+    def test_stop_supervisor_is_launcher_resident_and_manual_recovery_stays_manual(self):
+        gate = LAUNCHER[:LAUNCHER.index("If Not _ValidateInstallation()")]
+        self.assertNotIn('/stop-request-id=', gate)
+        self.assertNotIn('automatic-stop-recovery', LAUNCHER)
+        self.assertNotIn('schedule_stop_terminalization', LAUNCHER)
+        self.assertIn('_StopSupervisorPoll($iControllerPid)', LAUNCHER)
+
+        recovery = autoit_function(LAUNCHER, "_RecoverBotStack")
+        self.assertNotIn("_RecoveryWriteStopTerminalStatus", recovery)
+        writer = autoit_function(LAUNCHER, "_RecoveryWriteStopTerminalStatus")
+        for value in (
+            '"last_command_id"',
+            '"last_command"',
+            '"last_outcome"',
+            '"recovery_required"',
+            '"Stop completed through the exact backend supervisor"',
+        ):
+            self.assertIn(value, writer)
+
+    def test_stop_supervisor_binds_exact_fresh_accepted_request_and_generation(self):
+        arm = autoit_function(LAUNCHER, "_StopSupervisorArm")
+        self.assertIn("_StopSupervisorReadAccepted", arm)
+        self.assertIn("$g_iStopSupervisorFreshStatusSeconds", arm)
+        self.assertIn("$iBackendPid <> $g_iLauncherOwnedBackendPid", arm)
+        self.assertIn("$g_sLauncherOwnedBackendCreated", arm)
+        self.assertIn("_StopSupervisorControllerMatches", arm)
+        self.assertIn("_StopSupervisorBackendMatches", arm)
+        self.assertIn("_SnapshotOwnedAdbChildren($iBackendPid", arm)
+
+        accepted = autoit_function(LAUNCHER, "_StopSupervisorReadAccepted")
+        self.assertIn('"state") <> "stopping"', accepted)
+        self.assertIn('"last_command") <> "stop"', accepted)
+        self.assertIn('"last_outcome") <> "accepted"', accepted)
+        self.assertIn('"last_command_id"', accepted)
+        self.assertIn('"bot_pid"', accepted)
+
+    def test_pre_ack_engine_cancel_arms_one_exact_backend_fallback(self):
+        token = "ab" * 32
+        receipt = {
+            "schema": "engine-init-supervisor-v1",
+            "token": token,
+            "start_request_id": "start-blocked",
+            "backend_pid": 330,
+            "backend_created": "01da000000000330",
+        }
+        cancel = {
+            "schema": "engine-init-cancel-v1",
+            "token": token,
+            "expected_start_request_id": "start-blocked",
+            "stop_request_id": "stop-before-native-ack",
+        }
+        self.assertTrue(engine_cancel_matches(receipt, cancel))
+
+        reader = autoit_function(LAUNCHER, "_StopSupervisorReadCancellation")
+        for proof in (
+            '"stop_request_id"',
+            '"expected_start_request_id"',
+            '"backend_pid"',
+            '"backend_created"',
+            '"controller_pid"',
+            '"controller_created"',
+            '"launcher_pid"',
+            '"launcher_created"',
+        ):
+            self.assertIn(proof, reader)
+        self.assertIn("_StopSupervisorPathAgeSeconds", reader)
+
+        # A long-running managed call can leave a 60-second-old ownership receipt. The exact live
+        # generation remains usable, but only a fresh Stop cancellation may arm the supervisor.
+        self.assertNotIn("_StopSupervisorPathAgeSeconds($g_sEngineInitOwnershipReceipt", reader)
+        self.assertIn("_StopSupervisorPathAgeSeconds($g_sEngineInitCancelPath", reader)
+        self.assertIn("$iPhaseRank >= 8", reader)
+        self.assertIn("$iSequence <> $iPhaseRank + 1", reader)
+        self.assertIn("$sToken <> $g_sEngineSupervisorToken", reader)
+
+        arm = autoit_function(LAUNCHER, "_StopSupervisorArm")
+        self.assertLess(arm.index("_StopSupervisorReadAccepted"), arm.index("_StopSupervisorReadCancellation"))
+        self.assertIn('$sAuthority = "engine-cancel"', arm)
+        terminate = autoit_function(LAUNCHER, "_StopSupervisorTerminateExactBackend")
+        self.assertEqual(terminate.count("_CloseVerifiedLauncherBackend("), 1)
+        self.assertIn("_StopSupervisorAuthorityMatches(True", terminate)
+        self.assertIn("_StopSupervisorWriteTerminal", terminate)
+        self.assertNotIn("_EngineSupervisorCloseOwnedControllerAfterAbort", terminate)
+
+        engine_poll = autoit_function(LAUNCHER, "_EngineSupervisorPoll")
+        self.assertIn("_EngineSupervisorCancelMatches", engine_poll)
+        self.assertNotIn("matching Start cancellation", engine_poll)
+
+    def test_stop_supervisor_terminal_ack_never_kills(self):
+        poll = autoit_function(LAUNCHER, "_StopSupervisorPoll")
+        terminal_index = poll.index("_StopSupervisorTerminalMatches")
+        close_index = poll.index("_StopSupervisorTerminateExactBackend")
+        self.assertLess(terminal_index, close_index)
+        terminal_branch = poll[terminal_index:close_index]
+        self.assertIn("_StopSupervisorCleanupInitFiles", terminal_branch)
+        self.assertIn("_EngineSupervisorResetGeneration", terminal_branch)
+        self.assertIn("_StopSupervisorReset", terminal_branch)
+        self.assertNotIn("ProcessClose", terminal_branch)
+
+    def test_stop_supervisor_timeout_closes_only_exact_backend_and_direct_adb(self):
+        terminate = autoit_function(LAUNCHER, "_StopSupervisorTerminateExactBackend")
+        self.assertIn("$g_bStopSupervisorCloseAttempted = True", terminate)
+        self.assertGreaterEqual(terminate.count("_StopSupervisorAuthorityMatches(True"), 2)
+        self.assertIn("_StopSupervisorControllerMatches", terminate)
+        self.assertIn("_StopSupervisorBackendMatches", terminate)
+        self.assertIn("_SnapshotOwnedAdbChildren($g_iStopSupervisorBackendPid", terminate)
+        self.assertIn(
+            "_CloseVerifiedAdbChildren($g_aStopSupervisorAdbChildren, "
+            "$g_iStopSupervisorAdbCleanupTimeoutMs)",
+            terminate,
+        )
+        self.assertIn("_CloseVerifiedLauncherBackend($g_iStopSupervisorControllerPid", terminate)
+        self.assertIn("_StopSupervisorWriteTerminal", terminate)
+        for forbidden in (
+            "_CloseOwnedPlannerService",
+            "_CloseOwnedLaunchOnlyEmulator",
+            "_CloseExactPathProcesses",
+            "_EngineSupervisorCloseOwnedControllerAfterAbort",
+            "HD-Player.exe",
+            "taskkill.exe",
+        ):
+            self.assertNotIn(forbidden, terminate)
+
+    def test_stop_supervisor_fails_closed_on_unprovable_or_late_adb_ownership(self):
+        snapshot = autoit_function(LAUNCHER, "_SnapshotOwnedAdbChildren")
+        invalid_creation = snapshot.index('Not StringRegExp($sCreated, "^[0-9a-f]{16}$")')
+        incomplete = snapshot.index("$g_bStopSupervisorAdbSnapshotIncomplete = True", invalid_creation)
+        skip = snapshot.index("ContinueLoop", incomplete)
+        self.assertEqual([invalid_creation, incomplete, skip], sorted((invalid_creation, incomplete, skip)))
+
+        detector = autoit_function(LAUNCHER, "_StopSupervisorHasUncapturedAdbChild")
+        for proof in (
+            'Local $aAdbNames[2] = ["HD-Adb.exe", "adb.exe"]',
+            "_ProcessParentPid($iPid) <> $g_iStopSupervisorBackendPid",
+            'Not StringRegExp($sCreated, "^[0-9a-f]{16}$")',
+            "$aCaptured[$iKnown][0] = $iPid",
+            "$aCaptured[$iKnown][1] = $sCreated",
+            "$aCaptured[$iKnown][3] = $g_iStopSupervisorBackendPid",
+            "Return True",
+        ):
+            self.assertIn(proof, detector)
+        self.assertNotIn("ProcessClose", detector)
+
+        terminate = autoit_function(LAUNCHER, "_StopSupervisorTerminateExactBackend")
+        backend_close = terminate.index("_CloseVerifiedLauncherBackend")
+        late_check = terminate.index("_StopSupervisorHasUncapturedAdbChild", backend_close)
+        ownership = terminate.index("$bAdbOwnershipComplete", late_check)
+        terminal = terminate.index("_StopSupervisorWriteTerminal($bAdbOwnershipComplete", ownership)
+        self.assertEqual(
+            [backend_close, late_check, ownership, terminal],
+            sorted((backend_close, late_check, ownership, terminal)),
+        )
+        self.assertIn("Not $g_bStopSupervisorAdbSnapshotIncomplete", terminate)
+        self.assertIn("Not $bLateAdbChild", terminate)
+
+    def test_stop_terminal_write_precedes_minigui_backend_relaunch_window(self):
+        terminate = autoit_function(LAUNCHER, "_StopSupervisorTerminateExactBackend")
+        backend_close = terminate.index("_CloseVerifiedLauncherBackend")
+        terminal_write = terminate.index("_StopSupervisorWriteTerminal", backend_close)
+        self.assertLess(backend_close, terminal_write)
+
+        writer = autoit_function(LAUNCHER, "_StopSupervisorWriteTerminal")
+        replacement_guard = writer.index("_StopSupervisorReplacementExists")
+        status_write = writer.index("_RecoveryWriteStopTerminalStatus")
+        self.assertLess(replacement_guard, status_write)
+        self.assertIn("Global Const $g_iMiniBackendRecoveryDelayMs = 5000", MINIGUI)
+        self.assertIn("ProcessWaitClose($iBackendPid, 2)", autoit_function(LAUNCHER, "_CloseVerifiedLauncherBackend"))
+
+        close_adb = autoit_function(LAUNCHER, "_CloseVerifiedAdbChildren")
+        shared = close_adb.split("\n\tLocal $bAllClosed = True", 1)[0]
+        self.assertIn("$iSharedDeadlineMs = 0", close_adb)
+        self.assertEqual(shared.count("TimerInit()"), 1)
+        self.assertLess(shared.index("TimerInit()"), shared.index("For $i = 1 To $aChildren[0][0]"))
+        self.assertGreaterEqual(shared.count("TimerDiff($hSharedDeadline) >= $iSharedDeadlineMs"), 3)
+        self.assertIn("Until TimerDiff($hSharedDeadline) >= $iSharedDeadlineMs", shared)
+        self.assertIn("ProcessClose($iPid)", shared)
+        self.assertNotIn("ProcessWaitClose", shared)
+        first_loop = shared.index("For $i = 1 To $aChildren[0][0]")
+        close_loop = shared.index("For $i = 1 To $aChildren[0][0]", first_loop + 1)
+        close_recheck = shared.index("_ProcessCreationId($iPid)", close_loop)
+        close_call = shared.index("ProcessClose($iPid)", close_recheck)
+        self.assertEqual(
+            [close_loop, close_recheck, close_call],
+            sorted((close_loop, close_recheck, close_call)),
+        )
+        self.assertIn("_ProcessParentPid($iPid) <> $aChildren[$i][3]", shared[close_loop:close_call])
+        self.assertIn("Not _ProcessNameMatches($iPid, $aChildren[$i][2])", shared[close_loop:close_call])
+        self.assertIn("Global Const $g_iStopSupervisorAdbCleanupTimeoutMs = 1500", LAUNCHER)
+        for body in (
+            terminate,
+            autoit_function(LAUNCHER, "_StopSupervisorPoll"),
+        ):
+            self.assertIn(
+                "_CloseVerifiedAdbChildren($g_aStopSupervisorAdbChildren, "
+                "$g_iStopSupervisorAdbCleanupTimeoutMs)",
+                body,
+            )
+
+        # Three or six stubborn children share the same 1.5-second budget; it cannot multiply per
+        # child and remains below both the 5-second Mini relaunch delay and Stop authority margin.
+        def shared_budget_ms(child_count):
+            self.assertGreaterEqual(child_count, 1)
+            return 1500
+
+        self.assertEqual(shared_budget_ms(3), shared_budget_ms(6))
+        self.assertLess(shared_budget_ms(6) + 2000, 5000)
+        self.assertLess(shared_budget_ms(6) + 2000, 10000)
+
+    def test_stop_terminal_cleanup_is_exact_request_bound_and_next_start_is_fresh(self):
+        cleanup = autoit_function(LAUNCHER, "_StopSupervisorCleanupInitFiles")
+        self.assertIn(
+            "If Not FileExists($g_sEngineInitOwnershipReceipt) Then Return Not "
+            "FileExists($g_sEngineInitCancelPath)",
+            cleanup,
+        )
+        self.assertIn(
+            '_EngineSupervisorRequestId($sCancel, "stop_request_id") <> '
+            "$g_sStopSupervisorRequestId Then Return False",
+            cleanup,
+        )
+        validate_cancel = cleanup.index(
+            '_EngineSupervisorRequestId($sCancel, "stop_request_id") <> '
+            "$g_sStopSupervisorRequestId Then Return False"
+        )
+        reread_cancel = cleanup.index("FileRead($g_sEngineInitCancelPath) <> $sCancel", validate_cancel)
+        delete_cancel = cleanup.index("_EngineSupervisorDeleteSafeFile($g_sEngineInitCancelPath)", reread_cancel)
+        cancel_absent = cleanup.index("If FileExists($g_sEngineInitCancelPath) Then Return False", delete_cancel)
+        reread_receipt = cleanup.index("FileRead($g_sEngineInitOwnershipReceipt) <> $sReceipt", cancel_absent)
+        delete_receipt = cleanup.index("_EngineSupervisorDeleteSafeFile($g_sEngineInitOwnershipReceipt)", reread_receipt)
+        self.assertEqual(
+            [validate_cancel, reread_cancel, delete_cancel, cancel_absent, reread_receipt, delete_receipt],
+            sorted((validate_cancel, reread_cancel, delete_cancel, cancel_absent, reread_receipt, delete_receipt)),
+        )
+        self.assertIn(
+            "If Not _EngineSupervisorPathSafe($g_sEngineInitCancelPath, True) Then Return False",
+            cleanup,
+        )
+
+        first = {
+            "backend_pid": 330,
+            "backend_created": "01da000000000330",
+            "start_request_id": "start-before-stop",
+        }
+        next_start = dict(first, start_request_id="start-after-stop")
+        self.assertNotEqual(engine_generation_key(first), engine_generation_key(next_start))
+
+        begin = autoit_function(LAUNCHER, "_EngineSupervisorBeginGeneration")
+        reset = autoit_function(LAUNCHER, "_EngineSupervisorResetGeneration")
+        self.assertIn("$g_sEngineSupervisorStartRequestId", begin)
+        self.assertIn("$sStartRequestId = $g_sEngineSupervisorStartRequestId", begin)
+        self.assertIn("$g_sEngineSupervisorStartRequestId = $sStartRequestId", begin)
+        self.assertIn('$g_sEngineSupervisorStartRequestId = ""', reset)
+
+    def test_stop_supervisor_preserves_replacement_generation_and_prevents_replay(self):
+        writer = autoit_function(LAUNCHER, "_StopSupervisorWriteTerminal")
+        self.assertIn("_StopSupervisorReplacementExists", writer)
+        self.assertIn("refused to overwrite its status", writer)
+        replacement = autoit_function(LAUNCHER, "_StopSupervisorReplacementExists")
+        self.assertIn("$g_sStopSupervisorBackendCreated", replacement)
+        self.assertIn("$g_iStopSupervisorControllerPid", replacement)
+
+        mini = autoit_function(MINIGUI, "_MiniEnsureBackendAvailable")
+        self.assertIn("Start was not replayed", mini)
+        self.assertIn('"ready-idle"', mini)
 
     def test_recovery_bypasses_hung_error_dialog_scan_until_owned_native_processes_close(self):
         recovery_gate = LAUNCHER.index('If _CommandLineHas("/recover") Or _CommandLineHas("/repair") Then')
@@ -132,6 +403,7 @@ class LauncherRecoveryContractTests(unittest.TestCase):
         self.assertIn('Global Const $g_sRecoveryReceiptPath = $g_sUserDataRoot & "\\launcher-recovery-receipt-v1.json"', LAUNCHER)
 
         recovery = autoit_function(LAUNCHER, "_RecoverBotStack")
+        self.assertIn('scope=operator-recovery', recovery)
         self.assertIn('_RecoveryWriteReceipt("operator-recovery"', recovery)
         self.assertIn("$bRecovered ? 0 : 6", recovery)
         self.assertIn("_RecoveryFailureReason(", recovery)
@@ -180,7 +452,7 @@ class LauncherRecoveryContractTests(unittest.TestCase):
         self.assertIn('_CloseExactPathProcesses("My Bot 2.0.exe", @ScriptFullPath, @AutoItPID)', LAUNCHER)
 
     def test_recovery_closes_only_identity_bound_backend_adb_children(self):
-        recovery = LAUNCHER[LAUNCHER.index("Func _RecoverBotStack()"):LAUNCHER.index("EndFunc   ;==>_RecoverBotStack")]
+        recovery = autoit_function(LAUNCHER, "_RecoverBotStack")
         snapshot = LAUNCHER[LAUNCHER.index("Func _SnapshotOwnedAdbChildren("):LAUNCHER.index("EndFunc   ;==>_SnapshotOwnedAdbChildren")]
         close = LAUNCHER[LAUNCHER.index("Func _CloseVerifiedAdbChildren("):LAUNCHER.index("EndFunc   ;==>_CloseVerifiedAdbChildren")]
         self.assertLess(recovery.index("_SnapshotOwnedAdbChildren()"), recovery.index('_CloseExactPathProcesses("MyBot.run.MiniGui.exe"'))
@@ -207,7 +479,7 @@ class LauncherRecoveryContractTests(unittest.TestCase):
         self.assertLess(body.index('_RecoveryLog("closing owned AutoIt error'), body.index("WinClose($hDialog)"))
 
     def test_recovery_never_targets_bluestacks(self):
-        start = LAUNCHER.index("Func _RecoverBotStack()")
+        start = LAUNCHER.index("Func _RecoverBotStack(")
         end = LAUNCHER.index("EndFunc   ;==>_RecoverBotStack", start)
         body = LAUNCHER[start:end]
         self.assertNotIn("BlueStacks", body)
@@ -293,7 +565,7 @@ class LauncherRecoveryContractTests(unittest.TestCase):
         self.assertIn("_ProcessImagePath($iServicePid)", service_proof)
         self.assertIn('"\\\\pythonw\\.exe$"', service_proof)
         self.assertLess(body.index("_PlannerReceiptMatchesService("), body.index("ProcessClose($iPid)"))
-        recovery = LAUNCHER[LAUNCHER.index("Func _RecoverBotStack()"):LAUNCHER.index("EndFunc   ;==>_RecoverBotStack")]
+        recovery = autoit_function(LAUNCHER, "_RecoverBotStack")
         self.assertIn("Local $bPlannerClosed = _CloseOwnedPlannerService()", recovery)
         self.assertIn("And $bPlannerClosed", recovery)
 
@@ -379,7 +651,7 @@ class LauncherRecoveryContractTests(unittest.TestCase):
         self.assertIn("recovering unresponsive planner with exact live-owner receipt", body)
         self.assertIn("recovering orphaned planner with exact service receipt", body)
         self.assertIn("_PlannerReceiptPathSafe(True)", body)
-        recovery = LAUNCHER[LAUNCHER.index("Func _RecoverBotStack()"):LAUNCHER.index("EndFunc   ;==>_RecoverBotStack")]
+        recovery = autoit_function(LAUNCHER, "_RecoverBotStack")
         self.assertLess(recovery.index("_CloseOwnedPlannerService()"), recovery.index('_CloseExactPathProcesses("MyBot.run.exe"'))
 
     def test_orphan_close_reports_foreign_listener_as_unresolved(self):
@@ -704,6 +976,7 @@ class LauncherRecoveryContractTests(unittest.TestCase):
             "schema": "engine-init-cancel-v1",
             "token": token,
             "expected_start_request_id": receipt["start_request_id"],
+            "stop_request_id": "stop.1-abc",
         }
         self.assertTrue(engine_cancel_matches(receipt, cancel))
         for key, value in (
@@ -717,10 +990,14 @@ class LauncherRecoveryContractTests(unittest.TestCase):
         no_start = copy.deepcopy(receipt)
         no_start["start_request_id"] = ""
         self.assertFalse(engine_cancel_matches(no_start, cancel))
+        no_stop = copy.deepcopy(cancel)
+        no_stop["stop_request_id"] = ""
+        self.assertFalse(engine_cancel_matches(receipt, no_stop))
         helper = autoit_function(LAUNCHER, "_EngineSupervisorCancelMatches")
         self.assertIn("$g_bEngineSupervisorPrepared", helper)
         self.assertIn('"expected_start_request_id"', helper)
-        self.assertIn("$sExpected <> \"\" And $sExpected = $sReceiptStartRequestId", helper)
+        self.assertIn('"stop_request_id"', helper)
+        self.assertIn("$sExpected <> \"\" And $sExpected = $sReceiptStartRequestId And $sStopRequestId <> \"\"", helper)
 
     def test_engine_supervisor_revalidates_before_exact_backend_close_and_never_retries(self):
         abort = autoit_function(LAUNCHER, "_EngineSupervisorAbort")
@@ -823,6 +1100,7 @@ class LauncherRecoveryContractTests(unittest.TestCase):
         poll = autoit_function(LAUNCHER, "_EngineSupervisorPoll")
         self.assertIn("$g_iEngineSupervisorBackendPid", begin)
         self.assertIn("$g_sEngineSupervisorBackendCreated", begin)
+        self.assertIn("$g_sEngineSupervisorStartRequestId", begin)
         self.assertLess(poll.index("_EngineSupervisorBeginGeneration"), poll.index("sequence rollback"))
         self.assertIn("$g_iEngineSupervisorLastSequence = -1", reset)
         self.assertNotIn("$g_sEngineSupervisorToken =", reset)

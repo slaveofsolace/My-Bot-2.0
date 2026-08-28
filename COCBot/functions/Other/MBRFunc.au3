@@ -130,6 +130,18 @@ Func _MBRFuncOpenEngineLibrary()
 	Return True
 EndFunc   ;==>_MBRFuncOpenEngineLibrary
 
+; Long mixed-mode calls cannot be interrupted while the DLL owns the thread. Poll immediately
+; before and after each such boundary so an accepted Stop can unwind cooperatively whenever the
+; call returns; the installed launcher's exact-backend supervisor remains the bounded fallback.
+Func _MBRFuncStopCheckpoint($sPhase)
+	Call("RunControl" & "Poll")
+	Local $bStopRequested = Call("RunControl" & "StopRequested")
+	If @error Or Not $bStopRequested Then Return False
+	$g_bMBRFuncEngineInitializing = False
+	SetDebugLog("Managed engine initialization observed Stop at " & $sPhase)
+	Return True
+EndFunc   ;==>_MBRFuncStopCheckpoint
+
 ; The mixed-mode DLL starts the CLR on its first exported call. Keep that unbounded work out of
 ; GUI startup: on affected Windows machines an antivirus/filter-driver stall would otherwise leave
 ; both the splash and main window permanently unresponsive. BotStart calls this explicit boundary.
@@ -153,10 +165,12 @@ Func MBRFuncInitialize($bDiscoverAndroid = True)
 	$g_iMBRFuncEngineReceiptSequence = 0
 	$g_sMBRFuncEngineReceiptHistory = ""
 	_MBRFuncResetAndroidBinding()
+	If _MBRFuncStopCheckpoint("prepared boundary") Then Return False
 
 	$g_sMBRFuncEngineProbeState = "running"
 	If Not _MBRFuncPublishEngineReceipt("prepared") Then Return _MBRFuncInitializationFailed("Managed engine supervisor receipt could not be prepared")
 	If Not _MBRFuncOpenEngineLibrary() Then Return _MBRFuncInitializationFailed("Managed engine library could not be opened")
+	If _MBRFuncStopCheckpoint("library-open boundary") Then Return False
 	$g_bMBRFuncEngineInitializing = True
 	If Not _MBRFuncPublishEngineReceipt("pool-entered") Then Return _MBRFuncInitializationFailed("Managed engine supervisor receipt could not publish pool-entered")
 	SetDebugLog("Threading: inherited processing-pool initialization skipped during supervised Start; using engine defaults")
@@ -165,6 +179,7 @@ Func MBRFuncInitialize($bDiscoverAndroid = True)
 	SetDebugLog("Threading: inherited max-degree initialization skipped during supervised Start; using engine defaults")
 	If Not _MBRFuncPublishEngineReceipt("max-returned") Then Return _MBRFuncInitializationFailed("Managed engine supervisor receipt could not publish max-returned")
 	If Not _MBRFuncPublishEngineReceipt("android-entered") Then Return _MBRFuncInitializationFailed("Managed engine supervisor receipt could not publish android-entered")
+	If _MBRFuncStopCheckpoint("Android binding entry") Then Return False
 	; The engine-only diagnostic must not call the inherited Android metadata export: on some
 	; runtimes the PID-0 export can block even though no emulator, ADB, recognition, or game input
 	; was requested. Normal Start retains the existing live PID discovery and binding path.
@@ -173,9 +188,12 @@ Func MBRFuncInitialize($bDiscoverAndroid = True)
 	Else
 		If Not setAndroidPID(0, True) Then Return _MBRFuncInitializationFailed("Managed engine-only Android binding failed")
 	EndIf
+	If _MBRFuncStopCheckpoint("Android binding return") Then Return False
 	If Not _MBRFuncPublishEngineReceipt("android-returned") Then Return _MBRFuncInitializationFailed("Managed engine supervisor receipt could not publish android-returned")
 	If Not _MBRFuncPublishEngineReceipt("gui-entered") Then Return _MBRFuncInitializationFailed("Managed engine supervisor receipt could not publish gui-entered")
+	If _MBRFuncStopCheckpoint("GUI binding entry") Then Return False
 	If Not SetBotGuiPID() Then Return _MBRFuncInitializationFailed("Managed engine GUI binding failed")
+	If _MBRFuncStopCheckpoint("GUI binding return") Then Return False
 	$g_bLibMyBotInitialized = True
 	$g_bMBRFuncEngineInitializing = False
 	$g_bMBRFuncEngineAvailable = True

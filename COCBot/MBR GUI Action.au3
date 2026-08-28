@@ -967,13 +967,14 @@ Func _BotCheckManagedEngine()
 		If $sError = "" Then $sError = "Managed engine static validation failed"
 		Return _BotEngineCheckFinish(False, $sError)
 	EndIf
-	If RunControlStopRequested() Then Return _BotEngineCheckFinish(False, "Managed engine check cancelled before initialization")
-	If Not MBRFuncInitialize(False) Then
+	If RunControlCheckpoint() Or RunControlStopRequested() Then Return _BotEngineCheckFinish(False, "Managed engine check cancelled before initialization")
+	Local $bEngineInitialized = MBRFuncInitialize(False)
+	If RunControlCheckpoint() Or RunControlStopRequested() Then Return _BotEngineCheckFinish(False, "Managed engine check cancelled after initialization")
+	If Not $bEngineInitialized Then
 		$sError = MBRFuncEngineError()
 		If $sError = "" Then $sError = "Managed engine initialization failed"
 		Return _BotEngineCheckFinish(False, $sError)
 	EndIf
-	If RunControlStopRequested() Then Return _BotEngineCheckFinish(False, "Managed engine check cancelled after initialization")
 	Return _BotEngineCheckFinish(True, "Managed engine initialized in the real backend; no emulator or game action was attempted")
 EndFunc   ;==>_BotCheckManagedEngine
 
@@ -1079,7 +1080,12 @@ Func BotStart($bAutostartDelay = 0)
 	If $sStartupRewardOutcome <> "" And $sStartupRewardOutcome <> "not-seen" Then _
 		SetLog("Run Planner: startup Daily Reward state before route=" & $sStartupRewardOutcome, $COLOR_INFO)
 
-	If Not MBRFuncInitialize() Then
+	If RunControlCheckpoint() Or RunControlStopRequested() Then _
+		Return FuncReturn(_BotStartReject("Start cancelled before managed engine initialization"))
+	Local $bEngineInitialized = MBRFuncInitialize()
+	If RunControlCheckpoint() Or RunControlStopRequested() Then _
+		Return FuncReturn(_BotStartReject("Start cancelled after managed engine initialization"))
+	If Not $bEngineInitialized Then
 		$sStartError = MBRFuncEngineError()
 		If $sStartError = "" Then
 			$sStartError = "Unable to initialize " & $g_sMBRLib & "."

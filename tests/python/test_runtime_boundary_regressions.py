@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
@@ -244,6 +245,84 @@ class RuntimeBoundaryRegressionTests(unittest.TestCase):
                     terminal["message"],
                     "Template-free Home collectors completed; collector_clicks=1",
                 )
+
+    def test_stale_accepted_stop_becomes_terminal_failed_with_recovery_action(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            status_path = Path(folder) / "control-status.local.json"
+            planner_ui.write_json_atomic(
+                {
+                    "state": "stopping",
+                    "message": "Stopping the run",
+                    "bot_pid": 424242,
+                    "engine_available": True,
+                    "recognition_available": True,
+                    "last_command": "stop",
+                    "last_outcome": "accepted",
+                    "last_command_id": "accepted-stop",
+                },
+                status_path,
+            )
+            stale = time.time() - (planner_ui.CONTROL_STATUS_BUSY_MAX_AGE_SECONDS + 1)
+            os.utime(status_path, (stale, stale))
+            with (
+                mock.patch.object(planner_ui, "CONTROL_STATUS_PATH", status_path),
+                mock.patch.object(planner_ui, "MINI_LIFECYCLE_PATH", Path(folder) / "missing-mini.json"),
+                mock.patch.object(planner_ui, "native_bot_process_alive", return_value=True),
+            ):
+                payload = planner_ui.control_status()
+
+            self.assertFalse(payload["connected"])
+            self.assertTrue(payload["bot_process_alive"])
+            self.assertEqual(payload["state"], "failed")
+            self.assertEqual(payload["supervisor_state"], "failed")
+            self.assertEqual(payload["last_outcome"], "failed")
+            self.assertTrue(payload["recovery_required"])
+            self.assertFalse(payload["engine_available"])
+            self.assertFalse(payload["recognition_available"])
+            self.assertIn("exact backend supervisor", payload["last_command_message"])
+
+    def test_duplicate_stop_does_not_replace_pending_or_accepted_request(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            command_path = Path(folder) / "control-command.local.json"
+            pending = {
+                "schema_version": 1,
+                "request_id": "first-stop",
+                "action": "stop",
+                "expected_start_request_id": "accepted-start",
+                "requested_at": "2026-08-28T00:00:00Z",
+            }
+            planner_ui.write_json_atomic(pending, command_path)
+            with (
+                mock.patch.object(planner_ui, "CONTROL_COMMAND_PATH", command_path),
+                mock.patch.object(
+                    planner_ui,
+                    "control_status",
+                    return_value={"connected": True, "state": "starting"},
+                ),
+                mock.patch.object(planner_ui, "engine_init_cancel_context", return_value=None),
+                mock.patch.object(planner_ui, "schedule_engine_init_cancel"),
+            ):
+                payload, code = planner_ui.queue_control_command("stop", "accepted-start")
+
+            self.assertEqual(code, 202)
+            self.assertTrue(payload["duplicate"])
+            self.assertEqual(payload["request_id"], "first-stop")
+            self.assertEqual(json.loads(command_path.read_text(encoding="utf-8")), pending)
+
+            accepted_status = {
+                "connected": True,
+                "state": "stopping",
+                "last_command": "stop",
+                "last_outcome": "accepted",
+                "last_command_id": "native-stop",
+            }
+            command_path.unlink()
+            with mock.patch.object(planner_ui, "control_status", return_value=accepted_status):
+                accepted_payload, accepted_code = planner_ui.queue_control_command("stop", "accepted-start")
+            self.assertEqual(accepted_code, 202)
+            self.assertTrue(accepted_payload["duplicate"])
+            self.assertEqual(accepted_payload["request_id"], "native-stop")
+            self.assertFalse(command_path.exists())
 
     def test_rights_gate_rejects_full_profile_without_writing_a_command(self) -> None:
         with tempfile.TemporaryDirectory() as folder:

@@ -2235,6 +2235,7 @@ Func _AndroidAdbSendShellCommand($cmd = Default, $timeout = Default, $wasRunStat
 	Local $hTimer = __TimerInit()
 	Local $s = ""
 	Local $loopCount = 0
+	Local $bRunControlStopRequested = False
 	Local $cleanOutput = True
 	If $g_bAndroidAdbInstance = True Then
 		; use steady ADB shell
@@ -2257,10 +2258,11 @@ Func _AndroidAdbSendShellCommand($cmd = Default, $timeout = Default, $wasRunStat
 		EndIf
 		If $timeout <> 0 Then
 			While @error = 0 And ($timeout < 0 Or StringCompare(StringRight($s, StringLen($g_sAndroidAdbPrompt) + 1), @LF & $g_sAndroidAdbPrompt, $STR_CASESENSE) <> 0) And __TimerDiff($hTimer) < Abs($timeout)
+				$bRunControlStopRequested = RunControlCheckpoint()
+				If $wasRunState And ($bRunControlStopRequested Or Not $g_bRunState) Then ExitLoop
 				Sleep(10)
 				$s &= ReadPipe($aReadPipe[0])
 				$loopCount += 1
-				If $wasRunState And Not $g_bRunState Then ExitLoop ; stop pressed here, exit without error
 				;SetDebugLog("Prompt-Check: tail is '"  & StringRight($s, StringLen($g_sAndroidAdbPrompt) + 1) & "', result " & StringCompare(StringRight($s, StringLen($g_sAndroidAdbPrompt) + 1), @LF & $g_sAndroidAdbPrompt, $STR_CASESENSE))
 			WEnd
 		Else
@@ -2730,9 +2732,11 @@ Func _AndroidAdbPullCaptureFile($sAndroidFile, $sHostFile, $iTimeout, $wasRunSta
 	Local $hTimer = __TimerInit()
 	Local $sOutput = ""
 	Local $iWaitResult = $WAIT_TIMEOUT
+	Local $bRunControlStopRequested = False
 	Do
+		$bRunControlStopRequested = RunControlCheckpoint()
 		$sOutput &= ReadPipe($hStdOut[0])
-		If $wasRunState And Not $g_bRunState Then
+		If $wasRunState And ($bRunControlStopRequested Or Not $g_bRunState) Then
 			ClosePipe($iPid, $hStdIn, $hStdOut, $hProcess, $hThread)
 			Return SetError(2, Int(__TimerDiff($hTimer)), $sOutput)
 		EndIf
