@@ -113,11 +113,11 @@ Func _LauncherRuntimeLocalAppDataDir()
 	Return $sLocalRoot
 EndFunc   ;==>_LauncherRuntimeLocalAppDataDir
 
-_CloseOwnedAutoItErrorDialogs()
 If _CommandLineHas("/recover") Or _CommandLineHas("/repair") Then
 	If _RecoverBotStack() Then Exit 0
 	Exit 6
 EndIf
+_CloseOwnedAutoItErrorDialogs()
 If Not _ValidateInstallation() Then Exit 1
 If _CommandLineHas("/background") Then Exit _SetDockPairMinimized() ? 0 : 7
 If _CommandLineHas("/foreground") Then Exit _SetDockPairRestored() ? 0 : 8
@@ -289,7 +289,6 @@ EndFunc   ;==>_ProfilesRootToken
 
 Func _RecoverBotStack()
 	_RecoveryLog("recovery requested")
-	_CloseOwnedAutoItErrorDialogs()
 	; Prove and close the planner while its recorded backend parent is still alive. Closing the
 	; backend first would discard the strongest part of the ownership chain and make a stale PID look
 	; more trustworthy than it is.
@@ -300,6 +299,9 @@ Func _RecoverBotStack()
 	Local $aOwnedAdbChildren = _SnapshotOwnedAdbChildren()
 	_CloseExactPathProcesses("MyBot.run.MiniGui.exe", $g_sControllerPath)
 	_CloseExactPathProcesses("MyBot.run.exe", $g_sHostPath)
+	; A hung owned AutoIt error window can block WinGetText before Recovery records or closes the
+	; exact process stack. Inspect those dialogs only after their owning native processes are gone.
+	_CloseOwnedAutoItErrorDialogs()
 	Local $bAdbChildrenClosed = _CloseVerifiedAdbChildren($aOwnedAdbChildren)
 	Local $bLaunchOnlyEmulatorClosed = _CloseOwnedLaunchOnlyEmulator(False)
 	_CloseExactPathProcesses("My Bot 2.0.exe", @ScriptFullPath, @AutoItPID)

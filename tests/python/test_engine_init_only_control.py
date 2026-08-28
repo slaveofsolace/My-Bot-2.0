@@ -242,7 +242,7 @@ class EngineInitOnlyControlTests(unittest.TestCase):
         self.assertIn("CONTROL.engine_init_cancellable === true", self.javascript)
         self.assertIn("(!connected && !managedInitCanBeStopped)", self.javascript)
         self.assertIn("if (CONTROL.engine_init_cancellable === true)", self.javascript)
-        self.assertIn("expected_start_request_id: previousPending.request_id", self.javascript)
+        self.assertIn("expected_start_request_id: expectedStopRequestId", self.javascript)
         self.assertIn("action === 'start' &&", self.javascript)
         self.assertIn("CONTROL_TERMINAL_OUTCOMES = new Set(['completed', 'passed'", self.javascript)
 

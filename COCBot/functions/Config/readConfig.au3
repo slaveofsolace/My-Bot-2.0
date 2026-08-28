@@ -1278,8 +1278,13 @@ Func ReadConfig_600_35_1()
 	IniReadS($g_iDeleteLootsDays, $g_sProfileConfigPath, "deletefiles", "DeleteLootsDays", 2, "int")
 	IniReadS($g_bAutoStart, $g_sProfileConfigPath, "general", "AutoStart", False, "Bool")
 	IniReadS($g_iAutoStartDelay, $g_sProfileConfigPath, "general", "AutoStartDelay", 10, "int")
-	IniReadS($g_bRestarted, $g_sProfileConfigPath, "general", "Restarted", $g_bRestarted, "int")
-	If $g_bBotLaunchOption_Autostart = True Then $g_bRestarted = True
+	; Restarted is a one-shot intent written immediately before an owned /restart launch. A stale
+	; profile value must never auto-run a normal installed launch before the Control Center owns Start.
+	Local $bPersistedRestarted = False
+	IniReadS($bPersistedRestarted, $g_sProfileConfigPath, "general", "Restarted", False, "Bool")
+	$g_bRestarted = $g_bBotLaunchOption_Autostart Or ($g_bBotLaunchOption_Restart And $bPersistedRestarted)
+	If $bPersistedRestarted And Not $g_bBotLaunchOption_Restart And Not $g_bBotLaunchOption_Autostart Then _
+		IniWrite($g_sProfileConfigPath, "general", "Restarted", 0)
 	$g_bCheckGameLanguage = (IniRead($g_sProfileConfigPath, "General", "ChkLanguage", "1") = "1")
 	IniReadS($g_bAutoAlignEnable, $g_sProfileConfigPath, "general", "DisposeWindows", False, "Bool")
 	IniReadS($g_iAutoAlignPosition, $g_sProfileConfigPath, "general", "DisposeWindowsPos", "EMBED")

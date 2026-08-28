@@ -37,6 +37,19 @@ def autoit_function(source: str, name: str) -> str:
 
 
 class RuntimeBoundaryRegressionTests(unittest.TestCase):
+
+    def test_stale_accepted_start_keeps_exact_stop_recovery_available(self):
+        javascript = (ROOT / "ui" / "planner.js").read_text(encoding="utf-8-sig")
+        self.assertIn("const staleAcceptedStart = !connected && CONTROL.bot_process_alive === true", javascript)
+        self.assertIn(
+            "const managedInitCanBeStopped = startCanBeStopped || supervisedInitActive || staleAcceptedStart;",
+            javascript,
+        )
+        self.assertIn("const staleStartRequestId = CONTROL.connected !== true", javascript)
+        self.assertIn("const expectedStopRequestId = pendingStartRequestId || staleStartRequestId;", javascript)
+        self.assertIn("expected_start_request_id: expectedStopRequestId", javascript)
+        self.assertIn("(!connected && !managedInitCanBeStopped)", javascript)
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.apply_config = read_source("COCBot/functions/Config/applyConfig.au3")

@@ -299,7 +299,7 @@ class GameLaunchOnlyControlTests(unittest.TestCase):
         self.assertNotIn("primaryControlAction", self.javascript)
         self.assertIn("['start', 'check-engine', 'launch-game'].includes(CONTROL_PENDING?.action)", self.javascript)
         self.assertIn("(!connected && !managedInitCanBeStopped)", self.javascript)
-        self.assertIn("expected_start_request_id: previousPending.request_id", self.javascript)
+        self.assertIn("expected_start_request_id: expectedStopRequestId", self.javascript)
 
     def test_launch_only_surface_message_distinguishes_known_startup_overlays(self) -> None:
         self.assertIn("function launchGameSurfaceMessage(adbReady, gameReady)", self.javascript)

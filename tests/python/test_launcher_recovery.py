@@ -110,6 +110,20 @@ class LauncherRecoveryContractTests(unittest.TestCase):
         self.assertIn(recovery_gate, LAUNCHER)
         self.assertLess(LAUNCHER.index(recovery_gate), LAUNCHER.index("If Not _ValidateInstallation()"))
 
+    def test_recovery_bypasses_hung_error_dialog_scan_until_owned_native_processes_close(self):
+        recovery_gate = LAUNCHER.index('If _CommandLineHas("/recover") Or _CommandLineHas("/repair") Then')
+        outer_dialog_scan = LAUNCHER.index("_CloseOwnedAutoItErrorDialogs()", recovery_gate)
+        validation = LAUNCHER.index("If Not _ValidateInstallation()", recovery_gate)
+        self.assertLess(recovery_gate, outer_dialog_scan)
+        self.assertLess(outer_dialog_scan, validation)
+
+        recovery = autoit_function(LAUNCHER, "_RecoverBotStack")
+        close_controller = recovery.index('_CloseExactPathProcesses("MyBot.run.MiniGui.exe"')
+        close_backend = recovery.index('_CloseExactPathProcesses("MyBot.run.exe"')
+        dialog_scan = recovery.index("_CloseOwnedAutoItErrorDialogs()")
+        self.assertLess(close_controller, dialog_scan)
+        self.assertLess(close_backend, dialog_scan)
+
     def test_failed_recovery_exit_has_structured_receipt(self):
         recovery_gate = LAUNCHER.index('If _CommandLineHas("/recover") Or _CommandLineHas("/repair") Then')
         failed_exit = LAUNCHER.index("Exit 6", recovery_gate)

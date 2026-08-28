@@ -1871,7 +1871,10 @@ function renderControl() {
     && (!META || allSettings().some(isUnsaved) || !PLAN_WRITTEN || savedProblems.length > 0);
   const startCanBeStopped = ['start', 'check-engine', 'launch-game'].includes(CONTROL_PENDING?.action) && !!CONTROL_PENDING.request_id;
   const supervisedInitActive = CONTROL.engine_init_cancellable === true;
-  const managedInitCanBeStopped = startCanBeStopped || supervisedInitActive;
+  const staleAcceptedStart = !connected && CONTROL.bot_process_alive === true
+    && CONTROL.last_command === 'start' && CONTROL.last_outcome === 'accepted'
+    && /^[A-Za-z0-9._-]{1,80}$/.test(String(CONTROL.last_command_id || ''));
+  const managedInitCanBeStopped = startCanBeStopped || supervisedInitActive || staleAcceptedStart;
   const engineAvailable = CONTROL.engine_available !== false;
   const recognitionAvailable = CONTROL.recognition_available === true;
   const nativeProfileBlocked = NATIVE_PROFILE_MODE && !recognitionAvailable;
@@ -2116,7 +2119,14 @@ async function sendControl(action) {
   if (!BOOT_READY) return;
   if (action !== 'start') CONTROL_STARTED = null;
   const previousPending = CONTROL_PENDING;
-  const replacingStart = action === 'stop' && ['start', 'check-engine', 'launch-game'].includes(previousPending?.action) && !!previousPending.request_id;
+  const staleStartRequestId = CONTROL.connected !== true && CONTROL.bot_process_alive === true
+    && CONTROL.last_command === 'start' && CONTROL.last_outcome === 'accepted'
+    && /^[A-Za-z0-9._-]{1,80}$/.test(String(CONTROL.last_command_id || ''))
+      ? CONTROL.last_command_id : '';
+  const pendingStartRequestId = ['start', 'check-engine', 'launch-game'].includes(previousPending?.action)
+    ? String(previousPending?.request_id || '') : '';
+  const expectedStopRequestId = pendingStartRequestId || staleStartRequestId;
+  const replacingStart = action === 'stop' && !!expectedStopRequestId;
   if (CONTROL_PENDING && !replacingStart) return;
   if (action === 'start' && !NATIVE_PROFILE_MODE
       && (allSettings().some(isUnsaved) || !PLAN_WRITTEN || clientProblems(SAVED).length)) {
@@ -2138,7 +2148,7 @@ async function sendControl(action) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action,
-        ...(replacingStart ? { expected_start_request_id: previousPending.request_id } : {}),
+        ...(replacingStart ? { expected_start_request_id: expectedStopRequestId } : {}),
         ...(action === 'start' ? RUNNABLE_PLAN_RECEIPT : {}),
       }),
     });

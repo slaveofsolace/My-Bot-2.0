@@ -85,6 +85,28 @@ class NativeProfileAutoLaunchTests(unittest.TestCase):
                 self.assertEqual(planner_ui.plan_status()["mode"], "native-profile")
                 self.assertFalse(planner_ui.plan_status()["exists"])
 
+    def test_normal_launch_does_not_consume_stale_restart_intent(self):
+        read_config = (ROOT / "COCBot" / "functions" / "Config" / "readConfig.au3").read_text(
+            encoding="utf-8-sig"
+        )
+        self.assertIn("Local $bPersistedRestarted = False", read_config)
+        self.assertIn(
+            'IniReadS($bPersistedRestarted, $g_sProfileConfigPath, "general", "Restarted", False, "Bool")',
+            read_config,
+        )
+        self.assertIn(
+            "$g_bRestarted = $g_bBotLaunchOption_Autostart Or "
+            "($g_bBotLaunchOption_Restart And $bPersistedRestarted)",
+            read_config,
+        )
+        self.assertIn(
+            "$bPersistedRestarted And Not $g_bBotLaunchOption_Restart And "
+            "Not $g_bBotLaunchOption_Autostart",
+            read_config,
+        )
+        self.assertIn('IniWrite($g_sProfileConfigPath, "general", "Restarted", 0)', read_config)
+        self.assertNotIn("IniReadS($g_bRestarted", read_config)
+
     def test_switch_backs_up_applied_plan_atomically_and_is_idempotent(self):
         with tempfile.TemporaryDirectory() as folder:
             plan_path = Path(folder) / "run-plan.local.json"
