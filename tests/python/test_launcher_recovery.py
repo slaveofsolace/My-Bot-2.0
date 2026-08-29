@@ -569,6 +569,39 @@ class LauncherRecoveryContractTests(unittest.TestCase):
         self.assertIn("Local $bPlannerClosed = _CloseOwnedPlannerService()", recovery)
         self.assertIn("And $bPlannerClosed", recovery)
 
+    def test_recovery_waits_for_atomic_planner_receipt_before_closing_native_stack(self):
+        close = autoit_function(LAUNCHER, "_CloseOwnedPlannerService")
+        wait = autoit_function(LAUNCHER, "_WaitForPlannerOwnershipReceiptPublication")
+        recovery = autoit_function(LAUNCHER, "_RecoverBotStack")
+
+        health_at = close.index("_ReadPlannerHealthBounded($sUnownedHealth)")
+        wait_at = close.index("$sReceipt = _WaitForPlannerOwnershipReceiptPublication()")
+        token_at = close.index('Local $sOwnerToken = _PlannerReceiptString($sReceipt, "token")')
+        identity_at = close.index("_PlannerReceiptMatchesService(")
+        close_at = close.index("ProcessClose($iPid)")
+        self.assertLess(health_at, wait_at)
+        self.assertLess(wait_at, token_at)
+        self.assertLess(token_at, identity_at)
+        self.assertLess(identity_at, close_at)
+        self.assertIn("loopback health has no safe ownership receipt after bounded publication wait", close)
+        self.assertIn("Return False", close[wait_at:token_at])
+
+        self.assertIn("$iTimeoutMs = 5000", wait)
+        self.assertIn("$iPollMs = 50", wait)
+        self.assertIn("_ReadPlannerOwnershipReceipt()", wait)
+        self.assertIn("TimerDiff($hPublicationWindow) >= $iTimeoutMs", wait)
+        self.assertIn("Sleep($iPollMs)", wait)
+        for forbidden in ("ProcessClose", "_ReadPlannerHealthBounded", "WinHttp", "127.0.0.1:8765"):
+            self.assertNotIn(forbidden, wait)
+
+        # Operator recovery remains serialized on the fully verified planner close while Mini and the
+        # backend are alive. A receipt published inside the bounded window therefore updates the same
+        # Boolean used by the final component receipt and exit code; health without a receipt cannot.
+        self.assertLess(recovery.index("_CloseOwnedPlannerService()"), recovery.index('_CloseExactPathProcesses("MyBot.run.MiniGui.exe"'))
+        self.assertLess(recovery.index("_CloseOwnedPlannerService()"), recovery.index('_CloseExactPathProcesses("MyBot.run.exe"'))
+        self.assertIn("And $bPlannerClosed", recovery)
+        self.assertEqual(close.count("ProcessClose($iPid)"), 1)
+
     def test_planner_ownership_receipt_is_atomic_and_health_hides_raw_token(self):
         for field in (
             '"schema"', '"token"', '"health_token"', '"service_pid"', '"service_created"',

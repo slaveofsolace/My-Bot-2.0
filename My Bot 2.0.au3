@@ -1840,10 +1840,19 @@ Func _CloseOwnedPlannerService($iExpectedBackendPid = 0, $sExpectedBackendCreate
 	If $sReceipt = "" Then
 		Local $sUnownedHealth = ""
 		If _ReadPlannerHealthBounded($sUnownedHealth) Then
-			_RecoveryLog("refused planner service: loopback health has no safe ownership receipt")
-			Return False
+			; Health becomes reachable immediately before the planner publishes its atomic ownership
+			; receipt. Keep Mini/backend alive during this bounded publication window, then feed the
+			; receipt through every existing token/PID/creation/path/parent/health check below. Health
+			; alone is never ownership, and a foreign listener with no valid receipt remains fail-closed.
+			$sReceipt = _WaitForPlannerOwnershipReceiptPublication()
+			If $sReceipt = "" Then
+				_RecoveryLog("refused planner service: loopback health has no safe ownership receipt after bounded publication wait")
+				Return False
+			EndIf
+			_RecoveryLog("planner ownership receipt published during bounded recovery wait")
+		Else
+			Return True
 		EndIf
-		Return True
 	EndIf
 	If $iExpectedBackendPid > 0 And (_PlannerReceiptInt($sReceipt, "backend_pid") <> $iExpectedBackendPid Or _
 			_PlannerReceiptString($sReceipt, "backend_created") <> $sExpectedBackendCreated) Then
@@ -1920,6 +1929,17 @@ Func _CloseOwnedPlannerService($iExpectedBackendPid = 0, $sExpectedBackendCreate
 	EndIf
 	Return True
 EndFunc   ;==>_CloseOwnedPlannerService
+
+Func _WaitForPlannerOwnershipReceiptPublication($iTimeoutMs = 5000, $iPollMs = 50)
+	Local $hPublicationWindow = TimerInit()
+	Do
+		Local $sReceipt = _ReadPlannerOwnershipReceipt()
+		If $sReceipt <> "" Then Return $sReceipt
+		If TimerDiff($hPublicationWindow) >= $iTimeoutMs Then ExitLoop
+		Sleep($iPollMs)
+	Until False
+	Return ""
+EndFunc   ;==>_WaitForPlannerOwnershipReceiptPublication
 
 Func _CloseOwnedAutoItErrorDialogs()
 	Local $aDialogs = WinList("AutoIt Error")
