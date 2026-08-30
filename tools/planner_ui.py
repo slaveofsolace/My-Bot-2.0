@@ -103,6 +103,7 @@ CONTROL_TERMINAL_OUTCOMES = {"completed", "passed", "rejected", "failed", "stopp
 ENGINE_INIT_CANCEL_CONTEXT_WAIT_SECONDS = 3.0
 ENGINE_INIT_CANCEL_CONTEXT_POLL_SECONDS = 0.025
 CONTROL_ACTIONS = {"start", "stop", "pause", "resume", "check-engine", "launch-game"}
+CONTROL_GENERATION_ACTIONS = {"stop", "pause", "resume"}
 CONTROL_LOCK = threading.Lock()
 PLAN_ABSENCE_TOKEN = "absent"
 PLAN_RECEIPT_SCHEMA_VERSION = 1
@@ -114,10 +115,10 @@ DIAGNOSTIC_ARTIFACTS = {
     "managed_engine": ROOT / "lib/MyBot.run.dll",
 }
 DIAGNOSTIC_ENGINE_FIELDS = {
-    "connected", "state", "authorization_ready", "engine_available", "engine_probe_state", "recognition_available", "recognition_error", "product_name",
+    "connected", "state", "authorization_ready", "engine_available", "engine_probe_state", "recognition_available", "recognition_error", "recognition_provider", "recognition_provider_reason", "product_name",
     "product_version", "engine_version", "plan_active", "plan_message", "session_id",
     "emulator", "emulator_attached", "window_attached", "adb_ready", "game_ready", "bot_pid", "bot_process_alive", "last_command", "last_outcome", "last_command_message",
-    "message", "last_seen_at", "age_seconds", "supervisor_state", "mini_supervisor",
+    "message", "last_seen_at", "age_seconds", "supervisor_state", "mini_supervisor", "recovery_required",
 }
 MINI_LIFECYCLE_FIELDS = {
     "state", "reason", "recorded_at_local", "controller_pid", "controller_created", "backend_pid", "backend_created",
@@ -288,6 +289,95 @@ def wait_for_engine_init_cancel_context(expected_start_request_id: str) -> dict 
         if remaining <= 0:
             return None
         time.sleep(min(ENGINE_INIT_CANCEL_CONTEXT_POLL_SECONDS, remaining))
+
+
+def write_engine_init_cancel(
+    context: dict,
+    stop_request_id: str,
+    requested_at: str,
+) -> bool:
+    """Write one exact-owner supervisor cancellation without exposing its token."""
+    try:
+        write_json_atomic(
+            {
+                "schema": "engine-init-cancel-v1",
+                "token": context["token"],
+                "expected_start_request_id": context["start_request_id"],
+                "stop_request_id": stop_request_id,
+                "requested_at": requested_at,
+            },
+            ENGINE_INIT_CANCEL_PATH,
+        )
+    except (KeyError, OSError):
+        return False
+    return True
+
+
+def defer_engine_init_cancel(
+    expected_start_request_id: str,
+    stop_request_id: str,
+    requested_at: str,
+) -> None:
+    """Bridge the short Start-receipt race without delaying the loopback Stop response."""
+    context = wait_for_engine_init_cancel_context(expected_start_request_id)
+    if context is None:
+        return
+    with CONTROL_LOCK:
+        existing = read_json(ENGINE_INIT_CANCEL_PATH, None)
+        if isinstance(existing, dict):
+            # A pending cancellation is immutable. Replacing it could redirect a late Stop to a
+            # different engine generation, so leave either an identical receipt or an ambiguity
+            # for exact-owner recovery to resolve.
+            return
+        write_engine_init_cancel(context, stop_request_id, requested_at)
+
+
+def schedule_engine_init_cancel(
+    expected_start_request_id: str,
+    stop_request_id: str,
+    requested_at: str,
+) -> None:
+    threading.Thread(
+        target=defer_engine_init_cancel,
+        args=(expected_start_request_id, stop_request_id, requested_at),
+        name=f"mybot-stop-{stop_request_id[:12]}",
+        daemon=True,
+    ).start()
+
+
+def _control_request_id(value) -> str:
+    if not isinstance(value, str) or re.fullmatch(r"[A-Za-z0-9._-]{1,80}", value) is None:
+        return ""
+    return value
+
+
+def stop_generation_request_id(status: dict, init_context: dict | None, pending_command: dict | None) -> str:
+    """Return one coherent exact Start generation that a Stop may target."""
+    candidates: list[str] = []
+    if isinstance(init_context, dict):
+        request_id = _control_request_id(init_context.get("start_request_id"))
+        if request_id:
+            candidates.append(request_id)
+    if isinstance(pending_command, dict) and pending_command.get("action") in {
+        "start",
+        "check-engine",
+        "launch-game",
+    }:
+        request_id = _control_request_id(pending_command.get("request_id"))
+        if request_id:
+            candidates.append(request_id)
+    request_id = _control_request_id(status.get("run_request_id"))
+    if request_id:
+        candidates.append(request_id)
+    elif (
+        status.get("last_command") in {"start", "check-engine", "launch-game"}
+        and status.get("last_outcome") in {"accepted", "started"}
+    ):
+        request_id = _control_request_id(status.get("last_command_id"))
+        if request_id:
+            candidates.append(request_id)
+    unique = set(candidates)
+    return candidates[0] if len(unique) == 1 else ""
 
 
 def mini_lifecycle_status() -> dict:
@@ -991,6 +1081,18 @@ def plan_status() -> dict:
         "plan_token": None,
         "runnable_problem": "the applied plan has not been accepted for Start",
     })
+    if isinstance(_LAST_PLAN_REJECTION, dict):
+        problems = _LAST_PLAN_REJECTION.get("problems")
+        status["receipt_state"] = "rejected"
+        status["attempt_id"] = _LAST_PLAN_REJECTION.get("attempt_id")
+        status["last_plan_revision"] = receipt_revision_floor(receipt)
+        status["runnable_problem"] = "the most recent plan save failed; fix and save a valid plan before Start"
+        if isinstance(problems, list):
+            status["problems"] = [str(item) for item in problems]
+        receipt_error = _LAST_PLAN_REJECTION.get("receipt_error")
+        if isinstance(receipt_error, str) and receipt_error:
+            status["receipt_error"] = receipt_error
+        return status
     if receipt_state == "rejected":
         problems = receipt.get("problems")
         status["attempt_id"] = receipt.get("attempt_id")
@@ -1143,19 +1245,13 @@ def activate_native_profile_mode() -> tuple[dict, int]:
                 ],
             }, 409
 
-        native_profile_cold_bootstrap = (
-            native.get("emulator_attached") is not True
-            and native.get("window_attached") is not True
-            and native.get("adb_ready") is not True
-            and native.get("game_ready") is not True
-        )
-        if native.get("recognition_available") is not True and not native_profile_cold_bootstrap:
+        if native.get("recognition_available") is not True or native.get("recognition_provider") != "InheritedLocalRuntime":
             return {
                 "ok": False,
                 "attempt_id": attempt_id,
                 "problems": [
                     native.get("recognition_error")
-                    or "Full profile automation requires a licensed or clean-room recognizer; the applied bounded plan was left unchanged"
+                    or "Full profile automation requires the exact launcher-owned LocalRuntime; the applied bounded plan was left unchanged"
                 ],
             }, 409
 
@@ -1196,7 +1292,24 @@ def activate_native_profile_mode() -> tuple[dict, int]:
         try:
             write_plan_receipt_atomic(accepted_plan_receipt("native-profile", attempt_id, plan_revision, PLAN_ABSENCE_TOKEN))
         except OSError:
-            return {"ok": False, "attempt_id": attempt_id, "problems": ["the native profile receipt could not be written atomically"]}, 500
+            try:
+                os.replace(backup, PLAN_PATH)
+            except OSError:
+                return {
+                    "ok": False,
+                    "attempt_id": attempt_id,
+                    "problems": [
+                        "the native profile receipt could not be written and the applied plan could not be restored atomically"
+                    ],
+                    "recovery_backup": displayed_path(backup),
+                }, 500
+            return {
+                "ok": False,
+                "attempt_id": attempt_id,
+                "problems": [
+                    "the native profile receipt could not be written atomically; the applied plan was restored"
+                ],
+            }, 500
         clear_plan_rejection()
         return {
             "ok": True,
@@ -1294,11 +1407,30 @@ def control_status() -> dict:
     document = dict(document)
     document["last_seen_at"] = datetime.fromtimestamp(modified, timezone.utc).isoformat()
     document["age_seconds"] = round(age, 2)
-    max_age = CONTROL_STATUS_BUSY_MAX_AGE_SECONDS if document.get("state") in CONTROL_BUSY_STATES else CONTROL_STATUS_MAX_AGE_SECONDS
+    native_state = document.get("state")
+    max_age = CONTROL_STATUS_BUSY_MAX_AGE_SECONDS if native_state in CONTROL_BUSY_STATES else CONTROL_STATUS_MAX_AGE_SECONDS
     document["connected"] = age <= max_age
+    stop_terminal_timeout = (
+        not document["connected"]
+        and native_state == "stopping"
+        and document.get("last_command") == "stop"
+        and document.get("last_outcome") == "accepted"
+    )
     if not document["connected"]:
-        document["state"] = "offline"
-        document["message"] = "Native engine heartbeat is stale"
+        if stop_terminal_timeout:
+            message = (
+                "Stop was accepted, but the native engine did not publish a terminal "
+                "acknowledgement within the bounded timeout; the exact backend supervisor is taking over"
+            )
+            document["state"] = "failed"
+            document["last_outcome"] = "failed"
+            document["last_command_message"] = message
+            document["message"] = message
+            document["engine_available"] = False
+            document["recovery_required"] = True
+        else:
+            document["state"] = "offline"
+            document["message"] = "Native engine heartbeat is stale"
         document["recognition_available"] = False
         document["recognition_error"] = (
             "Native recognition state is unavailable because the engine heartbeat is stale"
@@ -1330,7 +1462,11 @@ def control_status() -> dict:
     document["game_ready"] = bool(document["adb_ready"] and document.get("game_ready") is True)
     document["engine_init_cancellable"] = engine_init_cancellable
     document["mini_supervisor"] = mini_supervisor
-    document["supervisor_state"] = str(mini_supervisor.get("state") or document.get("state") or "ownership-ambiguous")
+    document["supervisor_state"] = (
+        "failed"
+        if stop_terminal_timeout
+        else str(mini_supervisor.get("state") or document.get("state") or "ownership-ambiguous")
+    )
     return document
 
 
@@ -1343,9 +1479,14 @@ def queue_control_command(
 ) -> tuple[dict, int]:
     if action not in CONTROL_ACTIONS:
         return {"ok": False, "problems": ["unsupported control action"]}, 400
-    if expected_start_request_id:
-        if action != "stop" or re.fullmatch(r"[A-Za-z0-9._-]{1,80}", expected_start_request_id) is None:
-            return {"ok": False, "problems": ["expected_start_request_id is invalid for this action"]}, 400
+    if action in CONTROL_GENERATION_ACTIONS:
+        if not _control_request_id(expected_start_request_id):
+            return {
+                "ok": False,
+                "problems": [f"{action.title()} requires the active Start generation; refresh status and try again"],
+            }, 400
+    elif expected_start_request_id:
+        return {"ok": False, "problems": ["expected_start_request_id is invalid for this action"]}, 400
     normalized_expected_revision = normalize_plan_revision(expected_plan_revision)
     if action == "start":
         if expected_run_mode not in {"planned", "native-profile"}:
@@ -1364,23 +1505,76 @@ def queue_control_command(
     status = control_status()
     init_context = engine_init_cancel_context() if action == "stop" else None
     expected_init_request_id = expected_start_request_id
-    if (
-        action == "stop"
-        and init_context is None
-        and not expected_init_request_id
-        and status.get("last_command") in {"start", "check-engine", "launch-game"}
-        and status.get("last_outcome") == "accepted"
-        and isinstance(status.get("last_command_id"), str)
-        and re.fullmatch(r"[A-Za-z0-9._-]{1,80}", status["last_command_id"])
-    ):
-        expected_init_request_id = status["last_command_id"]
-    if not status.get("connected") and init_context is None and not expected_init_request_id:
+    if not status.get("connected") and init_context is None and action != "stop":
         return {"ok": False, "problems": ["native engine is offline"], "status": status}, 409
     if action in {"start", "check-engine"} and not status.get("engine_available", True):
         return {"ok": False, "problems": [status.get("message") or "native engine is unavailable"], "status": status}, 409
 
     with CONTROL_LOCK:
         command_pending = CONTROL_COMMAND_PATH.exists()
+        pending_command = read_json(CONTROL_COMMAND_PATH, None) if command_pending else None
+        if (
+            command_pending
+            and action == "stop"
+            and isinstance(pending_command, dict)
+            and pending_command.get("action") == "stop"
+        ):
+            pending_expected = pending_command.get("expected_start_request_id", "")
+            pending_request_id = pending_command.get("request_id")
+            if (
+                pending_expected == expected_init_request_id
+                and isinstance(pending_request_id, str)
+                and re.fullmatch(r"[A-Za-z0-9._-]{1,80}", pending_request_id)
+            ):
+                return {
+                    "ok": True,
+                    "accepted": True,
+                    "duplicate": True,
+                    "request_id": pending_request_id,
+                    "action": "stop",
+                    "native_command_queued": True,
+                    "supervisor_cancel_status": "already-pending",
+                    "written": displayed_path(CONTROL_COMMAND_PATH),
+                }, 202
+            return {"ok": False, "problems": ["another Stop is awaiting the native engine"]}, 409
+        if action in CONTROL_GENERATION_ACTIONS:
+            # Re-read under the command lock and bind every mutable run action to the exact Start
+            # generation observed by both the browser and the native controller.
+            status = control_status()
+            init_context = engine_init_cancel_context() if action == "stop" else None
+            if action == "stop":
+                current_start_request_id = stop_generation_request_id(status, init_context, pending_command)
+            elif status.get("connected") is True:
+                current_start_request_id = _control_request_id(status.get("run_request_id"))
+            else:
+                current_start_request_id = ""
+            if not current_start_request_id:
+                return {
+                    "ok": False,
+                    "problems": [f"no single active Start generation could be proven for {action.title()}"],
+                }, 409
+            if current_start_request_id != expected_init_request_id:
+                return {
+                    "ok": False,
+                    "problems": ["the requested Start generation is no longer active"],
+                }, 409
+            if (
+                action == "stop"
+                and status.get("state") == "stopping"
+                and status.get("last_command") == "stop"
+                and status.get("last_outcome") == "accepted"
+                and _control_request_id(status.get("last_command_id"))
+            ):
+                return {
+                    "ok": True,
+                    "accepted": True,
+                    "duplicate": True,
+                    "request_id": status["last_command_id"],
+                    "action": "stop",
+                    "native_command_queued": False,
+                    "supervisor_cancel_status": "already-accepted",
+                    "written": None,
+                }, 202
         # Stop has priority over an unconsumed Start or engine check. Replacing that pending file is
         # safe even before the backend publishes an initialization receipt; no managed call has
         # started yet. Once a receipt exists, the separate launcher cancel remains authoritative.
@@ -1434,22 +1628,18 @@ def queue_control_command(
                         "problems": preflight,
                         "status": status,
                     }, 409
-            native_profile_cold_bootstrap = (
-                status.get("emulator_attached") is not True
-                and status.get("window_attached") is not True
-                and status.get("adb_ready") is not True
-                and status.get("game_ready") is not True
-            )
             if (
                 run_mode == "native-profile"
-                and status.get("recognition_available") is not True
-                and not native_profile_cold_bootstrap
+                and (
+                    status.get("recognition_available") is not True
+                    or status.get("recognition_provider") != "InheritedLocalRuntime"
+                )
             ):
                 return {
                     "ok": False,
                     "problems": [
                         status.get("recognition_error")
-                        or "Full profile automation requires a licensed or clean-room recognizer; apply a verified bounded route"
+                        or "Full profile automation requires the exact launcher-owned LocalRuntime; restart the installed bot"
                     ],
                     "status": status,
                 }, 409
@@ -1466,6 +1656,8 @@ def queue_control_command(
             command["run_mode"] = run_mode
             command["plan_revision"] = current_plan["plan_revision"]
             command["plan_token"] = plan_token
+        elif action in CONTROL_GENERATION_ACTIONS:
+            command["expected_start_request_id"] = expected_init_request_id
         native_command_queued = False
         # A supervised Stop must replace any command that could otherwise be replayed by the
         # controller's replacement backend after the launcher closes the blocked generation.
@@ -1478,30 +1670,20 @@ def queue_control_command(
                 if action != "stop" or init_context is None:
                     return {"ok": False, "problems": ["the control command could not be queued atomically"]}, 500
 
-        # The synchronous first managed-engine call blocks the AutoIt message loop. Mirror Stop
-        # through the launcher's separately owned channel. A failure here must not turn an already
-        # durable native Stop into a false HTTP 500; report the two delivery paths independently.
-        if action == "stop" and init_context is None and expected_init_request_id:
-            init_context = wait_for_engine_init_cancel_context(expected_init_request_id)
-
         supervisor_cancel_status = "not-active"
         if action == "stop" and init_context is not None:
-            try:
-                write_json_atomic(
-                    {
-                        "schema": "engine-init-cancel-v1",
-                        "token": init_context["token"],
-                        "expected_start_request_id": init_context["start_request_id"],
-                        "stop_request_id": request_id,
-                        "requested_at": command["requested_at"],
-                    },
-                    ENGINE_INIT_CANCEL_PATH,
-                )
+            if write_engine_init_cancel(init_context, request_id, command["requested_at"]):
                 supervisor_cancel_status = "queued"
-            except OSError:
+            else:
                 supervisor_cancel_status = "unavailable"
                 if not native_command_queued:
                     return {"ok": False, "problems": ["the supervisor Stop could not be queued atomically"]}, 500
+        elif action == "stop" and expected_init_request_id and status.get("state") in {"starting", "offline"}:
+            # The receipt can appear shortly after Start is consumed, but the loopback response is
+            # the operator's acknowledgement boundary and must never wait for that race. Continue
+            # the exact-request recheck in a daemon owned by this service.
+            schedule_engine_init_cancel(expected_init_request_id, request_id, command["requested_at"])
+            supervisor_cancel_status = "pending"
     return {
         "ok": True,
         "accepted": True,

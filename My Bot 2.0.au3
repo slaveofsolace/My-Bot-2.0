@@ -8,6 +8,7 @@
 #pragma compile(Out, My Bot 2.0.exe)
 
 #include <Crypt.au3>
+#include <Date.au3>
 #include <FileConstants.au3>
 #include <GUIConstantsEx.au3>
 #include <Misc.au3>
@@ -57,6 +58,9 @@ Global Const $g_sEngineSupervisorLauncherPidEnv = "MYBOT_ENGINE_INIT_LAUNCHER_PI
 Global Const $g_sEngineSupervisorLauncherCreatedEnv = "MYBOT_ENGINE_INIT_LAUNCHER_CREATED"
 Global Const $g_sLaunchOnlyEmulatorOwnershipSchema = "my-bot-launch-only-emulator-owner-v1"
 Global Const $g_sLaunchOnlyEmulatorOwnershipReceipt = $g_sUserDataRoot & "\launch-only-emulator-owner-v1.json"
+Global Const $g_sLaunchOnlyEmulatorDispatchOwnershipSchema = "my-bot-launch-only-emulator-owner-v2"
+Global Const $g_sLaunchOnlyEmulatorDispatchOwnershipReceipt = $g_sUserDataRoot & "\launch-only-emulator-owner-v2.json"
+Global Const $g_iLaunchOnlyEmulatorReceiptMaxChars = 8192
 Global Const $g_iEngineInitEnterTimeoutMs = 10000
 Global Const $g_iEngineInitPoolStallTimeoutMs = 90000
 Global Const $g_iEngineInitPostReturnTimeoutMs = 15000
@@ -94,6 +98,7 @@ Global $g_bEngineSupervisorPrepared = False
 Global $g_sEngineSupervisorLastNotice = ""
 Global $g_iEngineSupervisorBackendPid = 0
 Global $g_sEngineSupervisorBackendCreated = ""
+Global $g_sEngineSupervisorStartRequestId = ""
 Global $g_bEngineSupervisorAbortAttempted = False
 Global $g_bEngineSupervisorFailureLatched = False
 Global $g_sEngineSupervisorFailure = ""
@@ -102,6 +107,21 @@ Global $g_sLauncherOwnedBackendCreated = ""
 Global $g_bLauncherOwnedBackendAmbiguous = False
 Global $g_bLauncherOwnedAdbTrackingIncomplete = False
 Global $g_aLauncherOwnedAdbChildren[1][4]
+Global Const $g_iStopSupervisorTimeoutMs = 15000
+Global Const $g_iStopSupervisorFreshStatusSeconds = 5
+Global Const $g_iStopSupervisorRecheckStatusSeconds = 25
+Global Const $g_iStopSupervisorAdbCleanupTimeoutMs = 1500
+Global $g_bStopSupervisorActive = False
+Global $g_bStopSupervisorCloseAttempted = False
+Global $g_sStopSupervisorRequestId = ""
+Global $g_sStopSupervisorAuthority = ""
+Global $g_iStopSupervisorControllerPid = 0
+Global $g_sStopSupervisorControllerCreated = ""
+Global $g_iStopSupervisorBackendPid = 0
+Global $g_sStopSupervisorBackendCreated = ""
+Global $g_hStopSupervisorTimer = 0
+Global $g_aStopSupervisorAdbChildren[1][4]
+Global $g_bStopSupervisorAdbSnapshotIncomplete = False
 
 Func _LauncherRuntimeLocalAppDataDir()
 	If EnvGet("MYBOT_RUN_PYTHON_INTEGRATION") <> "1" Then Return @LocalAppDataDir
@@ -113,11 +133,11 @@ Func _LauncherRuntimeLocalAppDataDir()
 	Return $sLocalRoot
 EndFunc   ;==>_LauncherRuntimeLocalAppDataDir
 
-_CloseOwnedAutoItErrorDialogs()
 If _CommandLineHas("/recover") Or _CommandLineHas("/repair") Then
 	If _RecoverBotStack() Then Exit 0
 	Exit 6
 EndIf
+_CloseOwnedAutoItErrorDialogs()
 If Not _ValidateInstallation() Then Exit 1
 If _CommandLineHas("/background") Then Exit _SetDockPairMinimized() ? 0 : 7
 If _CommandLineHas("/foreground") Then Exit _SetDockPairRestored() ? 0 : 8
@@ -288,8 +308,7 @@ Func _ProfilesRootToken($sPath)
 EndFunc   ;==>_ProfilesRootToken
 
 Func _RecoverBotStack()
-	_RecoveryLog("recovery requested")
-	_CloseOwnedAutoItErrorDialogs()
+	_RecoveryLog("recovery requested; scope=operator-recovery")
 	; Prove and close the planner while its recorded backend parent is still alive. Closing the
 	; backend first would discard the strongest part of the ownership chain and make a stale PID look
 	; more trustworthy than it is.
@@ -300,7 +319,12 @@ Func _RecoverBotStack()
 	Local $aOwnedAdbChildren = _SnapshotOwnedAdbChildren()
 	_CloseExactPathProcesses("MyBot.run.MiniGui.exe", $g_sControllerPath)
 	_CloseExactPathProcesses("MyBot.run.exe", $g_sHostPath)
+	; A hung owned AutoIt error window can block WinGetText before Recovery records or closes the
+	; exact process stack. Inspect those dialogs only after their owning native processes are gone.
+	_CloseOwnedAutoItErrorDialogs()
 	Local $bAdbChildrenClosed = _CloseVerifiedAdbChildren($aOwnedAdbChildren)
+	Local $sLaunchOnlyEmulatorReceiptPath = _SelectLaunchOnlyEmulatorOwnershipReceipt()
+	Local $bLaunchOnlyEmulatorReceiptSelected = $sLaunchOnlyEmulatorReceiptPath <> ""
 	Local $bLaunchOnlyEmulatorClosed = _CloseOwnedLaunchOnlyEmulator(False)
 	_CloseExactPathProcesses("My Bot 2.0.exe", @ScriptFullPath, @AutoItPID)
 
@@ -323,7 +347,8 @@ Func _RecoverBotStack()
 			$bPlannerClosed ? "" : "planner service receipt or loopback owner could not be closed safely"), _
 		_RecoveryComponentReceipt("adb_children", "backend-child-snapshot:" & $aOwnedAdbChildren[0][0], $aOwnedAdbChildren[0][0] > 0, $bAdbChildrenClosed, $iAdbResidual, _
 			$bAdbChildrenClosed ? "" : "one or more exact backend ADB children remained alive or changed identity"), _
-		_RecoveryComponentReceipt("launch_only_emulator", "receipt:" & $g_sLaunchOnlyEmulatorOwnershipReceipt, FileExists($g_sLaunchOnlyEmulatorOwnershipReceipt), $bLaunchOnlyEmulatorClosed, $iLaunchOnlyResidual, _
+		_RecoveryComponentReceipt("launch_only_emulator", "receipt:" & $sLaunchOnlyEmulatorReceiptPath, _
+			$bLaunchOnlyEmulatorReceiptSelected, $bLaunchOnlyEmulatorClosed, $iLaunchOnlyResidual, _
 			$bLaunchOnlyEmulatorClosed ? "" : "launch-only emulator ownership receipt could not be consumed safely"))
 	_RecoveryLog("recovery completed; controller_closed=" & $bControllerClosed & "; backend_closed=" & $bBackendClosed & "; planner_closed=" & $bPlannerClosed & "; adb_children_closed=" & $bAdbChildrenClosed & "; launch_only_emulator_closed=" & $bLaunchOnlyEmulatorClosed & "; receipt=" & $g_sRecoveryReceiptPath)
 	Return $bRecovered
@@ -396,6 +421,59 @@ Func _RecoveryWriteReceipt($sScope, $bRecovered, $iExitCode, $sFailureReason, $s
 	Return True
 EndFunc   ;==>_RecoveryWriteReceipt
 
+Func _RecoveryWriteStopTerminalStatus($sStopRequestId, $bRecovered, $sFailureReason)
+	If Not StringRegExp($sStopRequestId, "^[A-Za-z0-9._-]{1,80}$") Then Return False
+	If Not _EngineSupervisorPathSafe($g_sControlStatusPath, False) Then Return False
+	Local $sState = $bRecovered ? "idle" : "failed"
+	Local $sOutcome = $bRecovered ? "stopped" : "failed"
+	Local $sMessage = $bRecovered ? "Stop completed through the exact backend supervisor" : _
+		"Exact backend Stop supervision failed"
+	If Not $bRecovered And $sFailureReason <> "" Then $sMessage &= ": " & $sFailureReason
+	Local $sTemporary = $g_sControlStatusPath & "." & @AutoItPID & ".tmp"
+	Local $sJson = "{"
+	$sJson &= _EngineSupervisorJsonString("schema_version") & ":1,"
+	$sJson &= _EngineSupervisorJsonString("product_name") & ":" & _EngineSupervisorJsonString("My Bot 2.0") & ","
+	$sJson &= _EngineSupervisorJsonString("product_version") & ":" & _EngineSupervisorJsonString("2.0.0") & ","
+	$sJson &= _EngineSupervisorJsonString("engine_version") & ":" & _EngineSupervisorJsonString("8.2.0") & ","
+	$sJson &= _EngineSupervisorJsonString("state") & ":" & _EngineSupervisorJsonString($sState) & ","
+	$sJson &= _EngineSupervisorJsonString("run_state") & ":false,"
+	$sJson &= _EngineSupervisorJsonString("paused") & ":false,"
+	$sJson &= _EngineSupervisorJsonString("authorization_ready") & ":true,"
+	$sJson &= _EngineSupervisorJsonString("engine_available") & ":false,"
+	$sJson &= _EngineSupervisorJsonString("recognition_available") & ":false,"
+	$sJson &= _EngineSupervisorJsonString("recognition_error") & ":" & _EngineSupervisorJsonString($sMessage) & ","
+	$sJson &= _EngineSupervisorJsonString("plan_active") & ":false,"
+	$sJson &= _EngineSupervisorJsonString("plan_message") & ":" & _EngineSupervisorJsonString($sMessage) & ","
+	$sJson &= _EngineSupervisorJsonString("session_id") & ":" & _EngineSupervisorJsonString("") & ","
+	$sJson &= _EngineSupervisorJsonString("emulator_attached") & ":false,"
+	$sJson &= _EngineSupervisorJsonString("window_attached") & ":false,"
+	$sJson &= _EngineSupervisorJsonString("adb_ready") & ":false,"
+	$sJson &= _EngineSupervisorJsonString("game_ready") & ":false,"
+	$sJson &= _EngineSupervisorJsonString("bot_pid") & ":0,"
+	$sJson &= _EngineSupervisorJsonString("last_command_id") & ":" & _EngineSupervisorJsonString($sStopRequestId) & ","
+	$sJson &= _EngineSupervisorJsonString("last_command") & ":" & _EngineSupervisorJsonString("stop") & ","
+	$sJson &= _EngineSupervisorJsonString("last_outcome") & ":" & _EngineSupervisorJsonString($sOutcome) & ","
+	$sJson &= _EngineSupervisorJsonString("last_command_message") & ":" & _EngineSupervisorJsonString($sMessage) & ","
+	$sJson &= _EngineSupervisorJsonString("recovery_required") & ":" & _RecoveryJsonBool(Not $bRecovered) & ","
+	$sJson &= _EngineSupervisorJsonString("message") & ":" & _EngineSupervisorJsonString($sMessage)
+	$sJson &= "}"
+	FileDelete($sTemporary)
+	Local $hFile = FileOpen($sTemporary, BitOR($FO_OVERWRITE, $FO_CREATEPATH, $FO_UTF8_NOBOM))
+	If $hFile = -1 Then Return False
+	Local $bWritten = FileWrite($hFile, $sJson & @LF)
+	FileFlush($hFile)
+	FileClose($hFile)
+	If Not $bWritten Then
+		FileDelete($sTemporary)
+		Return False
+	EndIf
+	If Not FileMove($sTemporary, $g_sControlStatusPath, $FC_OVERWRITE) Then
+		FileDelete($sTemporary)
+		Return False
+	EndIf
+	Return True
+EndFunc   ;==>_RecoveryWriteStopTerminalStatus
+
 Func _SnapshotOwnedAdbChildren($iExpectedBackendPid = 0, $sExpectedBackendCreated = "")
 	Local $aChildren[1][4]
 	Local $iCount = 0
@@ -413,6 +491,8 @@ Func _SnapshotOwnedAdbChildren($iExpectedBackendPid = 0, $sExpectedBackendCreate
 				If _ProcessParentPid($iPid) <> $iBackendPid Then ContinueLoop
 				Local $sCreated = _ProcessCreationId($iPid)
 				If Not StringRegExp($sCreated, "^[0-9a-f]{16}$") Then
+					If $iExpectedBackendPid > 0 And $iExpectedBackendPid = $g_iStopSupervisorBackendPid Then _
+						$g_bStopSupervisorAdbSnapshotIncomplete = True
 					_RecoveryLog("refused unprovable backend ADB child; pid=" & $iPid & "; parent=" & $iBackendPid)
 					ContinueLoop
 				EndIf
@@ -455,6 +535,39 @@ Func _HasUncapturedAdbChildForRecordedBackend($iBackendPid)
 	Next
 	Return False
 EndFunc   ;==>_HasUncapturedAdbChildForRecordedBackend
+
+; After the bound backend generation exits, a process that still reports its numeric PID as parent
+; cannot be adopted safely: the parent PID may already be reusable. Detect it only as an ambiguity
+; and fail the Stop terminal receipt rather than closing a process that was not captured while the
+; exact backend identity was live.
+Func _StopSupervisorHasUncapturedAdbChild(ByRef $aCaptured)
+	Local $aAdbNames[2] = ["HD-Adb.exe", "adb.exe"]
+	For $iName = 0 To UBound($aAdbNames) - 1
+		Local $aProcesses = ProcessList($aAdbNames[$iName])
+		For $i = 1 To $aProcesses[0][0]
+			Local $iPid = $aProcesses[$i][1]
+			If _ProcessParentPid($iPid) <> $g_iStopSupervisorBackendPid Then ContinueLoop
+			Local $sCreated = _ProcessCreationId($iPid)
+			If Not StringRegExp($sCreated, "^[0-9a-f]{16}$") Then
+				_RecoveryLog("refused late unprovable Stop ADB child; pid=" & $iPid & "; recorded_parent=" & $g_iStopSupervisorBackendPid)
+				Return True
+			EndIf
+			Local $bCaptured = False
+			For $iKnown = 1 To $aCaptured[0][0]
+				If $aCaptured[$iKnown][0] = $iPid And $aCaptured[$iKnown][1] = $sCreated And _
+						StringLower($aCaptured[$iKnown][2]) = StringLower($aAdbNames[$iName]) And _
+						$aCaptured[$iKnown][3] = $g_iStopSupervisorBackendPid Then
+					$bCaptured = True
+					ExitLoop
+				EndIf
+			Next
+			If $bCaptured Then ContinueLoop
+			_RecoveryLog("refused uncaptured Stop ADB child after backend exit; pid=" & $iPid & "; recorded_parent=" & $g_iStopSupervisorBackendPid)
+			Return True
+		Next
+	Next
+	Return False
+EndFunc   ;==>_StopSupervisorHasUncapturedAdbChild
 
 Func _PruneLauncherOwnedAdbChildren()
 	Local $aPruned[1][4]
@@ -574,6 +687,314 @@ Func _CloseVerifiedLauncherBackend($iControllerPid, $iBackendPid, $sBackendCreat
 	Return ProcessWaitClose($iBackendPid, 2) Or Not ProcessExists($iBackendPid)
 EndFunc   ;==>_CloseVerifiedLauncherBackend
 
+Func _StopSupervisorReset($sReason = "")
+	If $sReason <> "" And $g_sStopSupervisorRequestId <> "" Then _RecoveryLog("Stop supervisor reset; request_id=" & $g_sStopSupervisorRequestId & "; reason=" & $sReason)
+	$g_bStopSupervisorActive = False
+	$g_bStopSupervisorCloseAttempted = False
+	$g_sStopSupervisorRequestId = ""
+	$g_sStopSupervisorAuthority = ""
+	$g_iStopSupervisorControllerPid = 0
+	$g_sStopSupervisorControllerCreated = ""
+	$g_iStopSupervisorBackendPid = 0
+	$g_sStopSupervisorBackendCreated = ""
+	$g_hStopSupervisorTimer = 0
+	ReDim $g_aStopSupervisorAdbChildren[1][4]
+	$g_aStopSupervisorAdbChildren[0][0] = 0
+	$g_bStopSupervisorAdbSnapshotIncomplete = False
+EndFunc   ;==>_StopSupervisorReset
+
+Func _StopSupervisorPathAgeSeconds($sPath, ByRef $iAgeSeconds)
+	$iAgeSeconds = -1
+	Local $sTimestamp = FileGetTime($sPath, $FT_MODIFIED, $FT_STRING)
+	If @error Or Not StringRegExp($sTimestamp, "^[0-9]{14}$") Then Return False
+	Local $sModified = StringLeft($sTimestamp, 4) & "/" & StringMid($sTimestamp, 5, 2) & "/" & StringMid($sTimestamp, 7, 2) & _
+		" " & StringMid($sTimestamp, 9, 2) & ":" & StringMid($sTimestamp, 11, 2) & ":" & StringRight($sTimestamp, 2)
+	$iAgeSeconds = _DateDiff("s", $sModified, _NowCalc())
+	Return Not @error And $iAgeSeconds >= 0
+EndFunc   ;==>_StopSupervisorPathAgeSeconds
+
+Func _StopSupervisorReadStatus(ByRef $sStatus, $iMaxAgeSeconds)
+	$sStatus = ""
+	If Not FileExists($g_sControlStatusPath) Or Not _EngineSupervisorPathSafe($g_sControlStatusPath, True) Then Return False
+	Local $iSize = FileGetSize($g_sControlStatusPath)
+	If @error Or $iSize <= 0 Or $iSize > 16384 Then Return False
+	Local $iAgeSeconds = -1
+	If Not _StopSupervisorPathAgeSeconds($g_sControlStatusPath, $iAgeSeconds) Or $iAgeSeconds > $iMaxAgeSeconds Then Return False
+	$sStatus = FileRead($g_sControlStatusPath)
+	Return Not @error And StringLen($sStatus) > 0 And StringLen($sStatus) <= 16384
+EndFunc   ;==>_StopSupervisorReadStatus
+
+Func _StopSupervisorReadAccepted(ByRef $sRequestId, ByRef $iBackendPid, $iMaxAgeSeconds)
+	$sRequestId = ""
+	$iBackendPid = 0
+	Local $sStatus = ""
+	If Not _StopSupervisorReadStatus($sStatus, $iMaxAgeSeconds) Then Return False
+	If _PlannerReceiptString($sStatus, "state") <> "stopping" Or _
+			_PlannerReceiptString($sStatus, "last_command") <> "stop" Or _
+			_PlannerReceiptString($sStatus, "last_outcome") <> "accepted" Then Return False
+	$sRequestId = _EngineSupervisorRequestId($sStatus, "last_command_id")
+	$iBackendPid = _PlannerReceiptInt($sStatus, "bot_pid")
+	Return $sRequestId <> "" And $iBackendPid > 0
+EndFunc   ;==>_StopSupervisorReadAccepted
+
+Func _StopSupervisorReadCancellation(ByRef $sStopRequestId, ByRef $iBackendPid, ByRef $sBackendCreated, $iMaxAgeSeconds, $bRequireLiveBackend)
+	$sStopRequestId = ""
+	$iBackendPid = 0
+	$sBackendCreated = ""
+	If Not FileExists($g_sEngineInitOwnershipReceipt) Or Not FileExists($g_sEngineInitCancelPath) Or _
+			Not _EngineSupervisorPathSafe($g_sEngineInitOwnershipReceipt, True) Or _
+			Not _EngineSupervisorPathSafe($g_sEngineInitCancelPath, True) Then Return False
+	; A live initialization receipt may legitimately be old while the managed call is blocked. Freshness
+	; belongs to the Stop cancellation; the receipt remains authoritative only while all bound process,
+	; token, phase, and sequence proofs below still match the live generation.
+	Local $iCancelAge = -1
+	If Not _StopSupervisorPathAgeSeconds($g_sEngineInitCancelPath, $iCancelAge) Or $iCancelAge > $iMaxAgeSeconds Then Return False
+	Local $sReceipt = FileRead($g_sEngineInitOwnershipReceipt)
+	Local $sCancel = FileRead($g_sEngineInitCancelPath)
+	If @error Or StringLen($sReceipt) <= 0 Or StringLen($sReceipt) > 4096 Or _
+			StringLen($sCancel) <= 0 Or StringLen($sCancel) > 2048 Then Return False
+	Local $sToken = _PlannerReceiptString($sReceipt, "token")
+	Local $sStartRequestId = _EngineSupervisorRequestId($sReceipt, "start_request_id")
+	Local $sPhase = _PlannerReceiptString($sReceipt, "phase")
+	Local $iPhaseRank = _EngineSupervisorReceiptPhaseRank($sPhase)
+	Local $iSequence = _EngineSupervisorSequence($sReceipt)
+	$sStopRequestId = _EngineSupervisorRequestId($sCancel, "stop_request_id")
+	$iBackendPid = _PlannerReceiptInt($sReceipt, "backend_pid")
+	$sBackendCreated = _PlannerReceiptString($sReceipt, "backend_created")
+	If _PlannerReceiptString($sReceipt, "schema") <> $g_sEngineInitOwnershipSchema Or _
+			Not StringRegExp($sToken, "^[0-9a-f]{64}$") Or _
+			$sToken <> $g_sEngineSupervisorToken Or Not $g_bEngineSupervisorArmed Or _
+			_PlannerReceiptInt($sReceipt, "launcher_pid") <> @AutoItPID Or _
+			_PlannerReceiptString($sReceipt, "launcher_created") <> _ProcessCreationId(@AutoItPID) Or _
+			_PlannerReceiptInt($sReceipt, "controller_pid") <> $g_iStopSupervisorControllerPid Or _
+			_PlannerReceiptString($sReceipt, "controller_created") <> $g_sStopSupervisorControllerCreated Or _
+			_PlannerReceiptInt($sReceipt, "parent_pid") <> $g_iStopSupervisorControllerPid Or _
+			$sStartRequestId = "" Or $sStopRequestId = "" Or $iBackendPid <= 0 Or _
+			$iPhaseRank < 0 Or $iPhaseRank >= 8 Or $iSequence <> $iPhaseRank + 1 Or _
+			Not StringRegExp($sBackendCreated, "^[0-9a-f]{16}$") Then Return False
+	If _PlannerReceiptString($sCancel, "schema") <> $g_sEngineInitCancelSchema Or _
+			_PlannerReceiptString($sCancel, "token") <> $sToken Or _
+			_EngineSupervisorRequestId($sCancel, "expected_start_request_id") <> $sStartRequestId Then Return False
+	If $bRequireLiveBackend And Not _StopSupervisorBackendMatches($g_iStopSupervisorControllerPid, $iBackendPid, $sBackendCreated) Then Return False
+	Return True
+EndFunc   ;==>_StopSupervisorReadCancellation
+
+Func _StopSupervisorAuthorityMatches($bRequireLiveBackend, $iMaxAgeSeconds)
+	Local $sRequestId = "", $iBackendPid = 0
+	If $g_sStopSupervisorAuthority = "native-status" Then
+		If Not _StopSupervisorReadAccepted($sRequestId, $iBackendPid, $iMaxAgeSeconds) Then Return False
+		Return $sRequestId = $g_sStopSupervisorRequestId And $iBackendPid = $g_iStopSupervisorBackendPid And _
+				(Not $bRequireLiveBackend Or _StopSupervisorBackendMatches($g_iStopSupervisorControllerPid, $g_iStopSupervisorBackendPid, $g_sStopSupervisorBackendCreated))
+	EndIf
+	If $g_sStopSupervisorAuthority = "engine-cancel" Then
+		Local $sBackendCreated = ""
+		If Not _StopSupervisorReadCancellation($sRequestId, $iBackendPid, $sBackendCreated, $iMaxAgeSeconds, $bRequireLiveBackend) Then Return False
+		Return $sRequestId = $g_sStopSupervisorRequestId And $iBackendPid = $g_iStopSupervisorBackendPid And _
+				$sBackendCreated = $g_sStopSupervisorBackendCreated
+	EndIf
+	Return False
+EndFunc   ;==>_StopSupervisorAuthorityMatches
+
+Func _StopSupervisorTerminalMatches($sRequestId, ByRef $sOutcome)
+	$sOutcome = ""
+	Local $sStatus = ""
+	If Not _StopSupervisorReadStatus($sStatus, $g_iStopSupervisorRecheckStatusSeconds) Then Return False
+	If _EngineSupervisorRequestId($sStatus, "last_command_id") <> $sRequestId Or _
+			_PlannerReceiptString($sStatus, "last_command") <> "stop" Then Return False
+	Local $sState = _PlannerReceiptString($sStatus, "state")
+	$sOutcome = _PlannerReceiptString($sStatus, "last_outcome")
+	Return ($sState = "idle" Or $sState = "failed") And ($sOutcome = "stopped" Or $sOutcome = "failed")
+EndFunc   ;==>_StopSupervisorTerminalMatches
+
+Func _StopSupervisorControllerMatches($iControllerPid, $sControllerCreated)
+	Return $iControllerPid > 0 And ProcessExists($iControllerPid) And _
+			_ProcessCreationId($iControllerPid) = $sControllerCreated And _
+			StringLower(_ProcessImagePath($iControllerPid)) = StringLower($g_sControllerPath)
+EndFunc   ;==>_StopSupervisorControllerMatches
+
+Func _StopSupervisorBackendMatches($iControllerPid, $iBackendPid, $sBackendCreated)
+	Return $iBackendPid > 0 And ProcessExists($iBackendPid) And _
+			_ProcessCreationId($iBackendPid) = $sBackendCreated And _
+			StringLower(_ProcessImagePath($iBackendPid)) = StringLower($g_sHostPath) And _
+			_ProcessParentPid($iBackendPid) = $iControllerPid
+EndFunc   ;==>_StopSupervisorBackendMatches
+
+Func _StopSupervisorReplacementExists()
+	Local $aBackends = ProcessList("MyBot.run.exe")
+	For $i = 1 To $aBackends[0][0]
+		Local $iPid = $aBackends[$i][1]
+		If $iPid = $g_iStopSupervisorBackendPid And _ProcessCreationId($iPid) = $g_sStopSupervisorBackendCreated Then ContinueLoop
+		If StringLower(_ProcessImagePath($iPid)) = StringLower($g_sHostPath) And _
+				_ProcessParentPid($iPid) = $g_iStopSupervisorControllerPid Then Return True
+	Next
+	Return False
+EndFunc   ;==>_StopSupervisorReplacementExists
+
+Func _StopSupervisorWriteTerminal($bStopped, $sReason)
+	If _StopSupervisorReplacementExists() Then
+		_RecoveryLog("Stop supervisor preserved a replacement backend and refused to overwrite its status; request_id=" & $g_sStopSupervisorRequestId)
+		Return False
+	EndIf
+	If Not _StopSupervisorAuthorityMatches(False, $g_iStopSupervisorRecheckStatusSeconds) Then
+		Local $sTerminalOutcome = ""
+		If _StopSupervisorTerminalMatches($g_sStopSupervisorRequestId, $sTerminalOutcome) Then Return True
+		_RecoveryLog("Stop supervisor refused a terminal write because status authority changed; request_id=" & $g_sStopSupervisorRequestId)
+		Return False
+	EndIf
+	If Not _RecoveryWriteStopTerminalStatus($g_sStopSupervisorRequestId, $bStopped, $sReason) Then
+		_RecoveryLog("Stop supervisor terminal status write failed; request_id=" & $g_sStopSupervisorRequestId)
+		Return False
+	EndIf
+	Return True
+EndFunc   ;==>_StopSupervisorWriteTerminal
+
+Func _StopSupervisorCleanupInitFiles()
+	If Not FileExists($g_sEngineInitOwnershipReceipt) Then Return Not FileExists($g_sEngineInitCancelPath)
+	If Not _EngineSupervisorPathSafe($g_sEngineInitOwnershipReceipt, True) Then Return False
+	Local $sReceipt = FileRead($g_sEngineInitOwnershipReceipt)
+	If @error Or StringLen($sReceipt) > 4096 Or _
+			_PlannerReceiptString($sReceipt, "schema") <> $g_sEngineInitOwnershipSchema Or _
+			_PlannerReceiptInt($sReceipt, "backend_pid") <> $g_iStopSupervisorBackendPid Or _
+			_PlannerReceiptString($sReceipt, "backend_created") <> $g_sStopSupervisorBackendCreated Or _
+			_PlannerReceiptInt($sReceipt, "controller_pid") <> $g_iStopSupervisorControllerPid Or _
+			_PlannerReceiptString($sReceipt, "controller_created") <> $g_sStopSupervisorControllerCreated Then Return False
+	Local $sStartRequestId = _EngineSupervisorRequestId($sReceipt, "start_request_id")
+	Local $sToken = _PlannerReceiptString($sReceipt, "token")
+	Local $sCancel = ""
+	If FileExists($g_sEngineInitCancelPath) Then
+		If Not _EngineSupervisorPathSafe($g_sEngineInitCancelPath, True) Then Return False
+		$sCancel = FileRead($g_sEngineInitCancelPath)
+		If @error Or StringLen($sCancel) <= 0 Or StringLen($sCancel) > 2048 Or _
+				_PlannerReceiptString($sCancel, "schema") <> $g_sEngineInitCancelSchema Or _
+				_PlannerReceiptString($sCancel, "token") <> $sToken Or _
+				_EngineSupervisorRequestId($sCancel, "expected_start_request_id") <> $sStartRequestId Or _
+				_EngineSupervisorRequestId($sCancel, "stop_request_id") <> $g_sStopSupervisorRequestId Then Return False
+	EndIf
+	; Validate the complete pair before deleting either. Re-read exact captured bytes immediately before
+	; each delete so a replacement cannot inherit cleanup authority between validation and removal.
+	If $sCancel <> "" Then
+		If Not _EngineSupervisorPathSafe($g_sEngineInitCancelPath, True) Or FileRead($g_sEngineInitCancelPath) <> $sCancel Then Return False
+		If Not _EngineSupervisorDeleteSafeFile($g_sEngineInitCancelPath) Then Return False
+	EndIf
+	If FileExists($g_sEngineInitCancelPath) Then Return False
+	If Not _EngineSupervisorPathSafe($g_sEngineInitOwnershipReceipt, True) Or FileRead($g_sEngineInitOwnershipReceipt) <> $sReceipt Then Return False
+	Return _EngineSupervisorDeleteSafeFile($g_sEngineInitOwnershipReceipt)
+EndFunc   ;==>_StopSupervisorCleanupInitFiles
+
+Func _StopSupervisorArm($iControllerPid)
+	If $g_bStopSupervisorActive Or $g_bLauncherOwnedBackendAmbiguous Then Return False
+	Local $sRequestId = "", $iBackendPid = 0, $sBackendCreated = "", $sAuthority = ""
+	Local $sControllerCreated = _ProcessCreationId($iControllerPid)
+	If Not StringRegExp($sControllerCreated, "^[0-9a-f]{16}$") Or Not _StopSupervisorControllerMatches($iControllerPid, $sControllerCreated) Then Return False
+	$g_iStopSupervisorControllerPid = $iControllerPid
+	$g_sStopSupervisorControllerCreated = $sControllerCreated
+	If _StopSupervisorReadAccepted($sRequestId, $iBackendPid, $g_iStopSupervisorFreshStatusSeconds) Then
+		If $iBackendPid <> $g_iLauncherOwnedBackendPid Or Not StringRegExp($g_sLauncherOwnedBackendCreated, "^[0-9a-f]{16}$") Then
+			_StopSupervisorReset()
+			Return False
+		EndIf
+		$sBackendCreated = $g_sLauncherOwnedBackendCreated
+		$sAuthority = "native-status"
+	ElseIf _StopSupervisorReadCancellation($sRequestId, $iBackendPid, $sBackendCreated, $g_iStopSupervisorFreshStatusSeconds, True) Then
+		$sAuthority = "engine-cancel"
+	Else
+		_StopSupervisorReset()
+		Return False
+	EndIf
+	If Not _StopSupervisorBackendMatches($iControllerPid, $iBackendPid, $sBackendCreated) Then
+		_StopSupervisorReset()
+		Return False
+	EndIf
+	$g_bStopSupervisorActive = True
+	$g_bStopSupervisorCloseAttempted = False
+	$g_sStopSupervisorRequestId = $sRequestId
+	$g_sStopSupervisorAuthority = $sAuthority
+	$g_iStopSupervisorBackendPid = $iBackendPid
+	$g_sStopSupervisorBackendCreated = $sBackendCreated
+	$g_hStopSupervisorTimer = TimerInit()
+	$g_bStopSupervisorAdbSnapshotIncomplete = False
+	$g_aStopSupervisorAdbChildren = _SnapshotOwnedAdbChildren($iBackendPid, $sBackendCreated)
+	_RecoveryLog("Stop supervisor armed; request_id=" & $sRequestId & "; authority=" & $sAuthority & "; controller_pid=" & $iControllerPid & "; backend_pid=" & $iBackendPid)
+	Return True
+EndFunc   ;==>_StopSupervisorArm
+
+Func _StopSupervisorTerminateExactBackend($sReason)
+	If Not $g_bStopSupervisorActive Or $g_bStopSupervisorCloseAttempted Then Return False
+	$g_bStopSupervisorCloseAttempted = True
+	If Not _StopSupervisorAuthorityMatches(True, $g_iStopSupervisorRecheckStatusSeconds) Then
+		_StopSupervisorReset("accepted Stop authority changed before timeout fallback")
+		Return False
+	EndIf
+	If Not _StopSupervisorControllerMatches($g_iStopSupervisorControllerPid, $g_sStopSupervisorControllerCreated) Or _
+			Not _StopSupervisorBackendMatches($g_iStopSupervisorControllerPid, $g_iStopSupervisorBackendPid, $g_sStopSupervisorBackendCreated) Then
+		_StopSupervisorReset("exact controller/backend identity changed before timeout fallback")
+		Return False
+	EndIf
+	; Capture and close only direct ADB children of this exact backend generation. This intentionally
+	; excludes MiniGui, planner, BlueStacks/HD-Player, and every unrelated ADB process.
+	$g_bStopSupervisorAdbSnapshotIncomplete = False
+	$g_aStopSupervisorAdbChildren = _SnapshotOwnedAdbChildren($g_iStopSupervisorBackendPid, $g_sStopSupervisorBackendCreated)
+	Local $bAdbChildrenClosed = _CloseVerifiedAdbChildren($g_aStopSupervisorAdbChildren, $g_iStopSupervisorAdbCleanupTimeoutMs)
+	; Recheck both durable Stop authority and PID/creation lineage immediately before the one close.
+	If Not _StopSupervisorAuthorityMatches(True, $g_iStopSupervisorRecheckStatusSeconds) Or _
+			Not _StopSupervisorControllerMatches($g_iStopSupervisorControllerPid, $g_sStopSupervisorControllerCreated) Or _
+			Not _StopSupervisorBackendMatches($g_iStopSupervisorControllerPid, $g_iStopSupervisorBackendPid, $g_sStopSupervisorBackendCreated) Then
+		_StopSupervisorReset("Stop authority or exact generation changed after ADB cleanup")
+		Return False
+	EndIf
+	Local $bBackendClosed = _CloseVerifiedLauncherBackend($g_iStopSupervisorControllerPid, $g_iStopSupervisorBackendPid, $g_sStopSupervisorBackendCreated)
+	If Not $bBackendClosed Or ProcessExists($g_iStopSupervisorBackendPid) Then
+		_StopSupervisorWriteTerminal(False, "exact backend remained alive after the single bounded close")
+		_StopSupervisorReset("exact backend remained alive")
+		Return False
+	EndIf
+	Local $bLateAdbChild = _StopSupervisorHasUncapturedAdbChild($g_aStopSupervisorAdbChildren)
+	Local $bAdbOwnershipComplete = $bAdbChildrenClosed And Not $g_bStopSupervisorAdbSnapshotIncomplete And Not $bLateAdbChild
+	Local $bStatusWritten = _StopSupervisorWriteTerminal($bAdbOwnershipComplete, $bAdbOwnershipComplete ? $sReason : "direct ADB child ownership or cleanup was incomplete")
+	Local $bInitFilesRemoved = _StopSupervisorCleanupInitFiles()
+	If $bInitFilesRemoved Then _EngineSupervisorResetGeneration(0, "", "Stop fallback finalized exact engine cancellation")
+	_RecoveryLog("Stop supervisor fallback completed; request_id=" & $g_sStopSupervisorRequestId & "; backend_closed=" & $bBackendClosed & "; adb_children_closed=" & $bAdbChildrenClosed & "; adb_snapshot_incomplete=" & $g_bStopSupervisorAdbSnapshotIncomplete & "; late_adb_child=" & $bLateAdbChild & "; status_written=" & $bStatusWritten & "; init_files_removed=" & $bInitFilesRemoved)
+	_StopSupervisorReset("bounded exact-backend fallback completed")
+	Return $bBackendClosed And $bAdbOwnershipComplete And $bStatusWritten And $bInitFilesRemoved
+EndFunc   ;==>_StopSupervisorTerminateExactBackend
+
+Func _StopSupervisorPoll($iControllerPid)
+	If Not $g_bStopSupervisorActive Then _StopSupervisorArm($iControllerPid)
+	If Not $g_bStopSupervisorActive Then Return False
+	Local $sTerminalOutcome = ""
+	If _StopSupervisorTerminalMatches($g_sStopSupervisorRequestId, $sTerminalOutcome) Then
+		Local $bInitFilesRemoved = _StopSupervisorCleanupInitFiles()
+		If Not $bInitFilesRemoved Then
+			_RecoveryLog("Stop supervisor retained exact cancellation files after terminal acknowledgement; request_id=" & $g_sStopSupervisorRequestId)
+			Return False
+		EndIf
+		_EngineSupervisorResetGeneration(0, "", "native Stop terminal acknowledgement finalized exact engine cancellation")
+		_StopSupervisorReset("native terminal acknowledgement=" & $sTerminalOutcome)
+		Return True
+	EndIf
+	If Not _StopSupervisorControllerMatches($g_iStopSupervisorControllerPid, $g_sStopSupervisorControllerCreated) Then
+		_StopSupervisorReset("bound controller identity changed")
+		Return False
+	EndIf
+	If Not ProcessExists($g_iStopSupervisorBackendPid) Then
+		Local $bAdbChildrenClosed = _CloseVerifiedAdbChildren($g_aStopSupervisorAdbChildren, $g_iStopSupervisorAdbCleanupTimeoutMs)
+		Local $bLateAdbChild = _StopSupervisorHasUncapturedAdbChild($g_aStopSupervisorAdbChildren)
+		Local $bAdbOwnershipComplete = $bAdbChildrenClosed And Not $g_bStopSupervisorAdbSnapshotIncomplete And Not $bLateAdbChild
+		Local $bStatusWritten = _StopSupervisorWriteTerminal($bAdbOwnershipComplete, $bAdbOwnershipComplete ? "native backend stopped cooperatively" : "direct ADB child ownership or cleanup was incomplete")
+		Local $bInitFilesRemoved = _StopSupervisorCleanupInitFiles()
+		If $bInitFilesRemoved Then _EngineSupervisorResetGeneration(0, "", "cooperative Stop finalized exact engine cancellation")
+		_StopSupervisorReset("native backend exited while Stop was pending")
+		Return $bAdbOwnershipComplete And $bStatusWritten And $bInitFilesRemoved
+	EndIf
+	If _ProcessCreationId($g_iStopSupervisorBackendPid) <> $g_sStopSupervisorBackendCreated Then
+		_StopSupervisorReset("numeric backend PID was reused; replacement generation preserved")
+		Return False
+	EndIf
+	If TimerDiff($g_hStopSupervisorTimer) >= $g_iStopSupervisorTimeoutMs Then _
+		Return _StopSupervisorTerminateExactBackend("native Stop exceeded the 15 second cooperative deadline")
+	Return False
+EndFunc   ;==>_StopSupervisorPoll
+
 Func _RecoverExitedOwnedControllerStack($iControllerPid, $sControllerCreated, $iBackendPid, $sBackendCreated)
 	_RecoveryLog("owned controller-exit recovery requested; controller_pid=" & $iControllerPid & "; backend_pid=" & $iBackendPid)
 	If $iControllerPid <= 0 Or ProcessExists($iControllerPid) Or Not StringRegExp($sControllerCreated, "^[0-9a-f]{16}$") Then Return False
@@ -615,7 +1036,52 @@ Func _ProcessNameMatches($iPid, $sExpectedName)
 	Return False
 EndFunc   ;==>_ProcessNameMatches
 
-Func _CloseVerifiedAdbChildren(ByRef $aChildren)
+Func _CloseVerifiedAdbChildren(ByRef $aChildren, $iSharedDeadlineMs = 0)
+	If $iSharedDeadlineMs > 0 Then
+		; Automatic Stop owns one total cleanup budget, independent of child count. Validate the whole
+		; captured set before issuing any close, then poll every exact identity under one deadline. A
+		; changed/reused PID is never closed and makes the terminal receipt fail closed.
+		Local $hSharedDeadline = TimerInit()
+		For $i = 1 To $aChildren[0][0]
+			If TimerDiff($hSharedDeadline) >= $iSharedDeadlineMs Then Return False
+			Local $iPid = $aChildren[$i][0]
+			If Not ProcessExists($iPid) Then ContinueLoop
+			Local $sCreated = $aChildren[$i][1]
+			Local $sName = $aChildren[$i][2]
+			Local $iBackendPid = $aChildren[$i][3]
+			If _ProcessCreationId($iPid) <> $sCreated Or _ProcessParentPid($iPid) <> $iBackendPid Or Not _ProcessNameMatches($iPid, $sName) Then
+				_RecoveryLog("refused changed backend ADB child before shared cleanup; pid=" & $iPid & "; recorded_parent=" & $iBackendPid)
+				Return False
+			EndIf
+		Next
+		For $i = 1 To $aChildren[0][0]
+			If TimerDiff($hSharedDeadline) >= $iSharedDeadlineMs Then Return False
+			Local $iPid = $aChildren[$i][0]
+			If Not ProcessExists($iPid) Then ContinueLoop
+			If _ProcessCreationId($iPid) <> $aChildren[$i][1] Or _ProcessParentPid($iPid) <> $aChildren[$i][3] Or Not _ProcessNameMatches($iPid, $aChildren[$i][2]) Then
+				_RecoveryLog("refused changed backend ADB child immediately before shared close; pid=" & $iPid)
+				Return False
+			EndIf
+			_RecoveryLog("closing verified backend ADB child under shared Stop deadline; name=" & $aChildren[$i][2] & "; pid=" & $iPid & "; parent=" & $aChildren[$i][3])
+			ProcessClose($iPid)
+		Next
+		Do
+			Local $iRemaining = 0
+			For $i = 1 To $aChildren[0][0]
+				Local $iPid = $aChildren[$i][0]
+				If Not ProcessExists($iPid) Then ContinueLoop
+				If _ProcessCreationId($iPid) <> $aChildren[$i][1] Or _ProcessParentPid($iPid) <> $aChildren[$i][3] Or Not _ProcessNameMatches($iPid, $aChildren[$i][2]) Then
+					_RecoveryLog("refused replacement backend ADB identity during shared cleanup; pid=" & $iPid)
+					Return False
+				EndIf
+				$iRemaining += 1
+			Next
+			If $iRemaining = 0 Then Return True
+			Sleep(25)
+		Until TimerDiff($hSharedDeadline) >= $iSharedDeadlineMs
+		_RecoveryLog("verified backend ADB children exceeded shared Stop cleanup deadline; remaining=" & $iRemaining & "; deadline_ms=" & $iSharedDeadlineMs)
+		Return False
+	EndIf
 	Local $bAllClosed = True
 	For $i = 1 To $aChildren[0][0]
 		Local $iPid = $aChildren[$i][0]
@@ -651,20 +1117,40 @@ Func _CountLiveVerifiedAdbChildren(ByRef $aChildren)
 	Return $iLive
 EndFunc   ;==>_CountLiveVerifiedAdbChildren
 
-Func _ReadLaunchOnlyEmulatorOwnershipReceipt()
-	If Not FileExists($g_sLaunchOnlyEmulatorOwnershipReceipt) Then Return ""
-	If Not _LaunchOnlyEmulatorReceiptPathSafe(True) Then Return ""
-	Local $sReceipt = FileRead($g_sLaunchOnlyEmulatorOwnershipReceipt)
-	If @error Or StringLen($sReceipt) > 4096 Then Return ""
+Func _SelectLaunchOnlyEmulatorOwnershipReceipt()
+	If FileExists($g_sLaunchOnlyEmulatorDispatchOwnershipReceipt) Then Return $g_sLaunchOnlyEmulatorDispatchOwnershipReceipt
+	If FileExists($g_sLaunchOnlyEmulatorOwnershipReceipt) Then Return $g_sLaunchOnlyEmulatorOwnershipReceipt
+	Return ""
+EndFunc   ;==>_SelectLaunchOnlyEmulatorOwnershipReceipt
+
+Func _LaunchOnlyEmulatorOwnershipReceiptExists()
+	Return FileExists($g_sLaunchOnlyEmulatorDispatchOwnershipReceipt) Or FileExists($g_sLaunchOnlyEmulatorOwnershipReceipt)
+EndFunc   ;==>_LaunchOnlyEmulatorOwnershipReceiptExists
+
+Func _DeleteLaunchOnlyEmulatorOwnershipReceipts()
+	Local $bDispatchDeleted = FileDelete($g_sLaunchOnlyEmulatorDispatchOwnershipReceipt) = 1 Or _
+			Not FileExists($g_sLaunchOnlyEmulatorDispatchOwnershipReceipt)
+	Local $bPreparedDeleted = FileDelete($g_sLaunchOnlyEmulatorOwnershipReceipt) = 1 Or _
+			Not FileExists($g_sLaunchOnlyEmulatorOwnershipReceipt)
+	Return $bDispatchDeleted And $bPreparedDeleted
+EndFunc   ;==>_DeleteLaunchOnlyEmulatorOwnershipReceipts
+
+Func _ReadLaunchOnlyEmulatorOwnershipReceipt($sReceiptPath)
+	If $sReceiptPath = "" Or Not FileExists($sReceiptPath) Then Return ""
+	If Not _LaunchOnlyEmulatorReceiptPathSafe($sReceiptPath, True) Then Return ""
+	Local $sReceipt = FileRead($sReceiptPath)
+	If @error Or StringLen($sReceipt) > $g_iLaunchOnlyEmulatorReceiptMaxChars Then Return ""
 	Return $sReceipt
 EndFunc   ;==>_ReadLaunchOnlyEmulatorOwnershipReceipt
 
-Func _LaunchOnlyEmulatorReceiptPathSafe($bRequireReceipt = False)
+Func _LaunchOnlyEmulatorReceiptPathSafe($sReceiptPath, $bRequireReceipt = False)
 	Local $aParent = DllCall("kernel32.dll", "dword", "GetFileAttributesW", "wstr", $g_sUserDataRoot)
 	If @error Or Not IsArray($aParent) Or $aParent[0] = 0xFFFFFFFF Then Return False
 	If BitAND($aParent[0], 0x10) = 0 Or BitAND($aParent[0], 0x400) <> 0 Then Return False
-	If Not FileExists($g_sLaunchOnlyEmulatorOwnershipReceipt) Then Return Not $bRequireReceipt
-	Local $aReceipt = DllCall("kernel32.dll", "dword", "GetFileAttributesW", "wstr", $g_sLaunchOnlyEmulatorOwnershipReceipt)
+	If $sReceiptPath <> $g_sLaunchOnlyEmulatorOwnershipReceipt And _
+			$sReceiptPath <> $g_sLaunchOnlyEmulatorDispatchOwnershipReceipt Then Return False
+	If Not FileExists($sReceiptPath) Then Return Not $bRequireReceipt
+	Local $aReceipt = DllCall("kernel32.dll", "dword", "GetFileAttributesW", "wstr", $sReceiptPath)
 	If @error Or Not IsArray($aReceipt) Or $aReceipt[0] = 0xFFFFFFFF Then Return False
 	Return BitAND($aReceipt[0], 0x10) = 0 And BitAND($aReceipt[0], 0x400) = 0
 EndFunc   ;==>_LaunchOnlyEmulatorReceiptPathSafe
@@ -691,9 +1177,16 @@ Func _LaunchOnlyEmulatorReceiptConsumedSafely($sCurrentReceipt, $iPlayerPid)
 EndFunc   ;==>_LaunchOnlyEmulatorReceiptConsumedSafely
 
 Func _CloseOwnedLaunchOnlyEmulator($bRequireCurrentLauncher)
-	Local $sReceipt = _ReadLaunchOnlyEmulatorOwnershipReceipt()
-	If $sReceipt = "" Then Return True
-	If _PlannerReceiptString($sReceipt, "schema") <> $g_sLaunchOnlyEmulatorOwnershipSchema Then
+	Local $sReceiptPath = _SelectLaunchOnlyEmulatorOwnershipReceipt()
+	If $sReceiptPath = "" Then Return True
+	Local $sReceipt = _ReadLaunchOnlyEmulatorOwnershipReceipt($sReceiptPath)
+	If $sReceipt = "" Then
+		_RecoveryLog("refused launch-only emulator: ownership receipt exists but is unreadable or unsafe")
+		Return False
+	EndIf
+	Local $sSchema = _PlannerReceiptString($sReceipt, "schema")
+	If $sSchema <> $g_sLaunchOnlyEmulatorOwnershipSchema And _
+			$sSchema <> $g_sLaunchOnlyEmulatorDispatchOwnershipSchema Then
 		_RecoveryLog("refused launch-only emulator: invalid ownership receipt schema")
 		Return False
 	EndIf
@@ -705,6 +1198,55 @@ Func _CloseOwnedLaunchOnlyEmulator($bRequireCurrentLauncher)
 		_RecoveryLog("refused launch-only emulator: malformed ownership receipt")
 		Return False
 	EndIf
+	If $sSchema = $g_sLaunchOnlyEmulatorDispatchOwnershipSchema Then
+		Local $sState = _PlannerReceiptString($sReceipt, "state")
+		Local $sEmulator = _PlannerReceiptString($sReceipt, "emulator")
+		Local $sStartRequestId = _LauncherReceiptIdentifier($sReceipt, "start_request_id")
+		Local $sLaunchGeneration = _LauncherReceiptIdentifier($sReceipt, "launch_generation")
+		Local $sSessionId = _LauncherReceiptIdentifier($sReceipt, "session_id")
+		Local $sStartMode = _PlannerReceiptString($sReceipt, "start_mode")
+		Local $sPlanRevision = _PlannerReceiptString($sReceipt, "plan_revision")
+		Local $sPlanTokenSha256 = _PlannerReceiptString($sReceipt, "plan_token_sha256")
+		Local $iBackendPid = _PlannerReceiptInt($sReceipt, "backend_pid")
+		Local $sBackendCreated = _PlannerReceiptString($sReceipt, "backend_created")
+		Local $sBackendPathDigest = _PlannerReceiptString($sReceipt, "backend_path_digest")
+		Local $sPlayerPathDigest = _PlannerReceiptString($sReceipt, "player_path_digest")
+		Local $iPlayerParentPid = _PlannerReceiptInt($sReceipt, "player_parent_pid")
+		Local $sPlayerParentCreated = _PlannerReceiptString($sReceipt, "player_parent_created")
+		Local $sPlayerParentPathDigest = _PlannerReceiptString($sReceipt, "player_parent_path_digest")
+		Local $iAdbPid = _PlannerReceiptInt($sReceipt, "adb_pid")
+		Local $sAdbCreated = _PlannerReceiptString($sReceipt, "adb_created")
+		Local $sAdbPathDigest = _PlannerReceiptString($sReceipt, "adb_path_digest")
+		Local $sAdbSha256 = _PlannerReceiptString($sReceipt, "adb_executable_sha256")
+		Local $iAdbParentPid = _PlannerReceiptInt($sReceipt, "adb_parent_pid")
+		Local $sAdbParentCreated = _PlannerReceiptString($sReceipt, "adb_parent_created")
+		Local $sAdbParentPathDigest = _PlannerReceiptString($sReceipt, "adb_parent_path_digest")
+		Local $sAuthorizationSha256 = _PlannerReceiptString($sReceipt, "acceptance_authorization_sha256")
+		Local $sRuntimeSha256 = _PlannerReceiptString($sReceipt, "runtime_sha256")
+		If $sState <> "dispatched" Or $sEmulator <> "BlueStacks5" Or $sInstance <> "Pie64" Or _
+				$sStartRequestId = "" Or $sLaunchGeneration <> $sStartRequestId Or $sSessionId = "" Or _
+				Not StringRegExp($sStartMode, "^(planned|native-profile)$") Or _
+				Not StringRegExp($sPlanRevision, "^(0|[1-9][0-9]{0,18})$") Or _
+				Not StringRegExp($sPlanTokenSha256, "^[0-9a-f]{64}$") Or _
+				$iBackendPid <= 0 Or Not StringRegExp($sBackendCreated, "^[0-9a-f]{16}$") Or _
+				Not StringRegExp($sBackendPathDigest, "^[0-9a-f]{64}$") Or _
+				Not StringRegExp($sPlayerPathDigest, "^[0-9a-f]{64}$") Or _
+				$iPlayerParentPid <= 0 Or Not StringRegExp($sPlayerParentCreated, "^[0-9a-f]{16}$") Or _
+				Not StringRegExp($sPlayerParentPathDigest, "^[0-9a-f]{64}$") Or _
+				$iAdbPid <= 0 Or Not StringRegExp($sAdbCreated, "^[0-9a-f]{16}$") Or _
+				Not StringRegExp($sAdbPathDigest, "^[0-9a-f]{64}$") Or _
+				Not StringRegExp($sAdbSha256, "^[0-9a-f]{64}$") Or _
+				$iPlayerParentPid <> $iBackendPid Or $sPlayerParentCreated <> $sBackendCreated Or _
+				$iAdbParentPid <> $iBackendPid Or $sAdbParentCreated <> $sBackendCreated Or _
+				Not StringRegExp($sAdbParentPathDigest, "^[0-9a-f]{64}$") Or _
+				$sPlayerParentPathDigest <> $sBackendPathDigest Or $sAdbParentPathDigest <> $sBackendPathDigest Or _
+				Not StringRegExp($sAuthorizationSha256, "^[0-9a-f]{64}$") Or _
+				Not StringRegExp($sRuntimeSha256, "^[0-9a-f]{64}$") Or _
+				Not StringRegExp($sReceipt, '"issued_at_utc"\s*:\s*"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z"') Then
+			_RecoveryLog("refused launch-only emulator: malformed dispatch ownership receipt")
+			Return False
+		EndIf
+	EndIf
 	If $bRequireCurrentLauncher Then
 		Local $iLauncherPid = _PlannerReceiptInt($sReceipt, "launcher_pid")
 		Local $sLauncherCreated = _PlannerReceiptString($sReceipt, "launcher_created")
@@ -715,10 +1257,13 @@ Func _CloseOwnedLaunchOnlyEmulator($bRequireCurrentLauncher)
 	EndIf
 	If Not ProcessExists($iPlayerPid) Then
 		_RecoveryLog("removing stale launch-only emulator receipt; pid=" & $iPlayerPid)
-		Return FileDelete($g_sLaunchOnlyEmulatorOwnershipReceipt) = 1 Or Not FileExists($g_sLaunchOnlyEmulatorOwnershipReceipt)
+		Return _DeleteLaunchOnlyEmulatorOwnershipReceipts()
 	EndIf
+	Local $sCurrentPlayerPath = _ProcessImagePath($iPlayerPid)
 	If _ProcessCreationId($iPlayerPid) <> $sPlayerCreated Or _
-			Not StringRegExp(StringLower(_ProcessImagePath($iPlayerPid)), "\\hd-player\.exe$") Then
+			Not StringRegExp(StringLower($sCurrentPlayerPath), "\\hd-player\.exe$") Or _
+			($sSchema = $g_sLaunchOnlyEmulatorDispatchOwnershipSchema And _
+				_StringSha256(StringLower($sCurrentPlayerPath)) <> _PlannerReceiptString($sReceipt, "player_path_digest")) Then
 		_RecoveryLog("refused launch-only emulator: player identity changed; pid=" & $iPlayerPid)
 		Return False
 	EndIf
@@ -729,7 +1274,7 @@ Func _CloseOwnedLaunchOnlyEmulator($bRequireCurrentLauncher)
 		_RecoveryLog("refused launch-only emulator: no exact instance window or command line proof; pid=" & $iPlayerPid & "; instance=" & $sInstance)
 		Return False
 	EndIf
-	Local $sCurrentReceipt = _ReadLaunchOnlyEmulatorOwnershipReceipt()
+	Local $sCurrentReceipt = _ReadLaunchOnlyEmulatorOwnershipReceipt($sReceiptPath)
 	If $sCurrentReceipt <> $sReceipt Then
 		If _LaunchOnlyEmulatorReceiptConsumedSafely($sCurrentReceipt, $iPlayerPid) Then
 			_RecoveryLog("launch-only owned BlueStacks player already closed by concurrent recovery; pid=" & $iPlayerPid & "; instance=" & $sInstance)
@@ -739,7 +1284,7 @@ Func _CloseOwnedLaunchOnlyEmulator($bRequireCurrentLauncher)
 	EndIf
 	If Not ProcessExists($iPlayerPid) Then
 		_RecoveryLog("removing stale launch-only emulator receipt after concurrent close; pid=" & $iPlayerPid)
-		Return FileDelete($g_sLaunchOnlyEmulatorOwnershipReceipt) = 1 Or Not FileExists($g_sLaunchOnlyEmulatorOwnershipReceipt)
+		Return _DeleteLaunchOnlyEmulatorOwnershipReceipts()
 	EndIf
 	If _ProcessCreationId($iPlayerPid) <> $sPlayerCreated Then Return False
 	_RecoveryLog("closing launch-only owned BlueStacks player; pid=" & $iPlayerPid & "; instance=" & $sInstance)
@@ -752,13 +1297,13 @@ Func _CloseOwnedLaunchOnlyEmulator($bRequireCurrentLauncher)
 		_RecoveryLog("launch-only owned BlueStacks player remained alive; pid=" & $iPlayerPid)
 		Return False
 	EndIf
-	Local $sFinalReceipt = _ReadLaunchOnlyEmulatorOwnershipReceipt()
+	Local $sFinalReceipt = _ReadLaunchOnlyEmulatorOwnershipReceipt($sReceiptPath)
 	If $sFinalReceipt <> $sReceipt Then
 		If _LaunchOnlyEmulatorReceiptConsumedSafely($sFinalReceipt, $iPlayerPid) Then Return True
 		Return False
 	EndIf
-	If Not _LaunchOnlyEmulatorReceiptPathSafe(True) Then Return False
-	Return FileDelete($g_sLaunchOnlyEmulatorOwnershipReceipt) = 1 Or Not FileExists($g_sLaunchOnlyEmulatorOwnershipReceipt)
+	If Not _LaunchOnlyEmulatorReceiptPathSafe($sReceiptPath, True) Then Return False
+	Return _DeleteLaunchOnlyEmulatorOwnershipReceipts()
 EndFunc   ;==>_CloseOwnedLaunchOnlyEmulator
 
 Func _PlannerReceiptString($sReceipt, $sName)
@@ -1014,6 +1559,7 @@ Func _EngineSupervisorPrepareLaunch(ByRef $sError)
 	$g_sEngineSupervisorLastNotice = ""
 	$g_iEngineSupervisorBackendPid = 0
 	$g_sEngineSupervisorBackendCreated = ""
+	$g_sEngineSupervisorStartRequestId = ""
 	$g_bEngineSupervisorAbortAttempted = False
 	$g_bEngineSupervisorFailureLatched = False
 	$g_sEngineSupervisorFailure = ""
@@ -1075,6 +1621,7 @@ EndFunc   ;==>_EngineSupervisorDisarm
 Func _EngineSupervisorResetGeneration($iBackendPid, $sBackendCreated, $sReason = "")
 	$g_iEngineSupervisorBackendPid = $iBackendPid
 	$g_sEngineSupervisorBackendCreated = $sBackendCreated
+	$g_sEngineSupervisorStartRequestId = ""
 	$g_sEngineSupervisorLastPhase = ""
 	$g_iEngineSupervisorLastPhaseRank = -1
 	$g_iEngineSupervisorLastSequence = -1
@@ -1091,9 +1638,12 @@ EndFunc   ;==>_EngineSupervisorResetGeneration
 
 Func _EngineSupervisorBeginGeneration($sReceipt, $iBackendPid)
 	Local $sBackendCreated = _PlannerReceiptString($sReceipt, "backend_created")
-	If $iBackendPid = $g_iEngineSupervisorBackendPid And $sBackendCreated = $g_sEngineSupervisorBackendCreated Then Return False
+	Local $sStartRequestId = _EngineSupervisorRequestId($sReceipt, "start_request_id")
+	If $iBackendPid = $g_iEngineSupervisorBackendPid And $sBackendCreated = $g_sEngineSupervisorBackendCreated And _
+			$sStartRequestId = $g_sEngineSupervisorStartRequestId Then Return False
 	_EngineSupervisorResetGeneration($iBackendPid, $sBackendCreated)
-	_RecoveryLog("engine init generation bound; backend_pid=" & $iBackendPid & "; backend_created=" & $sBackendCreated)
+	$g_sEngineSupervisorStartRequestId = $sStartRequestId
+	_RecoveryLog("engine init generation bound; backend_pid=" & $iBackendPid & "; backend_created=" & $sBackendCreated & "; start_request_id=" & $sStartRequestId)
 	Return True
 EndFunc   ;==>_EngineSupervisorBeginGeneration
 
@@ -1190,7 +1740,8 @@ Func _EngineSupervisorCancelMatches($sReceiptStartRequestId)
 	If _PlannerReceiptString($sCancel, "schema") <> $g_sEngineInitCancelSchema Then Return False
 	If _PlannerReceiptString($sCancel, "token") <> $g_sEngineSupervisorToken Then Return False
 	Local $sExpected = _EngineSupervisorRequestId($sCancel, "expected_start_request_id")
-	Return $sExpected <> "" And $sExpected = $sReceiptStartRequestId
+	Local $sStopRequestId = _EngineSupervisorRequestId($sCancel, "stop_request_id")
+	Return $sExpected <> "" And $sExpected = $sReceiptStartRequestId And $sStopRequestId <> ""
 EndFunc   ;==>_EngineSupervisorCancelMatches
 
 Func _EngineSupervisorFinalize($sReceipt, $sOutcome)
@@ -1283,7 +1834,9 @@ Func _EngineSupervisorPoll()
 	EndIf
 	; A nonce and Start-request-bound cancellation wins over late initialized, failure, and deadline
 	; handling once prepared. The launcher never replays Start for a replacement backend.
-	If _EngineSupervisorCancelMatches($sStartRequestId) Then Return _EngineSupervisorAbort($sReceipt, $iBackendPid, "matching Start cancellation")
+	; A matching web Stop belongs to the exact-backend Stop supervisor. Never reuse the engine-init
+	; abort path here because it also closes MiniGui and defeats ready-idle recovery.
+	If _EngineSupervisorCancelMatches($sStartRequestId) Then Return False
 	If $sPhase = "initialized" Then Return _EngineSupervisorFinalize($sReceipt, "initialized")
 	If $sPhase = "failed" Then Return _EngineSupervisorAbort($sReceipt, $iBackendPid, "backend reported failed")
 	If $sPhase = "prepared" And TimerDiff($g_hEngineSupervisorPhaseTimer) > $g_iEngineInitEnterTimeoutMs Then _
@@ -1372,10 +1925,19 @@ Func _CloseOwnedPlannerService($iExpectedBackendPid = 0, $sExpectedBackendCreate
 	If $sReceipt = "" Then
 		Local $sUnownedHealth = ""
 		If _ReadPlannerHealthBounded($sUnownedHealth) Then
-			_RecoveryLog("refused planner service: loopback health has no safe ownership receipt")
-			Return False
+			; Health becomes reachable immediately before the planner publishes its atomic ownership
+			; receipt. Keep Mini/backend alive during this bounded publication window, then feed the
+			; receipt through every existing token/PID/creation/path/parent/health check below. Health
+			; alone is never ownership, and a foreign listener with no valid receipt remains fail-closed.
+			$sReceipt = _WaitForPlannerOwnershipReceiptPublication()
+			If $sReceipt = "" Then
+				_RecoveryLog("refused planner service: loopback health has no safe ownership receipt after bounded publication wait")
+				Return False
+			EndIf
+			_RecoveryLog("planner ownership receipt published during bounded recovery wait")
+		Else
+			Return True
 		EndIf
-		Return True
 	EndIf
 	If $iExpectedBackendPid > 0 And (_PlannerReceiptInt($sReceipt, "backend_pid") <> $iExpectedBackendPid Or _
 			_PlannerReceiptString($sReceipt, "backend_created") <> $sExpectedBackendCreated) Then
@@ -1452,6 +2014,17 @@ Func _CloseOwnedPlannerService($iExpectedBackendPid = 0, $sExpectedBackendCreate
 	EndIf
 	Return True
 EndFunc   ;==>_CloseOwnedPlannerService
+
+Func _WaitForPlannerOwnershipReceiptPublication($iTimeoutMs = 5000, $iPollMs = 50)
+	Local $hPublicationWindow = TimerInit()
+	Do
+		Local $sReceipt = _ReadPlannerOwnershipReceipt()
+		If $sReceipt <> "" Then Return $sReceipt
+		If TimerDiff($hPublicationWindow) >= $iTimeoutMs Then ExitLoop
+		Sleep($iPollMs)
+	Until False
+	Return ""
+EndFunc   ;==>_WaitForPlannerOwnershipReceiptPublication
 
 Func _CloseOwnedAutoItErrorDialogs()
 	Local $aDialogs = WinList("AutoIt Error")
@@ -1714,6 +2287,7 @@ Func _DockWhenReady($hController, $iControllerPid, $iTimeoutMs)
 	Local $hTimer = TimerInit()
 	Do
 		_RefreshLauncherOwnedBackend($iControllerPid)
+		_StopSupervisorPoll($iControllerPid)
 		_EngineSupervisorPoll()
 		If Not ProcessExists($iControllerPid) Or Not WinExists($hController) Then Return False
 		Local $hBlueStacks = _FindBlueStacksWindow($hController)
@@ -1728,6 +2302,7 @@ Func _KeepDocked($hController, $iControllerPid)
 	Local $sPreviousDockState = ""
 	While ProcessExists($iControllerPid)
 		_RefreshLauncherOwnedBackend($iControllerPid)
+		_StopSupervisorPoll($iControllerPid)
 		_EngineSupervisorPoll()
 		; Re-prove the controller's exact PID, path, and title before every possible move. If its
 		; window is briefly recreated, reacquire only another exact window from the same process.
@@ -1780,6 +2355,7 @@ EndFunc   ;==>_AdaptiveDockPollDelay
 ; cancellation is present, cap only the supervisor-bearing waits at 250 ms so Stop can win before a
 ; late initialized receipt without turning the launcher into a busy loop.
 Func _EngineSupervisorNeedsFastPoll()
+	If $g_bStopSupervisorActive Then Return True
 	If Not $g_bEngineSupervisorArmed Or $g_iEngineSupervisorControllerPid <= 0 Then Return False
 	If $g_bEngineSupervisorAbortAttempted Or $g_bEngineSupervisorFailureLatched Then Return False
 	If $g_bEngineSupervisorPrepared Or $g_iEngineSupervisorBackendPid > 0 Then Return True

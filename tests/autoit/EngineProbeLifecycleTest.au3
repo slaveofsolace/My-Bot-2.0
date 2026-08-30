@@ -101,7 +101,11 @@ AssertTrue(StringInStr($sGuiPid, "Managed GUI PID export skipped during supervis
 Local $iManagedBoundStart = StringInStr($sParent, "Func MBRFuncManagedLaunchBound()", 1)
 Local $iManagedBoundEnd = StringInStr($sParent, "EndFunc", 1, 1, $iManagedBoundStart)
 Local $sManagedBound = StringMid($sParent, $iManagedBoundStart, $iManagedBoundEnd - $iManagedBoundStart)
-AssertTrue(StringInStr($sManagedBound, "$g_bMBRFuncBackendHost And $g_bMBRFuncEngineSupervisorValid", 1) > 0, "managed launch binding requires the exact supervised backend")
+AssertTrue(StringInStr($sManagedBound, "$g_bMBRFuncBackendHost", 1) > 0 And _
+	StringInStr($sManagedBound, "$g_bMBRFuncEngineSupervisorValid", 1) > 0 And _
+	StringInStr($sManagedBound, "ProcessExists($iLauncherPid)", 1) > 0 And _
+	StringInStr($sManagedBound, "_MBRFuncProcessCreationId($iLauncherPid)", 1) > 0, _
+	"managed launch binding requires the exact supervised backend and live launcher identity")
 Local $iNetworkGate = StringInStr($sMain, "If MBRFuncManagedLaunchBound() Then", 1)
 Local $iNetworkGateEnd = StringInStr($sMain, "EndIf", 1, 1, $iNetworkGate)
 Local $sNetworkGate = StringMid($sMain, $iNetworkGate, $iNetworkGateEnd - $iNetworkGate)

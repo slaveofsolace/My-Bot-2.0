@@ -68,7 +68,7 @@ class GameLaunchOnlyControlTests(unittest.TestCase):
             "ConnectAndroidAdb(False, 3000)",
             "WaitForAndroidBootCompleted(",
             'AndroidAdbSendShellCommand("am start -n "',
-            "GetAndroidProcessPID(Default, False)",
+            "GetAndroidProcessPID1(Default, False)",
             "OpenHomeCollectorsProveHome()",
             "BuilderMaintenanceRoutePrepared()",
             "_CheckPixel($aIsOnBuilderBase, False)",
@@ -83,6 +83,7 @@ class GameLaunchOnlyControlTests(unittest.TestCase):
             "RunControlStopRequested()",
         ):
             self.assertIn(required, adapter)
+        self.assertNotIn("GetAndroidProcessPID(Default, False)", adapter)
         self.assertEqual(adapter.count('AndroidAdbSendShellCommand("am start -n "'), 1)
         for forbidden in (
             "LaunchAndroid(",
@@ -206,11 +207,20 @@ class GameLaunchOnlyControlTests(unittest.TestCase):
             "If $bStartedEmulator Then",
             "_BlueStacks5ConfiguredAdbOwnerPid()",
             "_BlueStacks5WriteLaunchOnlyOwnerReceipt($iOwnedPlayerPid)",
+            "_BlueStacks5WriteLaunchOnlyDispatchOwnerReceipt($iOwnedPlayerPid, $sOwnedPlayerCreated",
             "BlueStacks launched but exact product ownership could not be recorded for cleanup",
         ):
             self.assertIn(required, adapter)
         self.assertLess(adapter.index("ConnectAndroidAdb(False, 3000)"), adapter.index("_BlueStacks5WriteLaunchOnlyOwnerReceipt"))
         self.assertLess(adapter.index("_BlueStacks5WriteLaunchOnlyOwnerReceipt"), adapter.index('AndroidAdbSendShellCommand("am start -n "'))
+        self.assertLess(
+            adapter.index('AndroidAdbSendShellCommand("am start -n "'),
+            adapter.index("_BlueStacks5WriteLaunchOnlyDispatchOwnerReceipt"),
+        )
+        self.assertLess(
+            adapter.index("_BlueStacks5WriteLaunchOnlyDispatchOwnerReceipt"),
+            adapter.index("_BlueStacks5AcceptanceStopBeforeHomeBarrier"),
+        )
 
         receipt = function_body(self.android, "_BlueStacks5WriteLaunchOnlyOwnerReceipt")
         for required in (
@@ -229,6 +239,23 @@ class GameLaunchOnlyControlTests(unittest.TestCase):
             self.assertIn(required, receipt)
         for forbidden in ("ShellExecute", "taskkill", "ProcessClose"):
             self.assertNotIn(forbidden, receipt)
+
+        dispatch_receipt = function_body(self.android, "_BlueStacks5WriteLaunchOnlyDispatchOwnerReceipt")
+        for required in (
+            "$g_sBlueStacks5LaunchOnlyDispatchOwnerSchema",
+            "$g_sBlueStacks5LaunchOnlyDispatchOwnerReceipt",
+            '"state"',
+            '"dispatched"',
+            '"start_request_id"',
+            '"launch_generation"',
+            '"backend_path_digest"',
+            '"player_path_digest"',
+            '"player_parent_path_digest"',
+            '"adb_path_digest"',
+            '"adb_executable_sha256"',
+            '"adb_parent_path_digest"',
+        ):
+            self.assertIn(required, dispatch_receipt)
 
     def test_native_bridge_owns_launch_request_and_returns_idle(self) -> None:
         consume = function_body(self.bridge, "_RunControlConsumeCommand")
@@ -285,18 +312,20 @@ class GameLaunchOnlyControlTests(unittest.TestCase):
             self.assertTrue(payload["native_command_queued"])
             self.assertEqual("stop", json.loads(command.read_text(encoding="utf-8"))["action"])
 
-    def test_browser_exposes_launch_only_and_retains_stop_during_stale_heartbeat(self) -> None:
+    def test_browser_keeps_launch_only_diagnostic_separate_from_start_bot(self) -> None:
         self.assertIn('id="controlGameLaunch"', self.html)
         self.assertIn("Return idle after passive game-ready proof", self.html)
         self.assertIn("may close the reviewed Welcome Back OK surface", self.html)
         self.assertIn("never claims rewards", self.html)
         self.assertIn("$('controlGameLaunch').onclick = () => sendControl('launch-game')", self.javascript)
-        self.assertIn("function primaryControlAction()", self.javascript)
-        self.assertIn("return NATIVE_PROFILE_MODE && CONTROL.recognition_available !== true ? 'launch-game' : 'start';", self.javascript)
-        self.assertIn("$('controlStart').textContent = primaryLaunchOnly ? 'Launch game safely' : 'Start run';", self.javascript)
+        self.assertIn("async function startBot()", self.javascript)
+        self.assertIn("$('controlStart').textContent = 'Start bot';", self.javascript)
+        self.assertIn("$('controlStart').onclick = startBot;", self.javascript)
+        self.assertIn("await sendControl('start');", self.javascript)
+        self.assertNotIn("primaryControlAction", self.javascript)
         self.assertIn("['start', 'check-engine', 'launch-game'].includes(CONTROL_PENDING?.action)", self.javascript)
         self.assertIn("(!connected && !managedInitCanBeStopped)", self.javascript)
-        self.assertIn("expected_start_request_id: previousPending.request_id", self.javascript)
+        self.assertIn("expected_start_request_id: expectedGenerationRequestId", self.javascript)
 
     def test_launch_only_surface_message_distinguishes_known_startup_overlays(self) -> None:
         self.assertIn("function launchGameSurfaceMessage(adbReady, gameReady)", self.javascript)

@@ -108,19 +108,30 @@ class CleanRoomRecognitionRuntimeBridgeTest(unittest.TestCase):
         self.assertIn("$CLEANROOM_RECOGNITION_PROVIDER_UNAVAILABLE", provider)
         self.assertNotIn("$CLEANROOM_RECOGNITION_PROVIDER_INHERITEDAUTHORIZED", provider)
 
-    def test_legacy_recognition_dispatch_stays_blocked(self) -> None:
+    def test_legacy_recognition_dispatch_requires_exact_managed_local_runtime(self) -> None:
         mbr = (ROOT / "COCBot" / "functions" / "Other" / "MBRFunc.au3").read_text(encoding="utf-8-sig")
         availability_start = mbr.index("Func MBRFuncRecognitionAvailable()")
         availability_end = mbr.index("EndFunc", availability_start)
-        self.assertIn("Return False", mbr[availability_start:availability_end])
+        availability = mbr[availability_start:availability_end]
+        self.assertIn("MBRFuncManagedLaunchBound()", availability)
+        self.assertIn("$g_bMBRFuncEngineAvailable", availability)
         dispatch_start = mbr.index("Func DllCallMyBot(")
         dispatch_end = mbr.index("EndFunc", dispatch_start)
         dispatch = mbr[dispatch_start:dispatch_end]
-        self.assertIn("Inherited ImgLoc recognition is disabled", dispatch)
+        self.assertIn("Not MBRFuncRecognitionAvailable()", dispatch)
+        self.assertIn("_DllCallMyBot($sFunc", dispatch)
+        self.assertIn("Managed recognition timed out or lost launcher ownership", dispatch)
         self.assertNotIn("CleanRoomRecognition", dispatch)
         provider_start = mbr.index("Func MBRFuncRecognitionProviderState()")
         provider_end = mbr.index("EndFunc", provider_start)
-        self.assertIn('Return "Unavailable"', mbr[provider_start:provider_end])
+        self.assertIn('"InheritedLocalRuntime"', mbr[provider_start:provider_end])
+        self.assertIn('"Unavailable"', mbr[provider_start:provider_end])
+
+        managed = mbr[mbr.index("Func MBRFuncManagedLaunchBound()") : mbr.index("EndFunc", mbr.index("Func MBRFuncManagedLaunchBound()"))]
+        self.assertIn("$g_bMBRFuncBackendHost", managed)
+        self.assertIn("$g_bMBRFuncEngineSupervisorValid", managed)
+        self.assertIn("ProcessExists($iLauncherPid)", managed)
+        self.assertIn("_MBRFuncProcessCreationId($iLauncherPid)", managed)
 
         control = (ROOT / "COCBot" / "functions" / "Run" / "RunControlBridge.au3").read_text(encoding="utf-8-sig")
         self.assertIn('"recognition_provider"', control)

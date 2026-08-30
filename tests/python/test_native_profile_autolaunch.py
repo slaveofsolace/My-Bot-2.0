@@ -85,6 +85,81 @@ class NativeProfileAutoLaunchTests(unittest.TestCase):
                 self.assertEqual(planner_ui.plan_status()["mode"], "native-profile")
                 self.assertFalse(planner_ui.plan_status()["exists"])
 
+    def test_failed_rejection_receipt_still_blocks_the_previous_accepted_plan(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            plan_path = root / "run-plan.local.json"
+            receipt_path = root / "run-plan.receipt.local.json"
+            command_path = root / "control-command.local.json"
+            plan_path.write_text(json.dumps(valid_home_plan(), indent=2), encoding="utf-8")
+            with mock.patch.object(planner_ui, "PLAN_PATH", plan_path), mock.patch.object(
+                planner_ui, "PLAN_RECEIPT_PATH", receipt_path
+            ):
+                plan_token = planner_ui.plan_file_token()
+                receipt = planner_ui.accepted_plan_receipt(
+                    "planned", "accepted-attempt", 7, plan_token
+                )
+                planner_ui.write_plan_receipt_atomic(receipt)
+
+                planner_ui.clear_plan_rejection()
+                try:
+                    with mock.patch.object(
+                        planner_ui,
+                        "write_plan_receipt_atomic",
+                        side_effect=OSError("injected rejection receipt failure"),
+                    ):
+                        planner_ui.remember_plan_rejection(["injected invalid edit"], "failed-attempt")
+
+                    status = planner_ui.plan_status()
+                    self.assertFalse(status["runnable"])
+                    self.assertEqual(status["receipt_state"], "rejected")
+                    self.assertEqual(status["attempt_id"], "failed-attempt")
+                    self.assertIn("most recent plan save failed", status["runnable_problem"])
+                    self.assertIn("rejection receipt failure", status["receipt_error"])
+
+                    with mock.patch.object(
+                        planner_ui,
+                        "CONTROL_COMMAND_PATH",
+                        command_path,
+                    ), mock.patch.object(
+                        planner_ui,
+                        "control_status",
+                        return_value={"connected": True, "state": "idle", "engine_available": True},
+                    ):
+                        payload, code = planner_ui.queue_control_command(
+                            "start",
+                            expected_run_mode="planned",
+                            expected_plan_revision=receipt["plan_revision"],
+                            expected_plan_token=receipt["plan_token"],
+                        )
+                    self.assertEqual(code, 409)
+                    self.assertIn("most recent plan save failed", payload["problems"][0])
+                    self.assertFalse(command_path.exists())
+                finally:
+                    planner_ui.clear_plan_rejection()
+
+    def test_normal_launch_does_not_consume_stale_restart_intent(self):
+        read_config = (ROOT / "COCBot" / "functions" / "Config" / "readConfig.au3").read_text(
+            encoding="utf-8-sig"
+        )
+        self.assertIn("Local $bPersistedRestarted = False", read_config)
+        self.assertIn(
+            'IniReadS($bPersistedRestarted, $g_sProfileConfigPath, "general", "Restarted", False, "Bool")',
+            read_config,
+        )
+        self.assertIn(
+            "$g_bRestarted = $g_bBotLaunchOption_Autostart Or "
+            "($g_bBotLaunchOption_Restart And $bPersistedRestarted)",
+            read_config,
+        )
+        self.assertIn(
+            "$bPersistedRestarted And Not $g_bBotLaunchOption_Restart And "
+            "Not $g_bBotLaunchOption_Autostart",
+            read_config,
+        )
+        self.assertIn('IniWrite($g_sProfileConfigPath, "general", "Restarted", 0)', read_config)
+        self.assertNotIn("IniReadS($g_bRestarted", read_config)
+
     def test_switch_backs_up_applied_plan_atomically_and_is_idempotent(self):
         with tempfile.TemporaryDirectory() as folder:
             plan_path = Path(folder) / "run-plan.local.json"
@@ -96,7 +171,7 @@ class NativeProfileAutoLaunchTests(unittest.TestCase):
                     mock.patch.object(
                         planner_ui,
                         "control_status",
-                        return_value={"connected": True, "state": "idle", "recognition_available": True},
+                        return_value={"connected": True, "state": "idle", "recognition_available": True, "recognition_provider": "InheritedLocalRuntime"},
                     ):
                 payload, code = planner_ui.activate_native_profile_mode()
                 self.assertEqual(code, 200)
@@ -113,6 +188,75 @@ class NativeProfileAutoLaunchTests(unittest.TestCase):
                 self.assertIsNone(second["backup"])
                 self.assertEqual(list(Path(folder).glob("run-plan.local.backup-*.json")), backups)
 
+    def test_switch_restores_the_exact_plan_when_receipt_publication_fails(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            plan_path = root / "run-plan.local.json"
+            receipt_path = root / "run-plan.receipt.local.json"
+            original = b'{"run.strategy":"home.collectors"}\r\n'
+            plan_path.write_bytes(original)
+            status = {
+                "connected": True,
+                "state": "idle",
+                "recognition_available": True,
+                "recognition_provider": "InheritedLocalRuntime",
+            }
+            with mock.patch.object(planner_ui, "PLAN_PATH", plan_path), mock.patch.object(
+                planner_ui, "PLAN_RECEIPT_PATH", receipt_path
+            ), mock.patch.object(planner_ui, "control_status", return_value=status), mock.patch.object(
+                planner_ui,
+                "write_plan_receipt_atomic",
+                side_effect=OSError("injected receipt failure"),
+            ):
+                payload, code = planner_ui.activate_native_profile_mode()
+
+            self.assertEqual(code, 500)
+            self.assertFalse(payload["ok"])
+            self.assertIn("applied plan was restored", payload["problems"][0])
+            self.assertEqual(plan_path.read_bytes(), original)
+            self.assertEqual(list(root.glob("run-plan.local.backup-*.json")), [])
+            self.assertFalse(receipt_path.exists())
+
+    def test_switch_surfaces_the_exact_backup_when_receipt_rollback_fails(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            plan_path = root / "run-plan.local.json"
+            receipt_path = root / "run-plan.receipt.local.json"
+            original = b'{"run.strategy":"home.collectors"}\n'
+            plan_path.write_bytes(original)
+            status = {
+                "connected": True,
+                "state": "idle",
+                "recognition_available": True,
+                "recognition_provider": "InheritedLocalRuntime",
+            }
+            real_replace = os.replace
+            replace_count = 0
+
+            def fail_rollback(source, destination):
+                nonlocal replace_count
+                replace_count += 1
+                if replace_count == 1:
+                    return real_replace(source, destination)
+                raise OSError("injected rollback failure")
+
+            with mock.patch.object(planner_ui, "PLAN_PATH", plan_path), mock.patch.object(
+                planner_ui, "PLAN_RECEIPT_PATH", receipt_path
+            ), mock.patch.object(planner_ui, "control_status", return_value=status), mock.patch.object(
+                planner_ui,
+                "write_plan_receipt_atomic",
+                side_effect=OSError("injected receipt failure"),
+            ), mock.patch.object(planner_ui.os, "replace", side_effect=fail_rollback):
+                payload, code = planner_ui.activate_native_profile_mode()
+
+            self.assertEqual(code, 500)
+            self.assertFalse(payload["ok"])
+            self.assertIn("could not be restored", payload["problems"][0])
+            self.assertFalse(plan_path.exists())
+            backup = Path(payload["recovery_backup"])
+            self.assertTrue(backup.is_absolute())
+            self.assertEqual(backup.read_bytes(), original)
+
     def test_web_start_binds_the_server_observed_mode_into_the_native_command(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
@@ -124,6 +268,7 @@ class NativeProfileAutoLaunchTests(unittest.TestCase):
                 "state": "idle",
                 "engine_available": True,
                 "recognition_available": True,
+                "recognition_provider": "InheritedLocalRuntime",
             }
             with mock.patch.object(planner_ui, "PLAN_PATH", plan_path), \
                     mock.patch.object(planner_ui, "PLAN_RECEIPT_PATH", receipt_path), \
@@ -184,7 +329,7 @@ class NativeProfileAutoLaunchTests(unittest.TestCase):
             self.assertIn("clean-room recognizer required", payload["problems"])
             self.assertFalse(command_path.exists())
 
-    def test_web_start_allows_native_profile_cold_bootstrap_before_recognition_exists(self):
+    def test_web_start_allows_native_profile_cold_bootstrap_with_managed_local_provider(self):
         with tempfile.TemporaryDirectory() as folder:
             receipt_path = Path(folder) / "run-plan.receipt.local.json"
             command_path = Path(folder) / "control-command.local.json"
@@ -196,8 +341,9 @@ class NativeProfileAutoLaunchTests(unittest.TestCase):
                 "window_attached": False,
                 "adb_ready": False,
                 "game_ready": False,
-                "recognition_available": False,
-                "recognition_error": "no frame available yet",
+                "recognition_available": True,
+                "recognition_provider": "InheritedLocalRuntime",
+                "recognition_error": "",
             }
             with mock.patch.object(planner_ui, "PLAN_PATH", Path(folder) / "missing-plan.json"), \
                     mock.patch.object(planner_ui, "PLAN_RECEIPT_PATH", receipt_path), \
@@ -476,7 +622,7 @@ class NativeProfileAutoLaunchTests(unittest.TestCase):
                 results["native"] = planner_ui.activate_native_profile_mode()
                 native_finished.set()
 
-            status = {"connected": True, "state": "idle", "recognition_available": True}
+            status = {"connected": True, "state": "idle", "recognition_available": True, "recognition_provider": "InheritedLocalRuntime"}
             with mock.patch.object(planner_ui, "PLAN_PATH", plan_path), mock.patch.object(
                 planner_ui, "PLAN_RECEIPT_PATH", receipt_path
             ), mock.patch.object(
@@ -638,6 +784,37 @@ class NativeProfileAutoLaunchTests(unittest.TestCase):
         self.assertLess(body.index("OpenHomeInactivityReloadIssue()"), body.index("OpenHomeDailyRewardCaptureClaim($aClaim)"))
         self.assertIn("reload-rejected", body)
         self.assertIn("reload-unconfirmed", body)
+
+    def test_current_client_process_probe_cannot_restart_managed_web_run(self):
+        android = (ROOT / "COCBot" / "functions" / "Android" / "Android.au3").read_text(
+            encoding="utf-8-sig"
+        )
+        bluestacks = (
+            ROOT / "COCBot" / "functions" / "Android" / "AndroidBluestacks5.au3"
+        ).read_text(encoding="utf-8-sig")
+        start = android.index("Func GetAndroidProcessPID(")
+        probe = android[start:android.index("EndFunc", start)]
+        launch_start = bluestacks.index("Func LaunchBlueStacks5CoCOnly(")
+        launch = bluestacks[launch_start:bluestacks.index("EndFunc", launch_start)]
+
+        self.assertIn("GetAndroidProcessPID1($sPackage, $bForeground)", probe)
+        self.assertLess(
+            probe.index("GetAndroidProcessPID1($sPackage, $bForeground)"),
+            probe.index("$g_iAdroidProcNotRunning += 1"),
+        )
+        self.assertIn("$g_iAdroidProcNotRunning = 0", probe)
+        self.assertIn("$g_iAdroidProcNotRunning >= 10", probe)
+        self.assertLess(
+            probe.index('IsDeclared("g_bRunControlStartInProgress")'),
+            probe.index("RestartBOT()"),
+        )
+        self.assertIn('Eval("g_bRunControlStartInProgress") = True', probe)
+        self.assertIn(
+            'Call("RunControlReportOneShotOutcome", "failed", $sManagedFailure)',
+            probe,
+        )
+        self.assertIn("GetAndroidProcessPID1(Default, False)", launch)
+        self.assertNotIn("GetAndroidProcessPID(Default, False)", launch)
 
     def test_full_profile_start_applies_and_restores_narrow_no_gem_overlay(self):
         execution = (ROOT / "COCBot" / "functions" / "Run" / "RunExecution.au3").read_text(

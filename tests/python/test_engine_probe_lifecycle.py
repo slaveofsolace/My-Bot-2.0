@@ -50,7 +50,10 @@ class EngineProbeLifecycleTests(unittest.TestCase):
 
     def test_managed_package_startup_skips_optional_outbound_version_check(self) -> None:
         managed = function_body(self.parent, "MBRFuncManagedLaunchBound")
-        self.assertIn("$g_bMBRFuncBackendHost And $g_bMBRFuncEngineSupervisorValid", managed)
+        self.assertIn("$g_bMBRFuncBackendHost", managed)
+        self.assertIn("$g_bMBRFuncEngineSupervisorValid", managed)
+        self.assertIn("ProcessExists($iLauncherPid)", managed)
+        self.assertIn("_MBRFuncProcessCreationId($iLauncherPid)", managed)
         gate = self.main.index("If MBRFuncManagedLaunchBound() Then")
         end = self.main.index("EndIf", gate)
         block = self.main[gate:end]

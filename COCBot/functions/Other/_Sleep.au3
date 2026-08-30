@@ -16,6 +16,18 @@
 ; ===============================================================================================================================
 #include-once
 
+; Pump the optional loopback control bridge from synchronous work that cannot use _Sleep.
+; Mini GUI/Watchdog builds share these sources without the main-only bridge, so both
+; callbacks remain string-dispatched and a missing callback preserves legacy behavior.
+Func RunControlCheckpoint()
+	Local $sRunControlPollCallback = "RunControl" & "Poll"
+	Call($sRunControlPollCallback)
+	Local $sRunControlStopCallback = "RunControl" & "StopRequested"
+	Local $vStopRequested = Call($sRunControlStopCallback)
+	If @error Then Return False
+	Return $vStopRequested = True
+EndFunc   ;==>RunControlCheckpoint
+
 Func _Sleep($iDelay, $iSleep = True, $CheckRunState = True, $SleepWhenPaused = True)
 	Static $hTimer_SetTime = 0
 	Static $hTimer_PBRemoteControlInterval = 0

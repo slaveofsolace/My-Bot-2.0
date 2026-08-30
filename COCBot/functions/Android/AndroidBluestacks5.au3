@@ -12,6 +12,8 @@
 ; Link ..........: https://github.com/MyBotRun/MyBot/wiki
 ; Example .......: No
 ; ===============================================================================================================================
+#include "..\Run\AcceptanceStopBeforeHome.au3"
+
 Func DoubleQuote($sString)
 	Return Chr(34) & $sString & Chr(34)
 EndFunc   ;==>DoubleQuote
@@ -22,17 +24,181 @@ EndFunc   ;==>GetBlueStacks5ProgramParameter
 
 Global Const $g_sBlueStacks5LaunchOnlyOwnerSchema = "my-bot-launch-only-emulator-owner-v1"
 Global Const $g_sBlueStacks5LaunchOnlyOwnerReceipt = $g_sMBRFuncRuntimeLocalAppData & "\My Bot 2.0\launch-only-emulator-owner-v1.json"
+Global Const $g_sBlueStacks5LaunchOnlyDispatchOwnerSchema = $ACCEPTANCE_LAUNCH_OWNER_SCHEMA
+Global Const $g_sBlueStacks5LaunchOnlyDispatchOwnerReceipt = $g_sMBRFuncRuntimeLocalAppData & "\My Bot 2.0\launch-only-emulator-owner-v2.json"
 
-Func _BlueStacks5LaunchOnlyReceiptPathSafe($bRequireReceipt = False)
+Func BlueStacks5AcceptanceStopBeforeHomeContract(ByRef $sReason, ByRef $sToken)
+	$sReason = ""
+	$sToken = EnvGet($ACCEPTANCE_STOP_BEFORE_HOME_TOKEN_ENV)
+	Local $iState = AcceptanceStopBeforeHomeEnvironmentState(EnvGet($ACCEPTANCE_STOP_BEFORE_HOME_ENV), $sToken, $sReason)
+	If $iState <> 1 Then Return $iState
+	If Not AcceptanceStopBeforeHomeBindingValid(RunControlCurrentStartMode(), RunControlCurrentStartGeneration(), _
+			RunExecutionSessionId(), RunControlCurrentStartPlanRevision(), RunControlCurrentStartPlanToken(), _
+			$g_sProfileCurrentName, $g_sAndroidEmulator, $g_sAndroidInstance, $sReason) Then Return -1
+	Return 1
+EndFunc   ;==>BlueStacks5AcceptanceStopBeforeHomeContract
+
+Func _BlueStacks5AcceptanceSha256File($sPath)
+	If Not FileExists($sPath) Then Return ""
+	Local $sHash = StringLower(String(_Crypt_HashFile($sPath, $CALG_SHA_256)))
+	If StringLeft($sHash, 2) = "0x" Then $sHash = StringTrimLeft($sHash, 2)
+	If Not StringRegExp($sHash, "^[0-9a-f]{64}$") Then Return ""
+	Return $sHash
+EndFunc   ;==>_BlueStacks5AcceptanceSha256File
+
+Func _BlueStacks5AcceptanceSha256Text($sText)
+	Local $vHash = _Crypt_HashData(StringToBinary(String($sText), 4), $CALG_SHA_256)
+	If @error Or Not IsBinary($vHash) Then Return ""
+	Return StringLower(StringTrimLeft(String($vHash), 2))
+EndFunc   ;==>_BlueStacks5AcceptanceSha256Text
+
+Func _BlueStacks5ProcessImagePath($iPid)
+	Local $aOpen = DllCall("kernel32.dll", "handle", "OpenProcess", "dword", 0x1000, "bool", False, "dword", $iPid)
+	If @error Or Not IsArray($aOpen) Or Not $aOpen[0] Then Return ""
+	Local $hProcess = $aOpen[0]
+	Local $tPath = DllStructCreate("wchar[32768]")
+	Local $aQuery = DllCall("kernel32.dll", "bool", "QueryFullProcessImageNameW", "handle", $hProcess, "dword", 0, _
+			"struct*", $tPath, "dword*", 32768)
+	DllCall("kernel32.dll", "bool", "CloseHandle", "handle", $hProcess)
+	If @error Or Not IsArray($aQuery) Or Not $aQuery[0] Then Return ""
+	Return DllStructGetData($tPath, 1)
+EndFunc   ;==>_BlueStacks5ProcessImagePath
+
+Func _BlueStacks5UtcTimestamp()
+	Local $tSystem = DllStructCreate("ushort Year;ushort Month;ushort DayOfWeek;ushort Day;ushort Hour;ushort Minute;ushort Second;ushort Milliseconds")
+	Local $aSystem = DllCall("kernel32.dll", "none", "GetSystemTime", "struct*", $tSystem)
+	If @error Or Not IsArray($aSystem) Then Return ""
+	Return StringFormat("%04d-%02d-%02dT%02d:%02d:%02d.%03dZ", DllStructGetData($tSystem, "Year"), _
+			DllStructGetData($tSystem, "Month"), DllStructGetData($tSystem, "Day"), _
+			DllStructGetData($tSystem, "Hour"), DllStructGetData($tSystem, "Minute"), _
+			DllStructGetData($tSystem, "Second"), DllStructGetData($tSystem, "Milliseconds"))
+EndFunc   ;==>_BlueStacks5UtcTimestamp
+
+Func _BlueStacks5AcceptanceOwnershipValid($iPlayerPid, $sPlayerCreated, $iAdbPid, $sAdbCreated, ByRef $sReason)
+	$sReason = ""
+	If $iPlayerPid <= 0 Or ProcessExists2($iPlayerPid) <> $iPlayerPid Or _
+			_MBRFuncProcessCreationId($iPlayerPid) <> $sPlayerCreated Or _
+			_BlueStacks5ConfiguredAdbOwnerPid() <> $iPlayerPid Then
+		$sReason = "The fresh Pie64 player ownership identity changed at the acceptance barrier"
+		Return False
+	EndIf
+	Local $hExactWindow = WinGetAndroidHandle()
+	If Not IsHWnd($hExactWindow) Or Not _BlueStacks5ModernWindowMatchesInstance($hExactWindow, $iPlayerPid) Then
+		$sReason = "The fresh Pie64 player window is no longer bound to its exact ADB listener owner"
+		Return False
+	EndIf
+	If $iAdbPid <= 0 Or ProcessExists2($iAdbPid) <> $iAdbPid Or _
+			_MBRFuncProcessCreationId($iAdbPid) <> $sAdbCreated Or _
+			_MBRFuncParentPid($iAdbPid) <> @AutoItPID Then
+		$sReason = "The product-owned ADB shell identity changed at the acceptance barrier"
+		Return False
+	EndIf
+	If Not StringRegExp($g_sAndroidAdbDevice, "^127\.0\.0\.1:[0-9]{1,5}$") Or _
+			_BlueStacks5AcceptanceSha256File($g_sAndroidAdbPath) = "" Then
+		$sReason = "The configured ADB transport identity is unavailable at the acceptance barrier"
+		Return False
+	EndIf
+	Return True
+EndFunc   ;==>_BlueStacks5AcceptanceOwnershipValid
+
+Func _BlueStacks5AcceptanceBarrierDetail($sState, $sToken, $sRunRequestId, $sSessionId, $sPlanRevision, _
+		$sPlanToken, $sProfile, $iPlayerPid, $sPlayerCreated, $iAdbPid, $sAdbCreated, $sStopRequestId = "")
+	Local $sDetail = "schema=" & $ACCEPTANCE_STOP_BEFORE_HOME_SCHEMA & ";state=" & $sState & _
+			";runtime_sha256=" & _BlueStacks5AcceptanceSha256File(@ScriptFullPath) & _
+			";acceptance_authorization_sha256=" & _BlueStacks5AcceptanceSha256Text($sToken) & ";run_request_id=" & $sRunRequestId & _
+			";session_id=" & $sSessionId & ";plan_revision=" & $sPlanRevision & _
+			";plan_token_sha256=" & _BlueStacks5AcceptanceSha256Text($sPlanToken) & ";profile=" & $sProfile & _
+			";emulator=BlueStacks5;instance=Pie64;adb_device=" & $g_sAndroidAdbDevice & _
+			";adb_executable_sha256=" & _BlueStacks5AcceptanceSha256File($g_sAndroidAdbPath) & _
+			";adb_pid=" & $iAdbPid & ";adb_created=" & $sAdbCreated & _
+			";player_pid=" & $iPlayerPid & ";player_created=" & $sPlayerCreated
+	If $sStopRequestId <> "" Then $sDetail &= ";stop_request_id=" & $sStopRequestId
+	Return $sDetail
+EndFunc   ;==>_BlueStacks5AcceptanceBarrierDetail
+
+Func _BlueStacks5AcceptanceBarrierFail(ByRef $sReason, $sDetail, $sFailure)
+	$sReason = $sFailure
+	RunEventLogAcceptancePreHomeFailed($sDetail & ";failure=" & $sFailure)
+	SetLog("Acceptance stop-before-Home barrier failed: " & $sFailure, $COLOR_ERROR)
+	Return False
+EndFunc   ;==>_BlueStacks5AcceptanceBarrierFail
+
+Func _BlueStacks5AcceptanceStopBeforeHomeBarrier(ByRef $sReason, $sToken, $iPlayerPid, $sPlayerCreated, $iAdbPid, $sAdbCreated)
+	Local $sRunRequestId = RunControlCurrentStartGeneration()
+	Local $sSessionId = RunExecutionSessionId()
+	Local $sMode = RunControlCurrentStartMode()
+	Local $sPlanRevision = RunControlCurrentStartPlanRevision()
+	Local $sPlanToken = RunControlCurrentStartPlanToken()
+	Local $sProfile = $g_sProfileCurrentName
+	Local $sOwnershipReason = ""
+	Local $sBindingReason = ""
+	Local $sRuntimeHash = _BlueStacks5AcceptanceSha256File(@ScriptFullPath)
+	If AcceptanceStopBeforeHomeEnvironmentState("1", $sToken, $sBindingReason) <> 1 Or _
+			Not AcceptanceStopBeforeHomeBindingValid($sMode, $sRunRequestId, $sSessionId, $sPlanRevision, _
+					$sPlanToken, $sProfile, $g_sAndroidEmulator, $g_sAndroidInstance, $sBindingReason) Then _
+		Return _BlueStacks5AcceptanceBarrierFail($sReason, _
+				"schema=" & $ACCEPTANCE_STOP_BEFORE_HOME_SCHEMA & ";state=failed", $sBindingReason)
+	If $sRuntimeHash = "" Then Return _BlueStacks5AcceptanceBarrierFail($sReason, _
+			"schema=" & $ACCEPTANCE_STOP_BEFORE_HOME_SCHEMA & ";state=failed", _
+			"The native runtime hash is unavailable at the acceptance barrier")
+	If Not _BlueStacks5AcceptanceOwnershipValid($iPlayerPid, $sPlayerCreated, $iAdbPid, $sAdbCreated, $sOwnershipReason) Then _
+		Return _BlueStacks5AcceptanceBarrierFail($sReason, "schema=" & $ACCEPTANCE_STOP_BEFORE_HOME_SCHEMA & ";state=failed", $sOwnershipReason)
+
+	Local $sReadyDetail = _BlueStacks5AcceptanceBarrierDetail("ready", $sToken, $sRunRequestId, $sSessionId, _
+			$sPlanRevision, $sPlanToken, $sProfile, $iPlayerPid, $sPlayerCreated, $iAdbPid, $sAdbCreated)
+	If Not RunEventLogAcceptancePreHomeReady($sReadyDetail) Then Return _BlueStacks5AcceptanceBarrierFail($sReason, _
+			$sReadyDetail, "The acceptance barrier could not publish its current-run ready receipt")
+	SetLog("Acceptance stop-before-Home barrier ready for Start " & $sRunRequestId & "; waiting for exact Stop", $COLOR_INFO)
+
+	Local $hBarrierTimer = __TimerInit()
+	While __TimerDiff($hBarrierTimer) <= $ACCEPTANCE_STOP_BEFORE_HOME_TIMEOUT_MS
+		RunControlCheckpoint()
+		If Not AcceptanceStopBeforeHomeGenerationMatches($sRunRequestId, RunControlCurrentStartGeneration(), _
+				$sSessionId, RunExecutionSessionId(), $sMode, RunControlCurrentStartMode(), _
+				$sPlanRevision, RunControlCurrentStartPlanRevision(), $sPlanToken, RunControlCurrentStartPlanToken(), _
+				$sProfile, $g_sProfileCurrentName, "BlueStacks5", $g_sAndroidEmulator, "Pie64", $g_sAndroidInstance) Then _
+			Return _BlueStacks5AcceptanceBarrierFail($sReason, $sReadyDetail, _
+					"The Start generation or immutable target changed while the acceptance barrier was armed")
+		If RunControlStopRequested() Then
+			Local $sStopRequestId = RunControlAcceptedStopRequestId($sRunRequestId)
+			If $sStopRequestId = "" Then Return _BlueStacks5AcceptanceBarrierFail($sReason, $sReadyDetail, _
+					"The acceptance barrier received an unbound or stale Stop signal")
+			Local $sStoppedDetail = _BlueStacks5AcceptanceBarrierDetail("stopped", $sToken, $sRunRequestId, $sSessionId, _
+					$sPlanRevision, $sPlanToken, $sProfile, $iPlayerPid, $sPlayerCreated, $iAdbPid, $sAdbCreated, $sStopRequestId)
+			If Not RunEventLogAcceptancePreHomeStopped($sStoppedDetail) Then Return _BlueStacks5AcceptanceBarrierFail($sReason, _
+					$sReadyDetail, "The exact Stop was accepted but its terminal barrier receipt could not be published")
+			$sReason = "Exact Stop " & $sStopRequestId & " ended Start " & $sRunRequestId & " before Home recognition"
+			SetLog($sReason, $COLOR_INFO)
+			Return False
+		EndIf
+		If Not $g_bRunState Then Return _BlueStacks5AcceptanceBarrierFail($sReason, $sReadyDetail, _
+				"The run state ended without an exact generation-bound Stop")
+		If Not _BlueStacks5AcceptanceOwnershipValid($iPlayerPid, $sPlayerCreated, $iAdbPid, $sAdbCreated, $sOwnershipReason) Then _
+			Return _BlueStacks5AcceptanceBarrierFail($sReason, $sReadyDetail, $sOwnershipReason)
+		Sleep(50)
+	WEnd
+	Return _BlueStacks5AcceptanceBarrierFail($sReason, $sReadyDetail, _
+			"The acceptance barrier timed out without an exact generation-bound Stop; Home recognition remains blocked")
+EndFunc   ;==>_BlueStacks5AcceptanceStopBeforeHomeBarrier
+
+Func _BlueStacks5OwnershipReceiptPathSafe($sReceiptPath, $bRequireReceipt = False)
 	Local $sParent = $g_sMBRFuncRuntimeLocalAppData & "\My Bot 2.0"
 	Local $aParent = DllCall("kernel32.dll", "dword", "GetFileAttributesW", "wstr", $sParent)
 	If @error Or Not IsArray($aParent) Or $aParent[0] = 0xFFFFFFFF Then Return False
 	If BitAND($aParent[0], 0x10) = 0 Or BitAND($aParent[0], 0x400) <> 0 Then Return False
-	If Not FileExists($g_sBlueStacks5LaunchOnlyOwnerReceipt) Then Return Not $bRequireReceipt
-	Local $aReceipt = DllCall("kernel32.dll", "dword", "GetFileAttributesW", "wstr", $g_sBlueStacks5LaunchOnlyOwnerReceipt)
+	If Not FileExists($sReceiptPath) Then Return Not $bRequireReceipt
+	Local $aReceipt = DllCall("kernel32.dll", "dword", "GetFileAttributesW", "wstr", $sReceiptPath)
 	If @error Or Not IsArray($aReceipt) Or $aReceipt[0] = 0xFFFFFFFF Then Return False
 	Return BitAND($aReceipt[0], 0x10) = 0 And BitAND($aReceipt[0], 0x400) = 0
+EndFunc   ;==>_BlueStacks5OwnershipReceiptPathSafe
+
+Func _BlueStacks5LaunchOnlyReceiptPathSafe($bRequireReceipt = False)
+	Return _BlueStacks5OwnershipReceiptPathSafe($g_sBlueStacks5LaunchOnlyOwnerReceipt, $bRequireReceipt)
 EndFunc   ;==>_BlueStacks5LaunchOnlyReceiptPathSafe
+
+Func _BlueStacks5LaunchOnlyDispatchReceiptPathSafe($bRequireReceipt = False)
+	Return _BlueStacks5OwnershipReceiptPathSafe($g_sBlueStacks5LaunchOnlyDispatchOwnerReceipt, $bRequireReceipt)
+EndFunc   ;==>_BlueStacks5LaunchOnlyDispatchReceiptPathSafe
 
 Func _BlueStacks5WriteLaunchOnlyOwnerReceipt($iPlayerPid)
 	If $iPlayerPid <= 0 Or ProcessExists2($iPlayerPid) <> $iPlayerPid Then Return False
@@ -69,6 +235,112 @@ Func _BlueStacks5WriteLaunchOnlyOwnerReceipt($iPlayerPid)
 	If Not _BlueStacks5LaunchOnlyReceiptPathSafe(True) Then Return False
 	Return FileRead($g_sBlueStacks5LaunchOnlyOwnerReceipt) = $sReceipt
 EndFunc   ;==>_BlueStacks5WriteLaunchOnlyOwnerReceipt
+
+Func _BlueStacks5WriteLaunchOnlyDispatchOwnerReceipt($iPlayerPid, $sPlayerCreated, $iAdbPid, $sAdbCreated, $sAcceptanceToken)
+	Local $sRunRequestId = RunControlCurrentStartGeneration()
+	Local $sSessionId = RunExecutionSessionId()
+	Local $sMode = RunControlCurrentStartMode()
+	Local $sPlanRevision = RunControlCurrentStartPlanRevision()
+	Local $sPlanToken = RunControlCurrentStartPlanToken()
+	Local $sProfile = $g_sProfileCurrentName
+	Local $sBindingReason = ""
+	If Not AcceptanceStopBeforeHomeBindingValid($sMode, $sRunRequestId, $sSessionId, $sPlanRevision, _
+			$sPlanToken, $sProfile, $g_sAndroidEmulator, $g_sAndroidInstance, $sBindingReason) Then Return False
+
+	Local $sAuthorizationSha256 = _BlueStacks5AcceptanceSha256Text($sAcceptanceToken)
+	Local $sRuntimeSha256 = _BlueStacks5AcceptanceSha256File(@ScriptFullPath)
+	Local $sIssuedAtUtc = _BlueStacks5UtcTimestamp()
+	Local $sPlayerPath = _BlueStacks5ProcessImagePath($iPlayerPid)
+	Local $iPlayerParentPid = _MBRFuncParentPid($iPlayerPid)
+	Local $sPlayerParentCreated = _MBRFuncProcessCreationId($iPlayerParentPid)
+	Local $sPlayerParentPath = _BlueStacks5ProcessImagePath($iPlayerParentPid)
+	Local $sAdbPath = _BlueStacks5ProcessImagePath($iAdbPid)
+	Local $sAdbSha256 = _BlueStacks5AcceptanceSha256File($sAdbPath)
+	Local $iAdbParentPid = _MBRFuncParentPid($iAdbPid)
+	Local $sAdbParentCreated = _MBRFuncProcessCreationId($iAdbParentPid)
+	Local $sAdbParentPath = _BlueStacks5ProcessImagePath($iAdbParentPid)
+	If $sPlayerCreated <> _MBRFuncProcessCreationId($iPlayerPid) Or $sAdbCreated <> _MBRFuncProcessCreationId($iAdbPid) Or _
+			$iPlayerParentPid <> @AutoItPID Or $iAdbParentPid <> @AutoItPID Or _
+			StringCompare($sPlayerPath, $g_sAndroidProgramPath, 0) <> 0 Or _
+			StringCompare($sAdbPath, $g_sAndroidAdbPath, 0) <> 0 Or _
+			StringCompare($sPlayerParentPath, @ScriptFullPath, 0) <> 0 Or _
+			StringCompare($sAdbParentPath, @ScriptFullPath, 0) <> 0 Then Return False
+	If Not AcceptanceLaunchOwnerIdentityValid($sAuthorizationSha256, $sRuntimeSha256, $sIssuedAtUtc, _
+			$iPlayerPid, $sPlayerCreated, $sPlayerPath, $iPlayerParentPid, $sPlayerParentCreated, $sPlayerParentPath, _
+			$iAdbPid, $sAdbCreated, $sAdbPath, $sAdbSha256, $iAdbParentPid, $sAdbParentCreated, $sAdbParentPath, _
+			$sBindingReason) Then Return False
+
+	Local $iLauncherPid = Int($g_sMBRFuncEngineLauncherPidText)
+	Local $iControllerPid = _MBRFuncParentPid(@AutoItPID)
+	Local $sLauncherCreated = _MBRFuncProcessCreationId($iLauncherPid)
+	Local $sControllerCreated = _MBRFuncProcessCreationId($iControllerPid)
+	Local $sBackendCreated = _MBRFuncProcessCreationId(@AutoItPID)
+	If Not $g_bMBRFuncEngineSupervisorValid Or $iLauncherPid <= 0 Or Not ProcessExists($iLauncherPid) Or _
+			$iControllerPid <= 0 Or $sLauncherCreated <> $g_sMBRFuncEngineLauncherCreated Or _
+			$sControllerCreated = "" Or $sBackendCreated = "" Then Return False
+
+	Local $sReceipt = "{"
+	$sReceipt &= _RunEventJsonString("schema_version") & ":2,"
+	$sReceipt &= _RunEventJsonString("schema") & ":" & _RunEventJsonString($g_sBlueStacks5LaunchOnlyDispatchOwnerSchema) & ","
+	$sReceipt &= _RunEventJsonString("state") & ":" & _RunEventJsonString("dispatched") & ","
+	$sReceipt &= _RunEventJsonString("issued_at_utc") & ":" & _RunEventJsonString($sIssuedAtUtc) & ","
+	$sReceipt &= _RunEventJsonString("acceptance_authorization_sha256") & ":" & _RunEventJsonString($sAuthorizationSha256) & ","
+	$sReceipt &= _RunEventJsonString("runtime_sha256") & ":" & _RunEventJsonString($sRuntimeSha256) & ","
+	$sReceipt &= _RunEventJsonString("start_request_id") & ":" & _RunEventJsonString($sRunRequestId) & ","
+	$sReceipt &= _RunEventJsonString("launch_generation") & ":" & _RunEventJsonString($sRunRequestId) & ","
+	$sReceipt &= _RunEventJsonString("session_id") & ":" & _RunEventJsonString($sSessionId) & ","
+	$sReceipt &= _RunEventJsonString("start_mode") & ":" & _RunEventJsonString($sMode) & ","
+	$sReceipt &= _RunEventJsonString("plan_revision") & ":" & _RunEventJsonString($sPlanRevision) & ","
+	$sReceipt &= _RunEventJsonString("plan_token_sha256") & ":" & _RunEventJsonString(_BlueStacks5AcceptanceSha256Text($sPlanToken)) & ","
+	$sReceipt &= _RunEventJsonString("profile") & ":" & _RunEventJsonString($sProfile) & ","
+	$sReceipt &= _RunEventJsonString("emulator") & ":" & _RunEventJsonString("BlueStacks5") & ","
+	$sReceipt &= _RunEventJsonString("instance") & ":" & _RunEventJsonString("Pie64") & ","
+	$sReceipt &= _RunEventJsonString("activity_component") & ":" & _RunEventJsonString($g_sAndroidGamePackage & "/" & $g_sAndroidGameClass) & ","
+	$sReceipt &= _RunEventJsonString("adb_device") & ":" & _RunEventJsonString($g_sAndroidAdbDevice) & ","
+	$sReceipt &= _RunEventJsonString("launcher_pid") & ":" & $iLauncherPid & ","
+	$sReceipt &= _RunEventJsonString("launcher_created") & ":" & _RunEventJsonString($sLauncherCreated) & ","
+	$sReceipt &= _RunEventJsonString("controller_pid") & ":" & $iControllerPid & ","
+	$sReceipt &= _RunEventJsonString("controller_created") & ":" & _RunEventJsonString($sControllerCreated) & ","
+	$sReceipt &= _RunEventJsonString("backend_pid") & ":" & @AutoItPID & ","
+	$sReceipt &= _RunEventJsonString("backend_created") & ":" & _RunEventJsonString($sBackendCreated) & ","
+	$sReceipt &= _RunEventJsonString("backend_path") & ":" & _RunEventJsonString(@ScriptFullPath) & ","
+	$sReceipt &= _RunEventJsonString("backend_path_digest") & ":" & _RunEventJsonString(_BlueStacks5AcceptanceSha256Text(StringLower(@ScriptFullPath))) & ","
+	$sReceipt &= _RunEventJsonString("player_pid") & ":" & $iPlayerPid & ","
+	$sReceipt &= _RunEventJsonString("player_created") & ":" & _RunEventJsonString($sPlayerCreated) & ","
+	$sReceipt &= _RunEventJsonString("player_path") & ":" & _RunEventJsonString($sPlayerPath) & ","
+	$sReceipt &= _RunEventJsonString("player_path_digest") & ":" & _RunEventJsonString(_BlueStacks5AcceptanceSha256Text(StringLower($sPlayerPath))) & ","
+	$sReceipt &= _RunEventJsonString("player_parent_pid") & ":" & $iPlayerParentPid & ","
+	$sReceipt &= _RunEventJsonString("player_parent_created") & ":" & _RunEventJsonString($sPlayerParentCreated) & ","
+	$sReceipt &= _RunEventJsonString("player_parent_path") & ":" & _RunEventJsonString($sPlayerParentPath) & ","
+	$sReceipt &= _RunEventJsonString("player_parent_path_digest") & ":" & _RunEventJsonString(_BlueStacks5AcceptanceSha256Text(StringLower($sPlayerParentPath))) & ","
+	$sReceipt &= _RunEventJsonString("adb_pid") & ":" & $iAdbPid & ","
+	$sReceipt &= _RunEventJsonString("adb_created") & ":" & _RunEventJsonString($sAdbCreated) & ","
+	$sReceipt &= _RunEventJsonString("adb_path") & ":" & _RunEventJsonString($sAdbPath) & ","
+	$sReceipt &= _RunEventJsonString("adb_path_digest") & ":" & _RunEventJsonString(_BlueStacks5AcceptanceSha256Text(StringLower($sAdbPath))) & ","
+	$sReceipt &= _RunEventJsonString("adb_executable_sha256") & ":" & _RunEventJsonString($sAdbSha256) & ","
+	$sReceipt &= _RunEventJsonString("adb_parent_pid") & ":" & $iAdbParentPid & ","
+	$sReceipt &= _RunEventJsonString("adb_parent_created") & ":" & _RunEventJsonString($sAdbParentCreated) & ","
+	$sReceipt &= _RunEventJsonString("adb_parent_path") & ":" & _RunEventJsonString($sAdbParentPath) & ","
+	$sReceipt &= _RunEventJsonString("adb_parent_path_digest") & ":" & _RunEventJsonString(_BlueStacks5AcceptanceSha256Text(StringLower($sAdbParentPath)))
+	$sReceipt &= "}"
+
+	DirCreate($g_sMBRFuncRuntimeLocalAppData & "\My Bot 2.0")
+	If Not _BlueStacks5LaunchOnlyDispatchReceiptPathSafe(False) Then Return False
+	Local $sTemporary = $g_sBlueStacks5LaunchOnlyDispatchOwnerReceipt & ".tmp." & @AutoItPID
+	If FileExists($sTemporary) Then FileDelete($sTemporary)
+	If FileExists($sTemporary) Then Return False
+	Local $hReceipt = FileOpen($sTemporary, 10)
+	If $hReceipt = -1 Then Return False
+	Local $bWritten = FileWrite($hReceipt, $sReceipt) = 1
+	Local $bFlushed = FileFlush($hReceipt)
+	FileClose($hReceipt)
+	If Not $bWritten Or Not $bFlushed Or Not FileMove($sTemporary, $g_sBlueStacks5LaunchOnlyDispatchOwnerReceipt, 1) Then
+		FileDelete($sTemporary)
+		Return False
+	EndIf
+	If Not _BlueStacks5LaunchOnlyDispatchReceiptPathSafe(True) Then Return False
+	Return FileRead($g_sBlueStacks5LaunchOnlyDispatchOwnerReceipt) = $sReceipt
+EndFunc   ;==>_BlueStacks5WriteLaunchOnlyDispatchOwnerReceipt
 
 ; Return the one HD-Player process that owns the configured instance's loopback ADB listener. Newer
 ; BlueStacks builds can withhold both CommandLine and ExecutablePath from WMI and can publish an empty
@@ -293,6 +565,13 @@ EndFunc   ;==>LaunchBlueStacks5ProcessOnly
 ; is passive ADB capture only; failures do not close/reboot the emulator or call the legacy Stop path.
 Func LaunchBlueStacks5CoCOnly(ByRef $sReason)
 	$sReason = ""
+	Local $sAcceptanceToken = ""
+	Local $sAcceptanceContractReason = ""
+	Local $iAcceptanceMode = BlueStacks5AcceptanceStopBeforeHomeContract($sAcceptanceContractReason, $sAcceptanceToken)
+	If $iAcceptanceMode < 0 Then
+		$sReason = $sAcceptanceContractReason
+		Return False
+	EndIf
 	If $g_sAndroidEmulator <> "BlueStacks5" Then
 		$sReason = "Launch-only validation currently requires BlueStacks 5"
 		Return False
@@ -312,6 +591,10 @@ Func LaunchBlueStacks5CoCOnly(ByRef $sReason)
 
 	Local $bStartedEmulator = False
 	Local $bHadExactWindow = WinGetAndroidHandle() <> 0
+	If $iAcceptanceMode = 1 And $bHadExactWindow Then
+		$sReason = "The stop-before-Home acceptance barrier requires a fresh product-owned Pie64 launch"
+		Return False
+	EndIf
 	Local $iLaunchPid = 0
 	Local $bProcessKilled = False
 	Local $hLaunchTimer = __TimerInit()
@@ -359,12 +642,19 @@ Func LaunchBlueStacks5CoCOnly(ByRef $sReason)
 		$sReason = "BlueStacks and Clash of Clans launch cancelled before the game activity"
 		Return False
 	EndIf
+	Local $iOwnedPlayerPid = 0
+	Local $sOwnedPlayerCreated = ""
 	If $bStartedEmulator Then
-		Local $iOwnedPlayerPid = _BlueStacks5ConfiguredAdbOwnerPid()
+		$iOwnedPlayerPid = _BlueStacks5ConfiguredAdbOwnerPid()
 		If $iOwnedPlayerPid <= 0 Or Not _BlueStacks5WriteLaunchOnlyOwnerReceipt($iOwnedPlayerPid) Then
 			$sReason = "BlueStacks launched but exact product ownership could not be recorded for cleanup"
 			Return False
 		EndIf
+		$sOwnedPlayerCreated = _MBRFuncProcessCreationId($iOwnedPlayerPid)
+	EndIf
+	If $iAcceptanceMode = 1 And (Not $bStartedEmulator Or $iOwnedPlayerPid <= 0 Or $sOwnedPlayerCreated = "") Then
+		$sReason = "The stop-before-Home acceptance barrier could not prove a fresh product-owned Pie64 generation"
+		Return False
 	EndIf
 
 	; Deliberately bypass the legacy game restart helper, which can push account shared preferences,
@@ -375,6 +665,23 @@ Func LaunchBlueStacks5CoCOnly(ByRef $sReason)
 		$sReason = "Clash of Clans did not accept the one bounded Android activity launch"
 		Return False
 	EndIf
+	If $iAcceptanceMode = 1 Then
+		Local $iOwnedAdbPid = Int($g_iAndroidAdbProcess[0])
+		Local $sOwnedAdbCreated = _MBRFuncProcessCreationId($iOwnedAdbPid)
+		If $iOwnedAdbPid <= 0 Or $sOwnedAdbCreated = "" Or _MBRFuncParentPid($iOwnedAdbPid) <> @AutoItPID Then
+			$sReason = "Clash launched but the product-owned ADB shell could not be bound to the acceptance barrier"
+			Return False
+		EndIf
+		If Not _BlueStacks5WriteLaunchOnlyDispatchOwnerReceipt($iOwnedPlayerPid, $sOwnedPlayerCreated, _
+				$iOwnedAdbPid, $sOwnedAdbCreated, $sAcceptanceToken) Then
+			$sReason = "Clash launched but the exact player, ADB, and Start generation receipt could not be published"
+			Return False
+		EndIf
+		; This verifier-only function never returns success: exact Stop, timeout, stale generation, or
+		; ownership loss all terminate before the first Home or startup-overlay recognition call below.
+		Return _BlueStacks5AcceptanceStopBeforeHomeBarrier($sReason, $sAcceptanceToken, $iOwnedPlayerPid, _
+				$sOwnedPlayerCreated, $iOwnedAdbPid, $sOwnedAdbCreated)
+	EndIf
 
 	Local $hGameTimer = __TimerInit()
 	While __TimerDiff($hGameTimer) <= 90000
@@ -382,7 +689,9 @@ Func LaunchBlueStacks5CoCOnly(ByRef $sReason)
 			$sReason = "BlueStacks and Clash of Clans launch cancelled while waiting for passive game-ready proof"
 			Return False
 		EndIf
-		If GetAndroidProcessPID(Default, False) <> 0 Then
+		; Launch readiness must remain side-effect free. The inherited process probe can call
+		; RestartBOT after repeated blank output, which races this bounded 90-second wait.
+		If GetAndroidProcessPID1(Default, False) <> 0 Then
                         ; OpenHomeCollectorsProveHome() refreshes the current ADB frame before checking Home.
                         ; If a known startup overlay blocks Home, recognize it from that same fresh frame. Launch-only
                         ; may close the Welcome Back Okay surface through the reviewed startup-popup permit, but it

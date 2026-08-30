@@ -49,7 +49,7 @@ class EngineInitCancelBridgeTest(unittest.TestCase):
                 mock.patch.object(planner_ui, "ENGINE_INIT_RECEIPT_PATH", receipt),
                 mock.patch.object(planner_ui, "control_status", return_value={"connected": False}),
             ):
-                payload, status = planner_ui.queue_control_command("stop")
+                payload, status = planner_ui.queue_control_command("stop", self.START_ID)
 
             self.assertEqual(status, 202)
             self.assertTrue(payload["native_command_queued"])
@@ -68,7 +68,7 @@ class EngineInitCancelBridgeTest(unittest.TestCase):
                 mock.patch.object(planner_ui, "ENGINE_INIT_RECEIPT_PATH", receipt),
                 mock.patch.object(planner_ui, "control_status", return_value={"connected": False}),
             ):
-                payload, status = planner_ui.queue_control_command("stop")
+                payload, status = planner_ui.queue_control_command("stop", self.START_ID)
 
             self.assertEqual(status, 409)
             self.assertFalse(payload["ok"])
@@ -79,7 +79,7 @@ class EngineInitCancelBridgeTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             command, cancel, receipt = self._paths(folder)
             self._receipt(receipt)
-            original = {"schema_version": 1, "request_id": "pending-start", "action": "start"}
+            original = {"schema_version": 1, "request_id": self.START_ID, "action": "start"}
             planner_ui.write_json_atomic(original, command)
             with (
                 mock.patch.object(planner_ui, "CONTROL_COMMAND_PATH", command),
@@ -87,15 +87,186 @@ class EngineInitCancelBridgeTest(unittest.TestCase):
                 mock.patch.object(planner_ui, "ENGINE_INIT_RECEIPT_PATH", receipt),
                 mock.patch.object(planner_ui, "control_status", return_value={"connected": False}),
             ):
-                payload, status = planner_ui.queue_control_command("stop")
+                payload, status = planner_ui.queue_control_command("stop", self.START_ID)
 
             self.assertEqual(status, 202)
             self.assertTrue(payload["native_command_queued"])
             self.assertEqual(payload["supervisor_cancel_status"], "queued")
             replacement = json.loads(command.read_text(encoding="utf-8"))
             self.assertEqual(replacement["action"], "stop")
+            self.assertEqual(replacement["expected_start_request_id"], self.START_ID)
             self.assertNotEqual(replacement["request_id"], original["request_id"])
             self.assertTrue(cancel.exists())
+
+    def test_stale_tab_cannot_cancel_a_newer_launcher_generation(self):
+        with tempfile.TemporaryDirectory() as folder:
+            command, cancel, receipt = self._paths(folder)
+            self._receipt(receipt)
+            with (
+                mock.patch.object(planner_ui, "CONTROL_COMMAND_PATH", command),
+                mock.patch.object(planner_ui, "ENGINE_INIT_CANCEL_PATH", cancel),
+                mock.patch.object(planner_ui, "ENGINE_INIT_RECEIPT_PATH", receipt),
+                mock.patch.object(planner_ui, "control_status", return_value={"connected": False}),
+            ):
+                payload, status = planner_ui.queue_control_command("stop", "older-start")
+
+            self.assertEqual(status, 409)
+            self.assertFalse(payload["ok"])
+            self.assertIn("no longer active", payload["problems"][0])
+            self.assertFalse(command.exists())
+            self.assertFalse(cancel.exists())
+
+    def test_matching_pending_start_is_the_only_generation_replaced_before_receipt(self):
+        with tempfile.TemporaryDirectory() as folder:
+            command, cancel, receipt = self._paths(folder)
+            planner_ui.write_json_atomic(
+                {"schema_version": 1, "request_id": self.START_ID, "action": "start"},
+                command,
+            )
+            with (
+                mock.patch.object(planner_ui, "CONTROL_COMMAND_PATH", command),
+                mock.patch.object(planner_ui, "ENGINE_INIT_CANCEL_PATH", cancel),
+                mock.patch.object(planner_ui, "ENGINE_INIT_RECEIPT_PATH", receipt),
+                mock.patch.object(
+                    planner_ui,
+                    "control_status",
+                    return_value={"connected": True, "state": "starting"},
+                ),
+                mock.patch.object(planner_ui, "schedule_engine_init_cancel") as schedule,
+            ):
+                payload, status = planner_ui.queue_control_command("stop", self.START_ID)
+
+            self.assertEqual(status, 202)
+            self.assertTrue(payload["native_command_queued"])
+            replacement = json.loads(command.read_text(encoding="utf-8"))
+            self.assertEqual(replacement["action"], "stop")
+            self.assertEqual(replacement["expected_start_request_id"], self.START_ID)
+            schedule.assert_called_once()
+
+    def test_status_run_generation_rejects_a_stale_stop_after_pause_or_resume(self):
+        with tempfile.TemporaryDirectory() as folder:
+            command, cancel, receipt = self._paths(folder)
+            with (
+                mock.patch.object(planner_ui, "CONTROL_COMMAND_PATH", command),
+                mock.patch.object(planner_ui, "ENGINE_INIT_CANCEL_PATH", cancel),
+                mock.patch.object(planner_ui, "ENGINE_INIT_RECEIPT_PATH", receipt),
+                mock.patch.object(
+                    planner_ui,
+                    "control_status",
+                    return_value={
+                        "connected": True,
+                        "state": "paused",
+                        "last_command": "pause",
+                        "last_outcome": "paused",
+                        "run_request_id": self.START_ID,
+                    },
+                ),
+            ):
+                payload, status = planner_ui.queue_control_command("stop", "older-start")
+
+            self.assertEqual(status, 409)
+            self.assertFalse(payload["ok"])
+            self.assertFalse(command.exists())
+            self.assertFalse(cancel.exists())
+
+    def test_stop_requires_the_browser_observed_start_generation(self):
+        with tempfile.TemporaryDirectory() as folder:
+            command, cancel, receipt = self._paths(folder)
+            status_document = {
+                "connected": True,
+                "state": "running",
+                "run_request_id": self.START_ID,
+            }
+            with (
+                mock.patch.object(planner_ui, "CONTROL_COMMAND_PATH", command),
+                mock.patch.object(planner_ui, "ENGINE_INIT_CANCEL_PATH", cancel),
+                mock.patch.object(planner_ui, "ENGINE_INIT_RECEIPT_PATH", receipt),
+                mock.patch.object(planner_ui, "control_status", return_value=status_document),
+            ):
+                payload, status = planner_ui.queue_control_command("stop")
+
+            self.assertEqual(status, 400)
+            self.assertFalse(payload["ok"])
+            self.assertIn("requires the active Start generation", payload["problems"][0])
+            self.assertFalse(command.exists())
+
+    def test_matching_running_generation_is_queued_for_stop(self):
+        with tempfile.TemporaryDirectory() as folder:
+            command, cancel, receipt = self._paths(folder)
+            status_document = {
+                "connected": True,
+                "state": "running",
+                "run_request_id": self.START_ID,
+            }
+            with (
+                mock.patch.object(planner_ui, "CONTROL_COMMAND_PATH", command),
+                mock.patch.object(planner_ui, "ENGINE_INIT_CANCEL_PATH", cancel),
+                mock.patch.object(planner_ui, "ENGINE_INIT_RECEIPT_PATH", receipt),
+                mock.patch.object(planner_ui, "control_status", return_value=status_document),
+            ):
+                payload, status = planner_ui.queue_control_command("stop", self.START_ID)
+
+            self.assertEqual(status, 202)
+            self.assertTrue(payload["native_command_queued"])
+            queued = json.loads(command.read_text(encoding="utf-8"))
+            self.assertEqual(queued["expected_start_request_id"], self.START_ID)
+
+    def test_pause_and_resume_require_the_exact_active_generation(self):
+        for action, state in (("pause", "running"), ("resume", "paused")):
+            with self.subTest(action=action), tempfile.TemporaryDirectory() as folder:
+                command, cancel, receipt = self._paths(folder)
+                status_document = {
+                    "connected": True,
+                    "state": state,
+                    "run_request_id": self.START_ID,
+                }
+                with (
+                    mock.patch.object(planner_ui, "CONTROL_COMMAND_PATH", command),
+                    mock.patch.object(planner_ui, "ENGINE_INIT_CANCEL_PATH", cancel),
+                    mock.patch.object(planner_ui, "ENGINE_INIT_RECEIPT_PATH", receipt),
+                    mock.patch.object(planner_ui, "control_status", return_value=status_document),
+                ):
+                    missing, missing_status = planner_ui.queue_control_command(action)
+                    stale, stale_status = planner_ui.queue_control_command(action, "older-start")
+                    accepted, accepted_status = planner_ui.queue_control_command(action, self.START_ID)
+
+                self.assertEqual(missing_status, 400)
+                self.assertIn("requires the active Start generation", missing["problems"][0])
+                self.assertEqual(stale_status, 409)
+                self.assertIn("no longer active", stale["problems"][0])
+                self.assertEqual(accepted_status, 202)
+                self.assertTrue(accepted["accepted"])
+                queued = json.loads(command.read_text(encoding="utf-8"))
+                self.assertEqual(queued["action"], action)
+                self.assertEqual(queued["expected_start_request_id"], self.START_ID)
+
+    def test_conflicting_receipt_and_pending_start_generations_fail_closed(self):
+        with tempfile.TemporaryDirectory() as folder:
+            command, cancel, receipt = self._paths(folder)
+            self._receipt(receipt)
+            planner_ui.write_json_atomic(
+                {"schema_version": 1, "request_id": "newer-start", "action": "start"},
+                command,
+            )
+            with (
+                mock.patch.object(planner_ui, "CONTROL_COMMAND_PATH", command),
+                mock.patch.object(planner_ui, "ENGINE_INIT_CANCEL_PATH", cancel),
+                mock.patch.object(planner_ui, "ENGINE_INIT_RECEIPT_PATH", receipt),
+                mock.patch.object(
+                    planner_ui,
+                    "control_status",
+                    return_value={"connected": True, "state": "starting"},
+                ),
+            ):
+                payload, status = planner_ui.queue_control_command("stop", self.START_ID)
+
+            self.assertEqual(status, 409)
+            self.assertFalse(payload["ok"])
+            self.assertEqual(
+                json.loads(command.read_text(encoding="utf-8"))["request_id"],
+                "newer-start",
+            )
+            self.assertFalse(cancel.exists())
 
     def test_supervisor_cancel_remains_authoritative_when_native_stop_write_fails(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -115,7 +286,7 @@ class EngineInitCancelBridgeTest(unittest.TestCase):
                 mock.patch.object(planner_ui, "control_status", return_value={"connected": False}),
                 mock.patch.object(planner_ui, "write_json_atomic", side_effect=selective_writer),
             ):
-                payload, status = planner_ui.queue_control_command("stop")
+                payload, status = planner_ui.queue_control_command("stop", self.START_ID)
 
             self.assertEqual(status, 202)
             self.assertFalse(payload["native_command_queued"])
@@ -141,7 +312,7 @@ class EngineInitCancelBridgeTest(unittest.TestCase):
                 mock.patch.object(planner_ui, "control_status", return_value={"connected": True}),
                 mock.patch.object(planner_ui, "write_json_atomic", side_effect=selective_writer),
             ):
-                payload, status = planner_ui.queue_control_command("stop")
+                payload, status = planner_ui.queue_control_command("stop", self.START_ID)
 
             self.assertEqual(status, 202)
             self.assertTrue(payload["native_command_queued"])
@@ -174,6 +345,60 @@ class EngineInitCancelBridgeTest(unittest.TestCase):
         self.assertIn('$g_sRunControlLastCommand <> "start"', accessor)
         self.assertIn('$g_sRunControlLastCommand <> "check-engine"', accessor)
         self.assertIn('$g_sRunControlLastOutcome <> "accepted"', accessor)
+
+    def test_native_run_mutations_revalidate_the_exact_generation_before_mutation(self):
+        source = (ROOT / "COCBot/functions/Run/RunControlBridge.au3").read_text(encoding="utf-8-sig")
+        consume = source.split("Func _RunControlConsumeCommand()", 1)[1].split(
+            "EndFunc   ;==>_RunControlConsumeCommand", 1
+        )[0]
+        stop_case = consume.split('Case "stop"', 1)[1].split('Case "pause"', 1)[0]
+        pause_case = consume.split('Case "pause"', 1)[1].split('Case "resume"', 1)[0]
+        resume_case = consume.split('Case "resume"', 1)[1].split('Case Else', 1)[0]
+        begin = source.split("Func RunControlBeginStart()", 1)[1].split(
+            "EndFunc   ;==>RunControlBeginStart", 1
+        )[0]
+        status = source.split("Func RunControlWriteStatus(", 1)[1].split(
+            "EndFunc   ;==>RunControlWriteStatus", 1
+        )[0]
+
+        self.assertIn('$oCommand.Exists("expected_start_request_id")', consume)
+        self.assertIn('$bGenerationAction = StringRegExp($sAction, "^(stop|pause|resume)$") = 1', consume)
+        self.assertIn('" command is missing expected_start_request_id"', consume)
+        self.assertIn('_RunControlCurrentStartGeneration(True)', stop_case)
+        self.assertIn('$sCurrentStartRequestId <> $sExpectedStartRequestId', stop_case)
+        self.assertIn("Start generation that is no longer active", stop_case)
+        self.assertLess(
+            stop_case.index("Start generation that is no longer active"),
+            stop_case.index('$g_sRunControlPendingStartRequestId = ""'),
+        )
+        self.assertIn('_RunControlCurrentStartGeneration(False) <> $sExpectedStartRequestId', pause_case)
+        self.assertIn("Pause command targets a Start generation that is no longer active", pause_case)
+        self.assertLess(
+            pause_case.index("Pause command targets a Start generation that is no longer active"),
+            pause_case.index("$g_bBotPaused = True"),
+        )
+        self.assertIn('_RunControlCurrentStartGeneration(False) <> $sExpectedStartRequestId', resume_case)
+        self.assertIn("Resume command targets a Start generation that is no longer active", resume_case)
+        self.assertLess(
+            resume_case.index("Resume command targets a Start generation that is no longer active"),
+            resume_case.index("$g_bBotPaused = False"),
+        )
+        self.assertIn(
+            "$g_sRunControlRunRequestId = $g_sRunControlActiveStartRequestId",
+            begin,
+        )
+        self.assertIn('"run_request_id"', status)
+        for terminal in (
+            "RunControlReportEngineCheckOutcome",
+            "RunControlReportGameLaunchOutcome",
+            "RunControlReportOneShotOutcome",
+            "RunControlReportStopComplete",
+            "RunControlShutdown",
+        ):
+            body = source.split(f"Func {terminal}(", 1)[1].split(
+                f"EndFunc   ;==>{terminal}", 1
+            )[0]
+            self.assertIn('$g_sRunControlRunRequestId = ""', body, terminal)
 
 
 if __name__ == "__main__":

@@ -48,7 +48,12 @@ Func _checkMainScreen($bSetLog = Default, $bBuilderBase = Default) ;Checks if in
 
 	If $bBuilderBase Then $aPixelToCheck = $aIsOnBuilderBase
 	Local $bLocated
-	While _CaptureRegions() And Not _checkMainScreenImage($bLocated, $aPixelToCheck)
+	Local $bCaptureReady
+	While True
+		If RunControlCheckpoint() Then Return False
+		$bCaptureReady = _CaptureRegions()
+		If RunControlCheckpoint() Then Return False
+		If Not ($bCaptureReady And Not _checkMainScreenImage($bLocated, $aPixelToCheck)) Then ExitLoop
 		$i += 1
 		If TestCapture() Then
 			SetLog("Main Screen not Located", $COLOR_ERROR)

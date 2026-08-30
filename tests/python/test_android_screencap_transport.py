@@ -66,7 +66,7 @@ class AndroidScreencapTransportTest(unittest.TestCase):
         helper = self.source.split(
             "Func _AndroidAdbPullCaptureFile(", maxsplit=1
         )[1].split("EndFunc", maxsplit=1)[0]
-        self.assertIn("$wasRunState And Not $g_bRunState", helper)
+        self.assertIn("$wasRunState And ($bRunControlStopRequested Or Not $g_bRunState)", helper)
         self.assertIn("__TimerDiff($hTimer) >= $iTimeout", helper)
         self.assertIn("ClosePipe($iPid", helper)
         self.assertIn("_WinAPI_GetExitCodeProcess($hProcess)", helper)

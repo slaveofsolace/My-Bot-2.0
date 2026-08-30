@@ -1871,24 +1871,28 @@ function renderControl() {
     && (!META || allSettings().some(isUnsaved) || !PLAN_WRITTEN || savedProblems.length > 0);
   const startCanBeStopped = ['start', 'check-engine', 'launch-game'].includes(CONTROL_PENDING?.action) && !!CONTROL_PENDING.request_id;
   const supervisedInitActive = CONTROL.engine_init_cancellable === true;
-  const managedInitCanBeStopped = startCanBeStopped || supervisedInitActive;
+  const staleAcceptedStart = !connected && CONTROL.bot_process_alive === true
+    && CONTROL.last_command === 'start' && CONTROL.last_outcome === 'accepted'
+    && /^[A-Za-z0-9._-]{1,80}$/.test(String(CONTROL.last_command_id || ''));
+  const managedInitCanBeStopped = startCanBeStopped || supervisedInitActive || staleAcceptedStart;
   const engineAvailable = CONTROL.engine_available !== false;
   const recognitionAvailable = CONTROL.recognition_available === true;
   const nativeProfileBlocked = NATIVE_PROFILE_MODE && !recognitionAvailable;
-  const primaryLaunchOnly = nativeProfileBlocked;
   const recognitionError = CONTROL.recognition_error
-    || 'Full profile automation requires licensed inherited recognition or a clean-room replacement.';
-  $('controlStart').textContent = primaryLaunchOnly ? 'Launch game safely' : 'Start run';
-  const startReceiptMissing = !primaryLaunchOnly && !RUNNABLE_PLAN_RECEIPT;
-  $('controlStart').title = primaryLaunchOnly
-    ? `${recognitionError} Launch-only starts the exact emulator/game, proves a startup surface, and returns idle without bot actions.`
-    : NATIVE_PROFILE_MODE
-      ? (startReceiptMissing ? 'Activate Full profile before Start so the run has an exact receipt' : 'Start the active native profile; BlueStacks and Clash of Clans will be launched if needed')
-    : savedProblems.length
+    || 'Full profile automation requires the exact launcher-owned LocalRuntime.';
+  $('controlStart').textContent = 'Start bot';
+  const startReceiptMissing = !RUNNABLE_PLAN_RECEIPT;
+  $('controlStart').title = NATIVE_PROFILE_MODE
+      ? (nativeProfileBlocked
+        ? recognitionError
+        : startReceiptMissing
+          ? 'Activate the selected native profile and start it; BlueStacks and Clash of Clans will be launched if needed'
+          : 'Start the active native profile; BlueStacks and Clash of Clans will be launched if needed')
+      : savedProblems.length
       ? 'Resolve and apply the saved plan issues before starting'
       : hasUnsavedPlan || startReceiptMissing ? 'Apply the visible plan before starting' : 'Start the applied plan';
-  $('controlStart').disabled = !BOOT_READY || busy || hasUnsavedPlan || startReceiptMissing || !connected
-    || (!primaryLaunchOnly && !engineAvailable) || state !== 'idle';
+  $('controlStart').disabled = !BOOT_READY || busy || !connected || !engineAvailable || state !== 'idle'
+    || (NATIVE_PROFILE_MODE ? nativeProfileBlocked : (hasUnsavedPlan || startReceiptMissing));
   $('controlNativeMode').textContent = NATIVE_PROFILE_MODE ? 'Full profile automation active' : 'Use full profile automation';
   $('controlNativeMode').title = !recognitionAvailable
     ? recognitionError
@@ -1937,12 +1941,12 @@ function renderControl() {
   const lastCommand = CONTROL.last_command
     ? `${CONTROL.last_outcome || 'pending'} / ${CONTROL.last_command}`
     : 'None';
-  let nextAction = 'Start run is available';
+  let nextAction = 'Start bot is available';
   if (!BOOT_READY) nextAction = 'Wait for load';
   else if (busy) nextAction = `Wait for ${CONTROL_PENDING.action}`;
   else if (!connected) nextAction = 'Wait for native heartbeat';
   else if (state !== 'idle') nextAction = 'Use Pause or Stop';
-  else if (nativeProfileBlocked) nextAction = 'Launch game safely or use a bounded route';
+  else if (nativeProfileBlocked) nextAction = 'Restart the installed bot to restore the managed recognizer';
   else if (!engineAvailable) nextAction = 'Resolve engine availability';
   else if (hasUnsavedPlan) nextAction = NATIVE_PROFILE_MODE ? 'Check recognition gate' : 'Apply the visible plan';
   for (const [selector, text] of [
@@ -1984,7 +1988,7 @@ function renderControl() {
     $('controlAck').textContent = 'Managed engine initialization is active. Stop remains available through launcher supervision.';
     $('controlAck').className = 'control-ack pending';
   } else if (nativeProfileBlocked && connected) {
-    $('controlAck').textContent = `${recognitionError} The primary action is launch-only; apply a verified bounded route before bot actions.`;
+    $('controlAck').textContent = `${recognitionError} Start remains disabled instead of silently running a diagnostic-only command.`;
     $('controlAck').className = 'control-ack notice warning';
   } else if (NATIVE_PROFILE_MODE && connected) {
     $('controlAck').textContent = 'Full profile automation is active. Start uses the selected native profile through current recognition and no-premium gates, and launches BlueStacks and Clash of Clans if needed.';
@@ -2115,8 +2119,23 @@ async function sendControl(action) {
   if (!BOOT_READY) return;
   if (action !== 'start') CONTROL_STARTED = null;
   const previousPending = CONTROL_PENDING;
-  const replacingStart = action === 'stop' && ['start', 'check-engine', 'launch-game'].includes(previousPending?.action) && !!previousPending.request_id;
+  const staleStartRequestId = CONTROL.connected !== true && CONTROL.bot_process_alive === true
+    && CONTROL.last_command === 'start' && CONTROL.last_outcome === 'accepted'
+    && /^[A-Za-z0-9._-]{1,80}$/.test(String(CONTROL.last_command_id || ''))
+      ? CONTROL.last_command_id : '';
+  const pendingStartRequestId = ['start', 'check-engine', 'launch-game'].includes(previousPending?.action)
+    ? String(previousPending?.request_id || '') : '';
+  const activeStartRequestId = /^[A-Za-z0-9._-]{1,80}$/.test(String(CONTROL.run_request_id || ''))
+    ? CONTROL.run_request_id : '';
+  const generationBound = ['stop', 'pause', 'resume'].includes(action);
+  const expectedGenerationRequestId = pendingStartRequestId || staleStartRequestId || activeStartRequestId;
+  const replacingStart = action === 'stop' && !!(pendingStartRequestId || staleStartRequestId);
   if (CONTROL_PENDING && !replacingStart) return;
+  if (generationBound && !expectedGenerationRequestId) {
+    setControlNotice(`Refresh status before ${action}. The active run generation could not be proven.`, 'error');
+    renderControl();
+    return;
+  }
   if (action === 'start' && !NATIVE_PROFILE_MODE
       && (allSettings().some(isUnsaved) || !PLAN_WRITTEN || clientProblems(SAVED).length)) {
     setControlNotice('Apply the visible plan before Start. No unsaved value was sent to the engine.', 'warning');
@@ -2137,7 +2156,7 @@ async function sendControl(action) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action,
-        ...(replacingStart ? { expected_start_request_id: previousPending.request_id } : {}),
+        ...(generationBound ? { expected_start_request_id: expectedGenerationRequestId } : {}),
         ...(action === 'start' ? RUNNABLE_PLAN_RECEIPT : {}),
       }),
     });
@@ -2161,7 +2180,8 @@ async function sendControl(action) {
 }
 
 async function activateNativeProfileMode() {
-  if (!BOOT_READY || CONTROL_PENDING || NATIVE_PROFILE_MODE) return;
+  if (!BOOT_READY || CONTROL_PENDING) return false;
+  if (NATIVE_PROFILE_MODE && RUNNABLE_PLAN_RECEIPT) return true;
   const button = $('controlNativeMode');
   button.disabled = true;
   clearRunnablePlanReceipt();
@@ -2174,7 +2194,7 @@ async function activateNativeProfileMode() {
     const payload = await response.json();
     if (!response.ok || !payload.ok) {
       setControlNotice((payload.problems || ['Full profile automation was refused.']).join('; '), 'error');
-      return;
+      return false;
     }
     NATIVE_PROFILE_MODE = true;
     PLAN_WRITTEN = false;
@@ -2183,15 +2203,22 @@ async function activateNativeProfileMode() {
     setControlNotice(`Full profile automation is active.${backup} Start will use the selected native profile through current recognition and no-premium gates.`, 'info');
     setSaveStatus('Full profile automation is active. Apply the visible plan to return to a bounded planned route.', 'warn');
     updateDirty();
+    return true;
   } catch {
     setControlNotice('Could not reach the planner service. The applied plan was left unchanged.', 'error');
+    return false;
   } finally {
     renderControl();
   }
 }
 
-function primaryControlAction() {
-  return NATIVE_PROFILE_MODE && CONTROL.recognition_available !== true ? 'launch-game' : 'start';
+async function startBot() {
+  if (!BOOT_READY || CONTROL_PENDING) return;
+  if (NATIVE_PROFILE_MODE && !RUNNABLE_PLAN_RECEIPT) {
+    const activated = await activateNativeProfileMode();
+    if (!activated) return;
+  }
+  await sendControl('start');
 }
 
 function prepareVerifiedHomeRoute() {
@@ -2216,7 +2243,7 @@ function prepareVerifiedHomeRoute() {
   renderControl();
 }
 
-$('controlStart').onclick = () => sendControl(primaryControlAction());
+$('controlStart').onclick = startBot;
 $('controlEngineCheck').onclick = () => sendControl('check-engine');
 $('controlGameLaunch').onclick = () => sendControl('launch-game');
 $('controlPause').onclick = () => sendControl(CONTROL.state === 'paused' ? 'resume' : 'pause');

@@ -83,7 +83,9 @@ Global $g_iMainLoopSleep = 50 ;
 Global $g_hFrmBotBackend = 0
 Global $g_bBotLaunched = False
 Global $g_iBotBackendFindTimeout = 3000
-Global Const $g_iMiniBackendRecoveryDelayMs = 1500
+; The launcher may need up to two seconds to confirm one exact backend generation has exited and
+; publish its request-bound Stop receipt. Keep replacement launch outside that terminal-write window.
+Global Const $g_iMiniBackendRecoveryDelayMs = 5000
 Global $g_hMiniBackendRecoveryTimer = 0
 Global $g_bMiniBackendRecoveryActive = False
 Global $g_sMiniLifecycleLastState = ""

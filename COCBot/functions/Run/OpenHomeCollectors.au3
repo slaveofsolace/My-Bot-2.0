@@ -108,8 +108,13 @@ EndFunc   ;==>OpenHomeCollectorTargetReady
 Func OpenHomeCollectorsCapture()
 	If Not $g_bAndroidAdbScreencap Or Not IsArray(GetBlueStacks5ModernAdbSurfacePosition()) Then Return False
 	ForceCaptureRegion()
+	If RunControlCheckpoint() Then Return SetError(2, 0, False)
 	Local $hNewBitmap = AndroidScreencap(0, 0, $g_iGAME_WIDTH, $g_iGAME_HEIGHT)
 	Local $iCaptureError = @error
+	If RunControlCheckpoint() Then
+		If $iCaptureError = 0 And $hNewBitmap <> 0 Then GdiDeleteHBitmap($hNewBitmap)
+		Return SetError(2, 0, False)
+	EndIf
 	If $iCaptureError Or $hNewBitmap = 0 Then Return SetError(1, $iCaptureError, False)
 	If $g_hHBitmap <> 0 And $g_hHBitmap <> $g_hHBitmapTest And $g_hHBitmap2 <> $g_hHBitmap Then GdiDeleteHBitmap($g_hHBitmap)
 	$g_hHBitmap = $hNewBitmap

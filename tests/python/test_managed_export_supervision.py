@@ -171,13 +171,16 @@ class ManagedExportSupervisionTests(unittest.TestCase):
         self.assertLess(skip_notice, skip_return)
         self.assertLess(skip_return, managed_call)
 
-    def test_public_image_call_wrapper_fails_closed_until_initialization_completed(self) -> None:
+    def test_public_image_call_wrapper_requires_initialized_managed_runtime(self) -> None:
         public_wrapper = function_body(self.mbr_func, "DllCallMyBot")
         guard = public_wrapper.index("$g_bLibMyBotInitialized")
-        blocked = public_wrapper.index("Inherited ImgLoc recognition is disabled", guard)
-        self.assertLess(guard, blocked)
-        self.assertNotIn("_DllCallMyBot(", public_wrapper)
-        self.assertIn("Return SetError(1, 0, $aBlocked)", public_wrapper)
+        managed = public_wrapper.index("MBRFuncRecognitionAvailable()", guard)
+        dispatch = public_wrapper.index("_DllCallMyBot($sFunc", managed)
+        self.assertLess(guard, managed)
+        self.assertLess(managed, dispatch)
+        self.assertIn("Return SetError(1, 0, $aUnavailable)", public_wrapper)
+        self.assertIn("Not MBRFuncManagedLaunchBound()", public_wrapper)
+        self.assertIn("Managed recognition timed out or lost launcher ownership", public_wrapper)
 
     def test_no_other_source_can_bypass_the_blocked_recognition_wrapper(self) -> None:
         bypasses: list[str] = []
