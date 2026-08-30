@@ -38,6 +38,13 @@ PROHIBITED_ACRONYM = "".join(chr(value) for value in (65, 73))
 ACRONYM_RE = re.compile(rf"(?<![A-Za-z0-9_+/=]){PROHIBITED_ACRONYM}(?![A-Za-z0-9_+/=])")
 MODEL_ORIGIN_ACRONYM = _ascii_hex("6c 6c 6d").upper()
 MODEL_ORIGIN_RE = re.compile(rf"(?<![A-Za-z0-9_+/=]){MODEL_ORIGIN_ACRONYM}(?![A-Za-z0-9_+/=])", re.IGNORECASE)
+# CPython's generated Thai codec tables use the acronym as part of two official Unicode
+# character names. Keep this exception bound to the complete generated mapping-comment shape.
+SAFE_GENERATED_TERMINOLOGY_RE = re.compile(
+    rf"^\s*['\"]\\u[0-9a-f]{{4}}['\"]\s*,?\s*#\s*0x[0-9a-f]{{2}}\s*->\s*"
+    rf"THAI CHARACTER SARA {PROHIBITED_ACRONYM} MAI(?:MUAN|MALAI)\s*$",
+    re.IGNORECASE,
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -118,9 +125,17 @@ def _package_files(root: Path) -> list[Path]:
 def _path_findings(relative: str) -> list[str]:
     folded = relative.casefold()
     findings = ["brand-term" for word in PROHIBITED_CASEFOLD if word.casefold() in folded]
-    if ACRONYM_RE.search(relative) or MODEL_ORIGIN_RE.search(relative):
+    if _contains_technology_origin(relative, allow_generated_terminology=False):
         findings.append("technology-origin")
     return sorted(set(findings))
+
+
+def _contains_technology_origin(value: str, *, allow_generated_terminology: bool) -> bool:
+    if MODEL_ORIGIN_RE.search(value):
+        return True
+    if not ACRONYM_RE.search(value):
+        return False
+    return not (allow_generated_terminology and SAFE_GENERATED_TERMINOLOGY_RE.fullmatch(value))
 
 
 def scan_paths(root: Path, paths: list[Path]) -> dict[str, object]:
@@ -141,7 +156,7 @@ def scan_paths(root: Path, paths: list[Path]) -> dict[str, object]:
         for line_number, line in enumerate(text.splitlines(), start=1):
             folded = line.casefold()
             kinds = ["brand-term" for word in PROHIBITED_CASEFOLD if word.casefold() in folded]
-            if ACRONYM_RE.search(line) or MODEL_ORIGIN_RE.search(line):
+            if _contains_technology_origin(line, allow_generated_terminology=True):
                 kinds.append("technology-origin")
             if kinds:
                 findings.append(
