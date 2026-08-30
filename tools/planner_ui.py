@@ -344,6 +344,41 @@ def schedule_engine_init_cancel(
     ).start()
 
 
+def _control_request_id(value) -> str:
+    if not isinstance(value, str) or re.fullmatch(r"[A-Za-z0-9._-]{1,80}", value) is None:
+        return ""
+    return value
+
+
+def stop_generation_request_id(status: dict, init_context: dict | None, pending_command: dict | None) -> str:
+    """Return one coherent exact Start generation that a Stop may target."""
+    candidates: list[str] = []
+    if isinstance(init_context, dict):
+        request_id = _control_request_id(init_context.get("start_request_id"))
+        if request_id:
+            candidates.append(request_id)
+    if isinstance(pending_command, dict) and pending_command.get("action") in {
+        "start",
+        "check-engine",
+        "launch-game",
+    }:
+        request_id = _control_request_id(pending_command.get("request_id"))
+        if request_id:
+            candidates.append(request_id)
+    request_id = _control_request_id(status.get("run_request_id"))
+    if request_id:
+        candidates.append(request_id)
+    elif (
+        status.get("last_command") in {"start", "check-engine", "launch-game"}
+        and status.get("last_outcome") in {"accepted", "started"}
+    ):
+        request_id = _control_request_id(status.get("last_command_id"))
+        if request_id:
+            candidates.append(request_id)
+    unique = set(candidates)
+    return candidates[0] if len(unique) == 1 else ""
+
+
 def mini_lifecycle_status() -> dict:
     result = {
         "available": False,
@@ -1244,7 +1279,24 @@ def activate_native_profile_mode() -> tuple[dict, int]:
         try:
             write_plan_receipt_atomic(accepted_plan_receipt("native-profile", attempt_id, plan_revision, PLAN_ABSENCE_TOKEN))
         except OSError:
-            return {"ok": False, "attempt_id": attempt_id, "problems": ["the native profile receipt could not be written atomically"]}, 500
+            try:
+                os.replace(backup, PLAN_PATH)
+            except OSError:
+                return {
+                    "ok": False,
+                    "attempt_id": attempt_id,
+                    "problems": [
+                        "the native profile receipt could not be written and the applied plan could not be restored atomically"
+                    ],
+                    "recovery_backup": displayed_path(backup),
+                }, 500
+            return {
+                "ok": False,
+                "attempt_id": attempt_id,
+                "problems": [
+                    "the native profile receipt could not be written atomically; the applied plan was restored"
+                ],
+            }, 500
         clear_plan_rejection()
         return {
             "ok": True,
@@ -1415,7 +1467,7 @@ def queue_control_command(
     if action not in CONTROL_ACTIONS:
         return {"ok": False, "problems": ["unsupported control action"]}, 400
     if expected_start_request_id:
-        if action != "stop" or re.fullmatch(r"[A-Za-z0-9._-]{1,80}", expected_start_request_id) is None:
+        if action != "stop" or not _control_request_id(expected_start_request_id):
             return {"ok": False, "problems": ["expected_start_request_id is invalid for this action"]}, 400
     normalized_expected_revision = normalize_plan_revision(expected_plan_revision)
     if action == "start":
@@ -1470,8 +1522,8 @@ def queue_control_command(
 
     with CONTROL_LOCK:
         command_pending = CONTROL_COMMAND_PATH.exists()
+        pending_command = read_json(CONTROL_COMMAND_PATH, None) if command_pending else None
         if command_pending and action == "stop":
-            pending_command = read_json(CONTROL_COMMAND_PATH, None)
             if isinstance(pending_command, dict) and pending_command.get("action") == "stop":
                 pending_expected = pending_command.get("expected_start_request_id", "")
                 pending_request_id = pending_command.get("request_id")
@@ -1491,6 +1543,25 @@ def queue_control_command(
                         "written": displayed_path(CONTROL_COMMAND_PATH),
                     }, 202
                 return {"ok": False, "problems": ["another Stop is awaiting the native engine"]}, 409
+        if action == "stop":
+            # Re-read the launcher receipt inside the command lock. The native bridge performs the
+            # same generation check, so a stale tab cannot cancel a newer Start in either process.
+            status = control_status()
+            init_context = engine_init_cancel_context()
+            current_start_request_id = stop_generation_request_id(status, init_context, pending_command)
+            if not current_start_request_id:
+                return {
+                    "ok": False,
+                    "problems": ["no single active Start generation could be proven for Stop"],
+                }, 409
+            if expected_init_request_id:
+                if current_start_request_id != expected_init_request_id:
+                    return {
+                        "ok": False,
+                        "problems": ["the requested Start generation is no longer active"],
+                    }, 409
+            else:
+                expected_init_request_id = current_start_request_id
         # Stop has priority over an unconsumed Start or engine check. Replacing that pending file is
         # safe even before the backend publishes an initialization receipt; no managed call has
         # started yet. Once a receipt exists, the separate launcher cancel remains authoritative.

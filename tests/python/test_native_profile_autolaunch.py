@@ -135,6 +135,75 @@ class NativeProfileAutoLaunchTests(unittest.TestCase):
                 self.assertIsNone(second["backup"])
                 self.assertEqual(list(Path(folder).glob("run-plan.local.backup-*.json")), backups)
 
+    def test_switch_restores_the_exact_plan_when_receipt_publication_fails(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            plan_path = root / "run-plan.local.json"
+            receipt_path = root / "run-plan.receipt.local.json"
+            original = b'{"run.strategy":"home.collectors"}\r\n'
+            plan_path.write_bytes(original)
+            status = {
+                "connected": True,
+                "state": "idle",
+                "recognition_available": True,
+                "recognition_provider": "InheritedLocalRuntime",
+            }
+            with mock.patch.object(planner_ui, "PLAN_PATH", plan_path), mock.patch.object(
+                planner_ui, "PLAN_RECEIPT_PATH", receipt_path
+            ), mock.patch.object(planner_ui, "control_status", return_value=status), mock.patch.object(
+                planner_ui,
+                "write_plan_receipt_atomic",
+                side_effect=OSError("injected receipt failure"),
+            ):
+                payload, code = planner_ui.activate_native_profile_mode()
+
+            self.assertEqual(code, 500)
+            self.assertFalse(payload["ok"])
+            self.assertIn("applied plan was restored", payload["problems"][0])
+            self.assertEqual(plan_path.read_bytes(), original)
+            self.assertEqual(list(root.glob("run-plan.local.backup-*.json")), [])
+            self.assertFalse(receipt_path.exists())
+
+    def test_switch_surfaces_the_exact_backup_when_receipt_rollback_fails(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            plan_path = root / "run-plan.local.json"
+            receipt_path = root / "run-plan.receipt.local.json"
+            original = b'{"run.strategy":"home.collectors"}\n'
+            plan_path.write_bytes(original)
+            status = {
+                "connected": True,
+                "state": "idle",
+                "recognition_available": True,
+                "recognition_provider": "InheritedLocalRuntime",
+            }
+            real_replace = os.replace
+            replace_count = 0
+
+            def fail_rollback(source, destination):
+                nonlocal replace_count
+                replace_count += 1
+                if replace_count == 1:
+                    return real_replace(source, destination)
+                raise OSError("injected rollback failure")
+
+            with mock.patch.object(planner_ui, "PLAN_PATH", plan_path), mock.patch.object(
+                planner_ui, "PLAN_RECEIPT_PATH", receipt_path
+            ), mock.patch.object(planner_ui, "control_status", return_value=status), mock.patch.object(
+                planner_ui,
+                "write_plan_receipt_atomic",
+                side_effect=OSError("injected receipt failure"),
+            ), mock.patch.object(planner_ui.os, "replace", side_effect=fail_rollback):
+                payload, code = planner_ui.activate_native_profile_mode()
+
+            self.assertEqual(code, 500)
+            self.assertFalse(payload["ok"])
+            self.assertIn("could not be restored", payload["problems"][0])
+            self.assertFalse(plan_path.exists())
+            backup = Path(payload["recovery_backup"])
+            self.assertTrue(backup.is_absolute())
+            self.assertEqual(backup.read_bytes(), original)
+
     def test_web_start_binds_the_server_observed_mode_into_the_native_command(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)

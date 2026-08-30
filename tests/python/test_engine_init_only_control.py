@@ -187,7 +187,11 @@ class EngineInitOnlyControlTests(unittest.TestCase):
                 mock.patch.object(
                     planner_ui,
                     "control_status",
-                    return_value={"connected": True, "state": "starting"},
+                    return_value={
+                        "connected": True,
+                        "state": "starting",
+                        "run_request_id": "accepted-check",
+                    },
                 ),
                 mock.patch.object(planner_ui, "engine_init_cancel_context", return_value=None),
                 mock.patch.object(planner_ui, "schedule_engine_init_cancel") as schedule,
