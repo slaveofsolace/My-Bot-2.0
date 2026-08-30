@@ -82,12 +82,14 @@ class AcceptanceStopBeforeHomeBarrierTests(unittest.TestCase):
         owner = adapter.index("_BlueStacks5WriteLaunchOnlyOwnerReceipt($iOwnedPlayerPid)")
         dispatch = adapter.index('AndroidAdbSendShellCommand("am start -n "')
         adb_identity = adapter.index("Local $iOwnedAdbPid = Int($g_iAndroidAdbProcess[0])")
+        dispatch_receipt = adapter.index("_BlueStacks5WriteLaunchOnlyDispatchOwnerReceipt(")
         barrier = adapter.index("_BlueStacks5AcceptanceStopBeforeHomeBarrier(")
         game_timer = adapter.index("Local $hGameTimer = __TimerInit()")
         first_home = adapter.index("OpenHomeCollectorsProveHome()")
         self.assertLess(owner, dispatch)
         self.assertLess(dispatch, adb_identity)
-        self.assertLess(adb_identity, barrier)
+        self.assertLess(adb_identity, dispatch_receipt)
+        self.assertLess(dispatch_receipt, barrier)
         self.assertLess(barrier, game_timer)
         self.assertLess(game_timer, first_home)
         self.assertIn("Not $bStartedEmulator", adapter)
@@ -130,11 +132,11 @@ class AcceptanceStopBeforeHomeBarrierTests(unittest.TestCase):
             "schema=",
             ";state=",
             ";runtime_sha256=",
-            ";acceptance_token=",
+            ";acceptance_authorization_sha256=",
             ";run_request_id=",
             ";session_id=",
             ";plan_revision=",
-            ";plan_token=",
+            ";plan_token_sha256=",
             ";profile=",
             ";emulator=BlueStacks5;instance=Pie64",
             ";adb_device=",
@@ -146,6 +148,49 @@ class AcceptanceStopBeforeHomeBarrierTests(unittest.TestCase):
             ";stop_request_id=",
         ):
             self.assertIn(field, detail)
+        self.assertNotIn(";acceptance_token=", detail)
+
+    def test_dispatch_owner_receipt_binds_exact_candidate_process_graph(self) -> None:
+        receipt = function_body(self.android, "_BlueStacks5WriteLaunchOnlyDispatchOwnerReceipt")
+        for required in (
+            "$g_sBlueStacks5LaunchOnlyDispatchOwnerSchema",
+            "AcceptanceStopBeforeHomeBindingValid(",
+            "AcceptanceLaunchOwnerIdentityValid(",
+            "RunControlCurrentStartGeneration()",
+            "RunExecutionSessionId()",
+            "_BlueStacks5ProcessImagePath($iPlayerPid)",
+            "_MBRFuncParentPid($iPlayerPid)",
+            "_BlueStacks5ProcessImagePath($iAdbPid)",
+            "_MBRFuncParentPid($iAdbPid)",
+            'StringCompare($sPlayerPath, $g_sAndroidProgramPath, 0)',
+            'StringCompare($sAdbPath, $g_sAndroidAdbPath, 0)',
+            '"acceptance_authorization_sha256"',
+            '"runtime_sha256"',
+            '"start_request_id"',
+            '"launch_generation"',
+            '"session_id"',
+            '"issued_at_utc"',
+            '"player_path"',
+            '"player_parent_pid"',
+            '"player_parent_created"',
+            '"adb_path"',
+            '"adb_executable_sha256"',
+            '"adb_parent_pid"',
+            '"adb_parent_created"',
+            '"backend_path_digest"',
+            'FileMove($sTemporary, $g_sBlueStacks5LaunchOnlyDispatchOwnerReceipt, 1)',
+        ):
+            self.assertIn(required, receipt)
+        for forbidden in (
+            '"acceptance_token"',
+            "ShellExecute",
+            "taskkill",
+            "ProcessClose",
+            "OpenHome",
+            "checkMainScreen",
+            "Click(",
+        ):
+            self.assertNotIn(forbidden, receipt)
 
     def test_stop_accessor_rejects_stale_or_unaccepted_stop(self) -> None:
         stop = function_body(self.bridge, "RunControlAcceptedStopRequestId")

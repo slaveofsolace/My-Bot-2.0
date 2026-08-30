@@ -58,6 +58,9 @@ Global Const $g_sEngineSupervisorLauncherPidEnv = "MYBOT_ENGINE_INIT_LAUNCHER_PI
 Global Const $g_sEngineSupervisorLauncherCreatedEnv = "MYBOT_ENGINE_INIT_LAUNCHER_CREATED"
 Global Const $g_sLaunchOnlyEmulatorOwnershipSchema = "my-bot-launch-only-emulator-owner-v1"
 Global Const $g_sLaunchOnlyEmulatorOwnershipReceipt = $g_sUserDataRoot & "\launch-only-emulator-owner-v1.json"
+Global Const $g_sLaunchOnlyEmulatorDispatchOwnershipSchema = "my-bot-launch-only-emulator-owner-v2"
+Global Const $g_sLaunchOnlyEmulatorDispatchOwnershipReceipt = $g_sUserDataRoot & "\launch-only-emulator-owner-v2.json"
+Global Const $g_iLaunchOnlyEmulatorReceiptMaxChars = 8192
 Global Const $g_iEngineInitEnterTimeoutMs = 10000
 Global Const $g_iEngineInitPoolStallTimeoutMs = 90000
 Global Const $g_iEngineInitPostReturnTimeoutMs = 15000
@@ -320,6 +323,8 @@ Func _RecoverBotStack()
 	; exact process stack. Inspect those dialogs only after their owning native processes are gone.
 	_CloseOwnedAutoItErrorDialogs()
 	Local $bAdbChildrenClosed = _CloseVerifiedAdbChildren($aOwnedAdbChildren)
+	Local $sLaunchOnlyEmulatorReceiptPath = _SelectLaunchOnlyEmulatorOwnershipReceipt()
+	Local $bLaunchOnlyEmulatorReceiptSelected = $sLaunchOnlyEmulatorReceiptPath <> ""
 	Local $bLaunchOnlyEmulatorClosed = _CloseOwnedLaunchOnlyEmulator(False)
 	_CloseExactPathProcesses("My Bot 2.0.exe", @ScriptFullPath, @AutoItPID)
 
@@ -342,7 +347,8 @@ Func _RecoverBotStack()
 			$bPlannerClosed ? "" : "planner service receipt or loopback owner could not be closed safely"), _
 		_RecoveryComponentReceipt("adb_children", "backend-child-snapshot:" & $aOwnedAdbChildren[0][0], $aOwnedAdbChildren[0][0] > 0, $bAdbChildrenClosed, $iAdbResidual, _
 			$bAdbChildrenClosed ? "" : "one or more exact backend ADB children remained alive or changed identity"), _
-		_RecoveryComponentReceipt("launch_only_emulator", "receipt:" & $g_sLaunchOnlyEmulatorOwnershipReceipt, FileExists($g_sLaunchOnlyEmulatorOwnershipReceipt), $bLaunchOnlyEmulatorClosed, $iLaunchOnlyResidual, _
+		_RecoveryComponentReceipt("launch_only_emulator", "receipt:" & $sLaunchOnlyEmulatorReceiptPath, _
+			$bLaunchOnlyEmulatorReceiptSelected, $bLaunchOnlyEmulatorClosed, $iLaunchOnlyResidual, _
 			$bLaunchOnlyEmulatorClosed ? "" : "launch-only emulator ownership receipt could not be consumed safely"))
 	_RecoveryLog("recovery completed; controller_closed=" & $bControllerClosed & "; backend_closed=" & $bBackendClosed & "; planner_closed=" & $bPlannerClosed & "; adb_children_closed=" & $bAdbChildrenClosed & "; launch_only_emulator_closed=" & $bLaunchOnlyEmulatorClosed & "; receipt=" & $g_sRecoveryReceiptPath)
 	Return $bRecovered
@@ -1111,20 +1117,40 @@ Func _CountLiveVerifiedAdbChildren(ByRef $aChildren)
 	Return $iLive
 EndFunc   ;==>_CountLiveVerifiedAdbChildren
 
-Func _ReadLaunchOnlyEmulatorOwnershipReceipt()
-	If Not FileExists($g_sLaunchOnlyEmulatorOwnershipReceipt) Then Return ""
-	If Not _LaunchOnlyEmulatorReceiptPathSafe(True) Then Return ""
-	Local $sReceipt = FileRead($g_sLaunchOnlyEmulatorOwnershipReceipt)
-	If @error Or StringLen($sReceipt) > 4096 Then Return ""
+Func _SelectLaunchOnlyEmulatorOwnershipReceipt()
+	If FileExists($g_sLaunchOnlyEmulatorDispatchOwnershipReceipt) Then Return $g_sLaunchOnlyEmulatorDispatchOwnershipReceipt
+	If FileExists($g_sLaunchOnlyEmulatorOwnershipReceipt) Then Return $g_sLaunchOnlyEmulatorOwnershipReceipt
+	Return ""
+EndFunc   ;==>_SelectLaunchOnlyEmulatorOwnershipReceipt
+
+Func _LaunchOnlyEmulatorOwnershipReceiptExists()
+	Return FileExists($g_sLaunchOnlyEmulatorDispatchOwnershipReceipt) Or FileExists($g_sLaunchOnlyEmulatorOwnershipReceipt)
+EndFunc   ;==>_LaunchOnlyEmulatorOwnershipReceiptExists
+
+Func _DeleteLaunchOnlyEmulatorOwnershipReceipts()
+	Local $bDispatchDeleted = FileDelete($g_sLaunchOnlyEmulatorDispatchOwnershipReceipt) = 1 Or _
+			Not FileExists($g_sLaunchOnlyEmulatorDispatchOwnershipReceipt)
+	Local $bPreparedDeleted = FileDelete($g_sLaunchOnlyEmulatorOwnershipReceipt) = 1 Or _
+			Not FileExists($g_sLaunchOnlyEmulatorOwnershipReceipt)
+	Return $bDispatchDeleted And $bPreparedDeleted
+EndFunc   ;==>_DeleteLaunchOnlyEmulatorOwnershipReceipts
+
+Func _ReadLaunchOnlyEmulatorOwnershipReceipt($sReceiptPath)
+	If $sReceiptPath = "" Or Not FileExists($sReceiptPath) Then Return ""
+	If Not _LaunchOnlyEmulatorReceiptPathSafe($sReceiptPath, True) Then Return ""
+	Local $sReceipt = FileRead($sReceiptPath)
+	If @error Or StringLen($sReceipt) > $g_iLaunchOnlyEmulatorReceiptMaxChars Then Return ""
 	Return $sReceipt
 EndFunc   ;==>_ReadLaunchOnlyEmulatorOwnershipReceipt
 
-Func _LaunchOnlyEmulatorReceiptPathSafe($bRequireReceipt = False)
+Func _LaunchOnlyEmulatorReceiptPathSafe($sReceiptPath, $bRequireReceipt = False)
 	Local $aParent = DllCall("kernel32.dll", "dword", "GetFileAttributesW", "wstr", $g_sUserDataRoot)
 	If @error Or Not IsArray($aParent) Or $aParent[0] = 0xFFFFFFFF Then Return False
 	If BitAND($aParent[0], 0x10) = 0 Or BitAND($aParent[0], 0x400) <> 0 Then Return False
-	If Not FileExists($g_sLaunchOnlyEmulatorOwnershipReceipt) Then Return Not $bRequireReceipt
-	Local $aReceipt = DllCall("kernel32.dll", "dword", "GetFileAttributesW", "wstr", $g_sLaunchOnlyEmulatorOwnershipReceipt)
+	If $sReceiptPath <> $g_sLaunchOnlyEmulatorOwnershipReceipt And _
+			$sReceiptPath <> $g_sLaunchOnlyEmulatorDispatchOwnershipReceipt Then Return False
+	If Not FileExists($sReceiptPath) Then Return Not $bRequireReceipt
+	Local $aReceipt = DllCall("kernel32.dll", "dword", "GetFileAttributesW", "wstr", $sReceiptPath)
 	If @error Or Not IsArray($aReceipt) Or $aReceipt[0] = 0xFFFFFFFF Then Return False
 	Return BitAND($aReceipt[0], 0x10) = 0 And BitAND($aReceipt[0], 0x400) = 0
 EndFunc   ;==>_LaunchOnlyEmulatorReceiptPathSafe
@@ -1151,9 +1177,16 @@ Func _LaunchOnlyEmulatorReceiptConsumedSafely($sCurrentReceipt, $iPlayerPid)
 EndFunc   ;==>_LaunchOnlyEmulatorReceiptConsumedSafely
 
 Func _CloseOwnedLaunchOnlyEmulator($bRequireCurrentLauncher)
-	Local $sReceipt = _ReadLaunchOnlyEmulatorOwnershipReceipt()
-	If $sReceipt = "" Then Return True
-	If _PlannerReceiptString($sReceipt, "schema") <> $g_sLaunchOnlyEmulatorOwnershipSchema Then
+	Local $sReceiptPath = _SelectLaunchOnlyEmulatorOwnershipReceipt()
+	If $sReceiptPath = "" Then Return True
+	Local $sReceipt = _ReadLaunchOnlyEmulatorOwnershipReceipt($sReceiptPath)
+	If $sReceipt = "" Then
+		_RecoveryLog("refused launch-only emulator: ownership receipt exists but is unreadable or unsafe")
+		Return False
+	EndIf
+	Local $sSchema = _PlannerReceiptString($sReceipt, "schema")
+	If $sSchema <> $g_sLaunchOnlyEmulatorOwnershipSchema And _
+			$sSchema <> $g_sLaunchOnlyEmulatorDispatchOwnershipSchema Then
 		_RecoveryLog("refused launch-only emulator: invalid ownership receipt schema")
 		Return False
 	EndIf
@@ -1165,6 +1198,55 @@ Func _CloseOwnedLaunchOnlyEmulator($bRequireCurrentLauncher)
 		_RecoveryLog("refused launch-only emulator: malformed ownership receipt")
 		Return False
 	EndIf
+	If $sSchema = $g_sLaunchOnlyEmulatorDispatchOwnershipSchema Then
+		Local $sState = _PlannerReceiptString($sReceipt, "state")
+		Local $sEmulator = _PlannerReceiptString($sReceipt, "emulator")
+		Local $sStartRequestId = _LauncherReceiptIdentifier($sReceipt, "start_request_id")
+		Local $sLaunchGeneration = _LauncherReceiptIdentifier($sReceipt, "launch_generation")
+		Local $sSessionId = _LauncherReceiptIdentifier($sReceipt, "session_id")
+		Local $sStartMode = _PlannerReceiptString($sReceipt, "start_mode")
+		Local $sPlanRevision = _PlannerReceiptString($sReceipt, "plan_revision")
+		Local $sPlanTokenSha256 = _PlannerReceiptString($sReceipt, "plan_token_sha256")
+		Local $iBackendPid = _PlannerReceiptInt($sReceipt, "backend_pid")
+		Local $sBackendCreated = _PlannerReceiptString($sReceipt, "backend_created")
+		Local $sBackendPathDigest = _PlannerReceiptString($sReceipt, "backend_path_digest")
+		Local $sPlayerPathDigest = _PlannerReceiptString($sReceipt, "player_path_digest")
+		Local $iPlayerParentPid = _PlannerReceiptInt($sReceipt, "player_parent_pid")
+		Local $sPlayerParentCreated = _PlannerReceiptString($sReceipt, "player_parent_created")
+		Local $sPlayerParentPathDigest = _PlannerReceiptString($sReceipt, "player_parent_path_digest")
+		Local $iAdbPid = _PlannerReceiptInt($sReceipt, "adb_pid")
+		Local $sAdbCreated = _PlannerReceiptString($sReceipt, "adb_created")
+		Local $sAdbPathDigest = _PlannerReceiptString($sReceipt, "adb_path_digest")
+		Local $sAdbSha256 = _PlannerReceiptString($sReceipt, "adb_executable_sha256")
+		Local $iAdbParentPid = _PlannerReceiptInt($sReceipt, "adb_parent_pid")
+		Local $sAdbParentCreated = _PlannerReceiptString($sReceipt, "adb_parent_created")
+		Local $sAdbParentPathDigest = _PlannerReceiptString($sReceipt, "adb_parent_path_digest")
+		Local $sAuthorizationSha256 = _PlannerReceiptString($sReceipt, "acceptance_authorization_sha256")
+		Local $sRuntimeSha256 = _PlannerReceiptString($sReceipt, "runtime_sha256")
+		If $sState <> "dispatched" Or $sEmulator <> "BlueStacks5" Or $sInstance <> "Pie64" Or _
+				$sStartRequestId = "" Or $sLaunchGeneration <> $sStartRequestId Or $sSessionId = "" Or _
+				Not StringRegExp($sStartMode, "^(planned|native-profile)$") Or _
+				Not StringRegExp($sPlanRevision, "^(0|[1-9][0-9]{0,18})$") Or _
+				Not StringRegExp($sPlanTokenSha256, "^[0-9a-f]{64}$") Or _
+				$iBackendPid <= 0 Or Not StringRegExp($sBackendCreated, "^[0-9a-f]{16}$") Or _
+				Not StringRegExp($sBackendPathDigest, "^[0-9a-f]{64}$") Or _
+				Not StringRegExp($sPlayerPathDigest, "^[0-9a-f]{64}$") Or _
+				$iPlayerParentPid <= 0 Or Not StringRegExp($sPlayerParentCreated, "^[0-9a-f]{16}$") Or _
+				Not StringRegExp($sPlayerParentPathDigest, "^[0-9a-f]{64}$") Or _
+				$iAdbPid <= 0 Or Not StringRegExp($sAdbCreated, "^[0-9a-f]{16}$") Or _
+				Not StringRegExp($sAdbPathDigest, "^[0-9a-f]{64}$") Or _
+				Not StringRegExp($sAdbSha256, "^[0-9a-f]{64}$") Or _
+				$iPlayerParentPid <> $iBackendPid Or $sPlayerParentCreated <> $sBackendCreated Or _
+				$iAdbParentPid <> $iBackendPid Or $sAdbParentCreated <> $sBackendCreated Or _
+				Not StringRegExp($sAdbParentPathDigest, "^[0-9a-f]{64}$") Or _
+				$sPlayerParentPathDigest <> $sBackendPathDigest Or $sAdbParentPathDigest <> $sBackendPathDigest Or _
+				Not StringRegExp($sAuthorizationSha256, "^[0-9a-f]{64}$") Or _
+				Not StringRegExp($sRuntimeSha256, "^[0-9a-f]{64}$") Or _
+				Not StringRegExp($sReceipt, '"issued_at_utc"\s*:\s*"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z"') Then
+			_RecoveryLog("refused launch-only emulator: malformed dispatch ownership receipt")
+			Return False
+		EndIf
+	EndIf
 	If $bRequireCurrentLauncher Then
 		Local $iLauncherPid = _PlannerReceiptInt($sReceipt, "launcher_pid")
 		Local $sLauncherCreated = _PlannerReceiptString($sReceipt, "launcher_created")
@@ -1175,10 +1257,13 @@ Func _CloseOwnedLaunchOnlyEmulator($bRequireCurrentLauncher)
 	EndIf
 	If Not ProcessExists($iPlayerPid) Then
 		_RecoveryLog("removing stale launch-only emulator receipt; pid=" & $iPlayerPid)
-		Return FileDelete($g_sLaunchOnlyEmulatorOwnershipReceipt) = 1 Or Not FileExists($g_sLaunchOnlyEmulatorOwnershipReceipt)
+		Return _DeleteLaunchOnlyEmulatorOwnershipReceipts()
 	EndIf
+	Local $sCurrentPlayerPath = _ProcessImagePath($iPlayerPid)
 	If _ProcessCreationId($iPlayerPid) <> $sPlayerCreated Or _
-			Not StringRegExp(StringLower(_ProcessImagePath($iPlayerPid)), "\\hd-player\.exe$") Then
+			Not StringRegExp(StringLower($sCurrentPlayerPath), "\\hd-player\.exe$") Or _
+			($sSchema = $g_sLaunchOnlyEmulatorDispatchOwnershipSchema And _
+				_StringSha256(StringLower($sCurrentPlayerPath)) <> _PlannerReceiptString($sReceipt, "player_path_digest")) Then
 		_RecoveryLog("refused launch-only emulator: player identity changed; pid=" & $iPlayerPid)
 		Return False
 	EndIf
@@ -1189,7 +1274,7 @@ Func _CloseOwnedLaunchOnlyEmulator($bRequireCurrentLauncher)
 		_RecoveryLog("refused launch-only emulator: no exact instance window or command line proof; pid=" & $iPlayerPid & "; instance=" & $sInstance)
 		Return False
 	EndIf
-	Local $sCurrentReceipt = _ReadLaunchOnlyEmulatorOwnershipReceipt()
+	Local $sCurrentReceipt = _ReadLaunchOnlyEmulatorOwnershipReceipt($sReceiptPath)
 	If $sCurrentReceipt <> $sReceipt Then
 		If _LaunchOnlyEmulatorReceiptConsumedSafely($sCurrentReceipt, $iPlayerPid) Then
 			_RecoveryLog("launch-only owned BlueStacks player already closed by concurrent recovery; pid=" & $iPlayerPid & "; instance=" & $sInstance)
@@ -1199,7 +1284,7 @@ Func _CloseOwnedLaunchOnlyEmulator($bRequireCurrentLauncher)
 	EndIf
 	If Not ProcessExists($iPlayerPid) Then
 		_RecoveryLog("removing stale launch-only emulator receipt after concurrent close; pid=" & $iPlayerPid)
-		Return FileDelete($g_sLaunchOnlyEmulatorOwnershipReceipt) = 1 Or Not FileExists($g_sLaunchOnlyEmulatorOwnershipReceipt)
+		Return _DeleteLaunchOnlyEmulatorOwnershipReceipts()
 	EndIf
 	If _ProcessCreationId($iPlayerPid) <> $sPlayerCreated Then Return False
 	_RecoveryLog("closing launch-only owned BlueStacks player; pid=" & $iPlayerPid & "; instance=" & $sInstance)
@@ -1212,13 +1297,13 @@ Func _CloseOwnedLaunchOnlyEmulator($bRequireCurrentLauncher)
 		_RecoveryLog("launch-only owned BlueStacks player remained alive; pid=" & $iPlayerPid)
 		Return False
 	EndIf
-	Local $sFinalReceipt = _ReadLaunchOnlyEmulatorOwnershipReceipt()
+	Local $sFinalReceipt = _ReadLaunchOnlyEmulatorOwnershipReceipt($sReceiptPath)
 	If $sFinalReceipt <> $sReceipt Then
 		If _LaunchOnlyEmulatorReceiptConsumedSafely($sFinalReceipt, $iPlayerPid) Then Return True
 		Return False
 	EndIf
-	If Not _LaunchOnlyEmulatorReceiptPathSafe(True) Then Return False
-	Return FileDelete($g_sLaunchOnlyEmulatorOwnershipReceipt) = 1 Or Not FileExists($g_sLaunchOnlyEmulatorOwnershipReceipt)
+	If Not _LaunchOnlyEmulatorReceiptPathSafe($sReceiptPath, True) Then Return False
+	Return _DeleteLaunchOnlyEmulatorOwnershipReceipts()
 EndFunc   ;==>_CloseOwnedLaunchOnlyEmulator
 
 Func _PlannerReceiptString($sReceipt, $sName)

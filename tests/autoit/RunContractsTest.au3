@@ -116,6 +116,43 @@ AssertTrue(Not AcceptanceStopBeforeHomeGenerationMatches("start-a", "start-b", "
 		"planned", "planned", "4", "4", $sAcceptanceToken, $sAcceptanceToken, _
 		"MyVillage", "MyVillage", "BlueStacks5", "BlueStacks5", "Pie64", "Pie64"), _
 		"a stale or replacement Start generation fails closed")
+Local $sAuthorizationDigest = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+Local $sRuntimeDigest = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+Local $sAdbDigest = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+Local $sPlayerCreated = "1111111111111111"
+Local $sBackendCreated = "2222222222222222"
+Local $sAdbCreated = "3333333333333333"
+Local $sPlayerPath = "C:\Program Files\BlueStacks_nxt\HD-Player.exe"
+Local $sBackendPath = "E:\MyBot\MyBot.run.exe"
+Local $sAdbPath = "C:\Program Files\BlueStacks_nxt\HD-Adb.exe"
+AssertTrue(AcceptanceLaunchOwnerIdentityValid($sAuthorizationDigest, $sRuntimeDigest, "2026-08-30T08:15:20.123Z", _
+		4100, $sPlayerCreated, $sPlayerPath, 4200, $sBackendCreated, $sBackendPath, _
+		4300, $sAdbCreated, $sAdbPath, $sAdbDigest, 4200, $sBackendCreated, $sBackendPath, $sAcceptanceError), _
+		"the dispatch owner accepts one exact player and ADB generation under the same backend")
+AssertTrue(Not AcceptanceLaunchOwnerIdentityValid("sha256:" & $sAuthorizationDigest, $sRuntimeDigest, "2026-08-30T08:15:20.123Z", _
+		4100, $sPlayerCreated, $sPlayerPath, 4200, $sBackendCreated, $sBackendPath, _
+		4300, $sAdbCreated, $sAdbPath, $sAdbDigest, 4200, $sBackendCreated, $sBackendPath, $sAcceptanceError), _
+		"the dispatch owner rejects a noncanonical authorization digest")
+AssertTrue(Not AcceptanceLaunchOwnerIdentityValid($sAuthorizationDigest, $sRuntimeDigest, "2026-08-30 08:15:20", _
+		4100, $sPlayerCreated, $sPlayerPath, 4200, $sBackendCreated, $sBackendPath, _
+		4300, $sAdbCreated, $sAdbPath, $sAdbDigest, 4200, $sBackendCreated, $sBackendPath, $sAcceptanceError), _
+		"the dispatch owner rejects a non-UTC issuance timestamp")
+AssertTrue(Not AcceptanceLaunchOwnerIdentityValid($sAuthorizationDigest, $sRuntimeDigest, "2026-08-30T08:15:20.123Z", _
+		4100, $sPlayerCreated, $sPlayerPath, 4200, $sBackendCreated, $sBackendPath, _
+		4300, $sAdbCreated, $sAdbPath, $sAdbDigest, 4201, $sBackendCreated, $sBackendPath, $sAcceptanceError), _
+		"the dispatch owner rejects different player and ADB parents")
+AssertTrue(Not AcceptanceLaunchOwnerIdentityValid($sAuthorizationDigest, $sRuntimeDigest, "2026-08-30T08:15:20.123Z", _
+		4100, $sPlayerCreated, "C:\Temp\notepad.exe", 4200, $sBackendCreated, $sBackendPath, _
+		4300, $sAdbCreated, $sAdbPath, $sAdbDigest, 4200, $sBackendCreated, $sBackendPath, $sAcceptanceError), _
+		"the dispatch owner rejects a non-BlueStacks player image")
+AssertTrue(Not AcceptanceLaunchOwnerIdentityValid($sAuthorizationDigest, $sRuntimeDigest, "2026-08-30T08:15:20.123Z", _
+		4100, $sPlayerCreated, $sPlayerPath, 4200, $sBackendCreated, $sBackendPath, _
+		4300, "reused", $sAdbPath, $sAdbDigest, 4200, $sBackendCreated, $sBackendPath, $sAcceptanceError), _
+		"the dispatch owner rejects a malformed ADB creation identity")
+AssertTrue(Not AcceptanceLaunchOwnerIdentityValid($sAuthorizationDigest, $sRuntimeDigest, "2026-08-30T08:15:20.123Z", _
+		4100, $sPlayerCreated, $sPlayerPath, 4200, $sBackendCreated, $sBackendPath, _
+		4300, $sAdbCreated, "C:\Temp\curl.exe", $sAdbDigest, 4200, $sBackendCreated, $sBackendPath, $sAcceptanceError), _
+		"the dispatch owner rejects a non-ADB child image")
 Local $oBarrierEvent = RunEventCreate("acceptance.pre-home.ready", 8, 2100, "contract-test", "info", _
 		"Barrier ready", "", "", 0, 0, 0, 0, 0, $RUN_VERIFICATION_DIAGNOSTIC)
 AssertTrue(IsObj($oBarrierEvent), "the stop-before-Home ready receipt is a valid run event")

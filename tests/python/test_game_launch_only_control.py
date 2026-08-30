@@ -207,11 +207,20 @@ class GameLaunchOnlyControlTests(unittest.TestCase):
             "If $bStartedEmulator Then",
             "_BlueStacks5ConfiguredAdbOwnerPid()",
             "_BlueStacks5WriteLaunchOnlyOwnerReceipt($iOwnedPlayerPid)",
+            "_BlueStacks5WriteLaunchOnlyDispatchOwnerReceipt($iOwnedPlayerPid, $sOwnedPlayerCreated",
             "BlueStacks launched but exact product ownership could not be recorded for cleanup",
         ):
             self.assertIn(required, adapter)
         self.assertLess(adapter.index("ConnectAndroidAdb(False, 3000)"), adapter.index("_BlueStacks5WriteLaunchOnlyOwnerReceipt"))
         self.assertLess(adapter.index("_BlueStacks5WriteLaunchOnlyOwnerReceipt"), adapter.index('AndroidAdbSendShellCommand("am start -n "'))
+        self.assertLess(
+            adapter.index('AndroidAdbSendShellCommand("am start -n "'),
+            adapter.index("_BlueStacks5WriteLaunchOnlyDispatchOwnerReceipt"),
+        )
+        self.assertLess(
+            adapter.index("_BlueStacks5WriteLaunchOnlyDispatchOwnerReceipt"),
+            adapter.index("_BlueStacks5AcceptanceStopBeforeHomeBarrier"),
+        )
 
         receipt = function_body(self.android, "_BlueStacks5WriteLaunchOnlyOwnerReceipt")
         for required in (
@@ -230,6 +239,23 @@ class GameLaunchOnlyControlTests(unittest.TestCase):
             self.assertIn(required, receipt)
         for forbidden in ("ShellExecute", "taskkill", "ProcessClose"):
             self.assertNotIn(forbidden, receipt)
+
+        dispatch_receipt = function_body(self.android, "_BlueStacks5WriteLaunchOnlyDispatchOwnerReceipt")
+        for required in (
+            "$g_sBlueStacks5LaunchOnlyDispatchOwnerSchema",
+            "$g_sBlueStacks5LaunchOnlyDispatchOwnerReceipt",
+            '"state"',
+            '"dispatched"',
+            '"start_request_id"',
+            '"launch_generation"',
+            '"backend_path_digest"',
+            '"player_path_digest"',
+            '"player_parent_path_digest"',
+            '"adb_path_digest"',
+            '"adb_executable_sha256"',
+            '"adb_parent_path_digest"',
+        ):
+            self.assertIn(required, dispatch_receipt)
 
     def test_native_bridge_owns_launch_request_and_returns_idle(self) -> None:
         consume = function_body(self.bridge, "_RunControlConsumeCommand")

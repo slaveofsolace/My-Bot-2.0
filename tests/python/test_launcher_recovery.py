@@ -493,8 +493,17 @@ class LauncherRecoveryContractTests(unittest.TestCase):
         consumed = autoit_function(LAUNCHER, "_LaunchOnlyEmulatorReceiptConsumedSafely")
 
         self.assertIn('Global Const $g_sLaunchOnlyEmulatorOwnershipSchema = "my-bot-launch-only-emulator-owner-v1"', LAUNCHER)
+        self.assertIn('Global Const $g_sLaunchOnlyEmulatorDispatchOwnershipSchema = "my-bot-launch-only-emulator-owner-v2"', LAUNCHER)
+        self.assertIn("Global Const $g_iLaunchOnlyEmulatorReceiptMaxChars = 8192", LAUNCHER)
+        self.assertIn('If $sReceiptPath = "" Then Return True', close)
+        self.assertIn('ownership receipt exists but is unreadable or unsafe', close)
+        self.assertIn("StringLen($sReceipt) > $g_iLaunchOnlyEmulatorReceiptMaxChars", LAUNCHER)
         self.assertIn("_CloseOwnedLaunchOnlyEmulator(False)", recovery)
         self.assertIn("_CloseOwnedLaunchOnlyEmulator(True)", controller_exit)
+        self.assertIn("Local $sLaunchOnlyEmulatorReceiptPath = _SelectLaunchOnlyEmulatorOwnershipReceipt()", recovery)
+        self.assertIn('Local $bLaunchOnlyEmulatorReceiptSelected = $sLaunchOnlyEmulatorReceiptPath <> ""', recovery)
+        self.assertIn('"receipt:" & $sLaunchOnlyEmulatorReceiptPath', recovery)
+        self.assertIn("$bLaunchOnlyEmulatorReceiptSelected", recovery)
         self.assertLess(recovery.index("_CloseVerifiedAdbChildren"), recovery.index("_CloseOwnedLaunchOnlyEmulator(False)"))
         self.assertLess(controller_exit.index("_CloseVerifiedAdbChildren"), controller_exit.index("_CloseOwnedLaunchOnlyEmulator(True)"))
 
@@ -503,27 +512,42 @@ class LauncherRecoveryContractTests(unittest.TestCase):
             '_PlannerReceiptInt($sReceipt, "player_pid")',
             '_PlannerReceiptString($sReceipt, "player_created")',
             '_LauncherReceiptIdentifier($sReceipt, "instance")',
+            '_PlannerReceiptString($sReceipt, "player_path_digest")',
+            '_PlannerReceiptInt($sReceipt, "player_parent_pid")',
+            '_PlannerReceiptString($sReceipt, "player_parent_created")',
+            '_PlannerReceiptInt($sReceipt, "adb_pid")',
+            '_PlannerReceiptString($sReceipt, "adb_created")',
+            '_PlannerReceiptString($sReceipt, "adb_executable_sha256")',
+            '_PlannerReceiptInt($sReceipt, "adb_parent_pid")',
+            '_PlannerReceiptString($sReceipt, "acceptance_authorization_sha256")',
+            '_PlannerReceiptString($sReceipt, "runtime_sha256")',
+            '_PlannerReceiptString($sReceipt, "backend_path_digest")',
+            '$sLaunchGeneration <> $sStartRequestId',
+            '$iPlayerParentPid <> $iBackendPid',
+            '$iAdbParentPid <> $iBackendPid',
+            '$sPlayerParentPathDigest <> $sBackendPathDigest',
             "_ProcessCreationId($iPlayerPid) <> $sPlayerCreated",
-            'StringRegExp(StringLower(_ProcessImagePath($iPlayerPid)), "\\\\hd-player\\.exe$")',
+            'StringRegExp(StringLower($sCurrentPlayerPath), "\\\\hd-player\\.exe$")',
+            '_StringSha256(StringLower($sCurrentPlayerPath))',
             "_ProcessCommandLine($iPlayerPid)",
             'StringInStr($sCommand, "--instance")',
             "_FindLaunchOnlyBlueStacksWindow($iPlayerPid, $sInstance)",
-            "Local $sCurrentReceipt = _ReadLaunchOnlyEmulatorOwnershipReceipt()",
+            "Local $sCurrentReceipt = _ReadLaunchOnlyEmulatorOwnershipReceipt($sReceiptPath)",
             "_LaunchOnlyEmulatorReceiptConsumedSafely($sCurrentReceipt, $iPlayerPid)",
-            "Local $sFinalReceipt = _ReadLaunchOnlyEmulatorOwnershipReceipt()",
+            "Local $sFinalReceipt = _ReadLaunchOnlyEmulatorOwnershipReceipt($sReceiptPath)",
             "_LaunchOnlyEmulatorReceiptConsumedSafely($sFinalReceipt, $iPlayerPid)",
             "taskkill.exe",
             '" -f -t -pid " & $iPlayerPid',
-            "FileDelete($g_sLaunchOnlyEmulatorOwnershipReceipt)",
+            "_DeleteLaunchOnlyEmulatorOwnershipReceipts()",
         ):
             self.assertIn(required, close)
         self.assertIn('$sCurrentReceipt = "" And $iPlayerPid > 0 And Not ProcessExists($iPlayerPid)', consumed)
         self.assertLess(
-            close.index("Local $sCurrentReceipt = _ReadLaunchOnlyEmulatorOwnershipReceipt()"),
+            close.index("Local $sCurrentReceipt = _ReadLaunchOnlyEmulatorOwnershipReceipt($sReceiptPath)"),
             close.index("taskkill.exe"),
         )
         self.assertGreater(
-            close.index("Local $sFinalReceipt = _ReadLaunchOnlyEmulatorOwnershipReceipt()"),
+            close.index("Local $sFinalReceipt = _ReadLaunchOnlyEmulatorOwnershipReceipt($sReceiptPath)"),
             close.index("If ProcessExists($iPlayerPid) Then"),
         )
         for forbidden in (

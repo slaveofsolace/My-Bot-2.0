@@ -7,6 +7,7 @@
 Global Const $ACCEPTANCE_STOP_BEFORE_HOME_ENV = "MYBOT_ACCEPTANCE_STOP_BEFORE_HOME"
 Global Const $ACCEPTANCE_STOP_BEFORE_HOME_TOKEN_ENV = "MYBOT_ACCEPTANCE_STOP_BEFORE_HOME_TOKEN"
 Global Const $ACCEPTANCE_STOP_BEFORE_HOME_SCHEMA = "mybot-acceptance-stop-before-home-v1"
+Global Const $ACCEPTANCE_LAUNCH_OWNER_SCHEMA = "my-bot-launch-only-emulator-owner-v2"
 Global Const $ACCEPTANCE_STOP_BEFORE_HOME_TIMEOUT_MS = 60000
 
 ; 0 means absent, 1 means active, and -1 means an attempted but malformed contract.
@@ -71,3 +72,51 @@ Func AcceptanceStopBeforeHomeGenerationMatches($sExpectedRunRequestId, $sActualR
 			$sExpectedEmulator = $sActualEmulator And _
 			$sExpectedInstance = $sActualInstance
 EndFunc   ;==>AcceptanceStopBeforeHomeGenerationMatches
+
+Func AcceptanceLaunchOwnerIdentityValid($sAuthorizationSha256, $sRuntimeSha256, $sIssuedAtUtc, _
+		$iPlayerPid, $sPlayerCreated, $sPlayerPath, $iPlayerParentPid, $sPlayerParentCreated, $sPlayerParentPath, _
+		$iAdbPid, $sAdbCreated, $sAdbPath, $sAdbSha256, $iAdbParentPid, $sAdbParentCreated, $sAdbParentPath, _
+		ByRef $sReason)
+	$sReason = ""
+	If Not StringRegExp($sAuthorizationSha256, "^[0-9a-f]{64}$") Or _
+			Not StringRegExp($sRuntimeSha256, "^[0-9a-f]{64}$") Or _
+			Not StringRegExp($sAdbSha256, "^[0-9a-f]{64}$") Then
+		$sReason = "The launch-owner receipt is missing an exact authorization, runtime, or ADB digest"
+		Return False
+	EndIf
+	If Not StringRegExp($sIssuedAtUtc, "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z$") Then
+		$sReason = "The launch-owner receipt has no exact UTC issuance timestamp"
+		Return False
+	EndIf
+	If $iPlayerPid <= 0 Or $iAdbPid <= 0 Or $iPlayerParentPid <= 0 Or $iAdbParentPid <= 0 Or _
+			$iPlayerParentPid <> $iAdbParentPid Then
+		$sReason = "The launch-owner receipt does not bind one exact backend parent to the player and ADB child"
+		Return False
+	EndIf
+	Local $aCreated = [$sPlayerCreated, $sPlayerParentCreated, $sAdbCreated, $sAdbParentCreated]
+	For $sCreated In $aCreated
+		If Not StringRegExp($sCreated, "^[0-9a-f]{16}$") Then
+			$sReason = "The launch-owner receipt contains a missing or malformed process creation identity"
+			Return False
+		EndIf
+	Next
+	If $sPlayerParentCreated <> $sAdbParentCreated Or $sPlayerParentPath <> $sAdbParentPath Then
+		$sReason = "The player and ADB identities do not share one exact backend parent generation"
+		Return False
+	EndIf
+	Local $aPaths = [$sPlayerPath, $sPlayerParentPath, $sAdbPath, $sAdbParentPath]
+	For $sPath In $aPaths
+		If StringLen($sPath) < 4 Or StringLen($sPath) > 1024 Or _
+				Not StringRegExp($sPath, "^[A-Za-z]:\\") Or StringRegExp($sPath, "[\x00-\x1f]") Then
+			$sReason = "The launch-owner receipt contains a missing or unsafe executable path"
+			Return False
+		EndIf
+	Next
+	If Not StringRegExp(StringLower($sPlayerPath), "\\hd-player\.exe$") Or _
+			Not StringRegExp(StringLower($sAdbPath), "\\(?:hd-adb|adb)\.exe$") Or _
+			Not StringRegExp(StringLower($sPlayerParentPath), "\\mybot\.run\.exe$") Then
+		$sReason = "The launch-owner receipt does not identify the exact player, ADB, and backend executable families"
+		Return False
+	EndIf
+	Return True
+EndFunc   ;==>AcceptanceLaunchOwnerIdentityValid
