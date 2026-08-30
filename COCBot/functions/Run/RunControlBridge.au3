@@ -82,6 +82,17 @@ Func _RunControlNewLocalStartRequestId()
 	Return $sRequestId
 EndFunc   ;==>_RunControlNewLocalStartRequestId
 
+Func _RunControlCurrentStartGeneration($bAllowInitializing = False)
+	Local $sRequestId = $g_sRunControlRunRequestId
+	If StringRegExp($sRequestId, "^[A-Za-z0-9._-]{1,80}$") Then Return $sRequestId
+	If Not $bAllowInitializing Then Return ""
+	$sRequestId = $g_sRunControlActiveStartRequestId
+	If StringRegExp($sRequestId, "^[A-Za-z0-9._-]{1,80}$") Then Return $sRequestId
+	$sRequestId = $g_sRunControlPendingStartRequestId
+	If StringRegExp($sRequestId, "^[A-Za-z0-9._-]{1,80}$") Then Return $sRequestId
+	Return ""
+EndFunc   ;==>_RunControlCurrentStartGeneration
+
 Func RunControlCommandPath()
 	Return @ScriptDir & "\" & $RUN_CONTROL_COMMAND_FILE_NAME
 EndFunc   ;==>RunControlCommandPath
@@ -558,6 +569,7 @@ Func _RunControlConsumeCommand()
 	Local $bHasExpectedStartRequestId = $oCommand.Exists("expected_start_request_id")
 	Local $sExpectedStartRequestId = ""
 	If $bHasExpectedStartRequestId Then $sExpectedStartRequestId = String($oCommand.Item("expected_start_request_id"))
+	Local $bGenerationAction = StringRegExp($sAction, "^(stop|pause|resume)$") = 1
 	If $sAction = "start" And Not StringRegExp($sRunMode, "^(planned|native-profile)$") Then
 		_RunControlAcknowledge($sRequestId, $sAction, "rejected", "Start command is missing a valid run_mode")
 		Return
@@ -583,16 +595,16 @@ Func _RunControlConsumeCommand()
 		_RunControlAcknowledge($sRequestId, $sAction, "rejected", "plan_token is valid only for Start")
 		Return
 	EndIf
-	If $sAction <> "stop" And $bHasExpectedStartRequestId Then
-		_RunControlAcknowledge($sRequestId, $sAction, "rejected", "expected_start_request_id is valid only for Stop")
+	If Not $bGenerationAction And $bHasExpectedStartRequestId Then
+		_RunControlAcknowledge($sRequestId, $sAction, "rejected", "expected_start_request_id is valid only for Stop, Pause, or Resume")
 		Return
 	EndIf
-	If $sAction = "stop" And $bHasExpectedStartRequestId And Not StringRegExp($sExpectedStartRequestId, "^[A-Za-z0-9._-]{1,80}$") Then
-		_RunControlAcknowledge($sRequestId, $sAction, "rejected", "Stop command expected_start_request_id is invalid")
+	If $bGenerationAction And $bHasExpectedStartRequestId And Not StringRegExp($sExpectedStartRequestId, "^[A-Za-z0-9._-]{1,80}$") Then
+		_RunControlAcknowledge($sRequestId, $sAction, "rejected", StringUpper(StringLeft($sAction, 1)) & StringTrimLeft($sAction, 1) & " command expected_start_request_id is invalid")
 		Return
 	EndIf
-	If $sAction = "stop" And Not $bHasExpectedStartRequestId Then
-		_RunControlAcknowledge($sRequestId, $sAction, "rejected", "Stop command is missing expected_start_request_id")
+	If $bGenerationAction And Not $bHasExpectedStartRequestId Then
+		_RunControlAcknowledge($sRequestId, $sAction, "rejected", StringUpper(StringLeft($sAction, 1)) & StringTrimLeft($sAction, 1) & " command is missing expected_start_request_id")
 		Return
 	EndIf
 
@@ -648,14 +660,10 @@ Func _RunControlConsumeCommand()
 			$g_iBotAction = $eBotStart
 			_RunControlAcknowledge($sRequestId, $sAction, "accepted", "BlueStacks and Clash of Clans launch requested by control center")
 		Case "stop"
-			If $sExpectedStartRequestId <> "" Then
-				Local $sCurrentStartRequestId = $g_sRunControlRunRequestId
-				If Not StringRegExp($sCurrentStartRequestId, "^[A-Za-z0-9._-]{1,80}$") Then $sCurrentStartRequestId = $g_sRunControlActiveStartRequestId
-				If Not StringRegExp($sCurrentStartRequestId, "^[A-Za-z0-9._-]{1,80}$") Then $sCurrentStartRequestId = $g_sRunControlPendingStartRequestId
-				If Not StringRegExp($sCurrentStartRequestId, "^[A-Za-z0-9._-]{1,80}$") Or $sCurrentStartRequestId <> $sExpectedStartRequestId Then
-					_RunControlAcknowledge($sRequestId, $sAction, "rejected", "Stop command targets a Start generation that is no longer active")
-					Return
-				EndIf
+			Local $sCurrentStartRequestId = _RunControlCurrentStartGeneration(True)
+			If $sCurrentStartRequestId = "" Or $sCurrentStartRequestId <> $sExpectedStartRequestId Then
+				_RunControlAcknowledge($sRequestId, $sAction, "rejected", "Stop command targets a Start generation that is no longer active")
+				Return
 			EndIf
 			$g_sRunControlPendingStartRequestId = ""
 			$g_sRunControlPendingStartMode = ""
@@ -670,6 +678,10 @@ Func _RunControlConsumeCommand()
 			$g_iBotAction = $eBotStop
 			_RunControlAcknowledge($sRequestId, $sAction, "accepted", "Stop requested by control center")
 		Case "pause"
+			If _RunControlCurrentStartGeneration(False) <> $sExpectedStartRequestId Then
+				_RunControlAcknowledge($sRequestId, $sAction, "rejected", "Pause command targets a Start generation that is no longer active")
+				Return
+			EndIf
 			If Not $g_bRunState Then
 				_RunControlAcknowledge($sRequestId, $sAction, "rejected", "A run must be active before it can pause")
 				Return
@@ -682,6 +694,10 @@ Func _RunControlConsumeCommand()
 			TogglePauseUpdateState("Control center")
 			_RunControlAcknowledge($sRequestId, $sAction, "paused", "Run paused by control center")
 		Case "resume"
+			If _RunControlCurrentStartGeneration(False) <> $sExpectedStartRequestId Then
+				_RunControlAcknowledge($sRequestId, $sAction, "rejected", "Resume command targets a Start generation that is no longer active")
+				Return
+			EndIf
 			If Not $g_bRunState Then
 				_RunControlAcknowledge($sRequestId, $sAction, "rejected", "There is no paused run to resume")
 				Return

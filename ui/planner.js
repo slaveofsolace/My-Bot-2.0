@@ -2125,9 +2125,17 @@ async function sendControl(action) {
       ? CONTROL.last_command_id : '';
   const pendingStartRequestId = ['start', 'check-engine', 'launch-game'].includes(previousPending?.action)
     ? String(previousPending?.request_id || '') : '';
-  const expectedStopRequestId = pendingStartRequestId || staleStartRequestId;
-  const replacingStart = action === 'stop' && !!expectedStopRequestId;
+  const activeStartRequestId = /^[A-Za-z0-9._-]{1,80}$/.test(String(CONTROL.run_request_id || ''))
+    ? CONTROL.run_request_id : '';
+  const generationBound = ['stop', 'pause', 'resume'].includes(action);
+  const expectedGenerationRequestId = pendingStartRequestId || staleStartRequestId || activeStartRequestId;
+  const replacingStart = action === 'stop' && !!(pendingStartRequestId || staleStartRequestId);
   if (CONTROL_PENDING && !replacingStart) return;
+  if (generationBound && !expectedGenerationRequestId) {
+    setControlNotice(`Refresh status before ${action}. The active run generation could not be proven.`, 'error');
+    renderControl();
+    return;
+  }
   if (action === 'start' && !NATIVE_PROFILE_MODE
       && (allSettings().some(isUnsaved) || !PLAN_WRITTEN || clientProblems(SAVED).length)) {
     setControlNotice('Apply the visible plan before Start. No unsaved value was sent to the engine.', 'warning');
@@ -2148,7 +2156,7 @@ async function sendControl(action) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action,
-        ...(replacingStart ? { expected_start_request_id: expectedStopRequestId } : {}),
+        ...(generationBound ? { expected_start_request_id: expectedGenerationRequestId } : {}),
         ...(action === 'start' ? RUNNABLE_PLAN_RECEIPT : {}),
       }),
     });

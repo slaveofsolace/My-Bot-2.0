@@ -103,6 +103,7 @@ CONTROL_TERMINAL_OUTCOMES = {"completed", "passed", "rejected", "failed", "stopp
 ENGINE_INIT_CANCEL_CONTEXT_WAIT_SECONDS = 3.0
 ENGINE_INIT_CANCEL_CONTEXT_POLL_SECONDS = 0.025
 CONTROL_ACTIONS = {"start", "stop", "pause", "resume", "check-engine", "launch-game"}
+CONTROL_GENERATION_ACTIONS = {"stop", "pause", "resume"}
 CONTROL_LOCK = threading.Lock()
 PLAN_ABSENCE_TOKEN = "absent"
 PLAN_RECEIPT_SCHEMA_VERSION = 1
@@ -1080,6 +1081,18 @@ def plan_status() -> dict:
         "plan_token": None,
         "runnable_problem": "the applied plan has not been accepted for Start",
     })
+    if isinstance(_LAST_PLAN_REJECTION, dict):
+        problems = _LAST_PLAN_REJECTION.get("problems")
+        status["receipt_state"] = "rejected"
+        status["attempt_id"] = _LAST_PLAN_REJECTION.get("attempt_id")
+        status["last_plan_revision"] = receipt_revision_floor(receipt)
+        status["runnable_problem"] = "the most recent plan save failed; fix and save a valid plan before Start"
+        if isinstance(problems, list):
+            status["problems"] = [str(item) for item in problems]
+        receipt_error = _LAST_PLAN_REJECTION.get("receipt_error")
+        if isinstance(receipt_error, str) and receipt_error:
+            status["receipt_error"] = receipt_error
+        return status
     if receipt_state == "rejected":
         problems = receipt.get("problems")
         status["attempt_id"] = receipt.get("attempt_id")
@@ -1466,9 +1479,14 @@ def queue_control_command(
 ) -> tuple[dict, int]:
     if action not in CONTROL_ACTIONS:
         return {"ok": False, "problems": ["unsupported control action"]}, 400
-    if expected_start_request_id:
-        if action != "stop" or not _control_request_id(expected_start_request_id):
-            return {"ok": False, "problems": ["expected_start_request_id is invalid for this action"]}, 400
+    if action in CONTROL_GENERATION_ACTIONS:
+        if not _control_request_id(expected_start_request_id):
+            return {
+                "ok": False,
+                "problems": [f"{action.title()} requires the active Start generation; refresh status and try again"],
+            }, 400
+    elif expected_start_request_id:
+        return {"ok": False, "problems": ["expected_start_request_id is invalid for this action"]}, 400
     normalized_expected_revision = normalize_plan_revision(expected_plan_revision)
     if action == "start":
         if expected_run_mode not in {"planned", "native-profile"}:
@@ -1487,35 +1505,7 @@ def queue_control_command(
     status = control_status()
     init_context = engine_init_cancel_context() if action == "stop" else None
     expected_init_request_id = expected_start_request_id
-    if (
-        action == "stop"
-        and init_context is None
-        and not expected_init_request_id
-        and status.get("last_command") in {"start", "check-engine", "launch-game"}
-        and status.get("last_outcome") == "accepted"
-        and isinstance(status.get("last_command_id"), str)
-        and re.fullmatch(r"[A-Za-z0-9._-]{1,80}", status["last_command_id"])
-    ):
-        expected_init_request_id = status["last_command_id"]
-    if (
-        action == "stop"
-        and status.get("state") == "stopping"
-        and status.get("last_command") == "stop"
-        and status.get("last_outcome") == "accepted"
-        and isinstance(status.get("last_command_id"), str)
-        and re.fullmatch(r"[A-Za-z0-9._-]{1,80}", status["last_command_id"])
-    ):
-        return {
-            "ok": True,
-            "accepted": True,
-            "duplicate": True,
-            "request_id": status["last_command_id"],
-            "action": "stop",
-            "native_command_queued": False,
-            "supervisor_cancel_status": "already-accepted",
-            "written": None,
-        }, 202
-    if not status.get("connected") and init_context is None and not expected_init_request_id:
+    if not status.get("connected") and init_context is None and action != "stop":
         return {"ok": False, "problems": ["native engine is offline"], "status": status}, 409
     if action in {"start", "check-engine"} and not status.get("engine_available", True):
         return {"ok": False, "problems": [status.get("message") or "native engine is unavailable"], "status": status}, 409
@@ -1523,45 +1513,68 @@ def queue_control_command(
     with CONTROL_LOCK:
         command_pending = CONTROL_COMMAND_PATH.exists()
         pending_command = read_json(CONTROL_COMMAND_PATH, None) if command_pending else None
-        if command_pending and action == "stop":
-            if isinstance(pending_command, dict) and pending_command.get("action") == "stop":
-                pending_expected = pending_command.get("expected_start_request_id", "")
-                pending_request_id = pending_command.get("request_id")
-                if (
-                    pending_expected == expected_init_request_id
-                    and isinstance(pending_request_id, str)
-                    and re.fullmatch(r"[A-Za-z0-9._-]{1,80}", pending_request_id)
-                ):
-                    return {
-                        "ok": True,
-                        "accepted": True,
-                        "duplicate": True,
-                        "request_id": pending_request_id,
-                        "action": "stop",
-                        "native_command_queued": True,
-                        "supervisor_cancel_status": "already-pending",
-                        "written": displayed_path(CONTROL_COMMAND_PATH),
-                    }, 202
-                return {"ok": False, "problems": ["another Stop is awaiting the native engine"]}, 409
-        if action == "stop":
-            # Re-read the launcher receipt inside the command lock. The native bridge performs the
-            # same generation check, so a stale tab cannot cancel a newer Start in either process.
+        if (
+            command_pending
+            and action == "stop"
+            and isinstance(pending_command, dict)
+            and pending_command.get("action") == "stop"
+        ):
+            pending_expected = pending_command.get("expected_start_request_id", "")
+            pending_request_id = pending_command.get("request_id")
+            if (
+                pending_expected == expected_init_request_id
+                and isinstance(pending_request_id, str)
+                and re.fullmatch(r"[A-Za-z0-9._-]{1,80}", pending_request_id)
+            ):
+                return {
+                    "ok": True,
+                    "accepted": True,
+                    "duplicate": True,
+                    "request_id": pending_request_id,
+                    "action": "stop",
+                    "native_command_queued": True,
+                    "supervisor_cancel_status": "already-pending",
+                    "written": displayed_path(CONTROL_COMMAND_PATH),
+                }, 202
+            return {"ok": False, "problems": ["another Stop is awaiting the native engine"]}, 409
+        if action in CONTROL_GENERATION_ACTIONS:
+            # Re-read under the command lock and bind every mutable run action to the exact Start
+            # generation observed by both the browser and the native controller.
             status = control_status()
-            init_context = engine_init_cancel_context()
-            current_start_request_id = stop_generation_request_id(status, init_context, pending_command)
+            init_context = engine_init_cancel_context() if action == "stop" else None
+            if action == "stop":
+                current_start_request_id = stop_generation_request_id(status, init_context, pending_command)
+            elif status.get("connected") is True:
+                current_start_request_id = _control_request_id(status.get("run_request_id"))
+            else:
+                current_start_request_id = ""
             if not current_start_request_id:
                 return {
                     "ok": False,
-                    "problems": ["no single active Start generation could be proven for Stop"],
+                    "problems": [f"no single active Start generation could be proven for {action.title()}"],
                 }, 409
-            if expected_init_request_id:
-                if current_start_request_id != expected_init_request_id:
-                    return {
-                        "ok": False,
-                        "problems": ["the requested Start generation is no longer active"],
-                    }, 409
-            else:
-                expected_init_request_id = current_start_request_id
+            if current_start_request_id != expected_init_request_id:
+                return {
+                    "ok": False,
+                    "problems": ["the requested Start generation is no longer active"],
+                }, 409
+            if (
+                action == "stop"
+                and status.get("state") == "stopping"
+                and status.get("last_command") == "stop"
+                and status.get("last_outcome") == "accepted"
+                and _control_request_id(status.get("last_command_id"))
+            ):
+                return {
+                    "ok": True,
+                    "accepted": True,
+                    "duplicate": True,
+                    "request_id": status["last_command_id"],
+                    "action": "stop",
+                    "native_command_queued": False,
+                    "supervisor_cancel_status": "already-accepted",
+                    "written": None,
+                }, 202
         # Stop has priority over an unconsumed Start or engine check. Replacing that pending file is
         # safe even before the backend publishes an initialization receipt; no managed call has
         # started yet. Once a receipt exists, the separate launcher cancel remains authoritative.
@@ -1643,7 +1656,7 @@ def queue_control_command(
             command["run_mode"] = run_mode
             command["plan_revision"] = current_plan["plan_revision"]
             command["plan_token"] = plan_token
-        elif action == "stop" and expected_init_request_id:
+        elif action in CONTROL_GENERATION_ACTIONS:
             command["expected_start_request_id"] = expected_init_request_id
         native_command_queued = False
         # A supervised Stop must replace any command that could otherwise be replayed by the

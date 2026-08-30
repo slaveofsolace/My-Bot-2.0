@@ -85,6 +85,59 @@ class NativeProfileAutoLaunchTests(unittest.TestCase):
                 self.assertEqual(planner_ui.plan_status()["mode"], "native-profile")
                 self.assertFalse(planner_ui.plan_status()["exists"])
 
+    def test_failed_rejection_receipt_still_blocks_the_previous_accepted_plan(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            plan_path = root / "run-plan.local.json"
+            receipt_path = root / "run-plan.receipt.local.json"
+            command_path = root / "control-command.local.json"
+            plan_path.write_text(json.dumps(valid_home_plan(), indent=2), encoding="utf-8")
+            with mock.patch.object(planner_ui, "PLAN_PATH", plan_path), mock.patch.object(
+                planner_ui, "PLAN_RECEIPT_PATH", receipt_path
+            ):
+                plan_token = planner_ui.plan_file_token()
+                receipt = planner_ui.accepted_plan_receipt(
+                    "planned", "accepted-attempt", 7, plan_token
+                )
+                planner_ui.write_plan_receipt_atomic(receipt)
+
+                planner_ui.clear_plan_rejection()
+                try:
+                    with mock.patch.object(
+                        planner_ui,
+                        "write_plan_receipt_atomic",
+                        side_effect=OSError("injected rejection receipt failure"),
+                    ):
+                        planner_ui.remember_plan_rejection(["injected invalid edit"], "failed-attempt")
+
+                    status = planner_ui.plan_status()
+                    self.assertFalse(status["runnable"])
+                    self.assertEqual(status["receipt_state"], "rejected")
+                    self.assertEqual(status["attempt_id"], "failed-attempt")
+                    self.assertIn("most recent plan save failed", status["runnable_problem"])
+                    self.assertIn("rejection receipt failure", status["receipt_error"])
+
+                    with mock.patch.object(
+                        planner_ui,
+                        "CONTROL_COMMAND_PATH",
+                        command_path,
+                    ), mock.patch.object(
+                        planner_ui,
+                        "control_status",
+                        return_value={"connected": True, "state": "idle", "engine_available": True},
+                    ):
+                        payload, code = planner_ui.queue_control_command(
+                            "start",
+                            expected_run_mode="planned",
+                            expected_plan_revision=receipt["plan_revision"],
+                            expected_plan_token=receipt["plan_token"],
+                        )
+                    self.assertEqual(code, 409)
+                    self.assertIn("most recent plan save failed", payload["problems"][0])
+                    self.assertFalse(command_path.exists())
+                finally:
+                    planner_ui.clear_plan_rejection()
+
     def test_normal_launch_does_not_consume_stale_restart_intent(self):
         read_config = (ROOT / "COCBot" / "functions" / "Config" / "readConfig.au3").read_text(
             encoding="utf-8-sig"

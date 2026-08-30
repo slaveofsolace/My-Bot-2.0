@@ -168,7 +168,7 @@ class EngineInitOnlyControlTests(unittest.TestCase):
                 mock.patch.object(planner_ui, "ENGINE_INIT_RECEIPT_PATH", receipt),
                 mock.patch.object(planner_ui, "control_status", return_value={"connected": True, "state": "idle"}),
             ):
-                payload, status = planner_ui.queue_control_command("stop")
+                payload, status = planner_ui.queue_control_command("stop", "pending-check")
 
             self.assertEqual(status, 202)
             self.assertTrue(payload["native_command_queued"])
@@ -265,7 +265,8 @@ class EngineInitOnlyControlTests(unittest.TestCase):
         self.assertIn("CONTROL.engine_init_cancellable === true", self.javascript)
         self.assertIn("(!connected && !managedInitCanBeStopped)", self.javascript)
         self.assertIn("if (CONTROL.engine_init_cancellable === true)", self.javascript)
-        self.assertIn("expected_start_request_id: expectedStopRequestId", self.javascript)
+        self.assertIn("const generationBound = ['stop', 'pause', 'resume'].includes(action);", self.javascript)
+        self.assertIn("expected_start_request_id: expectedGenerationRequestId", self.javascript)
         self.assertIn("action === 'start' &&", self.javascript)
         self.assertIn("CONTROL_TERMINAL_OUTCOMES = new Set(['completed', 'passed'", self.javascript)
 

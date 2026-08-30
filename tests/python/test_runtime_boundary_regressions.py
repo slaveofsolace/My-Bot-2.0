@@ -47,8 +47,13 @@ class RuntimeBoundaryRegressionTests(unittest.TestCase):
             javascript,
         )
         self.assertIn("const staleStartRequestId = CONTROL.connected !== true", javascript)
-        self.assertIn("const expectedStopRequestId = pendingStartRequestId || staleStartRequestId;", javascript)
-        self.assertIn("expected_start_request_id: expectedStopRequestId", javascript)
+        self.assertIn("const activeStartRequestId = /^[A-Za-z0-9._-]{1,80}$/.test", javascript)
+        self.assertIn("const generationBound = ['stop', 'pause', 'resume'].includes(action);", javascript)
+        self.assertIn(
+            "const expectedGenerationRequestId = pendingStartRequestId || staleStartRequestId || activeStartRequestId;",
+            javascript,
+        )
+        self.assertIn("expected_start_request_id: expectedGenerationRequestId", javascript)
         self.assertIn("(!connected && !managedInitCanBeStopped)", javascript)
 
     @classmethod
@@ -312,6 +317,7 @@ class RuntimeBoundaryRegressionTests(unittest.TestCase):
             accepted_status = {
                 "connected": True,
                 "state": "stopping",
+                "run_request_id": "accepted-start",
                 "last_command": "stop",
                 "last_outcome": "accepted",
                 "last_command_id": "native-stop",
