@@ -76,6 +76,17 @@ Func RunControlCurrentStartPlanToken()
 	Return $g_sRunControlActiveStartPlanToken
 EndFunc   ;==>RunControlCurrentStartPlanToken
 
+Func RunControlCurrentStartGeneration()
+	Return _RunControlCurrentStartGeneration(True)
+EndFunc   ;==>RunControlCurrentStartGeneration
+
+Func RunControlAcceptedStopRequestId($sExpectedStartRequestId)
+	If Not $g_bRunControlStopRequested Or _RunControlCurrentStartGeneration(True) <> $sExpectedStartRequestId Then Return ""
+	If $g_sRunControlLastCommand <> "stop" Or $g_sRunControlLastOutcome <> "accepted" Then Return ""
+	If Not StringRegExp($g_sRunControlLastCommandId, "^[A-Za-z0-9._-]{1,80}$") Then Return ""
+	Return $g_sRunControlLastCommandId
+EndFunc   ;==>RunControlAcceptedStopRequestId
+
 Func _RunControlNewLocalStartRequestId()
 	Local $sRequestId = "local-start-" & @AutoItPID & "-" & @YEAR & @MON & @MDAY & @HOUR & @MIN & @SEC & @MSEC & "-" & Random(100000, 999999, 1)
 	If Not StringRegExp($sRequestId, "^[A-Za-z0-9._-]{1,80}$") Then Return ""

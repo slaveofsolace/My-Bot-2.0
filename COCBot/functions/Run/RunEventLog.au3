@@ -546,6 +546,18 @@ Func RunEventLogGameLaunchFailed($sReason)
 	Return RunEventLogWrite("emulator.launch.failed", "error", $sReason, "", $RUN_VERIFICATION_DIAGNOSTIC)
 EndFunc   ;==>RunEventLogGameLaunchFailed
 
+Func RunEventLogAcceptancePreHomeReady($sDetail)
+	Return RunEventLogWrite("acceptance.pre-home.ready", "info", $sDetail, "", $RUN_VERIFICATION_DIAGNOSTIC)
+EndFunc   ;==>RunEventLogAcceptancePreHomeReady
+
+Func RunEventLogAcceptancePreHomeStopped($sDetail)
+	Return RunEventLogWrite("acceptance.pre-home.stopped", "info", $sDetail, "", $RUN_VERIFICATION_DIAGNOSTIC)
+EndFunc   ;==>RunEventLogAcceptancePreHomeStopped
+
+Func RunEventLogAcceptancePreHomeFailed($sDetail)
+	Return RunEventLogWrite("acceptance.pre-home.failed", "error", $sDetail, "", $RUN_VERIFICATION_DIAGNOSTIC)
+EndFunc   ;==>RunEventLogAcceptancePreHomeFailed
+
 Func RunEventLogEngineUnavailable($sReason)
 	Return RunEventLogWrite("error", "error", "Managed engine unavailable: " & $sReason, "", $RUN_VERIFICATION_DIAGNOSTIC)
 EndFunc   ;==>RunEventLogEngineUnavailable

@@ -61,8 +61,21 @@ EndFunc   ;==>_BotOpenHomeRequireExactBlueStacks
 ; bounded, stop-aware adapter before the one-shot Home route continues.
 Func _BotOpenHomeEnsureExactBlueStacks(ByRef $sReason)
 	$sReason = ""
+	Local $sAcceptanceToken = ""
+	Local $sAcceptanceReason = ""
+	Local $iAcceptanceMode = BlueStacks5AcceptanceStopBeforeHomeContract($sAcceptanceReason, $sAcceptanceToken)
+	If $iAcceptanceMode < 0 Then
+		$sReason = $sAcceptanceReason
+		Return False
+	EndIf
 	Local $bAlreadyAttached = _BotOpenHomeRequireExactBlueStacks($sReason)
 	If $bAlreadyAttached Then
+		; Acceptance must prove one fresh, product-owned Pie64 generation. Reject an inherited window
+		; before any framebuffer recognition or reviewed startup-overlay input can run.
+		If $iAcceptanceMode = 1 Then
+			$sReason = "The stop-before-Home acceptance barrier requires a fresh product-owned Pie64 launch"
+			Return False
+		EndIf
 		; A BlueStacks window alone does not prove that Clash is running. Avoid relaunching a game that
 		; is already at Home or a reviewed startup overlay; otherwise issue the one bounded activity start.
 		If OpenHomeCollectorsProveHome() Or OpenHomeDailyRewardOverlayReady() Or _
